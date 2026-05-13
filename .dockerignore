@@ -1,10 +1,35 @@
-target/
+# Keep `docker compose build` context small (especially android-ci, context = `.`).
+# rust-tests uses context `docker/rust-tests/` only — this file still helps manual
+# `docker build -f docker/... .` from repo root.
+
 .git/
+
+# Rust — any crate / workspace output
+target/
+**/target/
+target-docker/
+
+# Local Cargo home
 .cargo-home/
+
+# Node (desktop UI, etc.)
+node_modules/
+**/node_modules/
+
+# Android / Gradle
 **/.gradle/
 **/build/
 android/app/build/
 android/uniffi-bindings/build/
 android/rust-build/
-*.iml
+
+# Runtime / secrets (never useful in an image)
+.mycelium-relay/
+**/.mycelium-relay/
+
+# IDE / junk
 .idea/
+*.iml
+*.log
+.env
+.env.*

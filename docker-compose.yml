@@ -11,14 +11,18 @@
 #
 #   docker compose --profile rust run --rm rust-tests
 #
+# The rust-tests image build uses a tiny context (docker/rust-tests/ only) so
+# `docker compose build rust-tests` does not upload the whole workspace; sources
+# are bind-mounted at run time.
+#
 # See also: docs/AGENT_CONTINUATION.md
 
 services:
   rust-tests:
     profiles: ["rust"]
     build:
-      context: .
-      dockerfile: docker/rust-tests/Dockerfile
+      context: docker/rust-tests
+      dockerfile: Dockerfile
     image: mycelium-rust-tests:local
     working_dir: /workspace
     volumes:

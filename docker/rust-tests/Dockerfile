@@ -1,7 +1,8 @@
 # Rust workspace: `cargo test` + `cargo clippy -D warnings`.
-# Repo wird per Volume gemountet (siehe docker-compose.yml).
+# Repo is bind-mounted at run time (see docker-compose.yml).
 #
-# Basis-Image enthält nur Toolchain + OpenSSL für native crates.
+# Build context should be this directory only (`docker/rust-tests/`) — no COPY of
+# the workspace; avoids multi-GB Docker build context uploads from repo root.
 
 FROM rust:1.83-bookworm
 
