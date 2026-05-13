@@ -37,10 +37,10 @@ Build, UniFFI binding generation, emulator/device install, and E2E checks:
 Rust `fmt`, `clippy -D warnings`, and `cargo test` run on push/PR (see
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
 
-## Git (privates Remote)
+## Git (eigenständiges privates Repo)
 
-Repository-Root ist **`Mycelium/`** (eigenes `.git`). Erstes Push siehe
-[`docs/GIT_PRIVATE_REMOTE.md`](docs/GIT_PRIVATE_REMOTE.md).
+**Kein Monorepo:** Nur dieses Verzeichnis ist das Git-Root (`.git` hier), wie
+eure anderen Projekte auch. Remote und Push: [`docs/GIT_PRIVATE_REMOTE.md`](docs/GIT_PRIVATE_REMOTE.md).
 
 ## Docker (tests without local Android SDK)
 
