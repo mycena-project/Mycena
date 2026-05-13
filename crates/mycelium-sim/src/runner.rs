@@ -369,9 +369,9 @@ fn wire_message_size(message: &WireMessage) -> usize {
             messages.iter().map(|m| m.body.len()).sum::<usize>() + 64
         }
         WireMessage::ScopeAnnounce { scopes } => scopes.iter().map(String::len).sum::<usize>() + 32,
-        WireMessage::EncryptedDirect { encrypted_payload, .. } => {
-            encrypted_payload.len() + 64 + 96
-        }
+        WireMessage::EncryptedDirect {
+            encrypted_payload, ..
+        } => encrypted_payload.len() + 64 + 96,
         WireMessage::EncryptedGroup {
             encrypted_payload, ..
         } => encrypted_payload.len() + 32,

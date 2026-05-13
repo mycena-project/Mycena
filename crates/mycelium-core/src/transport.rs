@@ -12,11 +12,22 @@ pub struct DirectMessage {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum WireMessage {
     Data(DirectMessage),
-    SyncBloom { bloom: Vec<u8>, count: u64 },
-    SyncIds { ids: Vec<String> },
-    SyncRequest { ids: Vec<String> },
-    SyncData { messages: Vec<DirectMessage> },
-    ScopeAnnounce { scopes: Vec<String> },
+    SyncBloom {
+        bloom: Vec<u8>,
+        count: u64,
+    },
+    SyncIds {
+        ids: Vec<String>,
+    },
+    SyncRequest {
+        ids: Vec<String>,
+    },
+    SyncData {
+        messages: Vec<DirectMessage>,
+    },
+    ScopeAnnounce {
+        scopes: Vec<String>,
+    },
     /// X25519-E2E für genau einen Empfänger (`to_peer` = libp2p Peer-ID String).
     EncryptedDirect {
         to_peer: String,

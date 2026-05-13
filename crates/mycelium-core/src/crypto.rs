@@ -74,7 +74,10 @@ pub fn encrypt_for(plaintext: &[u8], recipient_public: &PublicKey) -> anyhow::Re
 }
 
 /// Entschlüsselt einen mit [`encrypt_for`] erzeugten Blob.
-pub fn decrypt_with(ciphertext_blob: &[u8], recipient: &EncryptionKeypair) -> anyhow::Result<Vec<u8>> {
+pub fn decrypt_with(
+    ciphertext_blob: &[u8],
+    recipient: &EncryptionKeypair,
+) -> anyhow::Result<Vec<u8>> {
     if ciphertext_blob.len() < 44 {
         anyhow::bail!("ciphertext too short");
     }

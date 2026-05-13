@@ -37,7 +37,9 @@ impl Group {
 
     pub fn from_invite(json: &str) -> anyhow::Result<Self> {
         let v: serde_json::Value = serde_json::from_str(json)?;
-        let key_hex = v["key"].as_str().ok_or_else(|| anyhow::anyhow!("missing key"))?;
+        let key_hex = v["key"]
+            .as_str()
+            .ok_or_else(|| anyhow::anyhow!("missing key"))?;
         let key_bytes = hex::decode(key_hex)?;
         let key: [u8; 32] = key_bytes
             .as_slice()

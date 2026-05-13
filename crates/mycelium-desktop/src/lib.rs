@@ -380,7 +380,10 @@ async fn list_groups(state: State<'_, SharedState>) -> Result<Vec<serde_json::Va
 }
 
 #[tauri::command]
-async fn create_group(state: State<'_, SharedState>, name: String) -> Result<serde_json::Value, String> {
+async fn create_group(
+    state: State<'_, SharedState>,
+    name: String,
+) -> Result<serde_json::Value, String> {
     let guard = state.read().await;
     let s = guard
         .as_ref()
@@ -421,13 +424,15 @@ async fn import_group_invite(
 }
 
 #[tauri::command]
-async fn export_group_invite(state: State<'_, SharedState>, group_id: String) -> Result<String, String> {
+async fn export_group_invite(
+    state: State<'_, SharedState>,
+    group_id: String,
+) -> Result<String, String> {
     let guard = state.read().await;
     let s = guard
         .as_ref()
         .ok_or_else(|| "node not started".to_string())?;
-    Ok(s
-        .app_node
+    Ok(s.app_node
         .storage()
         .group_by_id(&group_id)
         .map_err(|e| e.to_string())?

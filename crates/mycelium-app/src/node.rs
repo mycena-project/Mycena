@@ -94,9 +94,8 @@ impl AppNode {
                                         {
                                             warn!("failed to save group chat: {err}");
                                         }
-                                        if let Err(err) = self
-                                            .storage
-                                            .group_record_peer_seen(&group_id, &from)
+                                        if let Err(err) =
+                                            self.storage.group_record_peer_seen(&group_id, &from)
                                         {
                                             warn!("group member record failed: {err}");
                                         }
@@ -252,8 +251,7 @@ impl AppNode {
             payload: AppPayload::Chat(chat.clone()),
         }
         .encode()?;
-        let wrapped =
-            mycelium_core::e2e_direct_wrap::wrap_inner(&self.local_peer_id, &plaintext);
+        let wrapped = mycelium_core::e2e_direct_wrap::wrap_inner(&self.local_peer_id, &plaintext);
         if let Some(pk) = self.handle.peer_x25519_public(&to_peer).await {
             let encrypted = mycelium_core::crypto::encrypt_for(&wrapped, &pk)?;
             let wire = WireMessage::EncryptedDirect {

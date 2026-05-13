@@ -540,7 +540,13 @@ pub fn send_group_message(group_id: String, body: String) {
     let state = state_arc();
     runtime().block_on(async {
         let state = state.read().await;
-        let Some(g) = state.app_node.storage().group_by_id(&group_id).ok().flatten() else {
+        let Some(g) = state
+            .app_node
+            .storage()
+            .group_by_id(&group_id)
+            .ok()
+            .flatten()
+        else {
             return;
         };
         let _ = state.app_node.send_group_message(&g, body).await;

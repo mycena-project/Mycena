@@ -326,10 +326,7 @@ fn message_id_for_wire(message: &WireMessage) -> String {
         WireMessage::EncryptedDirect {
             encrypted_payload, ..
         } => {
-            format!(
-                "enc_direct:{}",
-                blake3::hash(encrypted_payload).to_hex()
-            )
+            format!("enc_direct:{}", blake3::hash(encrypted_payload).to_hex())
         }
         WireMessage::EncryptedGroup {
             group_id,
@@ -342,7 +339,10 @@ fn message_id_for_wire(message: &WireMessage) -> String {
             )
         }
         WireMessage::PeerInfo { enc_pubkey_hex, .. } => {
-            format!("peer_info:{}", blake3::hash(enc_pubkey_hex.as_bytes()).to_hex())
+            format!(
+                "peer_info:{}",
+                blake3::hash(enc_pubkey_hex.as_bytes()).to_hex()
+            )
         }
     }
 }
