@@ -2,16 +2,29 @@ name: Mycelium CI
 
 on:
   push:
-    branches: [main, master]
+    branches:
+      - main
+      - master
+      - "feat/**"
+      - "fix/**"
+      - "chore/**"
+      - "release/**"
   pull_request:
     branches: [main, master]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   rust:
     if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy

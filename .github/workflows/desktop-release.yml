@@ -23,7 +23,7 @@ jobs:
       # Optional: comma-separated bootstrap multiaddrs at build time (overrides embedded defaults):
       # MYCELIUM_BOOTSTRAP_PEERS: "/dns4/mein-relay.example.com/tcp/4001/p2p/12D3KooW..."
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install Linux deps
         if: matrix.os == 'ubuntu-22.04'

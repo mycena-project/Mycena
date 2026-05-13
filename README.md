@@ -34,8 +34,13 @@ Build, UniFFI binding generation, emulator/device install, and E2E checks:
 
 ## CI (GitHub Actions)
 
-Rust `fmt`, `clippy -D warnings`, and `cargo test` run on push/PR (see
-[`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
+Primary Rust checks (`fmt`, `clippy -D warnings`, `cargo test`) run on push/PR
+(see [`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
+
+Same org hygiene as other private repos: CodeQL (Rust, **no SARIF upload** —
+private repos), dependency review on PRs, Gitleaks secret scan, quality gate,
+Dependabot (GitHub Actions + Cargo) with a lightweight Dependabot-only `cargo check`
+smoke workflow. See [`.github/workflows/`](.github/workflows/).
 
 ## Git (eigenständiges privates Repo)
 
