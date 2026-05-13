@@ -1,0 +1,48 @@
+# Local / CI-style full Android build (Rust NDK + UniFFI + Gradle assembleDebug).
+# Requires Docker. First run downloads SDK/NDK and is slow.
+#
+#   docker compose --profile android build android-ci
+#
+# The release APK/AAB is inside the image under /src/android/app/build/outputs/...
+# Copy out the debug APK, for example:
+#   id=$(docker create mycelium-android-ci:local) && docker cp "$id":/src/android/app/build/outputs/apk/debug/app-debug.apk . && docker rm -v "$id"
+#
+# Rust-only tests + clippy (no Android SDK on host):
+#
+#   docker compose --profile rust run --rm rust-tests
+#
+# See also: docs/AGENT_CONTINUATION.md
+
+services:
+  rust-tests:
+    profiles: ["rust"]
+    build:
+      context: .
+      dockerfile: docker/rust-tests/Dockerfile
+    image: mycelium-rust-tests:local
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+      - mycelium-cargo-registry:/usr/local/cargo/registry
+      - mycelium-cargo-git:/usr/local/cargo/git
+      - mycelium-target-docker:/workspace/target-docker
+    environment:
+      CARGO_TARGET_DIR: /workspace/target-docker
+    command:
+      [
+        "sh",
+        "-c",
+        "cargo test --workspace && cargo clippy --workspace --all-targets -- -D warnings",
+      ]
+
+  android-ci:
+    profiles: ["android"]
+    build:
+      context: .
+      dockerfile: docker/android-ci/Dockerfile
+    image: mycelium-android-ci:local
+
+volumes:
+  mycelium-cargo-registry:
+  mycelium-cargo-git:
+  mycelium-target-docker:

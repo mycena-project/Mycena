@@ -1,0 +1,35 @@
+# Local relay identity / DB (never commit)
+/.mycelium-relay/
+
+# Rust
+/target/
+**/target/
+/target-docker/
+
+# Local Cargo home (optional tooling)
+/.cargo-home/
+
+# Android / Gradle
+/android/.gradle/
+/android/**/build/
+/android/keystore.jks
+/android/local.properties
+/android/rust-build/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Logs / env
+*.log
+.env
+.env.*
+
+# Node (desktop UI)
+node_modules/
+**/node_modules/
