@@ -52,8 +52,11 @@ eure anderen Projekte auch. Remote und Push: [`docs/GIT_PRIVATE_REMOTE.md`](docs
 Rust workspace tests + clippy:
 
 ```bash
+docker compose --profile rust build rust-tests
 docker compose --profile rust run --rm rust-tests
 ```
+
+The image uses a **slim** Rust base (smaller pull than `rust:…-bookworm`); the first `build` is mostly downloading that layer plus `apt` deps for Tauri/GTK. Use `docker compose --progress=plain --profile rust build rust-tests` if you want build logs.
 
 Full Android CI image (downloads SDK inside Docker):
 

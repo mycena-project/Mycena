@@ -13,7 +13,8 @@
 #
 # The rust-tests image build uses a tiny context (docker/rust-tests/ only) so
 # `docker compose build rust-tests` does not upload the whole workspace; sources
-# are bind-mounted at run time.
+# are bind-mounted at run time. The Dockerfile uses `rust:*-slim-bookworm` (not
+# the full bookworm image) to keep the base layer download small.
 #
 # See also: docs/AGENT_CONTINUATION.md
 
