@@ -52,4 +52,15 @@
     <string name="wallet_scan_mxcpay">Сканировать mxcpay QR</string>
     <string name="wallet_share_request">Поделиться запросом</string>
     <string name="wallet_payment_qr">QR оплаты</string>
+    <string name="settings_mini_apps">Мини-приложения</string>
+    <string name="miniapp_store_title">Мини-приложения</string>
+    <string name="miniapp_installed">Установленные</string>
+    <string name="miniapp_catalog">Каталог (кэш)</string>
+    <string name="miniapp_install_file">Установить из файла (.mxa / .zip)</string>
+    <string name="miniapp_open">Открыть</string>
+    <string name="miniapp_uninstall">Удалить</string>
+    <string name="miniapp_no_apps">Мини-приложений пока нет.</string>
+    <string name="miniapp_no_listings">Нет сохранённых записей каталога.</string>
+    <string name="miniapp_bundle_hash">Хэш пакета</string>
+    <string name="miniapp_back">Назад</string>
 </resources>

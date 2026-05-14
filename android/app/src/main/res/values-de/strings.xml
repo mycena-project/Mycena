@@ -47,4 +47,15 @@
     <string name="wallet_scan_mxcpay">mxcpay-QR scannen</string>
     <string name="wallet_share_request">Zahlungslink teilen</string>
     <string name="wallet_payment_qr">Zahlungs-QR</string>
+    <string name="settings_mini_apps">Mini-Apps</string>
+    <string name="miniapp_store_title">Mini-Apps</string>
+    <string name="miniapp_installed">Installiert</string>
+    <string name="miniapp_catalog">Katalog (zwischengespeichert)</string>
+    <string name="miniapp_install_file">Aus Datei installieren (.mxa / .zip)</string>
+    <string name="miniapp_open">Öffnen</string>
+    <string name="miniapp_uninstall">Deinstallieren</string>
+    <string name="miniapp_no_apps">Noch keine Mini-Apps installiert.</string>
+    <string name="miniapp_no_listings">Keine Einträge auf diesem Gerät.</string>
+    <string name="miniapp_bundle_hash">Bundle-Hash</string>
+    <string name="miniapp_back">Zurück</string>
 </resources>

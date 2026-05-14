@@ -40,6 +40,15 @@ namespace mycelium {
   sequence<TxInfo> wallet_recent_transactions(u32 limit);
   void request_faucet();
 
+  sequence<MiniAppInfo> list_installed_apps();
+  MiniAppInfo install_app(bytes bundle_data);
+  void uninstall_app(string app_id);
+  bytes? get_app_file(string app_id, string path);
+  sequence<AppStoreListing> browse_app_store();
+  string? miniapp_storage_get(string app_id, string key);
+  void miniapp_storage_set(string app_id, string key, string value);
+  void miniapp_storage_delete(string app_id, string key);
+
   ConnectivityMode current_connectivity_mode();
 
   HotWalletConfig get_hot_wallet_config();
@@ -141,6 +150,23 @@ dictionary GroupInfo {
   string name;
   u32 member_count;
   u64 created_at_ms;
+};
+
+dictionary MiniAppInfo {
+  string id;
+  string name;
+  string description;
+  string version;
+  string developer;
+  string entry;
+  boolean accepts_payments;
+  sequence<string> permissions;
+};
+
+dictionary AppStoreListing {
+  MiniAppInfo manifest;
+  string bundle_hash;
+  u64 updated_at_ms;
 };
 
 enum EnergyState {

@@ -15,6 +15,7 @@ pub struct AppState {
     handle: NodeHandle,
     app_node: Arc<AppNode>,
     app_storage: Arc<AppStorage>,
+    app_store: Arc<mycelium_app::miniapp::AppStore>,
     coin_node: Arc<CoinNode>,
     local_peer_id: String,
     coin_identity_path: String,
@@ -97,6 +98,10 @@ async fn start_node(
 
     let app_storage =
         Arc::new(AppStorage::open(&format!("{db_path}/app")).map_err(|e| e.to_string())?);
+    let app_store = Arc::new(
+        mycelium_app::miniapp::AppStore::open(&format!("{db_path}/miniapp"))
+            .map_err(|e| e.to_string())?,
+    );
     let coin_ledger =
         Arc::new(LocalLedger::open(&format!("{db_path}/coin")).map_err(|e| e.to_string())?);
     let identity_path = format!("{db_path}/identity");
@@ -129,6 +134,7 @@ async fn start_node(
         handle,
         app_node,
         app_storage,
+        app_store,
         coin_node,
         local_peer_id: local_peer_id.clone(),
         coin_identity_path: format!("{db_path}/identity"),
@@ -528,6 +534,173 @@ async fn wallet_send(
         .map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+async fn miniapp_list_installed(
+    state: State<'_, SharedState>,
+) -> Result<Vec<serde_json::Value>, String> {
+    let g = state.read().await;
+    let s = g.as_ref().ok_or_else(|| "node not started".to_string())?;
+    let apps = s.app_store.installed_apps().map_err(|e| e.to_string())?;
+    let mut out = Vec::new();
+    for m in apps {
+        out.push(serde_json::to_value(&m).map_err(|e| e.to_string())?);
+    }
+    Ok(out)
+}
+
+#[tauri::command]
+async fn miniapp_install(
+    state: State<'_, SharedState>,
+    bundle_base64: String,
+) -> Result<serde_json::Value, String> {
+    use base64::Engine;
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(bundle_base64.trim())
+        .map_err(|e| e.to_string())?;
+    let g = state.read().await;
+    let s = g.as_ref().ok_or_else(|| "node not started".to_string())?;
+    let m = s.app_store.install(&bytes).map_err(|e| e.to_string())?;
+    serde_json::to_value(&m).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn miniapp_uninstall(state: State<'_, SharedState>, app_id: String) -> Result<(), String> {
+    let g = state.read().await;
+    let s = g.as_ref().ok_or_else(|| "node not started".to_string())?;
+    s.app_store.uninstall(&app_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn miniapp_browse_store(
+    state: State<'_, SharedState>,
+) -> Result<Vec<serde_json::Value>, String> {
+    let g = state.read().await;
+    let s = g.as_ref().ok_or_else(|| "node not started".to_string())?;
+    let rows = s.app_store.browse_listings().map_err(|e| e.to_string())?;
+    let mut out = Vec::new();
+    for l in rows {
+        out.push(serde_json::to_value(&l).map_err(|e| e.to_string())?);
+    }
+    Ok(out)
+}
+
+#[tauri::command]
+async fn miniapp_get_entry_html(
+    state: State<'_, SharedState>,
+    app_id: String,
+) -> Result<String, String> {
+    let g = state.read().await;
+    let s = g.as_ref().ok_or_else(|| "node not started".to_string())?;
+    let m = s
+        .app_store
+        .get_manifest(&app_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "unknown app".to_string())?;
+    let bytes = s
+        .app_store
+        .get_file(&app_id, &m.entry)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "entry missing".to_string())?;
+    let body = String::from_utf8(bytes).map_err(|e| e.to_string())?;
+    let bridge = mycelium_app::miniapp::bridge_api_js_source();
+    let shim = r#"<script>
+window.addEventListener("message", function (ev) {
+  if (ev.data && ev.data.__mycelium_resolve && window.__mycelium_resolve) {
+    var r = ev.data.__mycelium_resolve;
+    window.__mycelium_resolve(r.id, r.result, r.error);
+  }
+});
+window.__mycelium_native_call = function (json) {
+  window.parent.postMessage({ __mycelium_call: json }, "*");
+};
+</script><script>
+"#;
+    Ok(format!("{shim}{bridge}</script>\n{body}"))
+}
+
+#[tauri::command]
+async fn miniapp_bridge_call(
+    state: State<'_, SharedState>,
+    app_id: String,
+    method: String,
+    args: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    let g = state.read().await;
+    let s = g.as_ref().ok_or_else(|| "node not started".to_string())?;
+    match method.as_str() {
+        "identity.get" => Ok(json!({
+            "peer_id": s.local_peer_id,
+            "display_name": s.app_node.display_name().await,
+            "enc_pubkey": s.handle.local_enc_pubkey_hex(),
+        })),
+        "app.get_id" => Ok(json!(app_id)),
+        "app.get_version" => Ok(json!(env!("CARGO_PKG_VERSION"))),
+        "util.now" => Ok(json!(mycelium_core::data::now_ms())),
+        "messaging.send" => {
+            let to = args
+                .get("to_peer")
+                .and_then(|x| x.as_str())
+                .ok_or_else(|| "to_peer required".to_string())?;
+            let payload = args
+                .get("payload")
+                .and_then(|x| x.as_str())
+                .ok_or_else(|| "payload required".to_string())?;
+            s.app_node
+                .send_chat_encrypted(to.to_string(), payload.to_string())
+                .await
+                .map_err(|e| e.to_string())?;
+            Ok(json!("ok"))
+        }
+        "storage.get" => {
+            let key = args
+                .get("key")
+                .and_then(|x| x.as_str())
+                .ok_or_else(|| "key required".to_string())?;
+            let v = s
+                .app_store
+                .miniapp_storage_get(&app_id, key)
+                .map_err(|e| e.to_string())?;
+            Ok(json!(v))
+        }
+        "storage.set" => {
+            let key = args
+                .get("key")
+                .and_then(|x| x.as_str())
+                .ok_or_else(|| "key required".to_string())?;
+            let value = args
+                .get("value")
+                .and_then(|x| x.as_str())
+                .ok_or_else(|| "value required".to_string())?;
+            s.app_store
+                .miniapp_storage_set(&app_id, key, value)
+                .map_err(|e| e.to_string())?;
+            Ok(json!("ok"))
+        }
+        "storage.delete" => {
+            let key = args
+                .get("key")
+                .and_then(|x| x.as_str())
+                .ok_or_else(|| "key required".to_string())?;
+            s.app_store
+                .miniapp_storage_delete(&app_id, key)
+                .map_err(|e| e.to_string())?;
+            Ok(json!("ok"))
+        }
+        "bulletin.get" => {
+            let scope = args
+                .get("scope")
+                .and_then(|x| x.as_str())
+                .ok_or_else(|| "scope required".to_string())?;
+            let list = s
+                .app_node
+                .bulletins_for_scope(scope)
+                .map_err(|e| e.to_string())?;
+            serde_json::to_value(&list).map_err(|e| e.to_string())
+        }
+        _ => Err(format!("unsupported method: {method}")),
+    }
+}
+
 fn setup_event_emitter(app_handle: AppHandle, state: SharedState) {
     tauri::async_runtime::spawn(async move {
         loop {
@@ -586,6 +759,12 @@ pub fn run() {
             send_group_message,
             delete_group,
             group_chat_history,
+            miniapp_list_installed,
+            miniapp_install,
+            miniapp_uninstall,
+            miniapp_browse_store,
+            miniapp_get_entry_html,
+            miniapp_bridge_call,
         ])
         .run(tauri::generate_context!())
         .expect("error running tauri application");

@@ -48,4 +48,15 @@
     <string name="wallet_scan_mxcpay">扫描 mxcpay 二维码</string>
     <string name="wallet_share_request">分享收款请求</string>
     <string name="wallet_payment_qr">付款二维码</string>
+    <string name="settings_mini_apps">迷你应用</string>
+    <string name="miniapp_store_title">迷你应用</string>
+    <string name="miniapp_installed">已安装</string>
+    <string name="miniapp_catalog">目录（本地缓存）</string>
+    <string name="miniapp_install_file">从文件安装（.mxa / .zip）</string>
+    <string name="miniapp_open">打开</string>
+    <string name="miniapp_uninstall">卸载</string>
+    <string name="miniapp_no_apps">尚未安装迷你应用。</string>
+    <string name="miniapp_no_listings">此设备上没有缓存的目录条目。</string>
+    <string name="miniapp_bundle_hash">包哈希</string>
+    <string name="miniapp_back">返回</string>
 </resources>

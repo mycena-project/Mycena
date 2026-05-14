@@ -849,6 +849,22 @@ internal open class UniffiVTableCallbackInterfaceNodeEventCallback(
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // A JNA Library to expose the extern-C FFI definitions.
 // This is an implementation detail which will be called internally by the public API.
 
@@ -869,6 +885,8 @@ internal interface UniffiLib : Library {
     ): Unit
     fun uniffi_mycelium_ffi_fn_func_add_bootstrap_peer(`multiaddr`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
+    fun uniffi_mycelium_ffi_fn_func_browse_app_store(uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
     fun uniffi_mycelium_ffi_fn_func_build_payment_request_uri(`toAddress`: RustBuffer.ByValue,`amountMuon`: Long,`memo`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_mycelium_ffi_fn_func_bulletins_for_scope(`scope`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
@@ -885,6 +903,8 @@ internal interface UniffiLib : Library {
     ): RustBuffer.ByValue
     fun uniffi_mycelium_ffi_fn_func_export_group_invite(`groupId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
+    fun uniffi_mycelium_ffi_fn_func_get_app_file(`appId`: RustBuffer.ByValue,`path`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
     fun uniffi_mycelium_ffi_fn_func_get_hot_wallet_config(uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_mycelium_ffi_fn_func_group_chat_history(`groupId`: RustBuffer.ByValue,`limit`: Int,uniffi_out_err: UniffiRustCallStatus, 
@@ -897,9 +917,13 @@ internal interface UniffiLib : Library {
     ): RustBuffer.ByValue
     fun uniffi_mycelium_ffi_fn_func_init_node(`config`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
+    fun uniffi_mycelium_ffi_fn_func_install_app(`bundleData`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
     fun uniffi_mycelium_ffi_fn_func_known_peers(uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_mycelium_ffi_fn_func_list_groups(uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_mycelium_ffi_fn_func_list_installed_apps(uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_mycelium_ffi_fn_func_local_enc_pubkey(uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
@@ -913,6 +937,12 @@ internal interface UniffiLib : Library {
     ): Unit
     fun uniffi_mycelium_ffi_fn_func_metrics(uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
+    fun uniffi_mycelium_ffi_fn_func_miniapp_storage_delete(`appId`: RustBuffer.ByValue,`key`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
+    fun uniffi_mycelium_ffi_fn_func_miniapp_storage_get(`appId`: RustBuffer.ByValue,`key`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_mycelium_ffi_fn_func_miniapp_storage_set(`appId`: RustBuffer.ByValue,`key`: RustBuffer.ByValue,`value`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
     fun uniffi_mycelium_ffi_fn_func_parse_payment_request_uri(`uri`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_mycelium_ffi_fn_func_post_bulletin(`scope`: RustBuffer.ByValue,`title`: RustBuffer.ByValue,`body`: RustBuffer.ByValue,`ttlSecs`: Long,uniffi_out_err: UniffiRustCallStatus, 
@@ -942,6 +972,8 @@ internal interface UniffiLib : Library {
     fun uniffi_mycelium_ffi_fn_func_set_hot_wallet_config(`config`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
     fun uniffi_mycelium_ffi_fn_func_stop_node(uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
+    fun uniffi_mycelium_ffi_fn_func_uninstall_app(`appId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
     fun uniffi_mycelium_ffi_fn_func_wallet_address(uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
@@ -1063,6 +1095,8 @@ internal interface UniffiLib : Library {
     ): Unit
     fun uniffi_mycelium_ffi_checksum_func_add_bootstrap_peer(
     ): Short
+    fun uniffi_mycelium_ffi_checksum_func_browse_app_store(
+    ): Short
     fun uniffi_mycelium_ffi_checksum_func_build_payment_request_uri(
     ): Short
     fun uniffi_mycelium_ffi_checksum_func_bulletins_for_scope(
@@ -1079,6 +1113,8 @@ internal interface UniffiLib : Library {
     ): Short
     fun uniffi_mycelium_ffi_checksum_func_export_group_invite(
     ): Short
+    fun uniffi_mycelium_ffi_checksum_func_get_app_file(
+    ): Short
     fun uniffi_mycelium_ffi_checksum_func_get_hot_wallet_config(
     ): Short
     fun uniffi_mycelium_ffi_checksum_func_group_chat_history(
@@ -1091,9 +1127,13 @@ internal interface UniffiLib : Library {
     ): Short
     fun uniffi_mycelium_ffi_checksum_func_init_node(
     ): Short
+    fun uniffi_mycelium_ffi_checksum_func_install_app(
+    ): Short
     fun uniffi_mycelium_ffi_checksum_func_known_peers(
     ): Short
     fun uniffi_mycelium_ffi_checksum_func_list_groups(
+    ): Short
+    fun uniffi_mycelium_ffi_checksum_func_list_installed_apps(
     ): Short
     fun uniffi_mycelium_ffi_checksum_func_local_enc_pubkey(
     ): Short
@@ -1106,6 +1146,12 @@ internal interface UniffiLib : Library {
     fun uniffi_mycelium_ffi_checksum_func_mark_mail_read(
     ): Short
     fun uniffi_mycelium_ffi_checksum_func_metrics(
+    ): Short
+    fun uniffi_mycelium_ffi_checksum_func_miniapp_storage_delete(
+    ): Short
+    fun uniffi_mycelium_ffi_checksum_func_miniapp_storage_get(
+    ): Short
+    fun uniffi_mycelium_ffi_checksum_func_miniapp_storage_set(
     ): Short
     fun uniffi_mycelium_ffi_checksum_func_parse_payment_request_uri(
     ): Short
@@ -1136,6 +1182,8 @@ internal interface UniffiLib : Library {
     fun uniffi_mycelium_ffi_checksum_func_set_hot_wallet_config(
     ): Short
     fun uniffi_mycelium_ffi_checksum_func_stop_node(
+    ): Short
+    fun uniffi_mycelium_ffi_checksum_func_uninstall_app(
     ): Short
     fun uniffi_mycelium_ffi_checksum_func_wallet_address(
     ): Short
@@ -1175,6 +1223,9 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_mycelium_ffi_checksum_func_add_bootstrap_peer() != 59246.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_mycelium_ffi_checksum_func_browse_app_store() != 28240.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_mycelium_ffi_checksum_func_build_payment_request_uri() != 16827.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
@@ -1199,6 +1250,9 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_mycelium_ffi_checksum_func_export_group_invite() != 45605.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_mycelium_ffi_checksum_func_get_app_file() != 52357.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_mycelium_ffi_checksum_func_get_hot_wallet_config() != 28880.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
@@ -1217,10 +1271,16 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_mycelium_ffi_checksum_func_init_node() != 22974.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_mycelium_ffi_checksum_func_install_app() != 33607.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_mycelium_ffi_checksum_func_known_peers() != 29951.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_mycelium_ffi_checksum_func_list_groups() != 27894.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mycelium_ffi_checksum_func_list_installed_apps() != 29312.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_mycelium_ffi_checksum_func_local_enc_pubkey() != 16056.toShort()) {
@@ -1239,6 +1299,15 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_mycelium_ffi_checksum_func_metrics() != 29003.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mycelium_ffi_checksum_func_miniapp_storage_delete() != 10014.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mycelium_ffi_checksum_func_miniapp_storage_get() != 23416.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mycelium_ffi_checksum_func_miniapp_storage_set() != 5408.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_mycelium_ffi_checksum_func_parse_payment_request_uri() != 55057.toShort()) {
@@ -1284,6 +1353,9 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_mycelium_ffi_checksum_func_stop_node() != 29797.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mycelium_ffi_checksum_func_uninstall_app() != 7151.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_mycelium_ffi_checksum_func_wallet_address() != 15773.toShort()) {
@@ -1483,6 +1555,61 @@ public object FfiConverterString: FfiConverter<String, RustBuffer.ByValue> {
         val byteBuf = toUtf8(value)
         buf.putInt(byteBuf.limit())
         buf.put(byteBuf)
+    }
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterByteArray: FfiConverterRustBuffer<ByteArray> {
+    override fun read(buf: ByteBuffer): ByteArray {
+        val len = buf.getInt()
+        val byteArr = ByteArray(len)
+        buf.get(byteArr)
+        return byteArr
+    }
+    override fun allocationSize(value: ByteArray): ULong {
+        return 4UL + value.size.toULong()
+    }
+    override fun write(value: ByteArray, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        buf.put(value)
+    }
+}
+
+
+
+data class AppStoreListing (
+    var `manifest`: MiniAppInfo, 
+    var `bundleHash`: kotlin.String, 
+    var `updatedAtMs`: kotlin.ULong
+) {
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeAppStoreListing: FfiConverterRustBuffer<AppStoreListing> {
+    override fun read(buf: ByteBuffer): AppStoreListing {
+        return AppStoreListing(
+            FfiConverterTypeMiniAppInfo.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterULong.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: AppStoreListing) = (
+            FfiConverterTypeMiniAppInfo.allocationSize(value.`manifest`) +
+            FfiConverterString.allocationSize(value.`bundleHash`) +
+            FfiConverterULong.allocationSize(value.`updatedAtMs`)
+    )
+
+    override fun write(value: AppStoreListing, buf: ByteBuffer) {
+            FfiConverterTypeMiniAppInfo.write(value.`manifest`, buf)
+            FfiConverterString.write(value.`bundleHash`, buf)
+            FfiConverterULong.write(value.`updatedAtMs`, buf)
     }
 }
 
@@ -1763,6 +1890,62 @@ public object FfiConverterTypeMailMessage: FfiConverterRustBuffer<MailMessage> {
             FfiConverterString.write(value.`body`, buf)
             FfiConverterULong.write(value.`timestampMs`, buf)
             FfiConverterBoolean.write(value.`isRead`, buf)
+    }
+}
+
+
+
+data class MiniAppInfo (
+    var `id`: kotlin.String, 
+    var `name`: kotlin.String, 
+    var `description`: kotlin.String, 
+    var `version`: kotlin.String, 
+    var `developer`: kotlin.String, 
+    var `entry`: kotlin.String, 
+    var `acceptsPayments`: kotlin.Boolean, 
+    var `permissions`: List<kotlin.String>
+) {
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeMiniAppInfo: FfiConverterRustBuffer<MiniAppInfo> {
+    override fun read(buf: ByteBuffer): MiniAppInfo {
+        return MiniAppInfo(
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterBoolean.read(buf),
+            FfiConverterSequenceString.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: MiniAppInfo) = (
+            FfiConverterString.allocationSize(value.`id`) +
+            FfiConverterString.allocationSize(value.`name`) +
+            FfiConverterString.allocationSize(value.`description`) +
+            FfiConverterString.allocationSize(value.`version`) +
+            FfiConverterString.allocationSize(value.`developer`) +
+            FfiConverterString.allocationSize(value.`entry`) +
+            FfiConverterBoolean.allocationSize(value.`acceptsPayments`) +
+            FfiConverterSequenceString.allocationSize(value.`permissions`)
+    )
+
+    override fun write(value: MiniAppInfo, buf: ByteBuffer) {
+            FfiConverterString.write(value.`id`, buf)
+            FfiConverterString.write(value.`name`, buf)
+            FfiConverterString.write(value.`description`, buf)
+            FfiConverterString.write(value.`version`, buf)
+            FfiConverterString.write(value.`developer`, buf)
+            FfiConverterString.write(value.`entry`, buf)
+            FfiConverterBoolean.write(value.`acceptsPayments`, buf)
+            FfiConverterSequenceString.write(value.`permissions`, buf)
     }
 }
 
@@ -2276,6 +2459,38 @@ public object FfiConverterOptionalString: FfiConverterRustBuffer<kotlin.String?>
 /**
  * @suppress
  */
+public object FfiConverterOptionalByteArray: FfiConverterRustBuffer<kotlin.ByteArray?> {
+    override fun read(buf: ByteBuffer): kotlin.ByteArray? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterByteArray.read(buf)
+    }
+
+    override fun allocationSize(value: kotlin.ByteArray?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterByteArray.allocationSize(value)
+        }
+    }
+
+    override fun write(value: kotlin.ByteArray?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterByteArray.write(value, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
 public object FfiConverterOptionalTypeGroupInfo: FfiConverterRustBuffer<GroupInfo?> {
     override fun read(buf: ByteBuffer): GroupInfo? {
         if (buf.get().toInt() == 0) {
@@ -2358,6 +2573,34 @@ public object FfiConverterSequenceString: FfiConverterRustBuffer<List<kotlin.Str
         buf.putInt(value.size)
         value.iterator().forEach {
             FfiConverterString.write(it, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterSequenceTypeAppStoreListing: FfiConverterRustBuffer<List<AppStoreListing>> {
+    override fun read(buf: ByteBuffer): List<AppStoreListing> {
+        val len = buf.getInt()
+        return List<AppStoreListing>(len) {
+            FfiConverterTypeAppStoreListing.read(buf)
+        }
+    }
+
+    override fun allocationSize(value: List<AppStoreListing>): ULong {
+        val sizeForLength = 4UL
+        val sizeForItems = value.map { FfiConverterTypeAppStoreListing.allocationSize(it) }.sum()
+        return sizeForLength + sizeForItems
+    }
+
+    override fun write(value: List<AppStoreListing>, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        value.iterator().forEach {
+            FfiConverterTypeAppStoreListing.write(it, buf)
         }
     }
 }
@@ -2480,6 +2723,34 @@ public object FfiConverterSequenceTypeMailMessage: FfiConverterRustBuffer<List<M
 /**
  * @suppress
  */
+public object FfiConverterSequenceTypeMiniAppInfo: FfiConverterRustBuffer<List<MiniAppInfo>> {
+    override fun read(buf: ByteBuffer): List<MiniAppInfo> {
+        val len = buf.getInt()
+        return List<MiniAppInfo>(len) {
+            FfiConverterTypeMiniAppInfo.read(buf)
+        }
+    }
+
+    override fun allocationSize(value: List<MiniAppInfo>): ULong {
+        val sizeForLength = 4UL
+        val sizeForItems = value.map { FfiConverterTypeMiniAppInfo.allocationSize(it) }.sum()
+        return sizeForLength + sizeForItems
+    }
+
+    override fun write(value: List<MiniAppInfo>, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        value.iterator().forEach {
+            FfiConverterTypeMiniAppInfo.write(it, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
 public object FfiConverterSequenceTypeTxInfo: FfiConverterRustBuffer<List<TxInfo>> {
     override fun read(buf: ByteBuffer): List<TxInfo> {
         val len = buf.getInt()
@@ -2500,15 +2771,22 @@ public object FfiConverterSequenceTypeTxInfo: FfiConverterRustBuffer<List<TxInfo
             FfiConverterTypeTxInfo.write(it, buf)
         }
     }
-}
-
-fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
+} fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
         = 
     uniffiRustCall() { _status ->
     UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_add_bootstrap_peer(
         FfiConverterString.lower(`multiaddr`),_status)
 }
     
+    
+ fun `browseAppStore`(): List<AppStoreListing> {
+            return FfiConverterSequenceTypeAppStoreListing.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_browse_app_store(
+        _status)
+}
+    )
+    }
     
  fun `buildPaymentRequestUri`(`toAddress`: kotlin.String, `amountMuon`: kotlin.ULong, `memo`: kotlin.String?): kotlin.String {
             return FfiConverterString.lift(
@@ -2581,6 +2859,15 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
     )
     }
     
+ fun `getAppFile`(`appId`: kotlin.String, `path`: kotlin.String): kotlin.ByteArray? {
+            return FfiConverterOptionalByteArray.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_get_app_file(
+        FfiConverterString.lower(`appId`),FfiConverterString.lower(`path`),_status)
+}
+    )
+    }
+    
  fun `getHotWalletConfig`(): HotWalletConfig {
             return FfiConverterTypeHotWalletConfig.lift(
     uniffiRustCall() { _status ->
@@ -2634,6 +2921,15 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
 }
     
     
+ fun `installApp`(`bundleData`: kotlin.ByteArray): MiniAppInfo {
+            return FfiConverterTypeMiniAppInfo.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_install_app(
+        FfiConverterByteArray.lower(`bundleData`),_status)
+}
+    )
+    }
+    
  fun `knownPeers`(): List<kotlin.String> {
             return FfiConverterSequenceString.lift(
     uniffiRustCall() { _status ->
@@ -2647,6 +2943,15 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
             return FfiConverterSequenceTypeGroupInfo.lift(
     uniffiRustCall() { _status ->
     UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_list_groups(
+        _status)
+}
+    )
+    }
+    
+ fun `listInstalledApps`(): List<MiniAppInfo> {
+            return FfiConverterSequenceTypeMiniAppInfo.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_list_installed_apps(
         _status)
 }
     )
@@ -2704,6 +3009,31 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
 }
     )
     }
+    
+ fun `miniappStorageDelete`(`appId`: kotlin.String, `key`: kotlin.String)
+        = 
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_miniapp_storage_delete(
+        FfiConverterString.lower(`appId`),FfiConverterString.lower(`key`),_status)
+}
+    
+    
+ fun `miniappStorageGet`(`appId`: kotlin.String, `key`: kotlin.String): kotlin.String? {
+            return FfiConverterOptionalString.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_miniapp_storage_get(
+        FfiConverterString.lower(`appId`),FfiConverterString.lower(`key`),_status)
+}
+    )
+    }
+    
+ fun `miniappStorageSet`(`appId`: kotlin.String, `key`: kotlin.String, `value`: kotlin.String)
+        = 
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_miniapp_storage_set(
+        FfiConverterString.lower(`appId`),FfiConverterString.lower(`key`),FfiConverterString.lower(`value`),_status)
+}
+    
     
  fun `parsePaymentRequestUri`(`uri`: kotlin.String): PaymentRequestData? {
             return FfiConverterOptionalTypePaymentRequestData.lift(
@@ -2823,6 +3153,14 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
     uniffiRustCall() { _status ->
     UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_stop_node(
         _status)
+}
+    
+    
+ fun `uninstallApp`(`appId`: kotlin.String)
+        = 
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_uninstall_app(
+        FfiConverterString.lower(`appId`),_status)
 }
     
     

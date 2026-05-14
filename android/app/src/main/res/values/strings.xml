@@ -82,6 +82,19 @@
     <string name="settings_clear_store">Clear old messages</string>
     <string name="settings_version">Version</string>
     <string name="settings_open_wallet">Open wallet</string>
+    <string name="settings_mini_apps">Mini apps</string>
+
+    <!-- Mini apps -->
+    <string name="miniapp_store_title">Mini apps</string>
+    <string name="miniapp_installed">Installed</string>
+    <string name="miniapp_catalog">Catalog (cached listings)</string>
+    <string name="miniapp_install_file">Install from file (.mxa / .zip)</string>
+    <string name="miniapp_open">Open</string>
+    <string name="miniapp_uninstall">Uninstall</string>
+    <string name="miniapp_no_apps">No mini apps installed yet.</string>
+    <string name="miniapp_no_listings">No listings cached on this device.</string>
+    <string name="miniapp_bundle_hash">Bundle hash</string>
+    <string name="miniapp_back">Back</string>
 
     <!-- Wallet (MeshCoin) -->
     <string name="wallet_title">Wallet</string>

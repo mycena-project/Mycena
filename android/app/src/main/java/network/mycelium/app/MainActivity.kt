@@ -14,6 +14,8 @@ import network.mycelium.app.ui.ChatScreen
 import network.mycelium.app.ui.GroupConversationScreen
 import network.mycelium.app.ui.GroupsListScreen
 import network.mycelium.app.ui.MailScreen
+import network.mycelium.app.ui.MiniAppRunnerScreen
+import network.mycelium.app.ui.MiniAppStoreScreen
 import network.mycelium.app.ui.PeersScreen
 import network.mycelium.app.ui.SettingsScreen
 import network.mycelium.app.ui.WalletScreen
@@ -40,6 +42,13 @@ class MainActivity : AppCompatActivity() {
                 composable("mail") { MailScreen(nav) }
                 composable("peers") { PeersScreen(nav) }
                 composable("settings") { SettingsScreen(nav) }
+                composable("miniapp_store") { MiniAppStoreScreen(nav) }
+                composable("miniapp/run/{appId}") { backStack ->
+                    MiniAppRunnerScreen(
+                        appId = backStack.arguments?.getString("appId") ?: "",
+                        navController = nav,
+                    )
+                }
                 composable("wallet") { WalletScreen(nav) }
                 composable("placeholder") { Text("Mycelium") }
             }

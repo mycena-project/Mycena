@@ -47,6 +47,12 @@ fun SettingsScreen(navController: NavController) {
                 Text("Set Demo Name")
             }
             Button(
+                onClick = { navController.navigate("miniapp_store") },
+                modifier = Modifier.padding(top = 12.dp).fillMaxWidth(),
+            ) {
+                Text(stringResource(R.string.settings_mini_apps))
+            }
+            Button(
                 onClick = { navController.navigate("wallet") },
                 modifier = Modifier.padding(top = 12.dp).fillMaxWidth(),
             ) {

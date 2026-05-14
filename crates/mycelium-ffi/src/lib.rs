@@ -174,6 +174,25 @@ pub struct PaymentRequestData {
     pub expires_at_ms: Option<u64>,
 }
 
+#[derive(Debug, Clone)]
+pub struct MiniAppInfo {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub version: String,
+    pub developer: String,
+    pub entry: String,
+    pub accepts_payments: bool,
+    pub permissions: Vec<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct AppStoreListing {
+    pub manifest: MiniAppInfo,
+    pub bundle_hash: String,
+    pub updated_at_ms: u64,
+}
+
 pub trait NodeEventCallback: Send + Sync {
     fn on_peer_discovered(&self, _peer_id: String) {}
     fn on_peer_lost(&self, _peer_id: String) {}
@@ -223,6 +242,7 @@ impl CoinTransport for FfiCoinTransport {
 struct NodeState {
     handle: NodeHandle,
     app_node: Arc<AppNode>,
+    app_store: Arc<mycelium_app::miniapp::AppStore>,
     coin_node: Arc<CoinNode>,
     coin_identity_path: String,
     local_peer_id: String,
@@ -269,6 +289,10 @@ pub fn init_node(config: NodeConfig) {
         let app_storage = Arc::new(
             AppStorage::open(&format!("{}/app", config.db_path))
                 .expect("failed to open app storage"),
+        );
+        let app_store = Arc::new(
+            mycelium_app::miniapp::AppStore::open(&format!("{}/miniapp", config.db_path))
+                .expect("failed to open miniapp store"),
         );
         let coin_identity_path = format!("{}/identity", config.db_path);
         let coin_addr = address_from_keypair(
@@ -384,6 +408,7 @@ pub fn init_node(config: NodeConfig) {
         let state = Arc::new(RwLock::new(NodeState {
             handle,
             app_node,
+            app_store,
             coin_node,
             coin_identity_path,
             local_peer_id,
@@ -833,6 +858,82 @@ pub fn parse_payment_request_uri(uri: String) -> Option<PaymentRequestData> {
             memo: p.memo,
             expires_at_ms: p.expires_at_ms,
         })
+}
+
+fn mini_app_manifest_to_info(m: mycelium_app::miniapp::MiniAppManifest) -> MiniAppInfo {
+    MiniAppInfo {
+        id: m.id,
+        name: m.name,
+        description: m.description,
+        version: m.version,
+        developer: m.developer,
+        entry: m.entry,
+        accepts_payments: m.accepts_payments,
+        permissions: m.permissions.iter().map(|p| format!("{p:?}")).collect(),
+    }
+}
+
+pub fn list_installed_apps() -> Vec<MiniAppInfo> {
+    with_state(|s| {
+        s.app_store
+            .installed_apps()
+            .unwrap_or_default()
+            .into_iter()
+            .map(mini_app_manifest_to_info)
+            .collect()
+    })
+}
+
+pub fn install_app(bundle_data: Vec<u8>) -> MiniAppInfo {
+    with_state(|s| {
+        let m = s.app_store.install(&bundle_data).expect("install mini-app");
+        mini_app_manifest_to_info(m)
+    })
+}
+
+pub fn uninstall_app(app_id: String) {
+    with_state(|s| {
+        s.app_store.uninstall(&app_id).expect("uninstall mini-app");
+    });
+}
+
+pub fn get_app_file(app_id: String, path: String) -> Option<Vec<u8>> {
+    with_state(|s| s.app_store.get_file(&app_id, &path).ok().flatten())
+}
+
+pub fn browse_app_store() -> Vec<AppStoreListing> {
+    with_state(|s| {
+        s.app_store
+            .browse_listings()
+            .unwrap_or_default()
+            .into_iter()
+            .map(|row| AppStoreListing {
+                manifest: mini_app_manifest_to_info(row.manifest),
+                bundle_hash: row.bundle_hash,
+                updated_at_ms: row.updated_at_ms,
+            })
+            .collect()
+    })
+}
+
+pub fn miniapp_storage_get(app_id: String, key: String) -> Option<String> {
+    with_state(|s| s.app_store.miniapp_storage_get(&app_id, &key).ok().flatten())
+}
+
+pub fn miniapp_storage_set(app_id: String, key: String, value: String) {
+    with_state(|s| {
+        s.app_store
+            .miniapp_storage_set(&app_id, &key, &value)
+            .expect("miniapp storage set");
+    });
+}
+
+pub fn miniapp_storage_delete(app_id: String, key: String) {
+    with_state(|s| {
+        s.app_store
+            .miniapp_storage_delete(&app_id, &key)
+            .expect("miniapp storage delete");
+    });
 }
 
 fn tx_to_info(t: mycelium_coin::Transaction) -> TxInfo {

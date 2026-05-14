@@ -14,6 +14,8 @@ typealias HotWalletConfig = uniffi.mycelium.HotWalletConfig
 typealias HotWalletStatus = uniffi.mycelium.HotWalletStatus
 typealias PaymentRequestData = uniffi.mycelium.PaymentRequestData
 typealias GroupInfo = uniffi.mycelium.GroupInfo
+typealias MiniAppInfo = uniffi.mycelium.MiniAppInfo
+typealias AppStoreListing = uniffi.mycelium.AppStoreListing
 
 object mycelium {
     fun initNode(config: NodeConfig) = uniffi.mycelium.initNode(config)
@@ -64,4 +66,16 @@ object mycelium {
     fun deleteGroup(groupId: String) = uniffi.mycelium.deleteGroup(groupId)
     fun groupChatHistory(groupId: String, limit: UInt): List<ChatMessage> =
         uniffi.mycelium.groupChatHistory(groupId, limit)
+
+    fun listInstalledApps(): List<MiniAppInfo> = uniffi.mycelium.listInstalledApps()
+    fun installApp(bundleData: ByteArray): MiniAppInfo = uniffi.mycelium.installApp(bundleData)
+    fun uninstallApp(appId: String) = uniffi.mycelium.uninstallApp(appId)
+    fun getAppFile(appId: String, path: String): ByteArray? = uniffi.mycelium.getAppFile(appId, path)
+    fun browseAppStore(): List<AppStoreListing> = uniffi.mycelium.browseAppStore()
+    fun miniappStorageGet(appId: String, key: String): String? =
+        uniffi.mycelium.miniappStorageGet(appId, key)
+    fun miniappStorageSet(appId: String, key: String, value: String) =
+        uniffi.mycelium.miniappStorageSet(appId, key, value)
+    fun miniappStorageDelete(appId: String, key: String) =
+        uniffi.mycelium.miniappStorageDelete(appId, key)
 }

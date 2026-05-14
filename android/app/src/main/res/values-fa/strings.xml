@@ -48,4 +48,15 @@
     <string name="wallet_scan_mxcpay">اسکن QR mxcpay</string>
     <string name="wallet_share_request">اشتراک درخواست</string>
     <string name="wallet_payment_qr">QR پرداخت</string>
+    <string name="settings_mini_apps">برنامه‌های کوچک</string>
+    <string name="miniapp_store_title">برنامه‌های کوچک</string>
+    <string name="miniapp_installed">نصب‌شده</string>
+    <string name="miniapp_catalog">کاتالوگ (ذخیرهٔ محلی)</string>
+    <string name="miniapp_install_file">نصب از فایل (.mxa / .zip)</string>
+    <string name="miniapp_open">باز کردن</string>
+    <string name="miniapp_uninstall">حذف نصب</string>
+    <string name="miniapp_no_apps">هنوز برنامهٔ کوچکی نصب نشده است.</string>
+    <string name="miniapp_no_listings">فهرستی در این دستگاه ذخیره نشده است.</string>
+    <string name="miniapp_bundle_hash">هش بسته</string>
+    <string name="miniapp_back">بازگشت</string>
 </resources>

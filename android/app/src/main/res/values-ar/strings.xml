@@ -42,4 +42,15 @@
     <string name="wallet_scan_mxcpay">مسح QR لـ mxcpay</string>
     <string name="wallet_share_request">مشاركة الطلب</string>
     <string name="wallet_payment_qr">رمز QR للدفع</string>
+    <string name="settings_mini_apps">تطبيقات مصغّرة</string>
+    <string name="miniapp_store_title">تطبيقات مصغّرة</string>
+    <string name="miniapp_installed">المثبّتة</string>
+    <string name="miniapp_catalog">الكتالوج (مخبأ)</string>
+    <string name="miniapp_install_file">تثبيت من ملف (.mxa / .zip)</string>
+    <string name="miniapp_open">فتح</string>
+    <string name="miniapp_uninstall">إزالة</string>
+    <string name="miniapp_no_apps">لا توجد تطبيقات مصغّرة بعد.</string>
+    <string name="miniapp_no_listings">لا توجد قوائم مخبأة على هذا الجهاز.</string>
+    <string name="miniapp_bundle_hash">بصمة الحزمة</string>
+    <string name="miniapp_back">رجوع</string>
 </resources>
