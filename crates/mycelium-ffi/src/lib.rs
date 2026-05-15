@@ -262,7 +262,13 @@ pub fn init_node(config: NodeConfig) {
     runtime.block_on(async move {
         #[cfg(target_os = "android")]
         {
-            let _ = tracing_android::init("mycelium");
+            use tracing_subscriber::layer::SubscriberExt;
+            use tracing_subscriber::util::SubscriberInitExt;
+            if let Ok(android_layer) = tracing_android::layer("mycelium") {
+                let _ = tracing_subscriber::registry()
+                    .with(android_layer)
+                    .try_init();
+            }
         }
 
         let connectivity = ConnectivityMonitor::new();
