@@ -78,4 +78,7 @@ object mycelium {
         uniffi.mycelium.miniappStorageSet(appId, key, value)
     fun miniappStorageDelete(appId: String, key: String) =
         uniffi.mycelium.miniappStorageDelete(appId, key)
+
+    fun miniappBridgeCall(appId: String, method: String, argsJson: String): String =
+        uniffi.mycelium.miniappBridgeCall(appId, method, argsJson)
 }

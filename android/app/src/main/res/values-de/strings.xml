@@ -48,6 +48,13 @@
     <string name="wallet_share_request">Zahlungslink teilen</string>
     <string name="wallet_payment_qr">Zahlungs-QR</string>
     <string name="settings_mini_apps">Mini-Apps</string>
+    <string name="settings_danger_zone">Gefahrenzone</string>
+    <string name="settings_panic_description">Panic-Wipe löscht sofort alle lokalen Nachrichten, Schlüssel und Wallet-Daten. Nutzen, wenn Sie schnell sensible Daten vom Gerät entfernen müssen.</string>
+    <string name="settings_panic_button">Panic-Wipe – alle Daten löschen</string>
+    <string name="settings_panic_confirm_title">Sind Sie sicher?</string>
+    <string name="settings_panic_confirm_body">Dies löscht dauerhaft alle Nachrichten, Ihren Identitätsschlüssel und Wallet-Daten. Das kann nicht rückgängig gemacht werden.</string>
+    <string name="settings_panic_confirm_yes">Alles löschen</string>
+    <string name="settings_panic_confirm_no">Abbrechen</string>
     <string name="miniapp_store_title">Mini-Apps</string>
     <string name="miniapp_installed">Installiert</string>
     <string name="miniapp_catalog">Katalog (zwischengespeichert)</string>

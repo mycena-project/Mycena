@@ -11,17 +11,23 @@ use mycelium_core::data::{now_ms, Priority};
 use mycelium_core::energy::NodeState;
 use mycelium_core::sync::BloomFilter;
 use mycelium_core::transport::{
-    ConnectivityMode, DirectMessage, MeshTransport, MessageStore, Scope, TransportEvent,
-    WireMessage,
+    ConnectivityMode, DirectMessage, MeshTransport, MessageStore, Scope, StoreStats,
+    TransportEvent, WireMessage,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::sync::{broadcast, mpsc, RwLock};
 use tokio::time::{interval, MissedTickBehavior};
 use tracing::{debug, info, warn};
+
+/// Scopes subscribed on the libp2p gossip layer at node startup.
+pub const SYSTEM_SCOPES: &[&str] = &[
+    "mycelium/chat",
+    "mycelium/coin/v1",
+    "mycelium/appstore/v1",
+];
 
 #[derive(Debug, Clone)]
 pub struct NodeConfig {
@@ -37,6 +43,8 @@ pub struct NodeConfig {
     pub connectivity_rx: Option<tokio::sync::watch::Receiver<ConnectivityMode>>,
     /// Optional display name included in [`WireMessage::PeerInfo`].
     pub display_name: Option<String>,
+    /// Optional 32-byte master key for at-rest encryption (Android Keystore-backed prefs).
+    pub storage_key: Option<[u8; 32]>,
 }
 
 impl Default for NodeConfig {
@@ -52,6 +60,7 @@ impl Default for NodeConfig {
             bootstrap_peers: Vec::new(),
             connectivity_rx: None,
             display_name: None,
+            storage_key: None,
         }
     }
 }
@@ -71,6 +80,7 @@ impl NodeConfig {
             bootstrap_peers: Vec::new(),
             connectivity_rx: None,
             display_name: None,
+            storage_key: None,
         }
     }
 }
@@ -104,8 +114,12 @@ pub enum NodeCommand {
     },
     SubscribeScope(String),
     UnsubscribeScope(String),
-    GcNow,
-    StoreStats,
+    GcNow {
+        reply: Option<tokio::sync::oneshot::Sender<usize>>,
+    },
+    StoreStats {
+        reply: Option<tokio::sync::oneshot::Sender<StoreStats>>,
+    },
     ListPeers,
     SetEnergyState(NodeState),
 }
@@ -185,6 +199,24 @@ impl NodeHandle {
             .get(peer)
             .map(|b| crypto::X25519PublicKey::from(*b))
     }
+
+    pub async fn store_stats(&self) -> anyhow::Result<StoreStats> {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        self.tx
+            .send(NodeCommand::StoreStats { reply: Some(tx) })
+            .await?;
+        rx.await
+            .map_err(|_| anyhow::anyhow!("store stats response channel closed"))
+    }
+
+    pub async fn gc_now(&self) -> anyhow::Result<usize> {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        self.tx
+            .send(NodeCommand::GcNow { reply: Some(tx) })
+            .await?;
+        rx.await
+            .map_err(|_| anyhow::anyhow!("gc response channel closed"))
+    }
 }
 
 pub struct NodeRunner {
@@ -229,6 +261,7 @@ impl NodeRunner {
             keypair_path,
             bootstrap_peers,
             config.connectivity_rx.clone(),
+            config.storage_key,
         )?;
         Self::new_with_transport(config, Box::new(transport))
     }
@@ -239,7 +272,8 @@ impl NodeRunner {
     ) -> anyhow::Result<(Self, NodeHandle)> {
         let keypair = transport.local_keypair();
         let local_peer_id = transport.local_peer_id();
-        let enc_keypair = load_or_create_enc_keypair(&config.db_path)?;
+        let enc_keypair =
+            crate::secrets::load_or_create_enc_keypair(&config.db_path, config.storage_key)?;
         let enc_pubkey_hex = enc_keypair.public_hex();
         let peer_x25519 = Arc::new(RwLock::new(HashMap::new()));
         let display_name = config.display_name.clone();
@@ -248,10 +282,10 @@ impl NodeRunner {
         let metrics = Arc::new(RwLock::new(NodeMetrics::default()));
         let peers = Arc::new(RwLock::new(Vec::new()));
         let reputations = Arc::new(Mutex::new(HashMap::new()));
-        let scopes = Arc::new(RwLock::new(HashSet::from([
-            "mycelium/chat".to_string(),
-            "mycelium/group/*".to_string(),
-        ])));
+        let mut initial_scopes: HashSet<String> =
+            SYSTEM_SCOPES.iter().map(|s| (*s).to_string()).collect();
+        initial_scopes.insert("mycelium/group/*".to_string());
+        let scopes = Arc::new(RwLock::new(initial_scopes));
         let (incoming_tx, _) = broadcast::channel(512);
         let (tx, cmd_rx) = mpsc::channel(64);
         Ok((
@@ -299,6 +333,11 @@ impl NodeRunner {
 
     pub async fn run(mut self) -> anyhow::Result<()> {
         info!("node started with peer_id={}", self.local_peer_id);
+        for scope in SYSTEM_SCOPES {
+            if let Err(e) = self.transport.subscribe_scope(scope.to_string()).await {
+                warn!("failed to subscribe to {scope}: {e}");
+            }
+        }
         let mut forward_tick =
             interval(Duration::from_millis(self.config_forwarding_interval_ms()));
         forward_tick.set_missed_tick_behavior(MissedTickBehavior::Skip);
@@ -369,21 +408,37 @@ impl NodeRunner {
                 self.transport.dial_peer(multiaddr).await?;
             }
             NodeCommand::SubscribeScope(scope) => {
-                self.subscribed_scopes.write().await.insert(scope);
+                self.subscribed_scopes.write().await.insert(scope.clone());
+                if !scope.contains('*') {
+                    if let Err(e) = self.transport.subscribe_scope(scope).await {
+                        warn!("failed to subscribe to gossip topic: {e}");
+                    }
+                }
             }
             NodeCommand::UnsubscribeScope(scope) => {
                 self.subscribed_scopes.write().await.remove(&scope);
+                if !scope.contains('*') {
+                    if let Err(e) = self.transport.unsubscribe_scope(scope).await {
+                        warn!("failed to unsubscribe from gossip topic: {e}");
+                    }
+                }
             }
-            NodeCommand::GcNow => {
+            NodeCommand::GcNow { reply } => {
                 let deleted = self.store.gc_expired().await?;
                 info!("manual GC deleted {} messages", deleted);
+                if let Some(tx) = reply {
+                    let _ = tx.send(deleted);
+                }
             }
-            NodeCommand::StoreStats => {
+            NodeCommand::StoreStats { reply } => {
                 let stats = self.store.stats().await?;
                 info!(
                     "store stats: count={} oldest_ms={}",
                     stats.count, stats.oldest_ms
                 );
+                if let Some(tx) = reply {
+                    let _ = tx.send(stats);
+                }
             }
             NodeCommand::SetEnergyState(state) => {
                 self.node_state = state;
@@ -527,6 +582,27 @@ impl NodeRunner {
                     let stored = DirectMessage {
                         envelope,
                         body: "[mycelium:group]".into(),
+                    };
+                    let should_process = self
+                        .ingest
+                        .ingest(&mut self.seen_cache, &stored, false)
+                        .await?;
+                    if should_process {
+                        let _ = self.incoming_tx.send(stored);
+                    }
+                    return Ok(());
+                }
+                // App store listings are bincode payloads; they may decode as UTF-8 by chance.
+                // Always route this scope through the app pipeline with a stable body tag.
+                if scope == "mycelium/appstore/v1" {
+                    let mut envelope =
+                        mycelium_core::data::Envelope::new(from_peer.clone(), None, payload);
+                    if let Some(keypair) = &self.keypair {
+                        let _ = envelope.sign(keypair);
+                    }
+                    let stored = DirectMessage {
+                        envelope,
+                        body: "[appstore]".into(),
                     };
                     let should_process = self
                         .ingest
@@ -758,14 +834,13 @@ impl NodeRunner {
                             );
                         }
                     }
-                    let mut envelope = mycelium_core::data::Envelope::new(
+                    let envelope = mycelium_core::data::Envelope::new(
                         logical_from,
                         Some(self.local_peer_id.clone()),
                         app_payload,
                     );
-                    if let Some(kp) = &self.keypair {
-                        let _ = envelope.sign(kp);
-                    }
+                    // E2E plaintext is authenticated by the inner wrap + ChaCha20 layer;
+                    // do not re-sign with the local libp2p key (would break author semantics).
                     let dm = DirectMessage {
                         envelope,
                         body: "[encrypted]".into(),
@@ -954,27 +1029,6 @@ impl NodeRunner {
         } else {
             let _ = self.pending.pop_front();
         }
-    }
-}
-
-fn load_or_create_enc_keypair(db_path: &str) -> anyhow::Result<EncryptionKeypair> {
-    let dir = Path::new(db_path);
-    if !dir.exists() {
-        std::fs::create_dir_all(dir)?;
-    }
-    let path = dir.join("enc_x25519.secret");
-    if path.exists() {
-        let bytes = std::fs::read(&path)?;
-        let arr: [u8; 32] = bytes
-            .as_slice()
-            .try_into()
-            .map_err(|_| anyhow::anyhow!("invalid enc key length"))?;
-        Ok(EncryptionKeypair::from_secret_bytes(arr))
-    } else {
-        let kp = EncryptionKeypair::generate();
-        std::fs::write(&path, kp.secret_bytes())?;
-        info!("generated new X25519 encryption keypair");
-        Ok(kp)
     }
 }
 

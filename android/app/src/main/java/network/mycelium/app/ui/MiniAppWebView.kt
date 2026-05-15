@@ -11,6 +11,7 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.Toast
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -27,9 +28,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.navigation.NavController
 import java.io.ByteArrayInputStream
 import network.mycelium.app.R
-import network.mycelium.bindings.BulletinPost
 import network.mycelium.bindings.mycelium
-import org.json.JSONArray
 import org.json.JSONObject
 
 private const val MINIAPP_BASE = "https://miniapp.local/"
@@ -50,81 +49,6 @@ private fun mimeForPath(path: String): String {
         else -> "application/octet-stream"
     }
 }
-
-private fun bulletinPostsToJson(posts: List<BulletinPost>): JSONArray {
-    val arr = JSONArray()
-    for (p in posts) {
-        arr.put(
-            JSONObject().apply {
-                put("id", p.id)
-                put("from_display_name", p.fromDisplayName)
-                put("title", p.title)
-                put("body", p.body)
-                put("scope", p.scope)
-                put("timestamp_ms", p.timestampMs.toLong())
-                put("expires_at_ms", p.expiresAtMs.toLong())
-            },
-        )
-    }
-    return arr
-}
-
-private fun toJsLiteral(v: Any?): String =
-    when (v) {
-        null -> "null"
-        is JSONObject -> v.toString()
-        is JSONArray -> v.toString()
-        is Boolean -> if (v) "true" else "false"
-        is Number -> v.toString()
-        is String -> JSONObject.quote(v)
-        else -> JSONObject.quote(v.toString())
-    }
-
-internal fun dispatchMiniappBridge(appId: String, method: String, args: JSONObject): Any? =
-    when (method) {
-        "identity.get" ->
-            JSONObject().apply {
-                put("peer_id", mycelium.localPeerId())
-                put("display_name", mycelium.displayName())
-                put("enc_pubkey", mycelium.localEncPubkey())
-            }
-        "app.get_id" -> appId
-        "app.get_version" -> {
-            val v =
-                mycelium.listInstalledApps().find { it.id == appId }?.version
-                    ?: ""
-            v
-        }
-        "util.now" -> System.currentTimeMillis()
-        "messaging.send" -> {
-            val to = args.getString("to_peer") ?: error("to_peer required")
-            val payload = args.getString("payload") ?: error("payload required")
-            mycelium.sendChatEncrypted(to, payload)
-            "ok"
-        }
-        "messaging.subscribe" -> "ok"
-        "storage.get" -> {
-            val key = args.getString("key") ?: error("key required")
-            mycelium.miniappStorageGet(appId, key)
-        }
-        "storage.set" -> {
-            val key = args.getString("key") ?: error("key required")
-            val value = args.getString("value") ?: error("value required")
-            mycelium.miniappStorageSet(appId, key, value)
-            "ok"
-        }
-        "storage.delete" -> {
-            val key = args.getString("key") ?: error("key required")
-            mycelium.miniappStorageDelete(appId, key)
-            "ok"
-        }
-        "storage.list" -> JSONArray()
-        "bulletin.get" -> {
-            val scope = args.getString("scope") ?: error("scope required")
-            bulletinPostsToJson(mycelium.bulletinsForScope(scope))
-        }
-        else -> error("unsupported method: $method")
-    }
 
 @SuppressLint("SetJavaScriptEnabled")
 private fun buildMiniappHtml(context: Context, appId: String): String? {
@@ -160,9 +84,31 @@ class MiniappJsBridge(
                 callId = o.getInt("id")
                 val method = o.getString("method")
                 val args = o.optJSONObject("args") ?: JSONObject()
-                val result = dispatchMiniappBridge(appId, method, args)
-                val lit = toJsLiteral(result)
-                webView.evaluateJavascript("window.__mycelium_resolve($callId, $lit, null)", null)
+                val resultJson = mycelium.miniappBridgeCall(appId, method, args.toString())
+                val result = JSONObject(resultJson)
+                if (result.has("error")) {
+                    throw Exception(result.getString("error"))
+                }
+                when (result.optString("_bridge_action")) {
+                    "show_alert" -> {
+                        Toast.makeText(
+                            webView.context,
+                            result.optString("message"),
+                            Toast.LENGTH_SHORT,
+                        ).show()
+                        webView.evaluateJavascript(
+                            "window.__mycelium_resolve($callId, ${JSONObject.quote("ok")}, null)",
+                            null,
+                        )
+                    }
+                    else -> {
+                        val expr = "JSON.parse(${JSONObject.quote(resultJson)})"
+                        webView.evaluateJavascript(
+                            "window.__mycelium_resolve($callId, $expr, null)",
+                            null,
+                        )
+                    }
+                }
             } catch (e: Exception) {
                 val msg = e.message ?: "error"
                 val errLit = JSONObject.quote(msg)

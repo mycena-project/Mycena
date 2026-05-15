@@ -144,6 +144,10 @@ pub trait MeshTransport: Send {
     async fn dial_peer(&mut self, multiaddr: String) -> anyhow::Result<()>;
     async fn send_direct(&mut self, to_peer: String, message: WireMessage) -> anyhow::Result<()>;
     async fn publish_scoped(&mut self, scope: ScopeId, payload: Vec<u8>) -> anyhow::Result<()>;
+    /// Join a gossipsub topic so scoped messages for `scope` are received.
+    async fn subscribe_scope(&mut self, scope: ScopeId) -> anyhow::Result<()>;
+    /// Leave a gossipsub topic.
+    async fn unsubscribe_scope(&mut self, scope: ScopeId) -> anyhow::Result<()>;
     async fn next_event(&mut self) -> anyhow::Result<TransportEvent>;
 }
 

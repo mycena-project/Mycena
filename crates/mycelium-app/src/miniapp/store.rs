@@ -1,3 +1,4 @@
+use libp2p::identity::{Keypair, PeerId, PublicKey};
 use mycelium_core::data::now_ms;
 use serde::{Deserialize, Serialize};
 
@@ -108,7 +109,7 @@ impl AppStore {
                 listings.push(l);
             }
         }
-        listings.sort_by(|a, b| b.updated_at_ms.cmp(&a.updated_at_ms));
+        listings.sort_by_key(|l| std::cmp::Reverse(l.updated_at_ms));
         Ok(listings)
     }
 
@@ -146,24 +147,142 @@ impl AppStore {
     }
 }
 
-/// Build a signed listing placeholder (signature verification is future work).
+impl AppStoreListing {
+    /// Build a signed listing using the developer's libp2p identity keypair.
+    pub fn new_signed(
+        manifest: MiniAppManifest,
+        bundle_bytes: &[u8],
+        sources: Vec<AppSource>,
+        keypair: &Keypair,
+    ) -> anyhow::Result<Self> {
+        let bundle_hash = blake3::hash(bundle_bytes).to_hex().to_string();
+        let now = now_ms();
+        let mut listing = Self {
+            manifest,
+            bundle_hash,
+            sources,
+            published_at_ms: now,
+            updated_at_ms: now,
+            signature: Vec::new(),
+        };
+        let bytes_to_sign = listing.signable_bytes()?;
+        listing.signature = keypair
+            .sign(&bytes_to_sign)
+            .map_err(|e| anyhow::anyhow!("signing failed: {e}"))?;
+        Ok(listing)
+    }
+
+    /// Verify Ed25519 signature against `manifest.developer_peer_id`.
+    /// Returns `Ok(false)` when the signature is missing, the developer peer id is absent,
+    /// the peer id cannot be mapped to an inline Ed25519 key, or verification fails.
+    pub fn verify_signature(&self) -> anyhow::Result<bool> {
+        if self.signature.is_empty() {
+            return Ok(false);
+        }
+        let Some(peer_id_str) = &self.manifest.developer_peer_id else {
+            tracing::warn!(
+                "rejected listing {}: missing developer_peer_id",
+                self.manifest.id
+            );
+            return Ok(false);
+        };
+
+        let peer_id: PeerId = peer_id_str
+            .parse()
+            .map_err(|_| anyhow::anyhow!("invalid peer_id in manifest"))?;
+
+        let bytes = self.signable_bytes()?;
+
+        let Some(pk) = public_key_from_peer_id(&peer_id) else {
+            tracing::warn!(
+                "rejected listing {}: peer_id has no inline ed25519 pubkey",
+                self.manifest.id
+            );
+            return Ok(false);
+        };
+
+        Ok(pk.verify(&bytes, &self.signature))
+    }
+
+    fn signable_bytes(&self) -> anyhow::Result<Vec<u8>> {
+        let mut bytes = Vec::new();
+        let manifest_json = serde_json::to_string(&self.manifest)?;
+        bytes.extend_from_slice(manifest_json.as_bytes());
+        bytes.extend_from_slice(self.bundle_hash.as_bytes());
+        bytes.extend_from_slice(&self.published_at_ms.to_le_bytes());
+        bytes.extend_from_slice(&self.updated_at_ms.to_le_bytes());
+        bytes.extend_from_slice(&serde_json::to_vec(&self.sources)?);
+        Ok(bytes)
+    }
+}
+
+fn public_key_from_peer_id(peer_id: &PeerId) -> Option<PublicKey> {
+    let mh = peer_id.as_ref();
+    // Identity multihash (code 0) embeds the protobuf-encoded public key.
+    if mh.code() != 0 {
+        return None;
+    }
+    PublicKey::try_decode_protobuf(mh.digest()).ok()
+}
+
+/// Back-compat helper: builds a listing and signs it with the node keypair.
 pub fn listing_from_manifest_and_bundle(
     manifest: MiniAppManifest,
     bundle_bytes: &[u8],
     sources: Vec<AppSource>,
-) -> AppStoreListing {
-    let bundle_hash = blake3::hash(bundle_bytes).to_hex().to_string();
-    let now = now_ms();
-    let mut body = Vec::new();
-    body.extend_from_slice(bundle_hash.as_bytes());
-    body.extend_from_slice(manifest.id.as_bytes());
-    let sig = blake3::hash(&body).as_bytes().to_vec();
-    AppStoreListing {
-        manifest,
-        bundle_hash,
-        sources,
-        published_at_ms: now,
-        updated_at_ms: now,
-        signature: sig,
+    keypair: &Keypair,
+) -> anyhow::Result<AppStoreListing> {
+    AppStoreListing::new_signed(manifest, bundle_bytes, sources, keypair)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample_manifest(peer_id: Option<String>) -> MiniAppManifest {
+        MiniAppManifest {
+            id: "com.test.app".into(),
+            name: "Test".into(),
+            description: "d".into(),
+            version: "0.1.0".into(),
+            developer: "T".into(),
+            developer_peer_id: peer_id,
+            entry: "index.html".into(),
+            icon_base64: None,
+            permissions: vec![],
+            min_mycelium_version: "0.1.0".into(),
+            accepts_payments: false,
+            payment_address: None,
+            categories: vec![],
+        }
+    }
+
+    #[test]
+    fn listing_sign_and_verify() {
+        let keypair = Keypair::generate_ed25519();
+        let peer_id = keypair.public().to_peer_id().to_string();
+        let manifest = sample_manifest(Some(peer_id));
+        let bundle_bytes = b"fake bundle content";
+        let listing =
+            AppStoreListing::new_signed(manifest, bundle_bytes, vec![], &keypair).unwrap();
+        assert!(listing.verify_signature().unwrap());
+    }
+
+    #[test]
+    fn tampered_listing_fails_verification() {
+        let keypair = Keypair::generate_ed25519();
+        let peer_id = keypair.public().to_peer_id().to_string();
+        let manifest = sample_manifest(Some(peer_id));
+        let mut listing = AppStoreListing::new_signed(manifest, b"bundle", vec![], &keypair).unwrap();
+        listing.bundle_hash = "tampered_hash".into();
+        assert!(!listing.verify_signature().unwrap());
+    }
+
+    #[test]
+    fn listing_without_peer_id_is_rejected() {
+        let keypair = Keypair::generate_ed25519();
+        let manifest = sample_manifest(None);
+        let listing = AppStoreListing::new_signed(manifest, b"x", vec![], &keypair).unwrap();
+        assert!(!listing.verify_signature().unwrap());
     }
 }

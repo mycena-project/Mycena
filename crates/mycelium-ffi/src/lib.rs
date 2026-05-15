@@ -33,6 +33,8 @@ pub struct NodeConfig {
     pub display_name: String,
     /// Empty: [`NodeRunner::new`] loads peers via [`mycelium_core::bootstrap::load_bootstrap_peers`].
     pub bootstrap_peers: Vec<String>,
+    /// Optional 64-char hex master key for at-rest encryption (Android).
+    pub storage_key_hex: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -199,6 +201,7 @@ pub trait NodeEventCallback: Send + Sync {
     fn on_chat_received(&self, _message: ChatMessage) {}
     fn on_mail_received(&self, _message: MailMessage) {}
     fn on_bulletin_received(&self, _post: BulletinPost) {}
+    fn on_app_store_listing(&self, _listing: AppStoreListing) {}
     fn on_connectivity_changed(&self, _mode: ConnectivityMode) {}
 }
 
@@ -267,6 +270,13 @@ pub fn init_node(config: NodeConfig) {
         let connectivity_rx_node = connectivity.mode_rx.clone();
         let mut connectivity_rx_bg = connectivity.mode_rx.clone();
 
+        let storage_key = config
+            .storage_key_hex
+            .as_deref()
+            .map(mycelium_node::parse_storage_key_hex)
+            .transpose()
+            .expect("invalid storage_key_hex");
+
         let rust_config = RustNodeConfig {
             listen_addr: config
                 .listen_addr
@@ -279,6 +289,7 @@ pub fn init_node(config: NodeConfig) {
             bootstrap_peers: config.bootstrap_peers.clone(),
             connectivity_rx: Some(connectivity_rx_node),
             display_name: Some(config.display_name.clone()),
+            storage_key,
         };
 
         let (runner, handle) =
@@ -296,7 +307,7 @@ pub fn init_node(config: NodeConfig) {
         );
         let coin_identity_path = format!("{}/identity", config.db_path);
         let coin_addr = address_from_keypair(
-            &mycelium_node::load_or_create_keypair(&coin_identity_path)
+            &mycelium_node::secrets::load_or_create_keypair(&coin_identity_path, storage_key)
                 .expect("failed to load node identity for coin"),
         );
         let coin_ledger = Arc::new(
@@ -359,6 +370,7 @@ pub fn init_node(config: NodeConfig) {
             app_storage.clone(),
             Arc::new(NoopNotifier),
             Some(coin_node.clone()),
+            Some(app_store.clone()),
         );
         let app_node = Arc::new(app_node);
         app_node.clone().start_incoming_task();
@@ -399,6 +411,11 @@ pub fn init_node(config: NodeConfig) {
                     Ok(post) = inbox.bulletin_rx.recv() => {
                         if let Some(cb) = CALLBACK.lock().expect("callback lock").clone() {
                             cb.on_bulletin_received(to_bulletin(post));
+                        }
+                    }
+                    Ok(listing) = inbox.appstore_rx.recv() => {
+                        if let Some(cb) = CALLBACK.lock().expect("callback lock").clone() {
+                            cb.on_app_store_listing(to_app_store_listing(listing));
                         }
                     }
                 }
@@ -894,6 +911,7 @@ pub fn install_app(bundle_data: Vec<u8>) -> MiniAppInfo {
 pub fn uninstall_app(app_id: String) {
     with_state(|s| {
         s.app_store.uninstall(&app_id).expect("uninstall mini-app");
+        let _ = s.app_node.storage().miniapp_clear_all_for_app(&app_id);
     });
 }
 
@@ -917,23 +935,61 @@ pub fn browse_app_store() -> Vec<AppStoreListing> {
 }
 
 pub fn miniapp_storage_get(app_id: String, key: String) -> Option<String> {
-    with_state(|s| s.app_store.miniapp_storage_get(&app_id, &key).ok().flatten())
+    with_state(|s| {
+        let sk = format!("app:{app_id}:{key}");
+        s.app_node.storage().miniapp_get(&sk).ok().flatten()
+    })
 }
 
 pub fn miniapp_storage_set(app_id: String, key: String, value: String) {
     with_state(|s| {
-        s.app_store
-            .miniapp_storage_set(&app_id, &key, &value)
+        let sk = format!("app:{app_id}:{key}");
+        s.app_node
+            .storage()
+            .miniapp_set(&sk, &value)
             .expect("miniapp storage set");
     });
 }
 
 pub fn miniapp_storage_delete(app_id: String, key: String) {
     with_state(|s| {
-        s.app_store
-            .miniapp_storage_delete(&app_id, &key)
+        let sk = format!("app:{app_id}:{key}");
+        s.app_node
+            .storage()
+            .miniapp_delete(&sk)
             .expect("miniapp storage delete");
     });
+}
+
+pub fn miniapp_bridge_call(app_id: String, method: String, args_json: String) -> String {
+    use serde_json::json;
+    use serde_json::Value;
+    runtime().block_on(async {
+        let st = state_arc();
+        let guard = st.read().await;
+        let args: Value = serde_json::from_str(&args_json).unwrap_or(Value::Null);
+        let manifest = guard
+            .app_store
+            .get_manifest(&app_id)
+            .ok()
+            .flatten();
+        let permissions = manifest.map(|m| m.permissions).unwrap_or_default();
+        let enc = guard.app_node.node_handle().local_enc_pubkey_hex();
+        let host = mycelium_app::miniapp::bridge_host::BridgeHost::new(
+            app_id,
+            permissions,
+            guard.app_node.clone(),
+            guard.app_node.storage(),
+            guard.app_store.clone(),
+            Some(guard.coin_node.clone()),
+            guard.local_peer_id.clone(),
+            enc,
+        );
+        match host.handle(&method, &args).await {
+            Ok(v) => serde_json::to_string(&v).unwrap_or_else(|_| "{}".to_string()),
+            Err(e) => serde_json::to_string(&json!({ "error": e })).unwrap_or_else(|_| "{}".to_string()),
+        }
+    })
 }
 
 fn tx_to_info(t: mycelium_coin::Transaction) -> TxInfo {
@@ -979,6 +1035,14 @@ fn to_chat_message(m: AppChatMessage, from_peer: String) -> ChatMessage {
         from_display_name: m.from_display_name,
         body: m.body,
         timestamp_ms: m.timestamp_ms,
+    }
+}
+
+fn to_app_store_listing(l: mycelium_app::miniapp::store::AppStoreListing) -> AppStoreListing {
+    AppStoreListing {
+        manifest: mini_app_manifest_to_info(l.manifest),
+        bundle_hash: l.bundle_hash,
+        updated_at_ms: l.updated_at_ms,
     }
 }
 

@@ -10,7 +10,6 @@ use libp2p::{
 use mycelium_core::transport::{
     ConnectivityMode, MeshTransport, MessageAck, ScopeId, TransportEvent, WireMessage,
 };
-use std::path::Path;
 use std::{collections::HashSet, str::FromStr};
 use tokio::sync::watch;
 use tracing::warn;
@@ -32,9 +31,10 @@ impl Libp2pTransport {
         keypair_path: Option<String>,
         bootstrap_peers: Vec<String>,
         connectivity_rx: Option<watch::Receiver<ConnectivityMode>>,
+        storage_key: crate::secrets::StorageKey,
     ) -> anyhow::Result<Self> {
         let keypair_path = keypair_path.unwrap_or_else(|| ".mycelium-node/identity".to_string());
-        let key = load_or_create_keypair(&keypair_path)?;
+        let key = crate::secrets::load_or_create_keypair(&keypair_path, storage_key)?;
         let local_peer_id = key.public().to_peer_id();
         let mut swarm = SwarmBuilder::with_existing_identity(key.clone())
             .with_tokio()
@@ -122,6 +122,20 @@ impl MeshTransport for Libp2pTransport {
     async fn publish_scoped(&mut self, scope: ScopeId, payload: Vec<u8>) -> anyhow::Result<()> {
         let topic = gossipsub::IdentTopic::new(scope);
         self.swarm.behaviour_mut().gossip.publish(topic, payload)?;
+        Ok(())
+    }
+
+    async fn subscribe_scope(&mut self, scope: ScopeId) -> anyhow::Result<()> {
+        let topic = gossipsub::IdentTopic::new(scope.clone());
+        self.swarm.behaviour_mut().gossip.subscribe(&topic)?;
+        tracing::info!("subscribed to gossip topic: {scope}");
+        Ok(())
+    }
+
+    async fn unsubscribe_scope(&mut self, scope: ScopeId) -> anyhow::Result<()> {
+        let topic = gossipsub::IdentTopic::new(scope.clone());
+        self.swarm.behaviour_mut().gossip.unsubscribe(&topic)?;
+        tracing::info!("unsubscribed from gossip topic: {scope}");
         Ok(())
     }
 
@@ -267,31 +281,6 @@ impl Libp2pTransport {
 
 #[allow(dead_code)]
 fn _assert_response_type(_: DirectMessageResponse) {}
-
-/// Opens or creates the sled-backed identity store at `path` and returns the node's Ed25519 keypair.
-pub fn load_or_create_keypair(path: &str) -> anyhow::Result<identity::Keypair> {
-    if let Some(parent) = Path::new(path).parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-    let db = sled::open(path)?;
-    let tree = db.open_tree("identity")?;
-    if let Some(bytes) = tree.get(b"ed25519_secret_key")? {
-        let mut secret_bytes = bytes.to_vec();
-        let secret = identity::ed25519::SecretKey::try_from_bytes(&mut secret_bytes)
-            .map_err(|e| anyhow::anyhow!("invalid stored ed25519 secret key: {e}"))?;
-        let ed = identity::ed25519::Keypair::from(secret);
-        Ok(identity::Keypair::from(ed))
-    } else {
-        let keypair = identity::Keypair::generate_ed25519();
-        let ed = keypair
-            .clone()
-            .try_into_ed25519()
-            .map_err(|_| anyhow::anyhow!("generated non-ed25519 keypair"))?;
-        tree.insert(b"ed25519_secret_key", ed.secret().as_ref())?;
-        tree.flush()?;
-        Ok(keypair)
-    }
-}
 
 fn message_id_for_wire(message: &WireMessage) -> String {
     match message {

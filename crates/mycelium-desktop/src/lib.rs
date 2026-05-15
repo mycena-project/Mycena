@@ -1,10 +1,12 @@
 use async_trait::async_trait;
 use mycelium_app::envelope::AppMessage;
 use mycelium_app::groups::Group;
-use mycelium_app::node::AppNode;
+use mycelium_app::node::{AppInbox, AppNode};
 use mycelium_app::notify::NoopNotifier;
 use mycelium_app::storage::AppStorage;
 use mycelium_coin::{address_from_keypair, CoinNode, CoinTransport, LocalLedger};
+use mycelium_core::bootstrap::{load_custom_bootstrap_peers, save_custom_bootstrap_peers};
+use mycelium_core::energy::NodeState;
 use mycelium_node::{NodeCommand, NodeConfig, NodeHandle, NodeRunner};
 use serde_json::json;
 use std::sync::Arc;
@@ -19,6 +21,8 @@ pub struct AppState {
     coin_node: Arc<CoinNode>,
     local_peer_id: String,
     coin_identity_path: String,
+    db_path: String,
+    energy_state: NodeState,
 }
 
 type SharedState = Arc<RwLock<Option<AppState>>>;
@@ -68,6 +72,7 @@ fn get_default_db_path() -> String {
 
 #[tauri::command]
 async fn start_node(
+    app: AppHandle,
     state: State<'_, SharedState>,
     db_path: String,
     display_name: String,
@@ -89,6 +94,7 @@ async fn start_node(
         bootstrap_peers,
         connectivity_rx: None,
         display_name: Some(display_name.clone()),
+        storage_key: None,
     };
     let (runner, handle) = NodeRunner::new(config).map_err(|e| e.to_string())?;
     let local_peer_id = runner.local_peer_id().to_string();
@@ -119,16 +125,18 @@ async fn start_node(
         identity_path,
     ));
 
-    let (app_node, _inbox) = AppNode::new(
+    let (app_node, inbox) = AppNode::new(
         handle.clone(),
         local_peer_id.clone(),
         display_name,
         app_storage.clone(),
         Arc::new(NoopNotifier),
         Some(coin_node.clone()),
+        Some(app_store.clone()),
     );
     let app_node = Arc::new(app_node);
     app_node.clone().start_incoming_task();
+    setup_inbox_emitter(app, inbox);
 
     *state.write().await = Some(AppState {
         handle,
@@ -138,6 +146,8 @@ async fn start_node(
         coin_node,
         local_peer_id: local_peer_id.clone(),
         coin_identity_path: format!("{db_path}/identity"),
+        db_path: db_path.clone(),
+        energy_state: NodeState::Active,
     });
 
     Ok(local_peer_id)
@@ -627,78 +637,195 @@ async fn miniapp_bridge_call(
 ) -> Result<serde_json::Value, String> {
     let g = state.read().await;
     let s = g.as_ref().ok_or_else(|| "node not started".to_string())?;
-    match method.as_str() {
-        "identity.get" => Ok(json!({
-            "peer_id": s.local_peer_id,
-            "display_name": s.app_node.display_name().await,
-            "enc_pubkey": s.handle.local_enc_pubkey_hex(),
-        })),
-        "app.get_id" => Ok(json!(app_id)),
-        "app.get_version" => Ok(json!(env!("CARGO_PKG_VERSION"))),
-        "util.now" => Ok(json!(mycelium_core::data::now_ms())),
-        "messaging.send" => {
-            let to = args
-                .get("to_peer")
-                .and_then(|x| x.as_str())
-                .ok_or_else(|| "to_peer required".to_string())?;
-            let payload = args
-                .get("payload")
-                .and_then(|x| x.as_str())
-                .ok_or_else(|| "payload required".to_string())?;
-            s.app_node
-                .send_chat_encrypted(to.to_string(), payload.to_string())
-                .await
-                .map_err(|e| e.to_string())?;
-            Ok(json!("ok"))
-        }
-        "storage.get" => {
-            let key = args
-                .get("key")
-                .and_then(|x| x.as_str())
-                .ok_or_else(|| "key required".to_string())?;
-            let v = s
-                .app_store
-                .miniapp_storage_get(&app_id, key)
-                .map_err(|e| e.to_string())?;
-            Ok(json!(v))
-        }
-        "storage.set" => {
-            let key = args
-                .get("key")
-                .and_then(|x| x.as_str())
-                .ok_or_else(|| "key required".to_string())?;
-            let value = args
-                .get("value")
-                .and_then(|x| x.as_str())
-                .ok_or_else(|| "value required".to_string())?;
-            s.app_store
-                .miniapp_storage_set(&app_id, key, value)
-                .map_err(|e| e.to_string())?;
-            Ok(json!("ok"))
-        }
-        "storage.delete" => {
-            let key = args
-                .get("key")
-                .and_then(|x| x.as_str())
-                .ok_or_else(|| "key required".to_string())?;
-            s.app_store
-                .miniapp_storage_delete(&app_id, key)
-                .map_err(|e| e.to_string())?;
-            Ok(json!("ok"))
-        }
-        "bulletin.get" => {
-            let scope = args
-                .get("scope")
-                .and_then(|x| x.as_str())
-                .ok_or_else(|| "scope required".to_string())?;
-            let list = s
-                .app_node
-                .bulletins_for_scope(scope)
-                .map_err(|e| e.to_string())?;
-            serde_json::to_value(&list).map_err(|e| e.to_string())
-        }
-        _ => Err(format!("unsupported method: {method}")),
+    let manifest = s
+        .app_store
+        .get_manifest(&app_id)
+        .map_err(|e| e.to_string())?;
+    let permissions = manifest.map(|m| m.permissions).unwrap_or_default();
+    let enc = s.handle.local_enc_pubkey_hex();
+    let host = mycelium_app::miniapp::bridge_host::BridgeHost::new(
+        app_id,
+        permissions,
+        s.app_node.clone(),
+        s.app_storage.clone(),
+        s.app_store.clone(),
+        Some(s.coin_node.clone()),
+        s.local_peer_id.clone(),
+        enc,
+    );
+    host.handle(&method, &args).await
+}
+
+fn node_state_label(state: NodeState) -> &'static str {
+    match state {
+        NodeState::Active => "Active",
+        NodeState::Intermittent => "Intermittent",
+        NodeState::Passive => "Passive",
     }
+}
+
+fn parse_energy_state(energy_state: &str) -> Result<NodeState, String> {
+    match energy_state {
+        "Active" => Ok(NodeState::Active),
+        "Intermittent" => Ok(NodeState::Intermittent),
+        "Passive" => Ok(NodeState::Passive),
+        other => Err(format!("unknown energy state: {other}")),
+    }
+}
+
+#[tauri::command]
+async fn get_settings(state: State<'_, SharedState>) -> Result<serde_json::Value, String> {
+    let guard = state.read().await;
+    let Some(s) = guard.as_ref() else {
+        return Ok(json!({}));
+    };
+    let display_name = s.app_node.display_name().await;
+    Ok(json!({
+        "display_name": display_name,
+        "energy_state": node_state_label(s.energy_state),
+        "local_peer_id": s.local_peer_id,
+    }))
+}
+
+#[tauri::command]
+async fn set_display_name(state: State<'_, SharedState>, name: String) -> Result<(), String> {
+    let guard = state.read().await;
+    let s = guard.as_ref().ok_or_else(|| "node not started".to_string())?;
+    s.app_node.set_display_name(name).await;
+    Ok(())
+}
+
+#[tauri::command]
+async fn set_energy_state(
+    state: State<'_, SharedState>,
+    energy_state: String,
+) -> Result<(), String> {
+    let ns = parse_energy_state(&energy_state)?;
+    let mut guard = state.write().await;
+    let s = guard.as_mut().ok_or_else(|| "node not started".to_string())?;
+    s.handle
+        .send(NodeCommand::SetEnergyState(ns))
+        .await
+        .map_err(|e| e.to_string())?;
+    s.energy_state = ns;
+    Ok(())
+}
+
+#[tauri::command]
+async fn get_store_stats(state: State<'_, SharedState>) -> Result<serde_json::Value, String> {
+    let guard = state.read().await;
+    let Some(s) = guard.as_ref() else {
+        return Ok(json!({"count": 0, "oldest_ms": 0}));
+    };
+    let stats = s.handle.store_stats().await.map_err(|e| e.to_string())?;
+    Ok(json!({
+        "count": stats.count,
+        "oldest_ms": stats.oldest_ms,
+    }))
+}
+
+#[tauri::command]
+async fn run_gc(state: State<'_, SharedState>) -> Result<u64, String> {
+    let guard = state.read().await;
+    let s = guard.as_ref().ok_or_else(|| "node not started".to_string())?;
+    let deleted = s.handle.gc_now().await.map_err(|e| e.to_string())?;
+    Ok(deleted as u64)
+}
+
+#[tauri::command]
+async fn get_custom_bootstrap_peers(state: State<'_, SharedState>) -> Result<Vec<String>, String> {
+    let guard = state.read().await;
+    let Some(s) = guard.as_ref() else {
+        return Ok(vec![]);
+    };
+    Ok(load_custom_bootstrap_peers(&s.db_path))
+}
+
+#[tauri::command]
+async fn set_custom_bootstrap_peers(
+    state: State<'_, SharedState>,
+    peers: Vec<String>,
+) -> Result<(), String> {
+    let mut guard = state.write().await;
+    let s = guard.as_mut().ok_or_else(|| "node not started".to_string())?;
+    save_custom_bootstrap_peers(&s.db_path, &peers).map_err(|e| e.to_string())?;
+    for multiaddr in &peers {
+        if let Err(e) = s
+            .handle
+            .send(NodeCommand::AddBootstrapPeer {
+                multiaddr: multiaddr.clone(),
+            })
+            .await
+        {
+            tracing::warn!("failed to dial bootstrap peer {multiaddr}: {e}");
+        }
+    }
+    Ok(())
+}
+
+/// Immediately deletes all local data and restarts the app.
+#[tauri::command]
+async fn panic_wipe(app: AppHandle, state: State<'_, SharedState>) -> Result<(), String> {
+    let db_path = {
+        let guard = state.read().await;
+        guard.as_ref().map(|s| s.db_path.clone())
+    };
+
+    {
+        let mut guard = state.write().await;
+        *guard = None;
+    }
+
+    if let Some(path) = db_path {
+        if std::path::Path::new(&path).exists() {
+            std::fs::remove_dir_all(&path)
+                .map_err(|e| format!("failed to wipe data: {e}"))?;
+            tracing::info!("PANIC WIPE: deleted {path}");
+        }
+    }
+
+    app.restart();
+}
+
+fn setup_inbox_emitter(app: AppHandle, mut inbox: AppInbox) {
+    tauri::async_runtime::spawn(async move {
+        loop {
+            tokio::select! {
+                result = inbox.chat_rx.recv() => {
+                    match result {
+                        Ok(_) | Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {
+                            let _ = app.emit("chat-updated", ());
+                        }
+                        Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                    }
+                }
+                result = inbox.mail_rx.recv() => {
+                    match result {
+                        Ok(_) | Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {
+                            let _ = app.emit("mail-updated", ());
+                        }
+                        Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                    }
+                }
+                result = inbox.bulletin_rx.recv() => {
+                    match result {
+                        Ok(_) | Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {
+                            let _ = app.emit("bulletin-updated", ());
+                        }
+                        Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                    }
+                }
+                result = inbox.appstore_rx.recv() => {
+                    match result {
+                        Ok(_) | Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {
+                            let _ = app.emit("appstore-updated", ());
+                        }
+                        Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                    }
+                }
+            }
+        }
+    });
 }
 
 fn setup_event_emitter(app_handle: AppHandle, state: SharedState) {
@@ -765,6 +892,14 @@ pub fn run() {
             miniapp_browse_store,
             miniapp_get_entry_html,
             miniapp_bridge_call,
+            get_settings,
+            set_display_name,
+            set_energy_state,
+            get_store_stats,
+            run_gc,
+            get_custom_bootstrap_peers,
+            set_custom_bootstrap_peers,
+            panic_wipe,
         ])
         .run(tauri::generate_context!())
         .expect("error running tauri application");

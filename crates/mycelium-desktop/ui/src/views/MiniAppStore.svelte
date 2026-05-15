@@ -1,5 +1,6 @@
 <script>
   import { invoke } from "@tauri-apps/api/core";
+  import { listen } from "@tauri-apps/api/event";
 
   let { onOpenApp = () => {} } = $props();
 
@@ -45,6 +46,11 @@
 
   $effect(() => {
     refresh();
+    const unsubs = [];
+    (async () => {
+      unsubs.push(await listen("appstore-updated", refresh));
+    })();
+    return () => unsubs.forEach((u) => u?.());
   });
 </script>
 

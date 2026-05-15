@@ -1,3 +1,4 @@
+pub mod at_rest;
 pub mod bootstrap;
 pub mod crypto;
 pub mod data;

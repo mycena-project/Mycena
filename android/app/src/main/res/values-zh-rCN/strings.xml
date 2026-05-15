@@ -49,6 +49,13 @@
     <string name="wallet_share_request">分享收款请求</string>
     <string name="wallet_payment_qr">付款二维码</string>
     <string name="settings_mini_apps">迷你应用</string>
+    <string name="settings_danger_zone">危险区域</string>
+    <string name="settings_panic_description">Panic wipe 会立即删除所有本地消息、密钥和钱包数据。如需快速清除设备上的敏感数据请使用。</string>
+    <string name="settings_panic_button">Panic wipe — 删除所有数据</string>
+    <string name="settings_panic_confirm_title">确定吗？</string>
+    <string name="settings_panic_confirm_body">这将永久删除所有消息、身份密钥和钱包数据，无法撤销。</string>
+    <string name="settings_panic_confirm_yes">全部删除</string>
+    <string name="settings_panic_confirm_no">取消</string>
     <string name="miniapp_store_title">迷你应用</string>
     <string name="miniapp_installed">已安装</string>
     <string name="miniapp_catalog">目录（本地缓存）</string>

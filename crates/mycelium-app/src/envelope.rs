@@ -13,6 +13,7 @@ pub enum AppId {
     Bulletin,
     Mail,
     Coin,
+    AppStore,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -22,6 +23,8 @@ pub enum AppPayload {
     Mail(MailMessage),
     /// `bincode` of [`mycelium_coin::CoinPayload`].
     Coin(Vec<u8>),
+    /// Mini-app store listing propagated on scope `mycelium/appstore/v1`.
+    AppStoreListing(Box<crate::miniapp::store::AppStoreListing>),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

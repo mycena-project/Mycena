@@ -11,6 +11,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import network.mycelium.app.MeshEvent
+import network.mycelium.app.meshEvents
 import network.mycelium.bindings.AppStoreListing
 import network.mycelium.bindings.MiniAppInfo
 import network.mycelium.bindings.mycelium
@@ -27,6 +29,13 @@ class MiniAppViewModel(application: Application) : AndroidViewModel(application)
 
     init {
         refresh()
+        viewModelScope.launch {
+            application.meshEvents().collect {
+                if (it == MeshEvent.AppStore) {
+                    refresh()
+                }
+            }
+        }
     }
 
     fun refresh() {
@@ -61,9 +70,9 @@ class MiniAppViewModel(application: Application) : AndroidViewModel(application)
                             }
                             return@launch
                         }
-                mycelium.installApp(bytes)
+                val info = mycelium.installApp(bytes)
                 withContext(Dispatchers.Main) {
-                    _toast.value = "Installed"
+                    _toast.value = "Installed ${info.name}"
                     refresh()
                 }
             } catch (e: Exception) {

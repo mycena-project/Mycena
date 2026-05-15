@@ -53,6 +53,13 @@
     <string name="wallet_share_request">Поделиться запросом</string>
     <string name="wallet_payment_qr">QR оплаты</string>
     <string name="settings_mini_apps">Мини-приложения</string>
+    <string name="settings_danger_zone">Опасная зона</string>
+    <string name="settings_panic_description">Panic wipe немедленно удаляет все локальные сообщения, ключи и данные кошелька. Используйте, если нужно быстро очистить конфиденциальные данные с устройства.</string>
+    <string name="settings_panic_button">Panic wipe — удалить все данные</string>
+    <string name="settings_panic_confirm_title">Вы уверены?</string>
+    <string name="settings_panic_confirm_body">Это навсегда удалит все сообщения, ключ идентичности и данные кошелька. Отменить нельзя.</string>
+    <string name="settings_panic_confirm_yes">Удалить всё</string>
+    <string name="settings_panic_confirm_no">Отмена</string>
     <string name="miniapp_store_title">Мини-приложения</string>
     <string name="miniapp_installed">Установленные</string>
     <string name="miniapp_catalog">Каталог (кэш)</string>

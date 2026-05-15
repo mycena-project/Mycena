@@ -15,6 +15,7 @@ hex = { workspace = true }
 mycelium-core = { path = "../mycelium-core" }
 mycelium-coin = { path = "../mycelium-coin" }
 mycelium-node = { path = "../mycelium-node" }
+libp2p.workspace = true
 rand.workspace = true
 serde.workspace = true
 serde_json.workspace = true

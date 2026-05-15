@@ -3061,6 +3061,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "keyring"
+version = "3.6.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eebcc3aff044e5944a8fbaf69eb277d11986064cba30c468730e8b9909fb551c"
+dependencies = [
+ "log",
+ "zeroize",
+]
+
+[[package]]
 name = "kuchikiki"
 version = "0.8.8-speedreader"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3916,6 +3926,7 @@ dependencies = [
  "blake3",
  "chrono",
  "hex",
+ "libp2p",
  "mycelium-coin",
  "mycelium-core",
  "mycelium-node",
@@ -3944,6 +3955,7 @@ dependencies = [
  "mycelium-core",
  "mycelium-node",
  "rppal",
+ "serde_json",
  "ssd1306",
  "tokio",
  "tracing",
@@ -3982,11 +3994,13 @@ dependencies = [
  "chacha20poly1305",
  "hex",
  "hkdf",
+ "keyring",
  "libp2p",
  "rand 0.8.6",
  "rand_core 0.6.4",
  "serde",
  "sha2",
+ "tempfile",
  "tracing",
  "x25519-dalek",
  "zeroize",

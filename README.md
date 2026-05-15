@@ -37,6 +37,9 @@ Build, UniFFI binding generation, emulator/device install, and E2E checks:
 Primary Rust checks (`fmt`, `clippy -D warnings`, `cargo test`) run on push/PR
 (see [`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
 
+Android debug build + unit tests: [`.github/workflows/android-ci.yml`](.github/workflows/android-ci.yml)
+(runs `./android/build.sh` and `./gradlew testDebugUnitTest`).
+
 Same org hygiene as other private repos: CodeQL (Rust, **no SARIF upload** —
 private repos), dependency review on PRs, Gitleaks secret scan, quality gate,
 Dependabot (GitHub Actions + Cargo) with a lightweight Dependabot-only `cargo check`
@@ -71,3 +74,9 @@ See [`docker-compose.yml`](docker-compose.yml) and [`docs/AGENT_CONTINUATION.md`
 Scoped dissemination, bloom anti-entropy, signing, GC, hop limits, reputation:
 
 - [`docs/network-hardening.md`](docs/network-hardening.md)
+
+## Security (users)
+
+What E2E, groups, panic wipe, and local key storage mean in plain language:
+
+- [`docs/security-for-users.md`](docs/security-for-users.md)

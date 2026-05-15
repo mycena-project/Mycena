@@ -344,6 +344,7 @@ impl SimulationRunner {
             bootstrap_peers: Vec::new(),
             connectivity_rx: None,
             display_name: None,
+            storage_key: None,
         };
         let (node_runner, handle) = NodeRunner::new_with_transport(config, Box::new(transport))?;
         let runner_task = tokio::spawn(async move { node_runner.run().await });

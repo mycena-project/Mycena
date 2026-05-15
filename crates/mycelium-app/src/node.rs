@@ -2,6 +2,7 @@ use crate::envelope::{
     AppId, AppMessage, AppPayload, Attachment, BulletinPost, ChatMessage, MailMessage,
 };
 use crate::groups::Group;
+use crate::miniapp::store::AppStoreListing;
 use crate::notify::NotificationSink;
 use crate::storage::AppStorage;
 use mycelium_coin::CoinNode;
@@ -18,9 +19,11 @@ pub struct AppNode {
     chat_tx: broadcast::Sender<ChatMessage>,
     bulletin_tx: broadcast::Sender<BulletinPost>,
     mail_tx: broadcast::Sender<MailMessage>,
+    appstore_tx: broadcast::Sender<AppStoreListing>,
     storage: Arc<AppStorage>,
     notifier: Arc<dyn NotificationSink>,
     coin: Option<Arc<CoinNode>>,
+    app_store: Option<Arc<crate::miniapp::AppStore>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -37,10 +40,12 @@ impl AppNode {
         storage: Arc<AppStorage>,
         notifier: Arc<dyn NotificationSink>,
         coin: Option<Arc<CoinNode>>,
+        app_store: Option<Arc<crate::miniapp::AppStore>>,
     ) -> (Self, AppInbox) {
         let (chat_tx, chat_rx) = broadcast::channel(256);
         let (bulletin_tx, bulletin_rx) = broadcast::channel(256);
         let (mail_tx, mail_rx) = broadcast::channel(256);
+        let (appstore_tx, appstore_rx) = broadcast::channel(64);
         let node = Self {
             handle,
             local_peer_id,
@@ -48,14 +53,17 @@ impl AppNode {
             chat_tx,
             bulletin_tx,
             mail_tx,
+            appstore_tx,
             storage,
             notifier,
             coin,
+            app_store,
         };
         let inbox = AppInbox {
             chat_rx,
             bulletin_rx,
             mail_rx,
+            appstore_rx,
         };
         (node, inbox)
     }
@@ -155,6 +163,36 @@ impl AppNode {
                         }
                     }
                 }
+                AppPayload::AppStoreListing(listing) => {
+                    let listing = listing.as_ref();
+                    match listing.verify_signature() {
+                        Ok(true) => {
+                            if let Some(ref store) = self.app_store {
+                                match store.cache_listing(listing) {
+                                    Err(e) => warn!(
+                                        "failed to cache app listing {}: {e}",
+                                        listing.manifest.id
+                                    ),
+                                    Ok(()) => {
+                                        tracing::info!(
+                                            "cached app listing: {} v{}",
+                                            listing.manifest.id,
+                                            listing.manifest.version
+                                        );
+                                        let _ = self.appstore_tx.send(listing.clone());
+                                    }
+                                }
+                            }
+                        }
+                        Ok(false) => {
+                            warn!(
+                                "rejected listing with invalid signature: {}",
+                                listing.manifest.id
+                            );
+                        }
+                        Err(e) => warn!("signature verification error: {e}"),
+                    }
+                }
             },
             Err(err) => {
                 if msg.body == "[encrypted]" {
@@ -230,6 +268,31 @@ impl AppNode {
                 })
                 .await?;
         }
+        Ok(())
+    }
+
+    /// Broadcast a chat payload on an arbitrary mesh scope (e.g. `mycelium/chat`).
+    pub async fn broadcast_chat(&self, scope: String, body: String) -> anyhow::Result<()> {
+        let display_name = self.display_name.read().await.clone();
+        let chat = ChatMessage {
+            id: uuid::Uuid::new_v4(),
+            from_display_name: display_name,
+            body: body.clone(),
+            timestamp_ms: mycelium_core::data::now_ms(),
+            reply_to: None,
+        };
+        let payload = AppMessage {
+            app_id: AppId::Chat,
+            payload: AppPayload::Chat(chat),
+        }
+        .encode()?;
+        self.handle
+            .send(NodeCommand::BroadcastPayload {
+                scope,
+                body,
+                payload,
+            })
+            .await?;
         Ok(())
     }
 
@@ -424,6 +487,31 @@ impl AppNode {
         self.storage.sent(limit)
     }
 
+    /// Publishes a signed app listing on gossip scope `mycelium/appstore/v1`.
+    pub async fn publish_app_listing(&self, listing: &AppStoreListing) -> anyhow::Result<()> {
+        if !listing.verify_signature()? {
+            anyhow::bail!("listing has invalid signature – sign with developer key first");
+        }
+        let payload = AppMessage {
+            app_id: AppId::AppStore,
+            payload: AppPayload::AppStoreListing(Box::new(listing.clone())),
+        }
+        .encode()?;
+        self.handle
+            .send(NodeCommand::BroadcastPayload {
+                scope: "mycelium/appstore/v1".into(),
+                body: format!("[app:{}]", listing.manifest.id),
+                payload,
+            })
+            .await?;
+        tracing::info!(
+            "published listing: {} v{}",
+            listing.manifest.id,
+            listing.manifest.version
+        );
+        Ok(())
+    }
+
     pub fn mark_mail_read(&self, mail_id: &uuid::Uuid) -> anyhow::Result<()> {
         self.storage.mark_read(mail_id)
     }
@@ -437,4 +525,91 @@ pub struct AppInbox {
     pub chat_rx: broadcast::Receiver<ChatMessage>,
     pub bulletin_rx: broadcast::Receiver<BulletinPost>,
     pub mail_rx: broadcast::Receiver<MailMessage>,
+    pub appstore_rx: broadcast::Receiver<AppStoreListing>,
+}
+
+#[cfg(test)]
+mod dispatch_tests {
+    use super::*;
+    use crate::envelope::{AppId, AppMessage};
+    use crate::miniapp::manifest::MiniAppManifest;
+    use crate::miniapp::store::{AppSource, AppStore};
+    use mycelium_core::data::Envelope;
+    use mycelium_core::transport::DirectMessage;
+
+    fn sample_manifest(peer_id: Option<String>) -> MiniAppManifest {
+        MiniAppManifest {
+            id: "com.test.app".into(),
+            name: "Test".into(),
+            description: "d".into(),
+            version: "0.1.0".into(),
+            developer: "T".into(),
+            developer_peer_id: peer_id,
+            entry: "index.html".into(),
+            icon_base64: None,
+            permissions: vec![],
+            min_mycelium_version: "0.1.0".into(),
+            accepts_payments: false,
+            payment_address: None,
+            categories: vec![],
+        }
+    }
+
+    #[tokio::test]
+    async fn appstore_listing_cached_after_dispatch() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let base = dir.path().to_str().expect("path");
+        let store = Arc::new(AppStore::open(&format!("{base}/miniapp")).expect("store"));
+        let storage = Arc::new(AppStorage::open(&format!("{base}/app")).expect("storage"));
+
+        let storage_key = blake3::derive_key("mycelium-test-vault", base.as_bytes());
+        let mut config = mycelium_node::NodeConfig::with_defaults(base);
+        config.storage_key = Some(storage_key);
+        let (runner, handle) = mycelium_node::NodeRunner::new(config).expect("node");
+        tokio::spawn(async move {
+            let _ = runner.run().await;
+        });
+
+        let keypair = mycelium_node::secrets::load_or_create_keypair(
+            &format!("{base}/identity"),
+            Some(storage_key),
+        )
+        .expect("identity");
+        let peer_id = keypair.public().to_peer_id().to_string();
+        let manifest = sample_manifest(Some(peer_id.clone()));
+        let listing = AppStoreListing::new_signed(
+            manifest,
+            b"bundle-bytes",
+            vec![AppSource::Peer(peer_id.clone())],
+            &keypair,
+        )
+        .expect("signed listing");
+
+        let (app_node, _) = AppNode::new(
+            handle,
+            peer_id,
+            "test".into(),
+            storage,
+            Arc::new(crate::notify::NoopNotifier),
+            None,
+            Some(store.clone()),
+        );
+        let app_node = Arc::new(app_node);
+
+        let app_msg = AppMessage {
+            app_id: AppId::AppStore,
+            payload: AppPayload::AppStoreListing(Box::new(listing.clone())),
+        };
+        let payload = app_msg.encode().expect("encode");
+        let dm = DirectMessage {
+            envelope: Envelope::new("remote-peer".into(), None, payload),
+            body: "[appstore]".into(),
+        };
+        app_node.dispatch_incoming(&dm).await;
+
+        let rows = store.browse_listings().expect("browse");
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].manifest.id, listing.manifest.id);
+        assert_eq!(rows[0].manifest.version, listing.manifest.version);
+    }
 }

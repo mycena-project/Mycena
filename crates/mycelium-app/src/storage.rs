@@ -186,6 +186,51 @@ impl AppStorage {
         }
         Ok(out)
     }
+
+    /// Mini-app bridge KV (`app:<app_id>:<user_key>`) in the main app sled DB.
+    pub fn miniapp_get(&self, scoped_key: &str) -> anyhow::Result<Option<String>> {
+        let tree = self.db.open_tree("miniapp_storage")?;
+        Ok(tree
+            .get(scoped_key.as_bytes())?
+            .map(|v| String::from_utf8_lossy(&v).into_owned()))
+    }
+
+    pub fn miniapp_set(&self, scoped_key: &str, value: &str) -> anyhow::Result<()> {
+        let tree = self.db.open_tree("miniapp_storage")?;
+        tree.insert(scoped_key.as_bytes(), value.as_bytes())?;
+        Ok(())
+    }
+
+    pub fn miniapp_delete(&self, scoped_key: &str) -> anyhow::Result<()> {
+        let tree = self.db.open_tree("miniapp_storage")?;
+        tree.remove(scoped_key.as_bytes())?;
+        Ok(())
+    }
+
+    pub fn miniapp_list(&self, scoped_prefix: &str) -> anyhow::Result<Vec<String>> {
+        let tree = self.db.open_tree("miniapp_storage")?;
+        let mut out = Vec::new();
+        for item in tree.scan_prefix(scoped_prefix.as_bytes()) {
+            let (k, _) = item?;
+            out.push(String::from_utf8_lossy(&k).into_owned());
+        }
+        out.sort();
+        Ok(out)
+    }
+
+    pub fn miniapp_clear_all_for_app(&self, app_id: &str) -> anyhow::Result<()> {
+        let prefix = format!("app:{app_id}:");
+        let tree = self.db.open_tree("miniapp_storage")?;
+        let keys: Vec<Vec<u8>> = tree
+            .scan_prefix(prefix.as_bytes())
+            .filter_map(|r| r.ok())
+            .map(|(k, _)| k.to_vec())
+            .collect();
+        for k in keys {
+            tree.remove(k)?;
+        }
+        Ok(())
+    }
 }
 
 fn newest_mails(tree: &sled::Tree, limit: usize) -> anyhow::Result<Vec<MailMessage>> {
@@ -203,4 +248,30 @@ fn ts_key(ts: u64) -> [u8; 8] {
 
 fn ts_uuid_key(ts: u64, id: Uuid) -> Vec<u8> {
     format!("{:020}:{id}", ts).into_bytes()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn miniapp_storage_isolation() {
+        let dir = tempfile::tempdir().unwrap();
+        let storage = AppStorage::open(dir.path().to_str().unwrap()).unwrap();
+
+        storage
+            .miniapp_set("app:com.app.a:key1", "value_a")
+            .unwrap();
+        storage
+            .miniapp_set("app:com.app.b:key1", "value_b")
+            .unwrap();
+
+        let a_keys = storage.miniapp_list("app:com.app.a:").unwrap();
+        assert_eq!(a_keys.len(), 1);
+        assert!(a_keys[0].contains("com.app.a"));
+
+        storage.miniapp_clear_all_for_app("com.app.a").unwrap();
+        let b_val = storage.miniapp_get("app:com.app.b:key1").unwrap();
+        assert_eq!(b_val.as_deref(), Some("value_b"));
+    }
 }

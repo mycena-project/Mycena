@@ -72,6 +72,13 @@
     <string name="settings_title">Settings</string>
     <string name="settings_display_name">Display Name</string>
     <string name="settings_display_name_hint">Your name in the network</string>
+    <string name="settings_identity_section">Identity</string>
+    <string name="settings_network_section">Network</string>
+    <string name="settings_bootstrap_peers">Custom bootstrap peers</string>
+    <string name="settings_bootstrap_hint">/dns4/mycelium-relay.fly.dev/tcp/4001/p2p/12D3KooW…</string>
+    <string name="settings_bootstrap_help">One per line. Leave empty to use the default relay.</string>
+    <string name="settings_save">Save settings</string>
+    <string name="settings_saved">✓ Saved</string>
     <string name="settings_energy">Energy Mode</string>
     <string name="settings_energy_active">Active (full forwarding)</string>
     <string name="settings_energy_intermittent">Intermittent (medium)</string>
@@ -83,6 +90,13 @@
     <string name="settings_version">Version</string>
     <string name="settings_open_wallet">Open wallet</string>
     <string name="settings_mini_apps">Mini apps</string>
+    <string name="settings_danger_zone">Danger zone</string>
+    <string name="settings_panic_description">Panic wipe immediately deletes all local messages, keys, and wallet data. Use if you need to quickly clear sensitive data from this device.</string>
+    <string name="settings_panic_button">Panic wipe – delete all data</string>
+    <string name="settings_panic_confirm_title">Are you sure?</string>
+    <string name="settings_panic_confirm_body">This will permanently delete all messages, your identity key, and wallet data. This cannot be undone.</string>
+    <string name="settings_panic_confirm_yes">Delete everything</string>
+    <string name="settings_panic_confirm_no">Cancel</string>
 
     <!-- Mini apps -->
     <string name="miniapp_store_title">Mini apps</string>

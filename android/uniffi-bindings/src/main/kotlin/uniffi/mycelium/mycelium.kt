@@ -669,16 +669,20 @@ internal interface UniffiCallbackInterfaceNodeEventCallbackMethod4 : com.sun.jna
     fun callback(`uniffiHandle`: Long,`post`: RustBuffer.ByValue,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
 }
 internal interface UniffiCallbackInterfaceNodeEventCallbackMethod5 : com.sun.jna.Callback {
+    fun callback(`uniffiHandle`: Long,`listing`: RustBuffer.ByValue,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
+}
+internal interface UniffiCallbackInterfaceNodeEventCallbackMethod6 : com.sun.jna.Callback {
     fun callback(`uniffiHandle`: Long,`mode`: RustBuffer.ByValue,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
 }
-@Structure.FieldOrder("onPeerDiscovered", "onPeerLost", "onChatReceived", "onMailReceived", "onBulletinReceived", "onConnectivityChanged", "uniffiFree")
+@Structure.FieldOrder("onPeerDiscovered", "onPeerLost", "onChatReceived", "onMailReceived", "onBulletinReceived", "onAppStoreListing", "onConnectivityChanged", "uniffiFree")
 internal open class UniffiVTableCallbackInterfaceNodeEventCallback(
     @JvmField internal var `onPeerDiscovered`: UniffiCallbackInterfaceNodeEventCallbackMethod0? = null,
     @JvmField internal var `onPeerLost`: UniffiCallbackInterfaceNodeEventCallbackMethod1? = null,
     @JvmField internal var `onChatReceived`: UniffiCallbackInterfaceNodeEventCallbackMethod2? = null,
     @JvmField internal var `onMailReceived`: UniffiCallbackInterfaceNodeEventCallbackMethod3? = null,
     @JvmField internal var `onBulletinReceived`: UniffiCallbackInterfaceNodeEventCallbackMethod4? = null,
-    @JvmField internal var `onConnectivityChanged`: UniffiCallbackInterfaceNodeEventCallbackMethod5? = null,
+    @JvmField internal var `onAppStoreListing`: UniffiCallbackInterfaceNodeEventCallbackMethod5? = null,
+    @JvmField internal var `onConnectivityChanged`: UniffiCallbackInterfaceNodeEventCallbackMethod6? = null,
     @JvmField internal var `uniffiFree`: UniffiCallbackInterfaceFree? = null,
 ) : Structure() {
     class UniffiByValue(
@@ -687,9 +691,10 @@ internal open class UniffiVTableCallbackInterfaceNodeEventCallback(
         `onChatReceived`: UniffiCallbackInterfaceNodeEventCallbackMethod2? = null,
         `onMailReceived`: UniffiCallbackInterfaceNodeEventCallbackMethod3? = null,
         `onBulletinReceived`: UniffiCallbackInterfaceNodeEventCallbackMethod4? = null,
-        `onConnectivityChanged`: UniffiCallbackInterfaceNodeEventCallbackMethod5? = null,
+        `onAppStoreListing`: UniffiCallbackInterfaceNodeEventCallbackMethod5? = null,
+        `onConnectivityChanged`: UniffiCallbackInterfaceNodeEventCallbackMethod6? = null,
         `uniffiFree`: UniffiCallbackInterfaceFree? = null,
-    ): UniffiVTableCallbackInterfaceNodeEventCallback(`onPeerDiscovered`,`onPeerLost`,`onChatReceived`,`onMailReceived`,`onBulletinReceived`,`onConnectivityChanged`,`uniffiFree`,), Structure.ByValue
+    ): UniffiVTableCallbackInterfaceNodeEventCallback(`onPeerDiscovered`,`onPeerLost`,`onChatReceived`,`onMailReceived`,`onBulletinReceived`,`onAppStoreListing`,`onConnectivityChanged`,`uniffiFree`,), Structure.ByValue
 
    internal fun uniffiSetValue(other: UniffiVTableCallbackInterfaceNodeEventCallback) {
         `onPeerDiscovered` = other.`onPeerDiscovered`
@@ -697,11 +702,15 @@ internal open class UniffiVTableCallbackInterfaceNodeEventCallback(
         `onChatReceived` = other.`onChatReceived`
         `onMailReceived` = other.`onMailReceived`
         `onBulletinReceived` = other.`onBulletinReceived`
+        `onAppStoreListing` = other.`onAppStoreListing`
         `onConnectivityChanged` = other.`onConnectivityChanged`
         `uniffiFree` = other.`uniffiFree`
     }
 
 }
+
+
+
 
 
 
@@ -937,6 +946,8 @@ internal interface UniffiLib : Library {
     ): Unit
     fun uniffi_mycelium_ffi_fn_func_metrics(uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
+    fun uniffi_mycelium_ffi_fn_func_miniapp_bridge_call(`appId`: RustBuffer.ByValue,`method`: RustBuffer.ByValue,`argsJson`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
     fun uniffi_mycelium_ffi_fn_func_miniapp_storage_delete(`appId`: RustBuffer.ByValue,`key`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
     fun uniffi_mycelium_ffi_fn_func_miniapp_storage_get(`appId`: RustBuffer.ByValue,`key`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
@@ -1147,6 +1158,8 @@ internal interface UniffiLib : Library {
     ): Short
     fun uniffi_mycelium_ffi_checksum_func_metrics(
     ): Short
+    fun uniffi_mycelium_ffi_checksum_func_miniapp_bridge_call(
+    ): Short
     fun uniffi_mycelium_ffi_checksum_func_miniapp_storage_delete(
     ): Short
     fun uniffi_mycelium_ffi_checksum_func_miniapp_storage_get(
@@ -1200,6 +1213,8 @@ internal interface UniffiLib : Library {
     fun uniffi_mycelium_ffi_checksum_method_nodeeventcallback_on_mail_received(
     ): Short
     fun uniffi_mycelium_ffi_checksum_method_nodeeventcallback_on_bulletin_received(
+    ): Short
+    fun uniffi_mycelium_ffi_checksum_method_nodeeventcallback_on_app_store_listing(
     ): Short
     fun uniffi_mycelium_ffi_checksum_method_nodeeventcallback_on_connectivity_changed(
     ): Short
@@ -1301,6 +1316,9 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_mycelium_ffi_checksum_func_metrics() != 29003.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_mycelium_ffi_checksum_func_miniapp_bridge_call() != 64158.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_mycelium_ffi_checksum_func_miniapp_storage_delete() != 10014.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
@@ -1380,6 +1398,9 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_mycelium_ffi_checksum_method_nodeeventcallback_on_bulletin_received() != 53694.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mycelium_ffi_checksum_method_nodeeventcallback_on_app_store_listing() != 29130.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_mycelium_ffi_checksum_method_nodeeventcallback_on_connectivity_changed() != 16580.toShort()) {
@@ -1955,7 +1976,11 @@ data class NodeConfig (
     var `dbPath`: kotlin.String, 
     var `listenAddr`: kotlin.String, 
     var `displayName`: kotlin.String, 
-    var `bootstrapPeers`: List<kotlin.String>
+    var `bootstrapPeers`: List<kotlin.String>, 
+    /**
+     * Optional 64-char hex (32 bytes) master key for at-rest encryption (Android).
+     */
+    var `storageKeyHex`: kotlin.String?
 ) {
     
     companion object
@@ -1971,6 +1996,7 @@ public object FfiConverterTypeNodeConfig: FfiConverterRustBuffer<NodeConfig> {
             FfiConverterString.read(buf),
             FfiConverterString.read(buf),
             FfiConverterSequenceString.read(buf),
+            FfiConverterOptionalString.read(buf),
         )
     }
 
@@ -1978,7 +2004,8 @@ public object FfiConverterTypeNodeConfig: FfiConverterRustBuffer<NodeConfig> {
             FfiConverterString.allocationSize(value.`dbPath`) +
             FfiConverterString.allocationSize(value.`listenAddr`) +
             FfiConverterString.allocationSize(value.`displayName`) +
-            FfiConverterSequenceString.allocationSize(value.`bootstrapPeers`)
+            FfiConverterSequenceString.allocationSize(value.`bootstrapPeers`) +
+            FfiConverterOptionalString.allocationSize(value.`storageKeyHex`)
     )
 
     override fun write(value: NodeConfig, buf: ByteBuffer) {
@@ -1986,6 +2013,7 @@ public object FfiConverterTypeNodeConfig: FfiConverterRustBuffer<NodeConfig> {
             FfiConverterString.write(value.`listenAddr`, buf)
             FfiConverterString.write(value.`displayName`, buf)
             FfiConverterSequenceString.write(value.`bootstrapPeers`, buf)
+            FfiConverterOptionalString.write(value.`storageKeyHex`, buf)
     }
 }
 
@@ -2246,6 +2274,8 @@ public interface NodeEventCallback {
     
     fun `onBulletinReceived`(`post`: BulletinPost)
     
+    fun `onAppStoreListing`(`listing`: AppStoreListing)
+    
     fun `onConnectivityChanged`(`mode`: ConnectivityMode)
     
     companion object
@@ -2346,7 +2376,19 @@ internal object uniffiCallbackInterfaceNodeEventCallback {
             uniffiTraitInterfaceCall(uniffiCallStatus, makeCall, writeReturn)
         }
     }
-    internal object `onConnectivityChanged`: UniffiCallbackInterfaceNodeEventCallbackMethod5 {
+    internal object `onAppStoreListing`: UniffiCallbackInterfaceNodeEventCallbackMethod5 {
+        override fun callback(`uniffiHandle`: Long,`listing`: RustBuffer.ByValue,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,) {
+            val uniffiObj = FfiConverterTypeNodeEventCallback.handleMap.get(uniffiHandle)
+            val makeCall = { ->
+                uniffiObj.`onAppStoreListing`(
+                    FfiConverterTypeAppStoreListing.lift(`listing`),
+                )
+            }
+            val writeReturn = { _: Unit -> Unit }
+            uniffiTraitInterfaceCall(uniffiCallStatus, makeCall, writeReturn)
+        }
+    }
+    internal object `onConnectivityChanged`: UniffiCallbackInterfaceNodeEventCallbackMethod6 {
         override fun callback(`uniffiHandle`: Long,`mode`: RustBuffer.ByValue,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,) {
             val uniffiObj = FfiConverterTypeNodeEventCallback.handleMap.get(uniffiHandle)
             val makeCall = { ->
@@ -2371,6 +2413,7 @@ internal object uniffiCallbackInterfaceNodeEventCallback {
         `onChatReceived`,
         `onMailReceived`,
         `onBulletinReceived`,
+        `onAppStoreListing`,
         `onConnectivityChanged`,
         uniffiFree,
     )
@@ -3006,6 +3049,15 @@ public object FfiConverterSequenceTypeTxInfo: FfiConverterRustBuffer<List<TxInfo
     uniffiRustCall() { _status ->
     UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_metrics(
         _status)
+}
+    )
+    }
+    
+ fun `miniappBridgeCall`(`appId`: kotlin.String, `method`: kotlin.String, `argsJson`: kotlin.String): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_miniapp_bridge_call(
+        FfiConverterString.lower(`appId`),FfiConverterString.lower(`method`),FfiConverterString.lower(`argsJson`),_status)
 }
     )
     }

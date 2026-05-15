@@ -8,11 +8,13 @@ import android.app.Service
 import android.content.Intent
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
+import network.mycelium.bindings.AppStoreListing
 import network.mycelium.bindings.BulletinPost
 import network.mycelium.bindings.ChatMessage
 import network.mycelium.bindings.MailMessage
-import network.mycelium.bindings.NodeConfig
 import network.mycelium.bindings.ConnectivityMode
+import network.mycelium.bindings.EnergyState
+import network.mycelium.bindings.NodeConfig
 import network.mycelium.bindings.NodeEventCallback
 import network.mycelium.bindings.mycelium
 import java.io.File
@@ -22,36 +24,55 @@ class MeshService : Service() {
         startForeground(NOTIFICATION_ID, buildNotification())
         val dbPath = filesDir.absolutePath + "/mycelium"
         File(dbPath).mkdirs()
+        val prefs = getSharedPreferences("settings", MODE_PRIVATE)
+        val displayName = prefs.getString("display_name", null)?.takeIf { it.isNotBlank() }
+            ?: "android-user"
+        val bootstrapPeers = prefs.getString("bootstrap_peers", "")
+            ?.lines()
+            ?.map { it.trim() }
+            ?.filter { it.isNotEmpty() }
+            ?: emptyList()
+        val storageKeyHex = StorageKeyHelper.getOrCreateStorageKeyHex(this)
         mycelium.initNode(
             NodeConfig(
                 dbPath = dbPath,
                 listenAddr = "/ip4/0.0.0.0/tcp/7761",
-                displayName = "android-user",
-                bootstrapPeers = emptyList(),
+                displayName = displayName,
+                bootstrapPeers = bootstrapPeers,
+                storageKeyHex = storageKeyHex,
             ),
         )
+        when (prefs.getString("energy_state", "Active")) {
+            "Intermittent" -> mycelium.setEnergyState(EnergyState.INTERMITTENT)
+            "Passive" -> mycelium.setEnergyState(EnergyState.PASSIVE)
+            else -> mycelium.setEnergyState(EnergyState.ACTIVE)
+        }
         mycelium.setEventCallback(
             object : NodeEventCallback {
                 override fun onPeerDiscovered(peerId: String) {
-                    sendBroadcast(Intent("mycelium.PEER_UP").putExtra("peer_id", peerId))
+                    sendBroadcast(Intent(MeshEvents.PEER_UP).putExtra("peer_id", peerId))
                 }
 
                 override fun onPeerLost(peerId: String) {
-                    sendBroadcast(Intent("mycelium.PEER_DOWN").putExtra("peer_id", peerId))
+                    sendBroadcast(Intent(MeshEvents.PEER_DOWN).putExtra("peer_id", peerId))
                 }
 
                 override fun onChatReceived(message: ChatMessage) {
                     showChatNotification(message)
-                    sendBroadcast(Intent("mycelium.CHAT_RECEIVED"))
+                    sendBroadcast(Intent(MeshEvents.CHAT))
                 }
 
                 override fun onMailReceived(message: MailMessage) {
                     showMailNotification(message)
-                    sendBroadcast(Intent("mycelium.MAIL_RECEIVED"))
+                    sendBroadcast(Intent(MeshEvents.MAIL))
                 }
 
                 override fun onBulletinReceived(post: BulletinPost) {
-                    sendBroadcast(Intent("mycelium.BULLETIN_RECEIVED"))
+                    sendBroadcast(Intent(MeshEvents.BULLETIN))
+                }
+
+                override fun onAppStoreListing(listing: AppStoreListing) {
+                    sendBroadcast(Intent(MeshEvents.APPSTORE))
                 }
 
                 override fun onConnectivityChanged(mode: ConnectivityMode) {

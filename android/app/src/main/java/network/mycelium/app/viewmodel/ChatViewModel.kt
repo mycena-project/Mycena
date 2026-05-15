@@ -4,13 +4,14 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import network.mycelium.app.MeshEvent
+import network.mycelium.app.meshEvents
 import network.mycelium.bindings.ChatMessage
 import network.mycelium.bindings.mycelium
 
@@ -19,25 +20,33 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     val peers: StateFlow<List<String>> =
         flow {
-            while (true) {
-                emit(mycelium.knownPeers())
-                delay(2_000)
+            emit(mycelium.knownPeers())
+            application.meshEvents().collect {
+                when (it) {
+                    MeshEvent.Chat, MeshEvent.PeerUp, MeshEvent.PeerDown -> emit(mycelium.knownPeers())
+                    else -> Unit
+                }
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     fun chatHistory(peerId: String): Flow<List<ChatMessage>> =
         flow {
-            while (true) {
-                emit(mycelium.chatHistory(peerId, 100u))
-                delay(1_000)
+            emit(mycelium.chatHistory(peerId, 100u))
+            application.meshEvents().collect {
+                if (it == MeshEvent.Chat) {
+                    emit(mycelium.chatHistory(peerId, 100u))
+                }
             }
         }
 
     fun peerHasEncKey(peerId: String): StateFlow<Boolean> =
         flow {
-            while (true) {
-                emit(mycelium.hasEncKeyFor(peerId))
-                delay(2_000)
+            emit(mycelium.hasEncKeyFor(peerId))
+            application.meshEvents().collect {
+                when (it) {
+                    MeshEvent.Chat, MeshEvent.PeerUp -> emit(mycelium.hasEncKeyFor(peerId))
+                    else -> Unit
+                }
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 

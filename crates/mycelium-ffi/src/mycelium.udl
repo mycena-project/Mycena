@@ -48,6 +48,7 @@ namespace mycelium {
   string? miniapp_storage_get(string app_id, string key);
   void miniapp_storage_set(string app_id, string key, string value);
   void miniapp_storage_delete(string app_id, string key);
+  string miniapp_bridge_call(string app_id, string method, string args_json);
 
   ConnectivityMode current_connectivity_mode();
 
@@ -82,6 +83,8 @@ dictionary NodeConfig {
   string listen_addr;
   string display_name;
   sequence<string> bootstrap_peers;
+  /// Optional 64-char hex (32 bytes) master key for at-rest encryption (Android).
+  string? storage_key_hex;
 };
 
 dictionary NodeMetrics {
@@ -186,5 +189,6 @@ callback interface NodeEventCallback {
   void on_chat_received(ChatMessage message);
   void on_mail_received(MailMessage message);
   void on_bulletin_received(BulletinPost post);
+  void on_app_store_listing(AppStoreListing listing);
   void on_connectivity_changed(ConnectivityMode mode);
 };

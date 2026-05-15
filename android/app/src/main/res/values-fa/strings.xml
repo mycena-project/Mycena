@@ -49,6 +49,13 @@
     <string name="wallet_share_request">اشتراک درخواست</string>
     <string name="wallet_payment_qr">QR پرداخت</string>
     <string name="settings_mini_apps">برنامه‌های کوچک</string>
+    <string name="settings_danger_zone">منطقه خطر</string>
+    <string name="settings_panic_description">Panic wipe بلافاصله همه پیام‌ها، کلیدها و داده‌های کیف پول محلی را حذف می‌کند. در صورت نیاز به پاک‌سازی سریع داده‌های حساس از این دستگاه استفاده کنید.</string>
+    <string name="settings_panic_button">Panic wipe — حذف همه داده‌ها</string>
+    <string name="settings_panic_confirm_title">مطمئن هستید؟</string>
+    <string name="settings_panic_confirm_body">این کار همه پیام‌ها، کلید هویت و داده‌های کیف پول را برای همیشه حذف می‌کند. قابل بازگشت نیست.</string>
+    <string name="settings_panic_confirm_yes">حذف همه</string>
+    <string name="settings_panic_confirm_no">لغو</string>
     <string name="miniapp_store_title">برنامه‌های کوچک</string>
     <string name="miniapp_installed">نصب‌شده</string>
     <string name="miniapp_catalog">کاتالوگ (ذخیرهٔ محلی)</string>

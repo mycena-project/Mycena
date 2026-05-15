@@ -59,3 +59,35 @@ pub fn load_bootstrap_peers(db_path: &str) -> Vec<String> {
     );
     BOOTSTRAP_PEERS.iter().map(|s| (*s).to_string()).collect()
 }
+
+/// Reads custom bootstrap peers from `<db_path>/bootstrap.txt` only (no env / built-in fallback).
+pub fn load_custom_bootstrap_peers(db_path: &str) -> Vec<String> {
+    let path = std::path::Path::new(db_path).join("bootstrap.txt");
+    if !path.exists() {
+        return Vec::new();
+    }
+    std::fs::read_to_string(&path)
+        .map(|content| {
+            content
+                .lines()
+                .map(str::trim)
+                .filter(|l| !l.is_empty() && !l.starts_with('#'))
+                .map(String::from)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Persists custom bootstrap peers to `<db_path>/bootstrap.txt`.
+pub fn save_custom_bootstrap_peers(db_path: &str, peers: &[String]) -> std::io::Result<()> {
+    std::fs::create_dir_all(db_path)?;
+    let path = std::path::Path::new(db_path).join("bootstrap.txt");
+    if peers.is_empty() {
+        if path.exists() {
+            std::fs::remove_file(path)?;
+        }
+        return Ok(());
+    }
+    std::fs::write(path, peers.join("\n"))
+}
+

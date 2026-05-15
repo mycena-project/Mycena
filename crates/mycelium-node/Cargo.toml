@@ -21,4 +21,6 @@ tokio.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]
+libp2p.workspace = true
+sled.workspace = true
 tempfile = "3"

@@ -1,5 +1,6 @@
 <script>
   import { invoke } from "@tauri-apps/api/core";
+  import { listen } from "@tauri-apps/api/event";
   let { peerId } = $props();
   let selectedPeer = $state("");
   let peers = $state([]);
@@ -26,8 +27,12 @@
 
   $effect(() => {
     refresh();
-    const t = setInterval(refresh, 2000);
-    return () => clearInterval(t);
+    const unsubs = [];
+    (async () => {
+      unsubs.push(await listen("chat-updated", refresh));
+      unsubs.push(await listen("metrics-updated", refresh));
+    })();
+    return () => unsubs.forEach((u) => u?.());
   });
 </script>
 

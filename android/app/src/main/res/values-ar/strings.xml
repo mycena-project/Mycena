@@ -43,6 +43,13 @@
     <string name="wallet_share_request">مشاركة الطلب</string>
     <string name="wallet_payment_qr">رمز QR للدفع</string>
     <string name="settings_mini_apps">تطبيقات مصغّرة</string>
+    <string name="settings_danger_zone">منطقة الخطر</string>
+    <string name="settings_panic_description">يحذف Panic wipe فورًا جميع الرسائل والمفاتيح وبيانات المحفظة المحلية. استخدمه إذا احتجت إلى مسح البيانات الحساسة بسرعة من هذا الجهاز.</string>
+    <string name="settings_panic_button">Panic wipe — حذف كل البيانات</string>
+    <string name="settings_panic_confirm_title">هل أنت متأكد؟</string>
+    <string name="settings_panic_confirm_body">سيحذف هذا جميع الرسائل ومفتاح الهوية وبيانات المحفظة نهائيًا. لا يمكن التراجع.</string>
+    <string name="settings_panic_confirm_yes">حذف كل شيء</string>
+    <string name="settings_panic_confirm_no">إلغاء</string>
     <string name="miniapp_store_title">تطبيقات مصغّرة</string>
     <string name="miniapp_installed">المثبّتة</string>
     <string name="miniapp_catalog">الكتالوج (مخبأ)</string>

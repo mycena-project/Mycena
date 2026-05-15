@@ -1,5 +1,6 @@
 //! Mini-app platform: manifests, `.mxa` bundles, local store, and JS bridge source.
 
+pub mod bridge_host;
 pub mod bundle;
 pub mod manifest;
 pub mod store;
