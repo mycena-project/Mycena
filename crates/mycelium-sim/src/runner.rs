@@ -60,6 +60,8 @@ pub struct SimulationRunner {
     pub delivered_ids: HashMap<String, u64>,
     pub metrics: SimulationMetrics,
     rng_state: u64,
+    /// Isolates sled DB paths per simulation run (avoids stale encrypted state in /tmp).
+    sim_run_id: u64,
     pub action_tx: mpsc::UnboundedSender<SimAction>,
     pub action_rx: mpsc::UnboundedReceiver<SimAction>,
 }
@@ -82,6 +84,7 @@ impl SimulationRunner {
             delivered_ids: HashMap::new(),
             metrics: SimulationMetrics::default(),
             rng_state: seed.max(1),
+            sim_run_id: seed,
             action_tx,
             action_rx,
         }
@@ -331,7 +334,8 @@ impl SimulationRunner {
         bandwidth: u64,
     ) -> anyhow::Result<SimNode> {
         let transport = self.build_transport(peer_id.clone(), bandwidth);
-        let db_path = sim_db_path(&peer_id);
+        let db_path = sim_db_path(self.sim_run_id, &peer_id);
+        let _ = std::fs::remove_dir_all(&db_path);
         std::fs::create_dir_all(&db_path)?;
         let config = NodeConfig {
             listen_addr: "/ip4/0.0.0.0/tcp/0"
@@ -355,8 +359,8 @@ impl SimulationRunner {
     }
 }
 
-fn sim_db_path(peer_id: &str) -> PathBuf {
-    std::env::temp_dir().join(format!("mycelium-sim-{}", peer_id))
+fn sim_db_path(run_id: u64, peer_id: &str) -> PathBuf {
+    std::env::temp_dir().join(format!("mycelium-sim-{run_id}-{peer_id}"))
 }
 
 fn wire_message_size(message: &WireMessage) -> usize {
