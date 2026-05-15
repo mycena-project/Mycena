@@ -17,7 +17,8 @@ import network.mycelium.bindings.AppStoreListing
 import network.mycelium.bindings.MiniAppInfo
 import network.mycelium.bindings.mycelium
 
-class MiniAppViewModel(application: Application) : AndroidViewModel(application) {
+class MiniAppViewModel(app: Application) : AndroidViewModel(app) {
+    private val appContext = getApplication<Application>()
     private val _installed = MutableStateFlow<List<MiniAppInfo>>(emptyList())
     val installed: StateFlow<List<MiniAppInfo>> = _installed.asStateFlow()
 
@@ -30,7 +31,7 @@ class MiniAppViewModel(application: Application) : AndroidViewModel(application)
     init {
         refresh()
         viewModelScope.launch {
-            application.meshEvents().collect {
+            appContext.meshEvents().collect {
                 if (it == MeshEvent.AppStore) {
                     refresh()
                 }

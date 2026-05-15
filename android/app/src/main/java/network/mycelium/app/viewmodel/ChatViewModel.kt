@@ -15,13 +15,15 @@ import network.mycelium.app.meshEvents
 import network.mycelium.bindings.ChatMessage
 import network.mycelium.bindings.mycelium
 
-class ChatViewModel(application: Application) : AndroidViewModel(application) {
+class ChatViewModel(app: Application) : AndroidViewModel(app) {
+    private val appContext = getApplication<Application>()
+
     val localPeerId: String get() = mycelium.localPeerId()
 
     val peers: StateFlow<List<String>> =
         flow {
             emit(mycelium.knownPeers())
-            application.meshEvents().collect {
+            appContext.meshEvents().collect {
                 when (it) {
                     MeshEvent.Chat, MeshEvent.PeerUp, MeshEvent.PeerDown -> emit(mycelium.knownPeers())
                     else -> Unit
@@ -32,7 +34,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     fun chatHistory(peerId: String): Flow<List<ChatMessage>> =
         flow {
             emit(mycelium.chatHistory(peerId, 100u))
-            application.meshEvents().collect {
+            appContext.meshEvents().collect {
                 if (it == MeshEvent.Chat) {
                     emit(mycelium.chatHistory(peerId, 100u))
                 }
@@ -42,7 +44,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     fun peerHasEncKey(peerId: String): StateFlow<Boolean> =
         flow {
             emit(mycelium.hasEncKeyFor(peerId))
-            application.meshEvents().collect {
+            appContext.meshEvents().collect {
                 when (it) {
                     MeshEvent.Chat, MeshEvent.PeerUp -> emit(mycelium.hasEncKeyFor(peerId))
                     else -> Unit

@@ -12,11 +12,13 @@ import network.mycelium.app.meshEvents
 import network.mycelium.bindings.MailMessage
 import network.mycelium.bindings.mycelium
 
-class MailViewModel(application: Application) : AndroidViewModel(application) {
+class MailViewModel(app: Application) : AndroidViewModel(app) {
+    private val appContext = getApplication<Application>()
+
     val inbox: StateFlow<List<MailMessage>> =
         flow {
             emit(mycelium.mailInbox(100u))
-            application.meshEvents().collect {
+            appContext.meshEvents().collect {
                 if (it == MeshEvent.Mail) {
                     emit(mycelium.mailInbox(100u))
                 }
