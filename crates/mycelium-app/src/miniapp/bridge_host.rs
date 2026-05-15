@@ -253,10 +253,7 @@ impl BridgeHost {
                     .get("body")
                     .and_then(|x| x.as_str())
                     .ok_or_else(|| "missing body".to_string())?;
-                let ttl = args
-                    .get("ttl_secs")
-                    .and_then(json_as_u64)
-                    .unwrap_or(86_400);
+                let ttl = args.get("ttl_secs").and_then(json_as_u64).unwrap_or(86_400);
                 self.app_node
                     .post_bulletin(scope.into(), title.into(), body.into(), ttl)
                     .await

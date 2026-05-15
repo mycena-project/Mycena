@@ -7,7 +7,9 @@ use mycelium_app::node::AppNode;
 use mycelium_app::notify::NoopNotifier;
 use mycelium_app::storage::AppStorage;
 use mycelium_core::energy::NodeState;
-use mycelium_node::{load_or_create_keypair, ConnectivityMonitor, NodeCommand, NodeConfig, NodeRunner};
+use mycelium_node::{
+    load_or_create_keypair, ConnectivityMonitor, NodeCommand, NodeConfig, NodeRunner,
+};
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::io::{self, AsyncBufReadExt};
@@ -173,7 +175,9 @@ async fn cmd_app_publish_live(
     });
 
     let app_storage = Arc::new(AppStorage::open(&format!("{db}/app"))?);
-    let app_store = Arc::new(mycelium_app::miniapp::AppStore::open(&format!("{db}/miniapp"))?);
+    let app_store = Arc::new(mycelium_app::miniapp::AppStore::open(&format!(
+        "{db}/miniapp"
+    ))?);
     let (app_node, _inbox) = AppNode::new(
         handle.clone(),
         publisher_peer,

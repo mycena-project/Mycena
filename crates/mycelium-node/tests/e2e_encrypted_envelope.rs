@@ -1,6 +1,6 @@
 //! E2E decrypt must not attach a misleading libp2p envelope signature.
 
-use mycelium_core::crypto::{encrypt_for, decrypt_with, EncryptionKeypair};
+use mycelium_core::crypto::{decrypt_with, encrypt_for, EncryptionKeypair};
 use mycelium_core::data::Envelope;
 use mycelium_core::e2e_direct_wrap;
 use mycelium_core::transport::{DirectMessage, WireMessage};
@@ -33,11 +33,7 @@ fn encrypted_direct_decrypt_has_no_mesh_signature() {
     assert_eq!(logical_from, author);
     assert_eq!(app_bytes, app_payload);
 
-    let envelope = Envelope::new(
-        logical_from,
-        Some("12D3KooWRecipient".into()),
-        app_bytes,
-    );
+    let envelope = Envelope::new(logical_from, Some("12D3KooWRecipient".into()), app_bytes);
     assert!(
         envelope.signature.is_none(),
         "E2E local delivery must not add a mesh signature from the recipient's libp2p key"

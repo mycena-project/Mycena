@@ -75,7 +75,9 @@ fn keypair_from_ed25519_secret(secret: &[u8]) -> anyhow::Result<identity::Keypai
     let mut secret_bytes = secret.to_vec();
     let sk = identity::ed25519::SecretKey::try_from_bytes(&mut secret_bytes)
         .map_err(|e| anyhow::anyhow!("invalid ed25519 secret: {e}"))?;
-    Ok(identity::Keypair::from(identity::ed25519::Keypair::from(sk)))
+    Ok(identity::Keypair::from(identity::ed25519::Keypair::from(
+        sk,
+    )))
 }
 
 fn ed25519_secret_bytes(keypair: &identity::Keypair) -> anyhow::Result<Vec<u8>> {
@@ -96,9 +98,7 @@ fn enc_from_secret_bytes(bytes: &[u8]) -> anyhow::Result<EncryptionKeypair> {
 fn read_legacy_sled_identity(path: &str) -> anyhow::Result<Option<Vec<u8>>> {
     let db = sled::open(path)?;
     let tree = db.open_tree("identity")?;
-    Ok(tree
-        .get(b"ed25519_secret_key")?
-        .map(|v| v.to_vec()))
+    Ok(tree.get(b"ed25519_secret_key")?.map(|v| v.to_vec()))
 }
 
 fn remove_legacy_sled_secret(path: &str) -> anyhow::Result<()> {

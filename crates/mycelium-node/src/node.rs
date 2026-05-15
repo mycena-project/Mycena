@@ -23,11 +23,7 @@ use tokio::time::{interval, MissedTickBehavior};
 use tracing::{debug, info, warn};
 
 /// Scopes subscribed on the libp2p gossip layer at node startup.
-pub const SYSTEM_SCOPES: &[&str] = &[
-    "mycelium/chat",
-    "mycelium/coin/v1",
-    "mycelium/appstore/v1",
-];
+pub const SYSTEM_SCOPES: &[&str] = &["mycelium/chat", "mycelium/coin/v1", "mycelium/appstore/v1"];
 
 #[derive(Debug, Clone)]
 pub struct NodeConfig {
@@ -211,9 +207,7 @@ impl NodeHandle {
 
     pub async fn gc_now(&self) -> anyhow::Result<usize> {
         let (tx, rx) = tokio::sync::oneshot::channel();
-        self.tx
-            .send(NodeCommand::GcNow { reply: Some(tx) })
-            .await?;
+        self.tx.send(NodeCommand::GcNow { reply: Some(tx) }).await?;
         rx.await
             .map_err(|_| anyhow::anyhow!("gc response channel closed"))
     }

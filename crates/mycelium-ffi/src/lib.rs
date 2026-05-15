@@ -968,11 +968,7 @@ pub fn miniapp_bridge_call(app_id: String, method: String, args_json: String) ->
         let st = state_arc();
         let guard = st.read().await;
         let args: Value = serde_json::from_str(&args_json).unwrap_or(Value::Null);
-        let manifest = guard
-            .app_store
-            .get_manifest(&app_id)
-            .ok()
-            .flatten();
+        let manifest = guard.app_store.get_manifest(&app_id).ok().flatten();
         let permissions = manifest.map(|m| m.permissions).unwrap_or_default();
         let enc = guard.app_node.node_handle().local_enc_pubkey_hex();
         let host = mycelium_app::miniapp::bridge_host::BridgeHost::new(
@@ -987,7 +983,9 @@ pub fn miniapp_bridge_call(app_id: String, method: String, args_json: String) ->
         );
         match host.handle(&method, &args).await {
             Ok(v) => serde_json::to_string(&v).unwrap_or_else(|_| "{}".to_string()),
-            Err(e) => serde_json::to_string(&json!({ "error": e })).unwrap_or_else(|_| "{}".to_string()),
+            Err(e) => {
+                serde_json::to_string(&json!({ "error": e })).unwrap_or_else(|_| "{}".to_string())
+            }
         }
     })
 }

@@ -90,4 +90,3 @@ pub fn save_custom_bootstrap_peers(db_path: &str, peers: &[String]) -> std::io::
     }
     std::fs::write(path, peers.join("\n"))
 }
-

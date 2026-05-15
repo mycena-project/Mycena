@@ -65,8 +65,8 @@ impl SecretVault {
 
 /// Parse 64-char hex into a 32-byte storage key (Android).
 pub fn parse_storage_key_hex(hex_str: &str) -> anyhow::Result<[u8; KEY_LEN]> {
-    let bytes = hex::decode(hex_str.trim())
-        .map_err(|e| anyhow::anyhow!("invalid storage_key hex: {e}"))?;
+    let bytes =
+        hex::decode(hex_str.trim()).map_err(|e| anyhow::anyhow!("invalid storage_key hex: {e}"))?;
     bytes
         .try_into()
         .map_err(|_| anyhow::anyhow!("storage_key must be 32 bytes (64 hex chars)"))

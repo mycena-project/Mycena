@@ -50,15 +50,18 @@ impl AppStore {
 
         let manifest = bundle.manifest.clone();
         let key = manifest.id.as_bytes();
-        self.installed
-            .insert(key, serde_json::to_vec(&manifest)?)?;
+        self.installed.insert(key, serde_json::to_vec(&manifest)?)?;
 
         let files_tree = self.db.open_tree(format!("app_files:{}", manifest.id))?;
         for (path, data) in &bundle.files {
             files_tree.insert(path.as_bytes(), data.as_slice())?;
         }
 
-        tracing::info!("installed mini-app: {} v{}", manifest.name, manifest.version);
+        tracing::info!(
+            "installed mini-app: {} v{}",
+            manifest.name,
+            manifest.version
+        );
         Ok(manifest)
     }
 
@@ -96,8 +99,7 @@ impl AppStore {
 
     pub fn cache_listing(&self, listing: &AppStoreListing) -> anyhow::Result<()> {
         let key = listing.manifest.id.as_bytes();
-        self.listings
-            .insert(key, serde_json::to_vec(listing)?)?;
+        self.listings.insert(key, serde_json::to_vec(listing)?)?;
         Ok(())
     }
 
@@ -132,7 +134,11 @@ impl AppStore {
         Ok(())
     }
 
-    pub fn miniapp_storage_list_keys(&self, app_id: &str, prefix: &str) -> anyhow::Result<Vec<String>> {
+    pub fn miniapp_storage_list_keys(
+        &self,
+        app_id: &str,
+        prefix: &str,
+    ) -> anyhow::Result<Vec<String>> {
         let tree = self.db.open_tree(format!("miniapp_kv:{app_id}"))?;
         let mut out = Vec::new();
         for item in tree.iter() {
@@ -273,7 +279,8 @@ mod tests {
         let keypair = Keypair::generate_ed25519();
         let peer_id = keypair.public().to_peer_id().to_string();
         let manifest = sample_manifest(Some(peer_id));
-        let mut listing = AppStoreListing::new_signed(manifest, b"bundle", vec![], &keypair).unwrap();
+        let mut listing =
+            AppStoreListing::new_signed(manifest, b"bundle", vec![], &keypair).unwrap();
         listing.bundle_hash = "tampered_hash".into();
         assert!(!listing.verify_signature().unwrap());
     }

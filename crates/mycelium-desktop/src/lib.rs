@@ -690,7 +690,9 @@ async fn get_settings(state: State<'_, SharedState>) -> Result<serde_json::Value
 #[tauri::command]
 async fn set_display_name(state: State<'_, SharedState>, name: String) -> Result<(), String> {
     let guard = state.read().await;
-    let s = guard.as_ref().ok_or_else(|| "node not started".to_string())?;
+    let s = guard
+        .as_ref()
+        .ok_or_else(|| "node not started".to_string())?;
     s.app_node.set_display_name(name).await;
     Ok(())
 }
@@ -702,7 +704,9 @@ async fn set_energy_state(
 ) -> Result<(), String> {
     let ns = parse_energy_state(&energy_state)?;
     let mut guard = state.write().await;
-    let s = guard.as_mut().ok_or_else(|| "node not started".to_string())?;
+    let s = guard
+        .as_mut()
+        .ok_or_else(|| "node not started".to_string())?;
     s.handle
         .send(NodeCommand::SetEnergyState(ns))
         .await
@@ -727,7 +731,9 @@ async fn get_store_stats(state: State<'_, SharedState>) -> Result<serde_json::Va
 #[tauri::command]
 async fn run_gc(state: State<'_, SharedState>) -> Result<u64, String> {
     let guard = state.read().await;
-    let s = guard.as_ref().ok_or_else(|| "node not started".to_string())?;
+    let s = guard
+        .as_ref()
+        .ok_or_else(|| "node not started".to_string())?;
     let deleted = s.handle.gc_now().await.map_err(|e| e.to_string())?;
     Ok(deleted as u64)
 }
@@ -747,7 +753,9 @@ async fn set_custom_bootstrap_peers(
     peers: Vec<String>,
 ) -> Result<(), String> {
     let mut guard = state.write().await;
-    let s = guard.as_mut().ok_or_else(|| "node not started".to_string())?;
+    let s = guard
+        .as_mut()
+        .ok_or_else(|| "node not started".to_string())?;
     save_custom_bootstrap_peers(&s.db_path, &peers).map_err(|e| e.to_string())?;
     for multiaddr in &peers {
         if let Err(e) = s
@@ -778,8 +786,7 @@ async fn panic_wipe(app: AppHandle, state: State<'_, SharedState>) -> Result<(),
 
     if let Some(path) = db_path {
         if std::path::Path::new(&path).exists() {
-            std::fs::remove_dir_all(&path)
-                .map_err(|e| format!("failed to wipe data: {e}"))?;
+            std::fs::remove_dir_all(&path).map_err(|e| format!("failed to wipe data: {e}"))?;
             tracing::info!("PANIC WIPE: deleted {path}");
         }
     }
