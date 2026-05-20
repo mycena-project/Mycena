@@ -19,6 +19,17 @@ class WifiDirectSharer(private val context: Context) {
     companion object {
         const val PORT = 8765
         const val TAG = "WifiDirectSharer"
+
+        /** Minimal HTTP 200 header for APK download (testable without a live server). */
+        internal fun buildApkHttpHeader(contentLength: Int): String =
+            """
+                HTTP/1.1 200 OK
+                Content-Type: application/vnd.android.package-archive
+                Content-Disposition: attachment; filename="mycelium.apk"
+                Content-Length: $contentLength
+                Connection: close
+                
+            """.trimIndent() + "\r\n"
     }
 
     private var serverSocket: ServerSocket? = null
@@ -60,14 +71,7 @@ class WifiDirectSharer(private val context: Context) {
             val output = client.getOutputStream()
             val apkBytes = apkFile.readBytes()
 
-            val header = """
-                HTTP/1.1 200 OK
-                Content-Type: application/vnd.android.package-archive
-                Content-Disposition: attachment; filename="mycelium.apk"
-                Content-Length: ${apkBytes.size}
-                Connection: close
-                
-            """.trimIndent() + "\r\n"
+            val header = buildApkHttpHeader(apkBytes.size)
 
             output.write(header.toByteArray())
             output.write(apkBytes)
