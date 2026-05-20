@@ -66,4 +66,17 @@
     <string name="miniapp_no_listings">فهرستی در این دستگاه ذخیره نشده است.</string>
     <string name="miniapp_bundle_hash">هش بسته</string>
     <string name="miniapp_back">بازگشت</string>
+    <string name="settings_spread_title">کمک به گسترش میسلیوم</string>
+    <string name="settings_spread_description">با فعال‌سازی، دستگاه شما سیگنال بلوتوث می‌فرستد تا دستگاه‌های نزدیک بتوانند Mycelium را پیدا و نصب کنند. دادهٔ شخصی ارسال نمی‌شود.</string>
+    <string name="settings_ble_advertise">کشف بلوتوث</string>
+    <string name="settings_ble_advertise_sub">برای اسکنرهای BLE در نزدیکی قابل مشاهده</string>
+    <string name="settings_share_app">اشتراک‌گذاری برنامه…</string>
+    <string name="share_app_title">اشتراک‌گذاری برنامه</string>
+    <string name="share_app_description">نصب Mycelium برای کسی در نزدیکی بدون اینترنت. همان Wi‑Fi یا هات‌اسپات، سپس اسکن QR.</string>
+    <string name="share_app_instructions">گیرنده: همان Wi‑Fi، QR را اسکن کند یا URL را در مرورگر باز کند. برنامه لازم نیست.</string>
+    <string name="share_app_start">شروع اشتراک</string>
+    <string name="share_app_stop">توقف اشتراک</string>
+    <string name="share_app_wifi_note">هر دو دستگاه باید در یک شبکه Wi‑Fi یا هات‌اسپات باشند</string>
+    <string name="share_app_transfers">با %1$d دستگاه به اشتراک گذاشته شد ✓</string>
+    <string name="share_app_qr_content_description">کد QR برای نصب</string>
 </resources>

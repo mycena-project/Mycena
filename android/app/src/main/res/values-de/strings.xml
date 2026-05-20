@@ -65,4 +65,17 @@
     <string name="miniapp_no_listings">Keine Einträge auf diesem Gerät.</string>
     <string name="miniapp_bundle_hash">Bundle-Hash</string>
     <string name="miniapp_back">Zurück</string>
+    <string name="settings_spread_title">Myzelium verbreiten helfen</string>
+    <string name="settings_spread_description">Wenn aktiviert, sendet Ihr Gerät ein Bluetooth-Signal, damit Geräte in der Nähe Myzelium entdecken und installieren können. Es werden keine persönlichen Daten geteilt.</string>
+    <string name="settings_ble_advertise">Bluetooth-Erkennung</string>
+    <string name="settings_ble_advertise_sub">Für BLE-Scanner in der Nähe sichtbar</string>
+    <string name="settings_share_app">App teilen…</string>
+    <string name="share_app_title">Myzelium teilen</string>
+    <string name="share_app_description">Jemand in der Nähe kann Myzelium ohne Internet installieren. Gleiches WLAN oder Hotspot, dann QR-Code scannen.</string>
+    <string name="share_app_instructions">Empfänger: gleiches WLAN, QR scannen oder URL im Browser öffnen. Keine App nötig.</string>
+    <string name="share_app_start">Teilen starten</string>
+    <string name="share_app_stop">Teilen beenden</string>
+    <string name="share_app_wifi_note">Beide Geräte müssen im gleichen WLAN oder Hotspot sein</string>
+    <string name="share_app_transfers">Mit %1$d Gerät(en) geteilt ✓</string>
+    <string name="share_app_qr_content_description">QR-Code zur Installation</string>
 </resources>

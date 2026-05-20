@@ -70,4 +70,17 @@
     <string name="miniapp_no_listings">Нет сохранённых записей каталога.</string>
     <string name="miniapp_bundle_hash">Хэш пакета</string>
     <string name="miniapp_back">Назад</string>
+    <string name="settings_spread_title">Помочь распространить Мицелий</string>
+    <string name="settings_spread_description">При включении устройство передаёт Bluetooth-сигнал, чтобы рядом можно было обнаружить и установить Mycelium. Личные данные не передаются.</string>
+    <string name="settings_ble_advertise">Обнаружение по Bluetooth</string>
+    <string name="settings_ble_advertise_sub">Видно BLE-сканерам поблизости</string>
+    <string name="settings_share_app">Поделиться приложением…</string>
+    <string name="share_app_title">Поделиться приложением</string>
+    <string name="share_app_description">Установка Mycelium рядом без интернета: одна сеть Wi‑Fi или точка доступа, затем QR-код.</string>
+    <string name="share_app_instructions">Получатель: та же сеть Wi‑Fi, сканировать QR или открыть URL в браузере. Приложение не нужно.</string>
+    <string name="share_app_start">Начать передачу</string>
+    <string name="share_app_stop">Остановить</string>
+    <string name="share_app_wifi_note">Оба устройства в одной сети Wi‑Fi или точке доступа</string>
+    <string name="share_app_transfers">Передано на %1$d устройств(а) ✓</string>
+    <string name="share_app_qr_content_description">QR-код для установки</string>
 </resources>

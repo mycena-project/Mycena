@@ -66,4 +66,17 @@
     <string name="miniapp_no_listings">此设备上没有缓存的目录条目。</string>
     <string name="miniapp_bundle_hash">包哈希</string>
     <string name="miniapp_back">返回</string>
+    <string name="settings_spread_title">帮助推广菌丝网络</string>
+    <string name="settings_spread_description">启用后，设备会广播蓝牙信号，让附近的设备发现并安装 Mycelium。不共享个人数据。</string>
+    <string name="settings_ble_advertise">蓝牙发现</string>
+    <string name="settings_ble_advertise_sub">附近 BLE 扫描器可见</string>
+    <string name="settings_share_app">分享此应用…</string>
+    <string name="share_app_title">分享应用</string>
+    <string name="share_app_description">让附近的人无需互联网即可安装 Mycelium。连接同一 WiFi 或热点后扫描此二维码。</string>
+    <string name="share_app_instructions">接收方：连接同一 WiFi，扫描二维码或在浏览器中打开 URL。无需安装应用即可接收。</string>
+    <string name="share_app_start">开始分享</string>
+    <string name="share_app_stop">停止分享</string>
+    <string name="share_app_wifi_note">两台设备须在同一 WiFi 网络或热点上</string>
+    <string name="share_app_transfers">已与 %1$d 台设备分享 ✓</string>
+    <string name="share_app_qr_content_description">安装 Mycelium 的二维码</string>
 </resources>

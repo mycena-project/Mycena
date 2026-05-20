@@ -48,7 +48,7 @@ private fun tabForRoute(route: String?): String? {
         route == "mail" -> "mail"
         route == "bulletin" -> "bulletin"
         route == "settings" || route == "miniapp_store" ||
-            route == "wallet" || route.startsWith("miniapp/run/") -> "settings"
+            route == "wallet" || route == "share_app" || route.startsWith("miniapp/run/") -> "settings"
         else -> null
     }
 }
@@ -100,6 +100,7 @@ fun MainShell() {
                 )
             }
             composable("wallet") { WalletScreen(nav) }
+            composable("share_app") { ShareAppScreen() }
         }
     }
 }

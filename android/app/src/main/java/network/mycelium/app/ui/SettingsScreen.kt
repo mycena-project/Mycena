@@ -4,7 +4,11 @@ import android.content.Context
 import android.content.Intent
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -25,22 +29,28 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.os.LocaleListCompat
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import network.mycelium.app.R
 import network.mycelium.app.StorageKeyHelper
+import network.mycelium.app.bootstrap.BleBootstrapPermissions
+import network.mycelium.app.viewmodel.SettingsViewModel
 import network.mycelium.bindings.EnergyState
 import network.mycelium.bindings.mycelium
 import java.io.File
@@ -159,12 +169,89 @@ fun SettingsScreen(navController: NavController) {
                 Text(stringResource(R.string.settings_open_wallet))
             }
 
+            DistributionSettings(modifier = Modifier.padding(top = 24.dp))
+
+            TextButton(
+                onClick = { navController.navigate("share_app") },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(stringResource(R.string.settings_share_app))
+            }
+
             LanguageSelector(modifier = Modifier.padding(top = 24.dp).fillMaxWidth())
 
             PanicWipeSection(
                 modifier = Modifier.padding(top = 24.dp),
                 onPanicWipe = { performPanicWipe(context) },
             )
+        }
+    }
+}
+
+@Composable
+fun DistributionSettings(
+    modifier: Modifier = Modifier,
+    vm: SettingsViewModel = viewModel(),
+) {
+    val context = LocalContext.current
+    val bleEnabled by vm.bleBootstrapEnabled.collectAsState()
+    var pendingEnable by remember { mutableStateOf(false) }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) { results ->
+        if (pendingEnable && results.values.all { it }) {
+            vm.setBleBootstrap(true)
+        }
+        pendingEnable = false
+    }
+
+    Card(modifier = modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                stringResource(R.string.settings_spread_title),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                stringResource(R.string.settings_spread_description),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+            )
+            Spacer(Modifier.height(12.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        stringResource(R.string.settings_ble_advertise),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(
+                        stringResource(R.string.settings_ble_advertise_sub),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                    )
+                }
+                Switch(
+                    checked = bleEnabled,
+                    onCheckedChange = { enabled ->
+                        if (!enabled) {
+                            vm.setBleBootstrap(false)
+                            return@Switch
+                        }
+                        if (BleBootstrapPermissions.hasAll(context)) {
+                            vm.setBleBootstrap(true)
+                        } else {
+                            pendingEnable = true
+                            permissionLauncher.launch(BleBootstrapPermissions.required)
+                        }
+                    },
+                )
+            }
         }
     }
 }

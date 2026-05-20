@@ -98,6 +98,31 @@
     <string name="settings_panic_confirm_yes">Delete everything</string>
     <string name="settings_panic_confirm_no">Cancel</string>
 
+    <!-- Spread / distribution (opt-in) -->
+    <string name="settings_spread_title">Help spread Mycelium</string>
+    <string name="settings_spread_description">When enabled, your device broadcasts a Bluetooth signal that lets nearby devices discover and install Mycelium. No personal data is shared.</string>
+    <string name="settings_ble_advertise">Bluetooth discovery</string>
+    <string name="settings_ble_advertise_sub">Visible to BLE scanners nearby</string>
+    <string name="settings_share_app">Share this app…</string>
+
+    <!-- Share app (local APK server) -->
+    <string name="share_app_title">Share Mycelium</string>
+    <string name="share_app_description">Let someone nearby install Mycelium without internet. Connect to the same WiFi or hotspot, then scan this QR code.</string>
+    <string name="share_app_instructions">Recipient: connect to the same WiFi, then scan the QR code or open the URL in a browser. No app needed to receive.</string>
+    <string name="share_app_start">Start sharing</string>
+    <string name="share_app_stop">Stop sharing</string>
+    <string name="share_app_wifi_note">Both devices must be on the same WiFi network or hotspot</string>
+    <string name="share_app_transfers">Shared with %1$d device(s) ✓</string>
+    <string name="share_app_qr_content_description">QR code to install Mycelium</string>
+
+    <!-- BLE discovery notifications -->
+    <string name="discovery_channel_name">Nearby nodes</string>
+    <string name="discovery_notification_title">Mycelium node %1$s</string>
+    <string name="discovery_notification_body">Tap to connect (%1$s…)</string>
+    <string name="discovery_very_close">very close</string>
+    <string name="discovery_nearby">nearby</string>
+    <string name="discovery_in_range">in range</string>
+
     <!-- Mini apps -->
     <string name="miniapp_store_title">Mini apps</string>
     <string name="miniapp_installed">Installed</string>
