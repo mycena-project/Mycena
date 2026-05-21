@@ -12,7 +12,9 @@ use crate::miniapp::bridge_session::validate_session;
 use crate::miniapp::capability_token::{permission_for_method, validate_capability};
 use crate::miniapp::manifest::Permission;
 use crate::miniapp::safe_mode::{method_allowed_in_safe_mode, safe_mode_denial_message};
-use crate::miniapp::storage_quota::{validate_key, validate_value, MAX_KEYS_PER_APP, MAX_TOTAL_BYTES_PER_APP};
+use crate::miniapp::storage_quota::{
+    validate_key, validate_value, MAX_KEYS_PER_APP, MAX_TOTAL_BYTES_PER_APP,
+};
 use crate::miniapp::AppStore;
 use crate::node::AppNode;
 use crate::storage::AppStorage;
@@ -29,9 +31,7 @@ fn check_broadcast_rate(app_id: &str) -> Result<(), String> {
     let mut guard = BROADCAST_LIMITS
         .lock()
         .map_err(|_| "broadcast limiter unavailable".to_string())?;
-    let entry = guard
-        .entry(app_id.to_string())
-        .or_insert((now, 0));
+    let entry = guard.entry(app_id.to_string()).or_insert((now, 0));
     if now.saturating_sub(entry.0) > BROADCAST_WINDOW_MS {
         *entry = (now, 0);
     }

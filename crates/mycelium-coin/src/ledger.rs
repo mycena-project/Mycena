@@ -215,7 +215,8 @@ impl LocalLedger {
             }
         })?;
 
-        self.velocity.record_outbound(&tx.from, tx.timestamp_ms, tx.amount_muon)?;
+        self.velocity
+            .record_outbound(&tx.from, tx.timestamp_ms, tx.amount_muon)?;
 
         Ok(ApplyResult::Accepted)
     }

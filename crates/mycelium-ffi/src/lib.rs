@@ -1003,9 +1003,7 @@ pub fn miniapp_set_safe_mode(app_id: String, enabled: bool) {
 
 pub fn miniapp_report_app(app_id: String) {
     with_state(|s| {
-        s.app_store
-            .record_user_report(&app_id)
-            .expect("report app");
+        s.app_store.record_user_report(&app_id).expect("report app");
     });
 }
 
@@ -1047,12 +1045,11 @@ pub fn preview_miniapp_install(
     bundle_data: Vec<u8>,
 ) -> Result<MiniAppInstallPreview, MyceliumException> {
     with_state(|s| {
-        let p = s
-            .app_store
-            .preview_install(&bundle_data)
-            .map_err(|e| MyceliumException::InstallError {
+        let p = s.app_store.preview_install(&bundle_data).map_err(|e| {
+            MyceliumException::InstallError {
                 detail: e.to_string(),
-            })?;
+            }
+        })?;
         Ok(MiniAppInstallPreview {
             manifest: mini_app_manifest_to_info(p.manifest),
             bundle_hash: p.bundle_hash,
@@ -1084,12 +1081,11 @@ pub fn install_app(
             });
         };
         if let Some(ref id) = listing_app_id {
-            let preview = s
-                .app_store
-                .preview_install(&bundle_data)
-                .map_err(|e| MyceliumException::InstallError {
+            let preview = s.app_store.preview_install(&bundle_data).map_err(|e| {
+                MyceliumException::InstallError {
                     detail: e.to_string(),
-                })?;
+                }
+            })?;
             if preview.manifest.id != *id {
                 return Err(MyceliumException::InstallError {
                     detail: "bundle app id does not match listing_app_id".into(),

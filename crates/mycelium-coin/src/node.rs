@@ -1,7 +1,7 @@
 use crate::address::address_from_keypair;
 use crate::ledger::{ApplyResult, LocalLedger, Transaction};
-use crate::settlement_policy::SettlementPolicy;
 use crate::payload::CoinPayload;
+use crate::settlement_policy::SettlementPolicy;
 use async_trait::async_trait;
 use std::sync::Arc;
 use tracing::{info, warn};

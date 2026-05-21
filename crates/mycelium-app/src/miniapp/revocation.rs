@@ -144,13 +144,9 @@ mod tests {
             .unwrap();
         let kp = Keypair::generate_ed25519();
         let peer = kp.public().to_peer_id().to_string();
-        let entry = RevocationGossip::new_signed(
-            "com.evil.app".into(),
-            "malware".into(),
-            peer,
-            &kp,
-        )
-        .unwrap();
+        let entry =
+            RevocationGossip::new_signed("com.evil.app".into(), "malware".into(), peer, &kp)
+                .unwrap();
         assert!(entry.verify_signature().unwrap());
         assert!(ingest_gossip_revocation(&db, &entry).unwrap());
         assert!(is_revoked(&db, "com.evil.app").unwrap());

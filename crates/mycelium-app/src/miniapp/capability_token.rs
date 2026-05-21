@@ -98,11 +98,13 @@ pub fn validate_capability(
     let decoded = URL_SAFE_NO_PAD
         .decode(token)
         .map_err(|_| "invalid capability token encoding".to_string())?;
-    let decoded = String::from_utf8(decoded).map_err(|_| "invalid capability token utf8".to_string())?;
+    let decoded =
+        String::from_utf8(decoded).map_err(|_| "invalid capability token utf8".to_string())?;
     let (payload, sig_hex) = decoded
         .rsplit_once('|')
         .ok_or_else(|| "malformed capability token".to_string())?;
-    let mut mac = HmacSha256::new_from_slice(mac_key).map_err(|_| "capability MAC unavailable".to_string())?;
+    let mut mac = HmacSha256::new_from_slice(mac_key)
+        .map_err(|_| "capability MAC unavailable".to_string())?;
     mac.update(payload.as_bytes());
     let sig = hex::decode(sig_hex).map_err(|_| "invalid capability signature".to_string())?;
     mac.verify_slice(&sig)
@@ -141,9 +143,19 @@ mod tests {
     fn cap_roundtrip_and_session_bind() {
         let key = mac_key_from_db_path("/tmp/test-db");
         let session = "sess-abc";
-        let cap = issue_capability(&key, "com.app", &Permission::Identity, session, DEFAULT_CAP_TTL_MS);
+        let cap = issue_capability(
+            &key,
+            "com.app",
+            &Permission::Identity,
+            session,
+            DEFAULT_CAP_TTL_MS,
+        );
         assert!(validate_capability(&key, "com.app", &Permission::Identity, session, &cap).is_ok());
-        assert!(validate_capability(&key, "com.app", &Permission::Identity, "other", &cap).is_err());
-        assert!(validate_capability(&key, "com.other", &Permission::Identity, session, &cap).is_err());
+        assert!(
+            validate_capability(&key, "com.app", &Permission::Identity, "other", &cap).is_err()
+        );
+        assert!(
+            validate_capability(&key, "com.other", &Permission::Identity, session, &cap).is_err()
+        );
     }
 }

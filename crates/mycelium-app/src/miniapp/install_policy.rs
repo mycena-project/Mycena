@@ -96,9 +96,7 @@ impl AppStore {
         let hash = bundle_hash_hex(bundle_bytes);
         let has_inline_script = entry_has_inline_script(&manifest, &bundle);
 
-        let installed_version = self
-            .get_manifest(&manifest.id)?
-            .map(|m| m.version);
+        let installed_version = self.get_manifest(&manifest.id)?.map(|m| m.version);
 
         let mut listing_signature_ok = false;
         let mut trust_level = InstallTrustLevel::SideloadOnly;

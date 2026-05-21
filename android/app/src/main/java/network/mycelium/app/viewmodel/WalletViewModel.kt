@@ -98,7 +98,7 @@ class WalletViewModel : ViewModel() {
 
     fun openSendWithPaymentRequest(pr: network.mycelium.bindings.PaymentRequestData) {
         val exp = pr.expiresAtMs
-        if (exp != null && exp < System.currentTimeMillis()) {
+        if (exp != null && exp < System.currentTimeMillis().toULong()) {
             return
         }
         viewModelScope.launch(Dispatchers.Main) {

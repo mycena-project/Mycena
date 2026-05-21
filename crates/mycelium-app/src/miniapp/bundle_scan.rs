@@ -27,7 +27,9 @@ pub fn scan_bundle(bundle: &MiniAppBundle, archive_bytes: &[u8]) -> anyhow::Resu
 
     let uncompressed: usize = bundle.files.values().map(|b| b.len()).sum();
     let compressed = archive_bytes.len().max(1);
-    if uncompressed >= MIN_BYTES_FOR_RATIO_CHECK && uncompressed > compressed.saturating_mul(MAX_COMPRESSION_RATIO) {
+    if uncompressed >= MIN_BYTES_FOR_RATIO_CHECK
+        && uncompressed > compressed.saturating_mul(MAX_COMPRESSION_RATIO)
+    {
         anyhow::bail!(
             "bundle compression ratio suspicious ({uncompressed} bytes uncompressed vs {compressed} archive)"
         );
@@ -80,8 +82,8 @@ fn sniff_polyglot(path: &str, data: &[u8]) -> anyhow::Result<()> {
 }
 
 fn validate_html_asset(path: &str, data: &[u8]) -> anyhow::Result<()> {
-    let html = std::str::from_utf8(data)
-        .map_err(|_| anyhow::anyhow!("{path} is not valid UTF-8 HTML"))?;
+    let html =
+        std::str::from_utf8(data).map_err(|_| anyhow::anyhow!("{path} is not valid UTF-8 HTML"))?;
     validate_html_content(html, path)
 }
 
@@ -98,12 +100,7 @@ fn validate_entry_html(manifest: &MiniAppManifest, bundle: &MiniAppBundle) -> an
 
 fn validate_html_content(html: &str, label: &str) -> anyhow::Result<()> {
     let lower = html.to_lowercase();
-    for needle in [
-        "javascript:",
-        "vbscript:",
-        "data:text/html",
-        "file:",
-    ] {
+    for needle in ["javascript:", "vbscript:", "data:text/html", "file:"] {
         if lower.contains(needle) {
             anyhow::bail!("{label} contains forbidden URL scheme ({needle})");
         }

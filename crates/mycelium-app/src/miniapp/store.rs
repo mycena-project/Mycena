@@ -177,7 +177,6 @@ impl AppStore {
         listings.sort_by_key(|l| std::cmp::Reverse(l.updated_at_ms));
         Ok(listings)
     }
-
 }
 
 impl AppStoreListing {

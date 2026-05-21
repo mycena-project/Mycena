@@ -50,7 +50,13 @@ fn capability_required_for_identity_get() {
     let key = mac_key_from_db_path("/tmp/sec-test");
     let session = "sess-1";
     assert!(permission_for_method("identity.get").is_some());
-    let cap = issue_capability(&key, "com.app", &Permission::Identity, session, DEFAULT_CAP_TTL_MS);
+    let cap = issue_capability(
+        &key,
+        "com.app",
+        &Permission::Identity,
+        session,
+        DEFAULT_CAP_TTL_MS,
+    );
     assert!(validate_capability(&key, "com.app", &Permission::Identity, session, &cap).is_ok());
 }
 

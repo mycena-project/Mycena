@@ -263,9 +263,7 @@ mod tests {
         let hot_addr = address_from_keypair(&hot_kp);
         let cold_addr = address_from_keypair(&Keypair::generate_ed25519());
         // Keep excess under single-transfer policy cap (25 MXC default).
-        ledger
-            .genesis_credit(&hot_addr, 55 * MUON_PER_MXC)
-            .unwrap();
+        ledger.genesis_credit(&hot_addr, 55 * MUON_PER_MXC).unwrap();
 
         let id_store = id_path.to_str().unwrap();
         write_identity_store(Path::new(id_store), &hot_kp);

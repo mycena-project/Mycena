@@ -389,7 +389,10 @@ impl NodeRunner {
             } => {
                 self.broadcast_scoped(scope, body, payload).await?;
             }
-            NodeCommand::SendWire { to_peer, mut message } => {
+            NodeCommand::SendWire {
+                to_peer,
+                mut message,
+            } => {
                 if let WireMessage::EncryptedDirect { .. } = &mut message {
                     if let Some(keypair) = &self.keypair {
                         mycelium_core::transport::sign_encrypted_direct(&mut message, keypair)?;
@@ -878,7 +881,8 @@ impl NodeRunner {
                         max_hops,
                     };
                     if let Some(keypair) = &self.keypair {
-                        let _ = mycelium_core::transport::sign_encrypted_direct(&mut forward, keypair);
+                        let _ =
+                            mycelium_core::transport::sign_encrypted_direct(&mut forward, keypair);
                     }
                     self.forward_wire_to_others(&from_peer, &forward).await?;
                 } else {

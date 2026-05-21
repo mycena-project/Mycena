@@ -31,7 +31,7 @@ pub fn forced_safe_mode(score: u8) -> bool {
 }
 
 pub fn suggest_safe_mode(score: u8) -> bool {
-    score >= SCORE_FORCE_SAFE && score < SCORE_SUGGEST_SAFE
+    (SCORE_FORCE_SAFE..SCORE_SUGGEST_SAFE).contains(&score)
 }
 
 pub fn load(db: &Db, app_id: &str) -> anyhow::Result<AppReputation> {

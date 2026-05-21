@@ -166,20 +166,12 @@ impl AppNode {
                 AppPayload::MiniAppRevocation(entry) => {
                     let entry = entry.as_ref();
                     if let Some(ref store) = self.app_store {
-                        match store.ingest_revocation_gossip(entry)
-                        {
-                            Ok(true) => tracing::info!(
-                                "ingested revocation for {}",
-                                entry.app_id
-                            ),
-                            Ok(false) => warn!(
-                                "rejected revocation gossip for {} (bad sig)",
-                                entry.app_id
-                            ),
-                            Err(e) => warn!(
-                                "failed to ingest revocation {}: {e}",
-                                entry.app_id
-                            ),
+                        match store.ingest_revocation_gossip(entry) {
+                            Ok(true) => tracing::info!("ingested revocation for {}", entry.app_id),
+                            Ok(false) => {
+                                warn!("rejected revocation gossip for {} (bad sig)", entry.app_id)
+                            }
+                            Err(e) => warn!("failed to ingest revocation {}: {e}", entry.app_id),
                         }
                     }
                 }

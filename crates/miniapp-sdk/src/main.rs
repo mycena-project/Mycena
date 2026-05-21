@@ -1,11 +1,11 @@
 //! Mycelium mini-app developer CLI (Cell C4).
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use anyhow::Context;
 use clap::{Parser, Subcommand};
-use mycelium_app::miniapp::{scan_bundle, MiniAppBundle, ReproducibleBuild};
 use mycelium_app::miniapp::reproducible_build::{content_attestation_hash, digest_file_hex};
+use mycelium_app::miniapp::{scan_bundle, MiniAppBundle, ReproducibleBuild};
 
 #[derive(Parser)]
 #[command(name = "miniapp-sdk", about = "Lint and hash Mycelium .mxa bundles")]
@@ -55,12 +55,15 @@ fn lint_bundle(path: &PathBuf) -> anyhow::Result<()> {
             bundle.manifest.runtime
         );
     }
-    bundle.entry_html().context("entry HTML must be valid UTF-8")?;
+    bundle
+        .entry_html()
+        .context("entry HTML must be valid UTF-8")?;
     scan_bundle(&bundle, &bytes).context("bundle security scan failed")?;
     let hash = bundle_hash_hex(&bytes);
     let content_hash = content_attestation_hash(&bundle)?;
     if let Some(rb) = &bundle.manifest.reproducible_build {
-        rb.validate().context("invalid reproducible_build in manifest")?;
+        rb.validate()
+            .context("invalid reproducible_build in manifest")?;
         if let Some(attested) = &rb.attested_bundle_hash {
             if !attested.eq_ignore_ascii_case(&content_hash) {
                 anyhow::bail!(
@@ -72,13 +75,18 @@ fn lint_bundle(path: &PathBuf) -> anyhow::Result<()> {
             println!("  reproducible: declared but attested_bundle_hash missing");
         }
     }
-    println!("ok: {} v{} ({} bytes)", bundle.manifest.id, bundle.manifest.version, bytes.len());
+    println!(
+        "ok: {} v{} ({} bytes)",
+        bundle.manifest.id,
+        bundle.manifest.version,
+        bytes.len()
+    );
     println!("  hash: {hash}");
     println!("  permissions: {:?}", bundle.manifest.permissions);
     Ok(())
 }
 
-fn attest_bundle(path: &PathBuf, recipe: &PathBuf) -> anyhow::Result<()> {
+fn attest_bundle(path: &PathBuf, recipe: &Path) -> anyhow::Result<()> {
     let (_bytes, bundle) = read_bundle(path)?;
     let content_hash = content_attestation_hash(&bundle)?;
     let archive_hash = bundle_hash_hex(&_bytes);

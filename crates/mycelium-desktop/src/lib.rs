@@ -585,7 +585,10 @@ async fn miniapp_preview_install(
         .map_err(|e| e.to_string())?;
     let g = state.read().await;
     let s = g.as_ref().ok_or_else(|| "node not started".to_string())?;
-    let p = s.app_store.preview_install(&bytes).map_err(|e| e.to_string())?;
+    let p = s
+        .app_store
+        .preview_install(&bytes)
+        .map_err(|e| e.to_string())?;
     Ok(json!({
         "manifest": p.manifest,
         "bundle_hash": p.bundle_hash,
@@ -622,7 +625,10 @@ async fn miniapp_install(
     let g = state.read().await;
     let s = g.as_ref().ok_or_else(|| "node not started".to_string())?;
     if let Some(ref id) = listing_app_id {
-        let preview = s.app_store.preview_install(&bytes).map_err(|e| e.to_string())?;
+        let preview = s
+            .app_store
+            .preview_install(&bytes)
+            .map_err(|e| e.to_string())?;
         if preview.manifest.id != *id {
             return Err("bundle app id does not match listing_app_id".into());
         }
@@ -746,7 +752,10 @@ async fn miniapp_get_policy(
 ) -> Result<serde_json::Value, String> {
     let g = state.read().await;
     let s = g.as_ref().ok_or_else(|| "node not started".to_string())?;
-    let p = s.app_store.policy_snapshot(&app_id).map_err(|e| e.to_string())?;
+    let p = s
+        .app_store
+        .policy_snapshot(&app_id)
+        .map_err(|e| e.to_string())?;
     Ok(serde_json::json!({
         "app_id": p.app_id,
         "reputation_score": p.reputation_score,
@@ -773,10 +782,7 @@ async fn miniapp_set_safe_mode(
 }
 
 #[tauri::command]
-async fn miniapp_report_app(
-    state: State<'_, SharedState>,
-    app_id: String,
-) -> Result<(), String> {
+async fn miniapp_report_app(state: State<'_, SharedState>, app_id: String) -> Result<(), String> {
     let g = state.read().await;
     let s = g.as_ref().ok_or_else(|| "node not started".to_string())?;
     s.app_store
@@ -799,10 +805,7 @@ async fn miniapp_bridge_call(
         .map_err(|e| e.to_string())?;
     let permissions = manifest.map(|m| m.permissions).unwrap_or_default();
     let enc = s.handle.local_enc_pubkey_hex();
-    let safe_mode = s
-        .app_store
-        .effective_safe_mode(&app_id)
-        .unwrap_or(false);
+    let safe_mode = s.app_store.effective_safe_mode(&app_id).unwrap_or(false);
     let host = mycelium_app::miniapp::bridge_host::BridgeHost::new(
         app_id,
         permissions,
