@@ -163,6 +163,26 @@ impl AppNode {
                         }
                     }
                 }
+                AppPayload::MiniAppRevocation(entry) => {
+                    let entry = entry.as_ref();
+                    if let Some(ref store) = self.app_store {
+                        match store.ingest_revocation_gossip(entry)
+                        {
+                            Ok(true) => tracing::info!(
+                                "ingested revocation for {}",
+                                entry.app_id
+                            ),
+                            Ok(false) => warn!(
+                                "rejected revocation gossip for {} (bad sig)",
+                                entry.app_id
+                            ),
+                            Err(e) => warn!(
+                                "failed to ingest revocation {}: {e}",
+                                entry.app_id
+                            ),
+                        }
+                    }
+                }
                 AppPayload::AppStoreListing(listing) => {
                     let listing = listing.as_ref();
                     match listing.verify_signature() {
@@ -321,6 +341,9 @@ impl AppNode {
                 to_peer: to_peer.clone(),
                 sender_enc_pubkey: self.handle.local_enc_pubkey_hex(),
                 encrypted_payload: encrypted,
+                mesh_signature: None,
+                hop_count: 0,
+                max_hops: 8,
             };
             self.handle
                 .send(NodeCommand::SendWire {
@@ -512,6 +535,33 @@ impl AppNode {
         Ok(())
     }
 
+    /// Publishes a signed revocation on gossip scope `mycelium/appstore/revocations/v1`.
+    pub async fn publish_app_revocation(
+        &self,
+        entry: &crate::miniapp::revocation::RevocationGossip,
+    ) -> anyhow::Result<()> {
+        if !entry.verify_signature()? {
+            anyhow::bail!("revocation has invalid signature");
+        }
+        let payload = AppMessage {
+            app_id: AppId::MiniAppRevocation,
+            payload: AppPayload::MiniAppRevocation(Box::new(entry.clone())),
+        }
+        .encode()?;
+        self.handle
+            .send(NodeCommand::BroadcastPayload {
+                scope: "mycelium/appstore/revocations/v1".into(),
+                body: format!("[revoke:{}]", entry.app_id),
+                payload,
+            })
+            .await?;
+        if let Some(ref store) = self.app_store {
+            let _ = store.ingest_revocation_gossip(entry);
+        }
+        tracing::info!("published revocation for {}", entry.app_id);
+        Ok(())
+    }
+
     pub fn mark_mail_read(&self, mail_id: &uuid::Uuid) -> anyhow::Result<()> {
         self.storage.mark_read(mail_id)
     }
@@ -552,6 +602,9 @@ mod dispatch_tests {
             accepts_payments: false,
             payment_address: None,
             categories: vec![],
+            runtime: "webview".into(),
+            bulletin_scopes: vec![],
+            reproducible_build: None,
         }
     }
 

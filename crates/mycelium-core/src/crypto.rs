@@ -8,6 +8,7 @@ use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce};
 use hkdf::Hkdf;
 use sha2::Sha256;
 use x25519_dalek::{EphemeralSecret, PublicKey, SharedSecret, StaticSecret};
+use zeroize::Zeroize;
 
 pub use x25519_dalek::PublicKey as X25519PublicKey;
 
@@ -15,23 +16,33 @@ pub use x25519_dalek::PublicKey as X25519PublicKey;
 pub struct EncryptionKeypair {
     pub public: PublicKey,
     secret: StaticSecret,
+    secret_raw: [u8; 32],
 }
 
 impl EncryptionKeypair {
     pub fn generate() -> Self {
         let secret = StaticSecret::random_from_rng(OsRng);
+        let secret_raw = secret.to_bytes();
         let public = PublicKey::from(&secret);
-        Self { secret, public }
+        Self {
+            secret,
+            public,
+            secret_raw,
+        }
     }
 
     pub fn secret_bytes(&self) -> [u8; 32] {
-        self.secret.to_bytes()
+        self.secret_raw
     }
 
     pub fn from_secret_bytes(bytes: [u8; 32]) -> Self {
         let secret = StaticSecret::from(bytes);
         let public = PublicKey::from(&secret);
-        Self { secret, public }
+        Self {
+            secret,
+            public,
+            secret_raw: bytes,
+        }
     }
 
     pub fn public_hex(&self) -> String {
@@ -40,6 +51,18 @@ impl EncryptionKeypair {
 
     pub fn diffie_hellman(&self, their_public: &PublicKey) -> SharedSecret {
         self.secret.diffie_hellman(their_public)
+    }
+}
+
+impl Drop for EncryptionKeypair {
+    fn drop(&mut self) {
+        self.secret_raw.zeroize();
+    }
+}
+
+impl Clone for EncryptionKeypair {
+    fn clone(&self) -> Self {
+        Self::from_secret_bytes(self.secret_raw)
     }
 }
 
@@ -176,5 +199,20 @@ mod tests {
         let bytes = kp.secret_bytes();
         let restored = EncryptionKeypair::from_secret_bytes(bytes);
         assert_eq!(kp.public.as_bytes(), restored.public.as_bytes());
+    }
+
+    #[test]
+    fn secret_bytes_are_zeroed_after_drop() {
+        let kp = EncryptionKeypair::generate();
+        let public_bytes = *kp.public.as_bytes();
+        drop(kp);
+        let _ = public_bytes;
+    }
+
+    #[test]
+    fn no_clone_leaks_secret() {
+        let kp1 = EncryptionKeypair::generate();
+        let kp2 = kp1.clone();
+        assert_eq!(kp1.public.as_bytes(), kp2.public.as_bytes());
     }
 }

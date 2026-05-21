@@ -37,5 +37,14 @@
             android:name=".MeshService"
             android:foregroundServiceType="connectedDevice"
             android:exported="false" />
+
+        <service
+            android:name=".miniapp.MiniAppBridgeService"
+            android:exported="false" />
+
+        <activity
+            android:name=".miniapp.MiniAppProcessActivity"
+            android:exported="false"
+            android:process=":miniapp" />
     </application>
 </manifest>

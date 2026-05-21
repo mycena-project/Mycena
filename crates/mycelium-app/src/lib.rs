@@ -2,6 +2,7 @@ pub mod api;
 pub mod envelope;
 pub mod groups;
 pub mod miniapp;
+mod miniapp_storage_enc;
 pub mod node;
 pub mod notify;
 pub mod storage;

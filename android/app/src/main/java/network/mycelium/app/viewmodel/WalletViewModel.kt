@@ -97,6 +97,10 @@ class WalletViewModel : ViewModel() {
     }
 
     fun openSendWithPaymentRequest(pr: network.mycelium.bindings.PaymentRequestData) {
+        val exp = pr.expiresAtMs
+        if (exp != null && exp < System.currentTimeMillis()) {
+            return
+        }
         viewModelScope.launch(Dispatchers.Main) {
             val amt = (pr.amountMuon.toDouble() / 1_000_000.0).toString()
             _sendPrefill.value = Triple(pr.toAddress, amt, pr.memo.orEmpty())

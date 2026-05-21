@@ -19,6 +19,9 @@ fn encrypted_direct_decrypt_has_no_mesh_signature() {
         to_peer: "12D3KooWRecipient".into(),
         sender_enc_pubkey: sender_enc.public_hex(),
         encrypted_payload,
+        mesh_signature: None,
+        hop_count: 0,
+        max_hops: 8,
     };
 
     let relay_from = "12D3KooWRelayHop";

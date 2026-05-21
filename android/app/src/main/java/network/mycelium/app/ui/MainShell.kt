@@ -94,10 +94,14 @@ fun MainShell() {
             composable("settings") { SettingsScreen(nav) }
             composable("miniapp_store") { MiniAppStoreScreen(nav) }
             composable("miniapp/run/{appId}") { backStack ->
-                MiniAppRunnerScreen(
-                    appId = backStack.arguments?.getString("appId") ?: "",
-                    navController = nav,
-                )
+                val appId = backStack.arguments?.getString("appId") ?: ""
+                val ctx = androidx.compose.ui.platform.LocalContext.current
+                androidx.compose.runtime.LaunchedEffect(appId) {
+                    ctx.startActivity(
+                        network.mycelium.app.miniapp.MiniAppProcessActivity.intent(ctx, appId),
+                    )
+                    nav.popBackStack()
+                }
             }
             composable("wallet") { WalletScreen(nav) }
             composable("share_app") { ShareAppScreen() }

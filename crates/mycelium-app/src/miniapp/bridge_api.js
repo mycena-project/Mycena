@@ -15,11 +15,31 @@ window.mycelium = (() => {
     else p.resolve(result);
   };
 
+  const CAP_PERMS = {
+    "identity.get": "Identity",
+    "messaging.send": "Messaging",
+    "messaging.broadcast": "MessagingBroadcast",
+    "payment.request": "Payments",
+    "payment.create_qr": "Payments",
+    "payment.get_balance": "Payments",
+    "util.scan_qr": "Camera",
+    "bulletin.post": "BulletinWrite",
+    "peers.nearby": "PeerDiscovery",
+  };
+
   function call(method, args = {}) {
     return new Promise((resolve, reject) => {
       const id = ++callId;
       pending[id] = { resolve, reject };
-      window.__mycelium_native_call(JSON.stringify({ id, method, args }));
+      const payload = { ...args };
+      if (window.__mycelium_session) {
+        payload._session = window.__mycelium_session;
+      }
+      const capPerm = CAP_PERMS[method];
+      if (capPerm && window.__mycelium_caps && window.__mycelium_caps[capPerm]) {
+        payload._cap = window.__mycelium_caps[capPerm];
+      }
+      window.__mycelium_native_call(JSON.stringify({ id, method, args: payload }));
     });
   }
 

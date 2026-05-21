@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -104,6 +105,7 @@ fun WalletScreen(navController: NavController, vm: WalletViewModel = viewModel()
                 .fillMaxSize()
                 .padding(padding),
         ) {
+            WalletExperimentalBanner()
             Card(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
                 Column(modifier = Modifier.padding(24.dp)) {
                     Text(
@@ -203,6 +205,31 @@ fun WalletScreen(navController: NavController, vm: WalletViewModel = viewModel()
             onDismiss = { vm.closeReceiveDialog() },
             vm = vm,
         )
+    }
+}
+
+@Composable
+fun WalletExperimentalBanner() {
+    Surface(
+        color = MaterialTheme.colorScheme.tertiaryContainer,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Icon(
+                Icons.Default.Science,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onTertiaryContainer,
+            )
+            Text(
+                stringResource(R.string.wallet_experimental_notice),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onTertiaryContainer,
+            )
+        }
     }
 }
 
@@ -443,9 +470,15 @@ private fun SendTransactionDialog(
 
     val scannerLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
         val raw = result.contents ?: return@rememberLauncherForActivityResult
-        val pr = mycelium.parsePaymentRequestUri(raw.trim())
+        val trimmed = raw.trim()
+        val pr = mycelium.parsePaymentRequestUri(trimmed)
         if (pr == null) {
-            scanError = "Not a mxcpay QR"
+            scanError =
+                if (trimmed.startsWith("mxcpay:", ignoreCase = true)) {
+                    stringResource(R.string.wallet_payment_expired)
+                } else {
+                    "Not a mxcpay QR"
+                }
         } else {
             scanError = null
             onDismiss()

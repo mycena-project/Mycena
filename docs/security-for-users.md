@@ -51,7 +51,13 @@ Panic wipe does **not**:
 
 ## Mini-app store
 
-Apps listed in the store are signed by a developer peer ID when possible. Only install apps you trust. The network may cache listings from peers you have never met.
+Apps listed in the store are signed by a developer peer ID when gossip listings are accepted. **Installing a file from disk** (`.mxa` / `.zip`) may not verify that signature yet — treat sideload like installing unknown software.
+
+- Only install apps you trust; review **Messaging**, **Payments**, and **Identity** permissions.
+- Mini-apps cannot open arbitrary websites (network is blocked), but a malicious app can still abuse permissions you grant.
+- Developers and auditors: [MINIAPP_SECURITY_ARCHITECTURE.md](./MINIAPP_SECURITY_ARCHITECTURE.md)
+
+The network may cache listings from peers you have never met.
 
 ## Keys on your device
 
@@ -63,4 +69,10 @@ Identity and encryption keys are stored **encrypted on disk** (OS keychain on de
 - Guaranteed anonymity or traffic analysis resistance
 - Legal advice — see your jurisdiction and [`LICENSE`](../LICENSE)
 
-For developers and threat models, see [`network-hardening.md`](network-hardening.md) and [`AGENT_CONTINUATION.md`](AGENT_CONTINUATION.md).
+For developers and threat models, see:
+
+- [`SECURITY_DEBT_REGISTER.md`](SECURITY_DEBT_REGISTER.md) — known issues (pre-beta)
+- [`ARCHITECTURE_RISKS.md`](ARCHITECTURE_RISKS.md) — systemic risks & trust boundaries
+- [`SECURITY_ROADMAP.md`](SECURITY_ROADMAP.md) · [`PRIVACY_ROADMAP.md`](PRIVACY_ROADMAP.md)
+- [`ABUSE_RESPONSE_PLAYBOOK.md`](ABUSE_RESPONSE_PLAYBOOK.md)
+- [`network-hardening.md`](network-hardening.md) · [`AGENT_CONTINUATION.md`](AGENT_CONTINUATION.md)

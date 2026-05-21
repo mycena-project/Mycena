@@ -6,15 +6,21 @@ use uuid::Uuid;
 #[derive(Debug, Clone)]
 pub struct AppStorage {
     db: sled::Db,
+    /// When set, mini-app KV values are encrypted at rest (Cell C2).
+    at_rest_key: Option<[u8; 32]>,
 }
 
 impl AppStorage {
     pub fn open(path: &str) -> anyhow::Result<Self> {
+        Self::open_with_key(path, None)
+    }
+
+    pub fn open_with_key(path: &str, at_rest_key: Option<[u8; 32]>) -> anyhow::Result<Self> {
         let db = sled::Config::new()
             .path(path)
             .flush_every_ms(Some(5000))
             .open()?;
-        Ok(Self { db })
+        Ok(Self { db, at_rest_key })
     }
 
     pub fn save_chat(&self, peer_id: &str, msg: &ChatMessage) -> anyhow::Result<()> {
@@ -190,15 +196,33 @@ impl AppStorage {
     /// Mini-app bridge KV (`app:<app_id>:<user_key>`) in the main app sled DB.
     pub fn miniapp_get(&self, scoped_key: &str) -> anyhow::Result<Option<String>> {
         let tree = self.db.open_tree("miniapp_storage")?;
-        Ok(tree
-            .get(scoped_key.as_bytes())?
-            .map(|v| String::from_utf8_lossy(&v).into_owned()))
+        Ok(match tree.get(scoped_key.as_bytes())? {
+            Some(v) => Some(self.decode_miniapp_value(scoped_key, &v)?),
+            None => None,
+        })
     }
 
     pub fn miniapp_set(&self, scoped_key: &str, value: &str) -> anyhow::Result<()> {
         let tree = self.db.open_tree("miniapp_storage")?;
-        tree.insert(scoped_key.as_bytes(), value.as_bytes())?;
+        let bytes = self.encode_miniapp_value(scoped_key, value)?;
+        tree.insert(scoped_key.as_bytes(), bytes)?;
         Ok(())
+    }
+
+    fn encode_miniapp_value(&self, scoped_key: &str, value: &str) -> anyhow::Result<Vec<u8>> {
+        match &self.at_rest_key {
+            Some(master) => Ok(crate::miniapp_storage_enc::encrypt_value(
+                master, scoped_key, value,
+            )),
+            None => Ok(value.as_bytes().to_vec()),
+        }
+    }
+
+    fn decode_miniapp_value(&self, scoped_key: &str, blob: &[u8]) -> anyhow::Result<String> {
+        match &self.at_rest_key {
+            Some(master) => crate::miniapp_storage_enc::decrypt_value(master, scoped_key, blob),
+            None => Ok(String::from_utf8_lossy(blob).into_owned()),
+        }
     }
 
     pub fn miniapp_delete(&self, scoped_key: &str) -> anyhow::Result<()> {
@@ -253,6 +277,18 @@ fn ts_uuid_key(ts: u64, id: Uuid) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn miniapp_storage_encryption_roundtrip() {
+        let dir = tempfile::tempdir().unwrap();
+        let key = blake3::derive_key("test-miniapp-enc", b"seed");
+        let storage = AppStorage::open_with_key(dir.path().to_str().unwrap(), Some(key)).unwrap();
+        storage
+            .miniapp_set("app:com.enc.app:secret", "payload")
+            .unwrap();
+        let v = storage.miniapp_get("app:com.enc.app:secret").unwrap();
+        assert_eq!(v.as_deref(), Some("payload"));
+    }
 
     #[test]
     fn miniapp_storage_isolation() {

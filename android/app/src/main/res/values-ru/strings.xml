@@ -29,6 +29,7 @@
     <string name="mail_title">Сетевая почта</string>
     <string name="mail_inbox">Входящие</string>
     <string name="mail_sent">Отправленные</string>
+    <string name="wallet_experimental_notice">MeshCoin экспериментален. Не используйте для реальных платежей. Модель консенсуса в разработке и пока не защищена от атак.</string>
     <string name="wallet_title">Кошелёк</string>
     <string name="wallet_balance">Баланс</string>
     <string name="wallet_send">Отправить</string>

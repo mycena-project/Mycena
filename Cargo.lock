@@ -3844,6 +3844,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "miniapp-sdk"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "blake3",
+ "clap",
+ "mycelium-app",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "minimal-lexical"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3963,10 +3975,14 @@ dependencies = [
  "anyhow",
  "async-trait",
  "axum",
+ "base64 0.22.1",
  "bincode",
  "blake3",
+ "chacha20poly1305",
  "chrono",
  "hex",
+ "hkdf",
+ "hmac",
  "libp2p",
  "mycelium-coin",
  "mycelium-core",
@@ -3974,6 +3990,7 @@ dependencies = [
  "rand 0.8.6",
  "serde",
  "serde_json",
+ "sha2",
  "sled",
  "tempfile",
  "tokio",
@@ -4088,6 +4105,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-android",
+ "tracing-subscriber",
  "uniffi",
  "uuid",
 ]

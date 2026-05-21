@@ -22,6 +22,7 @@ pub struct AppState {
     local_peer_id: String,
     coin_identity_path: String,
     db_path: String,
+    cap_mac_key: [u8; 32],
     energy_state: NodeState,
 }
 
@@ -138,6 +139,7 @@ async fn start_node(
     app_node.clone().start_incoming_task();
     setup_inbox_emitter(app, inbox);
 
+    let cap_mac_key = mycelium_app::miniapp::mac_key_from_db_path(&db_path);
     *state.write().await = Some(AppState {
         handle,
         app_node,
@@ -147,6 +149,7 @@ async fn start_node(
         local_peer_id: local_peer_id.clone(),
         coin_identity_path: format!("{db_path}/identity"),
         db_path: db_path.clone(),
+        cap_mac_key,
         energy_state: NodeState::Active,
     });
 
@@ -172,7 +175,10 @@ async fn get_metrics(state: State<'_, SharedState>) -> Result<serde_json::Value,
     Ok(json!({
         "messages_forwarded": m.messages_forwarded,
         "messages_dropped_ttl": m.messages_dropped_ttl,
+        "messages_dropped_hops": m.messages_dropped_hops,
         "messages_dropped_queue": m.messages_dropped_queue,
+        "messages_dropped_invalid_sig": m.messages_dropped_invalid_sig,
+        "messages_dropped_no_sig": m.messages_dropped_no_sig,
         "messages_delivered_local": m.messages_delivered_local,
         "pending_queue_size": m.pending_queue_size,
         "seen_cache_size": m.seen_cache_size,
@@ -558,8 +564,18 @@ async fn miniapp_list_installed(
     Ok(out)
 }
 
+fn miniapp_trust_level_name(level: mycelium_app::miniapp::InstallTrustLevel) -> &'static str {
+    use mycelium_app::miniapp::InstallTrustLevel;
+    match level {
+        InstallTrustLevel::VerifiedListing => "verified_listing",
+        InstallTrustLevel::MatchingListingHash => "matching_listing_hash",
+        InstallTrustLevel::SideloadOnly => "sideload_only",
+        InstallTrustLevel::HashMismatch => "hash_mismatch",
+    }
+}
+
 #[tauri::command]
-async fn miniapp_install(
+async fn miniapp_preview_install(
     state: State<'_, SharedState>,
     bundle_base64: String,
 ) -> Result<serde_json::Value, String> {
@@ -569,7 +585,52 @@ async fn miniapp_install(
         .map_err(|e| e.to_string())?;
     let g = state.read().await;
     let s = g.as_ref().ok_or_else(|| "node not started".to_string())?;
-    let m = s.app_store.install(&bytes).map_err(|e| e.to_string())?;
+    let p = s.app_store.preview_install(&bytes).map_err(|e| e.to_string())?;
+    Ok(json!({
+        "manifest": p.manifest,
+        "bundle_hash": p.bundle_hash,
+        "trust_level": miniapp_trust_level_name(p.trust_level),
+        "listing_signature_ok": p.listing_signature_ok,
+        "installed_version": p.installed_version,
+        "is_downgrade": p.is_downgrade,
+        "has_inline_script": p.has_inline_script,
+        "strict_csp_eligible": p.strict_csp_eligible,
+        "reproducible_attested": p.reproducible_attested,
+    }))
+}
+
+#[tauri::command]
+async fn miniapp_install(
+    state: State<'_, SharedState>,
+    bundle_base64: String,
+    listing_app_id: Option<String>,
+    allow_sideload: bool,
+    allow_downgrade: bool,
+) -> Result<serde_json::Value, String> {
+    use base64::Engine;
+    use mycelium_app::miniapp::InstallTrust;
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(bundle_base64.trim())
+        .map_err(|e| e.to_string())?;
+    let trust = if listing_app_id.is_some() {
+        InstallTrust::VerifiedListing
+    } else if allow_sideload {
+        InstallTrust::SideloadAcknowledged
+    } else {
+        return Err("listing_app_id or allow_sideload required".into());
+    };
+    let g = state.read().await;
+    let s = g.as_ref().ok_or_else(|| "node not started".to_string())?;
+    if let Some(ref id) = listing_app_id {
+        let preview = s.app_store.preview_install(&bytes).map_err(|e| e.to_string())?;
+        if preview.manifest.id != *id {
+            return Err("bundle app id does not match listing_app_id".into());
+        }
+    }
+    let m = s
+        .app_store
+        .install_verified(&bytes, trust, allow_downgrade)
+        .map_err(|e| e.to_string())?;
     serde_json::to_value(&m).map_err(|e| e.to_string())
 }
 
@@ -612,20 +673,115 @@ async fn miniapp_get_entry_html(
         .map_err(|e| e.to_string())?
         .ok_or_else(|| "entry missing".to_string())?;
     let body = String::from_utf8(bytes).map_err(|e| e.to_string())?;
+    let session = mycelium_app::miniapp::issue_session(&app_id);
     let bridge = mycelium_app::miniapp::bridge_api_js_source();
-    let shim = r#"<script>
-window.addEventListener("message", function (ev) {
-  if (ev.data && ev.data.__mycelium_resolve && window.__mycelium_resolve) {
+    let shim = format!(
+        r#"<script>
+window.__mycelium_session = {session_json};
+window.addEventListener("message", function (ev) {{
+  if (ev.data && ev.data.__mycelium_resolve && window.__mycelium_resolve) {{
     var r = ev.data.__mycelium_resolve;
     window.__mycelium_resolve(r.id, r.result, r.error);
-  }
-});
-window.__mycelium_native_call = function (json) {
-  window.parent.postMessage({ __mycelium_call: json }, "*");
-};
+  }}
+}});
+window.__mycelium_native_call = function (json) {{
+  window.parent.postMessage({{ __mycelium_call: json }}, window.location.origin);
+}};
 </script><script>
-"#;
+"#,
+        session_json = serde_json::to_string(&session).map_err(|e| e.to_string())?
+    );
     Ok(format!("{shim}{bridge}</script>\n{body}"))
+}
+
+#[tauri::command]
+fn miniapp_revoke_bridge_session(app_id: String) {
+    mycelium_app::miniapp::revoke_session(&app_id);
+}
+
+#[tauri::command]
+async fn miniapp_issue_capability(
+    state: State<'_, SharedState>,
+    app_id: String,
+    permission: String,
+    session_token: String,
+) -> Result<String, String> {
+    let g = state.read().await;
+    let s = g.as_ref().ok_or_else(|| "node not started".to_string())?;
+    let perm = mycelium_app::miniapp::parse_permission_name(&permission)
+        .ok_or_else(|| format!("unknown permission: {permission}"))?;
+    Ok(mycelium_app::miniapp::issue_capability(
+        &s.cap_mac_key,
+        &app_id,
+        &perm,
+        &session_token,
+        mycelium_app::miniapp::DEFAULT_CAP_TTL_MS,
+    ))
+}
+
+#[tauri::command]
+async fn miniapp_publish_revocation(
+    state: State<'_, SharedState>,
+    app_id: String,
+    reason: String,
+) -> Result<(), String> {
+    let g = state.read().await;
+    let s = g.as_ref().ok_or_else(|| "node not started".to_string())?;
+    let keypair =
+        mycelium_node::load_or_create_keypair(&s.coin_identity_path).map_err(|e| e.to_string())?;
+    let entry = s
+        .app_store
+        .build_revocation_gossip(&app_id, &reason, &s.local_peer_id, &keypair)
+        .map_err(|e| e.to_string())?;
+    s.app_node
+        .publish_app_revocation(&entry)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn miniapp_get_policy(
+    state: State<'_, SharedState>,
+    app_id: String,
+) -> Result<serde_json::Value, String> {
+    let g = state.read().await;
+    let s = g.as_ref().ok_or_else(|| "node not started".to_string())?;
+    let p = s.app_store.policy_snapshot(&app_id).map_err(|e| e.to_string())?;
+    Ok(serde_json::json!({
+        "app_id": p.app_id,
+        "reputation_score": p.reputation_score,
+        "safe_mode_active": p.safe_mode_active,
+        "safe_mode_forced": p.safe_mode_forced,
+        "safe_mode_suggested": p.safe_mode_suggested,
+        "user_safe_mode": p.user_safe_mode,
+        "revoked": p.revoked,
+        "strict_csp_eligible": p.strict_csp_eligible,
+    }))
+}
+
+#[tauri::command]
+async fn miniapp_set_safe_mode(
+    state: State<'_, SharedState>,
+    app_id: String,
+    enabled: bool,
+) -> Result<(), String> {
+    let g = state.read().await;
+    let s = g.as_ref().ok_or_else(|| "node not started".to_string())?;
+    s.app_store
+        .set_user_safe_mode(&app_id, enabled)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn miniapp_report_app(
+    state: State<'_, SharedState>,
+    app_id: String,
+) -> Result<(), String> {
+    let g = state.read().await;
+    let s = g.as_ref().ok_or_else(|| "node not started".to_string())?;
+    s.app_store
+        .record_user_report(&app_id)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -643,6 +799,10 @@ async fn miniapp_bridge_call(
         .map_err(|e| e.to_string())?;
     let permissions = manifest.map(|m| m.permissions).unwrap_or_default();
     let enc = s.handle.local_enc_pubkey_hex();
+    let safe_mode = s
+        .app_store
+        .effective_safe_mode(&app_id)
+        .unwrap_or(false);
     let host = mycelium_app::miniapp::bridge_host::BridgeHost::new(
         app_id,
         permissions,
@@ -652,6 +812,8 @@ async fn miniapp_bridge_call(
         Some(s.coin_node.clone()),
         s.local_peer_id.clone(),
         enc,
+        safe_mode,
+        s.cap_mac_key,
     );
     host.handle(&method, &args).await
 }
@@ -894,11 +1056,18 @@ pub fn run() {
             delete_group,
             group_chat_history,
             miniapp_list_installed,
+            miniapp_preview_install,
             miniapp_install,
             miniapp_uninstall,
             miniapp_browse_store,
             miniapp_get_entry_html,
             miniapp_bridge_call,
+            miniapp_revoke_bridge_session,
+            miniapp_issue_capability,
+            miniapp_publish_revocation,
+            miniapp_get_policy,
+            miniapp_set_safe_mode,
+            miniapp_report_app,
             get_settings,
             set_display_name,
             set_energy_state,

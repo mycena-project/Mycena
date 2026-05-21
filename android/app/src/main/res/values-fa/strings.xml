@@ -27,6 +27,7 @@
     <string name="bulletin_title">تابلو اعلانات</string>
     <string name="mail_inbox">صندوق ورودی</string>
     <string name="mail_sent">ارسال‌شده‌ها</string>
+    <string name="wallet_experimental_notice">MeshCoin آزمایشی است. برای تراکنش‌های واقعی استفاده نکنید. مدل اجماع در حال توسعه است و هنوز در برابر حملات امن نیست.</string>
     <string name="wallet_title">کیف پول</string>
     <string name="wallet_balance">موجودی</string>
     <string name="wallet_send">ارسال</string>

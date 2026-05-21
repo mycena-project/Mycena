@@ -4,6 +4,13 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
+# Gradle reads sdk.dir from local.properties; prefer ANDROID_HOME / ANDROID_SDK_ROOT in CI/Docker.
+if [[ -n "${ANDROID_HOME:-}" || -n "${ANDROID_SDK_ROOT:-}" ]]; then
+  SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT}}"
+  mkdir -p android
+  echo "sdk.dir=${SDK_ROOT}" > android/local.properties
+fi
+
 rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
 cargo install cargo-ndk || true
 

@@ -126,6 +126,8 @@ pub struct NodeMetrics {
     pub messages_dropped_ttl: u64,
     pub messages_dropped_hops: u64,
     pub messages_dropped_queue: u64,
+    pub messages_dropped_invalid_sig: u64,
+    pub messages_dropped_no_sig: u64,
     pub messages_delivered_local: u64,
     pub pending_queue_size: usize,
     pub seen_cache_size: usize,
@@ -387,7 +389,12 @@ impl NodeRunner {
             } => {
                 self.broadcast_scoped(scope, body, payload).await?;
             }
-            NodeCommand::SendWire { to_peer, message } => {
+            NodeCommand::SendWire { to_peer, mut message } => {
+                if let WireMessage::EncryptedDirect { .. } = &mut message {
+                    if let Some(keypair) = &self.keypair {
+                        mycelium_core::transport::sign_encrypted_direct(&mut message, keypair)?;
+                    }
+                }
                 self.transport.send_direct(to_peer, message).await?;
             }
             NodeCommand::ListPeers => {
@@ -638,6 +645,24 @@ impl NodeRunner {
         if self.is_throttled(&from_peer) {
             return Ok(());
         }
+        if let WireMessage::EncryptedDirect { mesh_signature, .. } = &message {
+            if mesh_signature.is_none() {
+                warn!("DROPPING EncryptedDirect from {from_peer}: no signature");
+                let mut metrics = self.metrics.write().await;
+                metrics.messages_dropped_no_sig += 1;
+                return Ok(());
+            }
+            let Ok(sender_id) = from_peer.parse::<PeerId>() else {
+                warn!("DROPPING EncryptedDirect: unparseable peer_id {from_peer}");
+                return Ok(());
+            };
+            if !mycelium_core::transport::verify_encrypted_direct(&message, &sender_id) {
+                warn!("DROPPING EncryptedDirect from {from_peer}: invalid signature");
+                let mut metrics = self.metrics.write().await;
+                metrics.messages_dropped_invalid_sig += 1;
+                return Ok(());
+            }
+        }
         match message {
             WireMessage::Data(mut message) => {
                 if message.envelope.signature.is_some() {
@@ -810,6 +835,9 @@ impl NodeRunner {
                 to_peer,
                 sender_enc_pubkey,
                 encrypted_payload,
+                mesh_signature,
+                hop_count,
+                max_hops,
             } => {
                 if to_peer == self.local_peer_id {
                     let plain = crypto::decrypt_with(&encrypted_payload, &self.enc_keypair)?;
@@ -833,23 +861,29 @@ impl NodeRunner {
                         Some(self.local_peer_id.clone()),
                         app_payload,
                     );
-                    // E2E plaintext is authenticated by the inner wrap + ChaCha20 layer;
-                    // do not re-sign with the local libp2p key (would break author semantics).
                     let dm = DirectMessage {
                         envelope,
                         body: "[encrypted]".into(),
                     };
                     let _ = self.incoming_tx.send(dm);
+                    let mut metrics = self.metrics.write().await;
+                    metrics.messages_delivered_local += 1;
+                } else if hop_count < max_hops {
+                    let mut forward = WireMessage::EncryptedDirect {
+                        to_peer,
+                        sender_enc_pubkey,
+                        encrypted_payload,
+                        mesh_signature,
+                        hop_count: hop_count.saturating_add(1),
+                        max_hops,
+                    };
+                    if let Some(keypair) = &self.keypair {
+                        let _ = mycelium_core::transport::sign_encrypted_direct(&mut forward, keypair);
+                    }
+                    self.forward_wire_to_others(&from_peer, &forward).await?;
                 } else {
-                    self.forward_wire_to_others(
-                        &from_peer,
-                        &WireMessage::EncryptedDirect {
-                            to_peer,
-                            sender_enc_pubkey,
-                            encrypted_payload,
-                        },
-                    )
-                    .await?;
+                    let mut metrics = self.metrics.write().await;
+                    metrics.messages_dropped_hops += 1;
                 }
             }
             WireMessage::EncryptedGroup { .. } => {

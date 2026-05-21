@@ -16,6 +16,7 @@ typealias PaymentRequestData = uniffi.mycelium.PaymentRequestData
 typealias GroupInfo = uniffi.mycelium.GroupInfo
 typealias MiniAppInfo = uniffi.mycelium.MiniAppInfo
 typealias AppStoreListing = uniffi.mycelium.AppStoreListing
+typealias MiniAppInstallPreview = uniffi.mycelium.MiniAppInstallPreview
 
 object mycelium {
     fun initNode(config: NodeConfig) = uniffi.mycelium.initNode(config)
@@ -68,7 +69,14 @@ object mycelium {
         uniffi.mycelium.groupChatHistory(groupId, limit)
 
     fun listInstalledApps(): List<MiniAppInfo> = uniffi.mycelium.listInstalledApps()
-    fun installApp(bundleData: ByteArray): MiniAppInfo = uniffi.mycelium.installApp(bundleData)
+    fun previewMiniappInstall(bundleData: ByteArray): MiniAppInstallPreview =
+        uniffi.mycelium.previewMiniappInstall(bundleData)
+    fun installApp(
+        bundleData: ByteArray,
+        listingAppId: String?,
+        allowSideload: Boolean,
+        allowDowngrade: Boolean = false,
+    ): MiniAppInfo = uniffi.mycelium.installApp(bundleData, listingAppId, allowSideload, allowDowngrade)
     fun uninstallApp(appId: String) = uniffi.mycelium.uninstallApp(appId)
     fun getAppFile(appId: String, path: String): ByteArray? = uniffi.mycelium.getAppFile(appId, path)
     fun browseAppStore(): List<AppStoreListing> = uniffi.mycelium.browseAppStore()
@@ -81,4 +89,19 @@ object mycelium {
 
     fun miniappBridgeCall(appId: String, method: String, argsJson: String): String =
         uniffi.mycelium.miniappBridgeCall(appId, method, argsJson)
+    fun miniappIssueBridgeSession(appId: String): String =
+        uniffi.mycelium.miniappIssueBridgeSession(appId)
+    fun miniappRevokeBridgeSession(appId: String) =
+        uniffi.mycelium.miniappRevokeBridgeSession(appId)
+    fun miniappGetPolicy(appId: String): uniffi.mycelium.MiniAppPolicyData =
+        uniffi.mycelium.miniappGetPolicy(appId)
+    fun miniappSetSafeMode(appId: String, enabled: Boolean) =
+        uniffi.mycelium.miniappSetSafeMode(appId, enabled)
+    fun miniappReportApp(appId: String) = uniffi.mycelium.miniappReportApp(appId)
+
+    fun miniappIssueCapability(appId: String, permission: String, sessionToken: String): String =
+        uniffi.mycelium.miniappIssueCapability(appId, permission, sessionToken)
+
+    fun miniappPublishRevocation(appId: String, reason: String) =
+        uniffi.mycelium.miniappPublishRevocation(appId, reason)
 }

@@ -9,6 +9,7 @@ members = [
   "crates/mycelium-desktop",
   "crates/mycelium-sim",
   "crates/mycelium-relay",
+  "crates/miniapp-sdk",
 ]
 resolver = "2"
 

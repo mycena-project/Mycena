@@ -134,14 +134,48 @@
     <string name="miniapp_no_listings">No listings cached on this device.</string>
     <string name="miniapp_bundle_hash">Bundle hash</string>
     <string name="miniapp_back">Back</string>
+    <string name="miniapp_install_review_title">Review before install</string>
+    <string name="miniapp_launch_review_title">Open mini-app</string>
+    <string name="miniapp_install_confirm">Install</string>
+    <string name="miniapp_install_cancel">Cancel</string>
+    <string name="miniapp_install_trust">Trust: %1$s</string>
+    <string name="miniapp_trust_verified">Verified store listing</string>
+    <string name="miniapp_trust_matching_unsigned">Listing hash match (signature invalid)</string>
+    <string name="miniapp_trust_hash_mismatch">Bundle hash mismatch</string>
+    <string name="miniapp_trust_sideload">Sideload only</string>
+    <string name="miniapp_listing_signed">Signed listing</string>
+    <string name="miniapp_permissions_label">Permissions</string>
+    <string name="miniapp_inline_script_warning">This app uses inline scripts (higher XSS risk).</string>
+    <string name="miniapp_sideload_warning">Only install apps you trust. Malicious mini-apps can abuse granted permissions.</string>
+    <string name="miniapp_grant_identity_title">Share identity?</string>
+    <string name="miniapp_grant_identity_message">%1$s wants your Peer ID and encryption public key.</string>
+    <string name="miniapp_grant_camera_title">Use camera?</string>
+    <string name="miniapp_grant_camera_message">This app wants to scan QR codes.</string>
+    <string name="miniapp_grant_broadcast_title">Broadcast messages?</string>
+    <string name="miniapp_grant_broadcast_message">This app can send mesh-wide chat broadcasts (rate limited).</string>
+    <string name="miniapp_grant_payments_title">Wallet access?</string>
+    <string name="miniapp_grant_payments_message">This app can read balance and show payment QR codes.</string>
+    <string name="miniapp_payment_confirm_title">Payment request</string>
+    <string name="miniapp_payment_confirm_message">App requests payment of %1$d muon. Memo: %2$s</string>
+    <string name="miniapp_payment_qr_title">Payment QR (mxcpay)</string>
+    <string name="miniapp_hosted_dialog_notice">This message comes from a mini-app, not from Mycelium.</string>
+    <string name="miniapp_downgrade_warning">This install is older than the version on your device (v%1$s → v%2$s). Downgrades can be risky.</string>
+    <string name="miniapp_allow_downgrade">Allow version downgrade</string>
+    <string name="miniapp_safe_mode_banner_forced">Safe mode is required (low reputation).</string>
+    <string name="miniapp_safe_mode_banner_suggested">Safe mode is recommended for this app.</string>
+    <string name="miniapp_revoked_banner">This app is revoked. Uninstall recommended.</string>
+    <string name="miniapp_report_app">Report app</string>
+    <string name="miniapp_reproducible_attested">Reproducible build attested (content hash in manifest)</string>
+    <string name="miniapp_strict_csp_active">Strict CSP (no inline scripts)</string>
 
-    <!-- Wallet (MeshCoin) -->
-    <string name="wallet_title">Wallet</string>
-    <string name="wallet_balance">Balance</string>
-    <string name="wallet_send">Send</string>
+    <!-- Emergency settlement (MeshCoin credits) -->
+    <string name="wallet_experimental_notice">Local emergency credits for offline resilience. Not money, not an investment, not for savings. Balances are capped; use only for neighborhood continuity during outages.</string>
+    <string name="wallet_title">Emergency credits</string>
+    <string name="wallet_balance">Available credits</string>
+    <string name="wallet_send">Send credits</string>
     <string name="wallet_receive">Receive</string>
-    <string name="wallet_address">My Address</string>
-    <string name="wallet_amount_hint">Amount (MXC)</string>
+    <string name="wallet_address">Settlement address</string>
+    <string name="wallet_amount_hint">Amount (credits, MXC)</string>
     <string name="wallet_to_hint">To (address or Peer ID)</string>
     <string name="wallet_fee">Network fee</string>
     <string name="wallet_tx_pending">Transaction pending (offline)</string>
@@ -149,14 +183,15 @@
     <string name="wallet_history">Transaction history</string>
     <string name="wallet_no_txs">No transactions yet.</string>
     <string name="wallet_pending">pending confirmation</string>
-    <string name="wallet_faucet">Get test MXC</string>
+    <string name="wallet_faucet">Request preview credits</string>
     <string name="wallet_status_confirmed">Confirmed</string>
     <string name="wallet_status_witnesses">%1$d/3 witnesses</string>
-    <string name="wallet_send_title">Send MXC</string>
+    <string name="wallet_send_title">Send local credits</string>
     <string name="wallet_receive_title">Your address</string>
     <string name="wallet_dismiss">Close</string>
     <string name="wallet_memo_hint">Memo (optional)</string>
     <string name="wallet_scan_mxcpay">Scan mxcpay QR</string>
+    <string name="wallet_payment_expired">This payment request has expired</string>
     <string name="wallet_share_request">Share request</string>
     <string name="wallet_payment_qr">Payment QR code</string>
 
@@ -164,7 +199,7 @@
     <string name="connectivity_mesh">Mesh only</string>
     <string name="connectivity_switching">Switching to mesh…</string>
 
-    <string name="wallet_hot_wallet">Hot wallet</string>
+    <string name="wallet_hot_wallet">Spending cache (hot)</string>
     <string name="wallet_cache_limit">Cache limit: %1$s</string>
     <string name="wallet_auto_refill">Auto-refill from cold wallet</string>
     <string name="wallet_refilling">Refilling…</string>

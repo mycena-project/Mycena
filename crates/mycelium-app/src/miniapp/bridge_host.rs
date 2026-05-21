@@ -1,14 +1,46 @@
 //! Central bridge dispatcher for mini-app `window.mycelium.*` calls (shared by hosts).
 
-use std::sync::Arc;
+use std::collections::HashMap;
+use std::sync::{Arc, LazyLock, Mutex};
 
 use mycelium_coin::{CoinNode, PaymentRequest};
+use mycelium_core::data::now_ms;
 use serde_json::{json, Value};
 
+use crate::miniapp::bridge_limits::check_bridge_rate;
+use crate::miniapp::bridge_session::validate_session;
+use crate::miniapp::capability_token::{permission_for_method, validate_capability};
 use crate::miniapp::manifest::Permission;
+use crate::miniapp::safe_mode::{method_allowed_in_safe_mode, safe_mode_denial_message};
+use crate::miniapp::storage_quota::{validate_key, validate_value, MAX_KEYS_PER_APP, MAX_TOTAL_BYTES_PER_APP};
 use crate::miniapp::AppStore;
 use crate::node::AppNode;
 use crate::storage::AppStorage;
+
+/// Per-app broadcast counter: (window_start_ms, count).
+static BROADCAST_LIMITS: LazyLock<Mutex<HashMap<String, (u64, u32)>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
+const BROADCAST_MAX_PER_HOUR: u32 = 10;
+const BROADCAST_WINDOW_MS: u64 = 3_600_000;
+
+fn check_broadcast_rate(app_id: &str) -> Result<(), String> {
+    let now = now_ms();
+    let mut guard = BROADCAST_LIMITS
+        .lock()
+        .map_err(|_| "broadcast limiter unavailable".to_string())?;
+    let entry = guard
+        .entry(app_id.to_string())
+        .or_insert((now, 0));
+    if now.saturating_sub(entry.0) > BROADCAST_WINDOW_MS {
+        *entry = (now, 0);
+    }
+    if entry.1 >= BROADCAST_MAX_PER_HOUR {
+        return Err("broadcast rate limit exceeded (10/hour)".into());
+    }
+    entry.1 += 1;
+    Ok(())
+}
 
 pub struct BridgeHost {
     app_id: String,
@@ -19,6 +51,8 @@ pub struct BridgeHost {
     coin: Option<Arc<CoinNode>>,
     local_peer_id: String,
     enc_pubkey_hex: String,
+    safe_mode: bool,
+    cap_mac_key: [u8; 32],
 }
 
 impl BridgeHost {
@@ -32,6 +66,8 @@ impl BridgeHost {
         coin: Option<Arc<CoinNode>>,
         local_peer_id: String,
         enc_pubkey_hex: String,
+        safe_mode: bool,
+        cap_mac_key: [u8; 32],
     ) -> Self {
         Self {
             app_id,
@@ -42,7 +78,32 @@ impl BridgeHost {
             coin,
             local_peer_id,
             enc_pubkey_hex,
+            safe_mode,
+            cap_mac_key,
         }
+    }
+
+    fn require_capability(&self, method: &str, args: &Value) -> Result<(), String> {
+        let Some(perm) = permission_for_method(method) else {
+            return Ok(());
+        };
+        self.require_permission(perm.clone())?;
+        let session = args
+            .get("_session")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| "missing bridge session token".to_string())?;
+        let cap = args
+            .get("_cap")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| format!("missing capability token for {method}"))?;
+        validate_capability(&self.cap_mac_key, &self.app_id, &perm, session, cap)
+    }
+
+    fn require_not_blocked_by_safe_mode(&self, method: &str) -> Result<(), String> {
+        if self.safe_mode && !method_allowed_in_safe_mode(method) {
+            return Err(safe_mode_denial_message(method));
+        }
+        Ok(())
     }
 
     fn scoped_key(&self, key: &str) -> String {
@@ -61,13 +122,67 @@ impl BridgeHost {
         }
     }
 
+    fn require_bulletin_scope(&self, scope: &str) -> Result<(), String> {
+        let manifest = self
+            .app_store
+            .get_manifest(&self.app_id)
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| "app not installed".to_string())?;
+        if manifest.allows_bulletin_scope(scope) {
+            Ok(())
+        } else {
+            Err(format!("bulletin scope not allowed: {scope}"))
+        }
+    }
+
+    fn check_storage_quota(&self, scoped_key: &str, new_value_len: usize) -> Result<(), String> {
+        let prefix = format!("app:{}:", self.app_id);
+        let keys = self
+            .app_storage
+            .miniapp_list(&prefix)
+            .map_err(|e| e.to_string())?;
+        if !keys.iter().any(|k| k == scoped_key) && keys.len() >= MAX_KEYS_PER_APP {
+            return Err(format!("storage key limit exceeded ({MAX_KEYS_PER_APP})"));
+        }
+        let mut total = new_value_len;
+        for k in &keys {
+            if k == scoped_key {
+                continue;
+            }
+            if let Ok(Some(v)) = self.app_storage.miniapp_get(k) {
+                total += v.len();
+            }
+        }
+        if total > MAX_TOTAL_BYTES_PER_APP {
+            return Err(format!(
+                "storage quota exceeded ({MAX_TOTAL_BYTES_PER_APP} bytes per app)"
+            ));
+        }
+        Ok(())
+    }
+
     pub async fn handle(&self, method: &str, args: &Value) -> Result<Value, String> {
+        if let Some(tok) = args.get("_session").and_then(|v| v.as_str()) {
+            validate_session(&self.app_id, tok)?;
+        } else {
+            return Err("missing bridge session token".into());
+        }
+        if let Err(e) = check_bridge_rate(&self.app_id) {
+            let _ = self.app_store.record_bridge_anomaly(&self.app_id);
+            return Err(e);
+        }
+        self.require_not_blocked_by_safe_mode(method)?;
+        self.require_capability(method, args)?;
+
         match method {
-            "identity.get" => Ok(json!({
-                "peer_id": self.local_peer_id,
-                "display_name": self.app_node.display_name().await,
-                "enc_pubkey": self.enc_pubkey_hex,
-            })),
+            "identity.get" => {
+                self.require_permission(Permission::Identity)?;
+                Ok(json!({
+                    "peer_id": self.local_peer_id,
+                    "display_name": self.app_node.display_name().await,
+                    "enc_pubkey": self.enc_pubkey_hex,
+                }))
+            }
 
             "messaging.send" => {
                 self.require_permission(Permission::Messaging)?;
@@ -93,7 +208,8 @@ impl BridgeHost {
             }
 
             "messaging.broadcast" => {
-                self.require_permission(Permission::Messaging)?;
+                self.require_permission(Permission::MessagingBroadcast)?;
+                check_broadcast_rate(&self.app_id)?;
                 let payload = args
                     .get("payload")
                     .and_then(|x| x.as_str())
@@ -131,6 +247,9 @@ impl BridgeHost {
                 let memo = args.get("memo").and_then(|m| m.as_str()).map(String::from);
                 let address = coin.local_address().to_string();
                 let req = PaymentRequest::new(address, amount, memo);
+                if req.is_expired() {
+                    return Err("payment request expired".into());
+                }
                 let uri = req.to_uri();
                 Ok(json!({
                     "uri": uri,
@@ -176,7 +295,10 @@ impl BridgeHost {
                     .get("value")
                     .and_then(|x| x.as_str())
                     .ok_or_else(|| "missing value".to_string())?;
+                validate_key(key)?;
+                validate_value(value)?;
                 let sk = self.scoped_key(key);
+                self.check_storage_quota(&sk, value.len())?;
                 self.app_storage
                     .miniapp_set(&sk, value)
                     .map_err(|e| e.to_string())?;
@@ -218,6 +340,7 @@ impl BridgeHost {
                     .get("scope")
                     .and_then(|x| x.as_str())
                     .ok_or_else(|| "missing scope".to_string())?;
+                self.require_bulletin_scope(scope)?;
                 let posts = self
                     .app_node
                     .bulletins_for_scope(scope)
@@ -245,6 +368,7 @@ impl BridgeHost {
                     .get("scope")
                     .and_then(|x| x.as_str())
                     .ok_or_else(|| "missing scope".to_string())?;
+                self.require_bulletin_scope(scope)?;
                 let title = args
                     .get("title")
                     .and_then(|x| x.as_str())
@@ -269,7 +393,10 @@ impl BridgeHost {
 
             "util.now" => Ok(json!(mycelium_core::data::now_ms())),
 
-            "util.scan_qr" => Ok(json!({ "_bridge_action": "open_qr_scanner" })),
+            "util.scan_qr" => {
+                self.require_permission(Permission::Camera)?;
+                Ok(json!({ "_bridge_action": "open_qr_scanner" }))
+            }
 
             "util.alert" => {
                 let message = args

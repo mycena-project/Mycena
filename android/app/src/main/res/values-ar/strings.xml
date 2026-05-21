@@ -23,6 +23,7 @@
     <string name="group_delete_confirm">إزالة «%1$s» من هذا الجهاز؟ تبقى الرسائل لدى الأعضاء الآخرين.</string>
     <string name="group_import_failed">تعذّر قراءة دعوة المجموعة</string>
     <string name="group_name_hint">اسم المجموعة</string>
+    <string name="wallet_experimental_notice">MeshCoin تجريبي. لا تستخدمه للمعاملات الحقيقية. نموذج الإجماع قيد التطوير وغير آمن بعد ضد الهجمات.</string>
     <string name="wallet_title">المحفظة</string>
     <string name="wallet_balance">الرصيد</string>
     <string name="notification_running">شبكة مايسيليوم نشطة</string>

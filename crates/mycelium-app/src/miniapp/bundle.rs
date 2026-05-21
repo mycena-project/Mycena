@@ -120,6 +120,25 @@ mod tests {
     }
 
     #[test]
+    fn wasm_runtime_rejected() {
+        let mut manifest: serde_json::Value =
+            serde_json::from_str(&sample_manifest_json()).unwrap();
+        manifest["runtime"] = serde_json::json!("wasm");
+        let mut zip_buf = Vec::new();
+        {
+            let cursor = std::io::Cursor::new(&mut zip_buf);
+            let mut zip = zip::ZipWriter::new(cursor);
+            let opts = FileOptions::default();
+            zip.start_file("mycelium-app.json", opts).unwrap();
+            zip.write_all(manifest.to_string().as_bytes()).unwrap();
+            zip.start_file("index.html", opts).unwrap();
+            zip.write_all(b"<h1>Test</h1>").unwrap();
+            zip.finish().unwrap();
+        }
+        assert!(MiniAppBundle::load_from_bytes(&zip_buf).is_err());
+    }
+
+    #[test]
     fn path_traversal_rejected() {
         let mut zip_buf = Vec::new();
         {

@@ -1,5 +1,6 @@
 use crate::address::address_from_keypair;
 use crate::ledger::{ApplyResult, LocalLedger, Transaction};
+use crate::settlement_policy::SettlementPolicy;
 use crate::payload::CoinPayload;
 use async_trait::async_trait;
 use std::sync::Arc;
@@ -59,6 +60,10 @@ impl CoinNode {
 
     pub fn local_address(&self) -> &str {
         &self.local_address
+    }
+
+    pub fn settlement_policy(&self) -> SettlementPolicy {
+        self.ledger.policy().clone()
     }
 
     pub async fn submit_transfer_from_identity_path(

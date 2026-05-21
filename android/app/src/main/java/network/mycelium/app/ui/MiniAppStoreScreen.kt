@@ -26,6 +26,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import kotlinx.coroutines.delay
 import network.mycelium.app.R
+import network.mycelium.app.miniapp.MiniAppGrants
+import network.mycelium.app.miniapp.miniAppTrustLabel
 import network.mycelium.app.viewmodel.MiniAppViewModel
 import network.mycelium.bindings.AppStoreListing
 
@@ -36,6 +38,7 @@ fun MiniAppStoreScreen(navController: NavController, vm: MiniAppViewModel = view
     val installed by vm.installed.collectAsState()
     val listings by vm.listings.collectAsState()
     val toast by vm.toast.collectAsState()
+    val pendingInstall by vm.pendingInstall.collectAsState()
 
     val pickLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
@@ -49,6 +52,22 @@ fun MiniAppStoreScreen(navController: NavController, vm: MiniAppViewModel = view
             delay(2800)
             vm.clearToast()
         }
+    }
+
+    pendingInstall?.let { pending ->
+        MiniAppInstallProvenanceDialog(
+            previewTrust = pending.preview.trustLevel,
+            listingSignatureOk = pending.preview.listingSignatureOk,
+            hasInlineScript = pending.preview.hasInlineScript,
+            reproducibleAttested = pending.preview.reproducibleAttested,
+            isDowngrade = pending.preview.isDowngrade,
+            installedVersion = pending.preview.installedVersion,
+            manifest = pending.preview.manifest,
+            onConfirm = { allowDowngrade ->
+                vm.confirmPendingInstall(vm.listingAppIdForPending(), allowDowngrade)
+            },
+            onDismiss = { vm.dismissPendingInstall() },
+        )
     }
 
     Scaffold(
@@ -106,8 +125,22 @@ fun MiniAppStoreScreen(navController: NavController, vm: MiniAppViewModel = view
                                 "v${app.version} · ${app.entry}",
                                 style = MaterialTheme.typography.bodySmall,
                             )
+                            miniAppTrustLabel(context, MiniAppGrants.installTrust(context, app.id))
+                                ?.let { label ->
+                                    Text(
+                                        stringResource(R.string.miniapp_install_trust, label),
+                                        style = MaterialTheme.typography.bodySmall,
+                                    )
+                                }
                             Button(
-                                onClick = { navController.navigate("miniapp/run/${app.id}") },
+                                onClick = {
+                                    context.startActivity(
+                                        network.mycelium.app.miniapp.MiniAppProcessActivity.intent(
+                                            context,
+                                            app.id,
+                                        ),
+                                    )
+                                },
                                 modifier = Modifier.padding(top = 8.dp),
                             ) {
                                 Text(stringResource(R.string.miniapp_open))
@@ -151,6 +184,13 @@ fun MiniAppStoreScreen(navController: NavController, vm: MiniAppViewModel = view
                                 row.bundleHash.take(16) + "…",
                                 style = MaterialTheme.typography.bodySmall,
                             )
+                            if (row.signatureValid) {
+                                Text(
+                                    stringResource(R.string.miniapp_listing_signed),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                            }
                         }
                     }
                 }

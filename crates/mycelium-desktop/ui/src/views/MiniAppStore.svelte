@@ -7,6 +7,17 @@
   let installed = $state([]);
   let listings = $state([]);
   let message = $state("");
+  let pendingInstall = $state(null);
+  let allowDowngrade = $state(false);
+  let revokeAppId = $state("");
+  let revokeReason = $state("malware");
+
+  const trustLabels = {
+    verified_listing: "Verified store listing",
+    matching_listing_hash: "Listing hash match (signature invalid)",
+    hash_mismatch: "Bundle hash mismatch",
+    sideload_only: "Sideload only",
+  };
 
   async function refresh() {
     try {
@@ -26,13 +37,57 @@
     for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
     const bundleBase64 = btoa(binary);
     try {
-      await invoke("miniapp_install", { bundleBase64 });
-      message = "Installed";
-      await refresh();
+      const preview = await invoke("miniapp_preview_install", { bundleBase64 });
+      allowDowngrade = false;
+      pendingInstall = { bundleBase64, preview };
     } catch (e) {
       message = String(e);
     }
     ev.target.value = "";
+  }
+
+  function listingAppIdForPending() {
+    if (!pendingInstall) return null;
+    if (pendingInstall.preview.trust_level === "verified_listing") {
+      return pendingInstall.preview.manifest.id;
+    }
+    return null;
+  }
+
+  async function confirmPendingInstall() {
+    if (!pendingInstall) return;
+    try {
+      await invoke("miniapp_install", {
+        bundleBase64: pendingInstall.bundleBase64,
+        listingAppId: listingAppIdForPending(),
+        allowSideload: listingAppIdForPending() == null,
+        allowDowngrade,
+      });
+      message = `Installed ${pendingInstall.preview.manifest.name}`;
+      pendingInstall = null;
+      await refresh();
+    } catch (e) {
+      message = String(e);
+    }
+  }
+
+  async function publishRevocation() {
+    const id = revokeAppId.trim();
+    if (!id) {
+      message = "Enter an app id to revoke";
+      return;
+    }
+    try {
+      await invoke("miniapp_publish_revocation", {
+        appId: id,
+        reason: revokeReason.trim() || "curator",
+      });
+      message = `Published revocation for ${id} on gossip`;
+      revokeAppId = "";
+      await refresh();
+    } catch (e) {
+      message = String(e);
+    }
   }
 
   async function uninstall(appId) {
@@ -63,6 +118,64 @@
   {#if message}
     <p class="msg">{message}</p>
   {/if}
+
+  {#if pendingInstall}
+    <div class="modal" role="dialog" aria-labelledby="install-review-title">
+      <div class="modal-card">
+        <h4 id="install-review-title">Review before install</h4>
+        <p class="title">{pendingInstall.preview.manifest.name}</p>
+        <p class="meta">{pendingInstall.preview.manifest.id} · v{pendingInstall.preview.manifest.version}</p>
+        <p class="meta">
+          Trust: {trustLabels[pendingInstall.preview.trust_level] ?? pendingInstall.preview.trust_level}
+        </p>
+        {#if pendingInstall.preview.listing_signature_ok}
+          <p class="ok">Signed listing</p>
+        {/if}
+        {#if pendingInstall.preview.has_inline_script}
+          <p class="warn">This app uses inline scripts (higher XSS risk).</p>
+        {/if}
+        {#if pendingInstall.preview.reproducible_attested}
+          <p class="ok-line">Reproducible build attested (content hash matches manifest).</p>
+        {/if}
+        {#if pendingInstall.preview.strict_csp_eligible}
+          <p class="ok-line">Strict CSP eligible (no inline scripts).</p>
+        {/if}
+        {#if pendingInstall.preview.manifest.permissions?.length}
+          <p class="meta">Permissions:</p>
+          <ul class="perms">
+            {#each pendingInstall.preview.manifest.permissions as perm}
+              <li>{perm}</li>
+            {/each}
+          </ul>
+        {/if}
+        {#if pendingInstall.preview.is_downgrade && pendingInstall.preview.installed_version}
+          <p class="warn">
+            Downgrade: v{pendingInstall.preview.installed_version} → v{pendingInstall.preview.manifest.version}.
+            Check the box below to allow.
+          </p>
+          <label class="row downgrade">
+            <input type="checkbox" bind:checked={allowDowngrade} />
+            Allow version downgrade
+          </label>
+        {/if}
+        <p class="warn">Only install apps you trust. Malicious mini-apps can abuse granted permissions.</p>
+        <div class="row">
+          <button
+            type="button"
+            disabled={
+              pendingInstall.preview.trust_level === "hash_mismatch" ||
+              (pendingInstall.preview.is_downgrade && !allowDowngrade)
+            }
+            onclick={confirmPendingInstall}
+          >
+            Install
+          </button>
+          <button type="button" class="muted-btn" onclick={() => (pendingInstall = null)}>Cancel</button>
+        </div>
+      </div>
+    </div>
+  {/if}
+
   <section>
     <h4>Installed</h4>
     {#if installed.length === 0}
@@ -82,6 +195,29 @@
       </ul>
     {/if}
   </section>
+  <section class="curator">
+    <h4>Curator — publish revocation</h4>
+    <p class="muted">
+      Signs with this node&apos;s identity and gossips on <code>mycelium/appstore/revocations/v1</code>.
+      Use only if you operate a store curator key.
+    </p>
+    <div class="row">
+      <input
+        type="text"
+        placeholder="com.example.badapp"
+        bind:value={revokeAppId}
+        aria-label="App id to revoke"
+      />
+      <input
+        type="text"
+        placeholder="reason"
+        bind:value={revokeReason}
+        aria-label="Revocation reason"
+      />
+      <button type="button" class="danger" onclick={publishRevocation}>Revoke &amp; gossip</button>
+    </div>
+  </section>
+
   <section>
     <h4>Catalog (cached listings)</h4>
     {#if listings.length === 0}
@@ -93,6 +229,9 @@
             <span class="title">{row.manifest.name}</span>
             <span class="meta">{row.manifest.id}</span>
             <span class="meta hash">{row.bundle_hash.slice(0, 16)}…</span>
+            {#if row.signature_valid}
+              <span class="ok">Signed listing</span>
+            {/if}
           </li>
         {/each}
       </ul>
@@ -128,6 +267,38 @@
     color: #b45309;
     font-size: 14px;
   }
+  .modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 20;
+  }
+  .modal-card {
+    background: var(--bg, #fff);
+    color: var(--text, #111);
+    border-radius: 12px;
+    padding: 20px;
+    max-width: 420px;
+    width: 90%;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  }
+  .warn {
+    color: #b45309;
+    font-size: 13px;
+  }
+  .ok {
+    color: #15803d;
+    font-size: 12px;
+    display: block;
+  }
+  .perms {
+    margin: 4px 0 0;
+    padding-left: 18px;
+    font-size: 12px;
+  }
   section {
     border: 1px solid var(--border);
     border-radius: 10px;
@@ -161,10 +332,22 @@
   .hash {
     font-family: ui-monospace, monospace;
   }
+  .ok-line {
+    color: #166534;
+    font-size: 13px;
+  }
   .row {
     display: flex;
     gap: 8px;
     margin-top: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .curator input {
+    flex: 1;
+    min-width: 140px;
+    padding: 6px 8px;
+    font-size: 13px;
   }
   button {
     padding: 6px 12px;
@@ -175,8 +358,17 @@
     cursor: pointer;
     font-size: 13px;
   }
+  button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
   button.danger {
     background: #c45c5c;
+  }
+  button.muted-btn {
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
   }
   .muted {
     color: var(--text-muted);

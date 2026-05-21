@@ -35,6 +35,13 @@ pub enum WireMessage {
         sender_enc_pubkey: String,
         /// `[ephemeral_pubkey 32]` + `[nonce 12]` + `[ciphertext]`
         encrypted_payload: Vec<u8>,
+        /// libp2p-Identitäts-Signatur des unmittelbaren Senders (Relay-Hop).
+        #[serde(default)]
+        mesh_signature: Option<Vec<u8>>,
+        #[serde(default)]
+        hop_count: u8,
+        #[serde(default = "default_max_hops")]
+        max_hops: u8,
     },
     /// Symmetrisch verschlüsselte Gruppenlast; `group_id` ist öffentlicher Identifier (kein Key).
     EncryptedGroup {
@@ -48,6 +55,94 @@ pub enum WireMessage {
         display_name: Option<String>,
         supported_scopes: Vec<String>,
     },
+}
+
+fn default_max_hops() -> u8 {
+    8
+}
+
+/// Canonical bytes signed by the libp2p peer that forwards this wire frame.
+pub fn encrypted_direct_signing_bytes(
+    to_peer: &str,
+    sender_enc_pubkey: &str,
+    encrypted_payload: &[u8],
+    hop_count: u8,
+    max_hops: u8,
+) -> Vec<u8> {
+    let mut bytes = Vec::new();
+    bytes.extend_from_slice(b"MYCEL/ENC_DIRECT/v1\0");
+    bytes.extend_from_slice(to_peer.as_bytes());
+    bytes.push(0);
+    bytes.extend_from_slice(sender_enc_pubkey.as_bytes());
+    bytes.push(0);
+    bytes.extend_from_slice(&(encrypted_payload.len() as u32).to_le_bytes());
+    bytes.extend_from_slice(encrypted_payload);
+    bytes.push(hop_count);
+    bytes.push(max_hops);
+    bytes
+}
+
+/// Attach a libp2p identity signature to an [`WireMessage::EncryptedDirect`].
+pub fn sign_encrypted_direct(
+    message: &mut WireMessage,
+    keypair: &libp2p::identity::Keypair,
+) -> anyhow::Result<()> {
+    let WireMessage::EncryptedDirect {
+        to_peer,
+        sender_enc_pubkey,
+        encrypted_payload,
+        hop_count,
+        max_hops,
+        mesh_signature,
+    } = message
+    else {
+        anyhow::bail!("not EncryptedDirect");
+    };
+    let bytes = encrypted_direct_signing_bytes(
+        to_peer,
+        sender_enc_pubkey,
+        encrypted_payload,
+        *hop_count,
+        *max_hops,
+    );
+    let sig = keypair
+        .sign(&bytes)
+        .map_err(|e| anyhow::anyhow!("failed to sign EncryptedDirect: {e}"))?;
+    *mesh_signature = Some(sig);
+    Ok(())
+}
+
+/// Verify the mesh signature on an incoming [`WireMessage::EncryptedDirect`].
+pub fn verify_encrypted_direct(message: &WireMessage, sender_peer_id: &libp2p::PeerId) -> bool {
+    let WireMessage::EncryptedDirect {
+        to_peer,
+        sender_enc_pubkey,
+        encrypted_payload,
+        mesh_signature,
+        hop_count,
+        max_hops,
+    } = message
+    else {
+        return false;
+    };
+    let Some(sig) = mesh_signature else {
+        return false;
+    };
+    let bytes = encrypted_direct_signing_bytes(
+        to_peer,
+        sender_enc_pubkey,
+        encrypted_payload,
+        *hop_count,
+        *max_hops,
+    );
+    let multihash = sender_peer_id.as_ref();
+    if multihash.code() != 0 {
+        return false;
+    }
+    let Ok(pk) = libp2p::identity::PublicKey::try_decode_protobuf(multihash.digest()) else {
+        return false;
+    };
+    pk.verify(&bytes, sig)
 }
 
 impl DirectMessage {

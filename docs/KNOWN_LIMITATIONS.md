@@ -1,0 +1,151 @@
+# Mycelium — Known Limitations
+
+**Honest user-facing limitations** for public beta.  
+Not a marketing document.
+
+---
+
+## NOT SAFE AGAINST
+
+### Network & metadata
+
+| Threat | Why |
+|--------|-----|
+| **Traffic analysis** | libp2p exposes peers, scopes, timing, sync bloom traffic |
+| **ISP / state blocking** | No Tor/Nym transport in release |
+| **Relay operator surveillance** | IPs visible at circuit setup; status endpoint public |
+| **Global passive adversary** | No padding / cover traffic in production |
+
+### Identity & crypto
+
+| Threat | Why |
+|--------|-----|
+| **Long-term tracking via PeerId** | PeerId is stable identity |
+| **Retroactive decrypt (1:1)** | No double ratchet; static X25519 |
+| **Group QR leak** | Single PSK; no epoch rotation on member leave |
+| **Forged unsigned wire messages** | **SD-030 OPEN** — unsigned `Data` still processed |
+| **Plaintext chat mistake** | **SD-081 OPEN** — sends plaintext if enc key missing |
+
+### Abuse & availability
+
+| Threat | Why |
+|--------|-----|
+| **Relay amplification** | **SD-031 OPEN** — unknown destination may fan out to all peers |
+| **Sybil spam at scale** | No global proof-of-identity |
+| **Gossip author confusion** | **SD-080 OPEN** — local re-sign on scoped gossip |
+| **Bulletin illegal content** | Censorship-resistant design; no global moderation |
+
+### Device & platform
+
+| Threat | Why |
+|--------|-----|
+| **WebView 0-day (mini-apps)** | Chromium in WebView = full app TCB break |
+| **Android backup exfiltration** | **SD-171 OPEN** — `allowBackup=true` |
+| **Desktop weak vault** | Derived fallback key without OS keyring |
+| **Rooted / seized device** | Local sled holds history |
+
+### Economic
+
+| Threat | Why |
+|--------|-----|
+| **Fake MeshCoin balances** | Sybil witnesses; local ledger only |
+| **Scam payment QR** | User can be tricked; caps limit loss not fraud |
+
+---
+
+## THREAT MODEL EXCLUSIONS
+
+We explicitly **exclude** these from beta security claims:
+
+1. Nation-state adversaries with device exploit chains.
+2. Legal compulsion to decrypt (we cannot — no central plaintext store).
+3. Global Sybil-resistant cryptocurrency.
+4. App-store-grade malware review of all sideloaded bundles.
+5. Metadata-private messaging comparable to mature MLS + anonymity networks.
+6. Guaranteed delivery under partition (partition-tolerant, not CP).
+7. Protection when user installs **modified APK** from third party.
+8. Safety of **journalists** without operational security training beyond app limits.
+
+---
+
+## EXPERIMENTAL FEATURES
+
+Treat as **preview only**:
+
+| Feature | Risk |
+|---------|------|
+| **MeshCoin (MXC)** | Sybil witnesses; not legal tender; caps not insurance |
+| **Mini-app store / sideload** | HTML/JS; bridge to wallet & messaging |
+| **Bulletin boards** | Public scopes; content unmoderated |
+| **BLE / WiFi Direct mesh** | Platform-specific leaks; experimental paths |
+| **Shade / privacy experiments** | Documented in PRIVACY_EXPERIMENTS.md — not shipped |
+| **WASM mini-apps** | Rejected at install; executor not built |
+| **Curator revocation publish** | Any node key can publish; no allowlist yet |
+
+---
+
+## HIGH-RISK USER WARNINGS
+
+**Do not rely on Mycelium beta for:**
+
+- Life-threatening situations without backup comms (SMS, satellite, in-person).
+- Evading state surveillance **solely** via this app.
+- Storing wealth in MXC.
+- Whistleblowing without **device hygiene** (no backup, no plaintext chat, verify keys).
+- Installing mini-apps from unknown developers.
+
+**If you are an activist or journalist:**
+
+- Assume **PeerId + IP + timing** are exposed to relay and local network observers.
+- Use **encrypted chat only** after verifying enc key exchange — today app may still plaintext-fallback.
+- Do not share group invites in public channels.
+- Prefer **LAN-only** mode if Internet bootstrap is untrusted.
+- Plan **panic wipe** before field use; assume phone seizure reveals local DB.
+
+**If you are a protest organizer:**
+
+- Expect **spam and amplification** until SD-030/031 fixed.
+- MeshCoin tips are **not** settlement for vendors at scale.
+
+**If you are in disaster zone / internet outage:**
+
+- **Good fit (with caveats):** LAN mesh, bulletin, offline-first *after* peers joined.
+- **Caveats:** Still need initial peer discovery; relay not required on LAN; battery cost.
+
+---
+
+## DOCUMENTED PARTIAL MITIGATIONS
+
+| Area | What works | What does not |
+|------|------------|---------------|
+| Mini-apps | Network block, sessions, caps, safe mode, bundle scan, Android isolated process | `unsafe-inline` for some bundles; WebView CVE class |
+| Chat E2E | Encrypted path when keys present | Plaintext fallback |
+| Install | Listing verify, revocation, downgrade block | Sideload still possible |
+| Relay | Circuit limits, blind forward | Single operator, IP visibility |
+
+---
+
+## Operational limitations
+
+- **No 24/7 abuse team** — see [INCIDENT_RESPONSE_RUNBOOK.md](./INCIDENT_RESPONSE_RUNBOOK.md).
+- **Cannot delete** messages on other users’ phones.
+- **Cannot recover** forgotten keys / wiped data.
+- **Relay outage** degrades Internet path; LAN may continue.
+
+---
+
+## Comparison claims we refuse to make
+
+- “Signal-level security” — **false** today.
+- “Untraceable” — **false**.
+- “Bank in your pocket” (MXC) — **false**.
+- “App store safe” for all sideloads — **false**.
+
+---
+
+## See also
+
+- [SECURITY_ASSUMPTIONS.md](./SECURITY_ASSUMPTIONS.md)
+- [BETA_BLOCKERS.md](./BETA_BLOCKERS.md)
+- [RELEASE_GATING_CHECKLIST.md](./RELEASE_GATING_CHECKLIST.md)
+- [security-for-users.md](./security-for-users.md)

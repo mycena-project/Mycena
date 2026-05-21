@@ -27,6 +27,7 @@
     <string name="bulletin_title">公告板</string>
     <string name="mail_inbox">收件箱</string>
     <string name="mail_sent">已发送</string>
+    <string name="wallet_experimental_notice">MeshCoin 为实验功能，请勿用于真实交易。共识机制仍在开发中，尚不能抵御攻击。</string>
     <string name="wallet_title">钱包</string>
     <string name="wallet_balance">余额</string>
     <string name="wallet_send">发送</string>

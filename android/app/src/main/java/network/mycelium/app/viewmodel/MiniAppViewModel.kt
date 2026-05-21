@@ -13,9 +13,23 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import network.mycelium.app.MeshEvent
 import network.mycelium.app.meshEvents
+import network.mycelium.app.miniapp.MiniAppGrants
 import network.mycelium.bindings.AppStoreListing
 import network.mycelium.bindings.MiniAppInfo
+import network.mycelium.bindings.MiniAppInstallPreview
 import network.mycelium.bindings.mycelium
+import uniffi.mycelium.MyceliumException
+
+data class PendingMiniAppInstall(
+    val bytes: ByteArray,
+    val preview: MiniAppInstallPreview,
+)
+
+private fun installErrorMessage(e: MyceliumException): String =
+    when (e) {
+        is MyceliumException.InstallException -> e.`detail`
+        else -> e.message ?: "Install failed"
+    }
 
 class MiniAppViewModel(app: Application) : AndroidViewModel(app) {
     private val appContext = getApplication<Application>()
@@ -27,6 +41,9 @@ class MiniAppViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _toast = MutableStateFlow<String?>(null)
     val toast: StateFlow<String?> = _toast.asStateFlow()
+
+    private val _pendingInstall = MutableStateFlow<PendingMiniAppInstall?>(null)
+    val pendingInstall: StateFlow<PendingMiniAppInstall?> = _pendingInstall.asStateFlow()
 
     init {
         refresh()
@@ -71,10 +88,13 @@ class MiniAppViewModel(app: Application) : AndroidViewModel(app) {
                             }
                             return@launch
                         }
-                val info = mycelium.installApp(bytes)
+                val preview = mycelium.previewMiniappInstall(bytes)
                 withContext(Dispatchers.Main) {
-                    _toast.value = "Installed ${info.name}"
-                    refresh()
+                    _pendingInstall.value = PendingMiniAppInstall(bytes, preview)
+                }
+            } catch (e: MyceliumException) {
+                withContext(Dispatchers.Main) {
+                    _toast.value = installErrorMessage(e)
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
@@ -84,10 +104,57 @@ class MiniAppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun confirmPendingInstall(listingAppId: String?, allowDowngrade: Boolean = false) {
+        val pending = _pendingInstall.value ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val allowSideload = listingAppId == null
+                val info =
+                    mycelium.installApp(
+                        pending.bytes,
+                        listingAppId,
+                        allowSideload,
+                        allowDowngrade,
+                    )
+                MiniAppGrants.recordInstallTrust(
+                    appContext,
+                    info.id,
+                    pending.preview.trustLevel,
+                )
+                withContext(Dispatchers.Main) {
+                    _pendingInstall.value = null
+                    _toast.value = "Installed ${info.name}"
+                    refresh()
+                }
+            } catch (e: MyceliumException) {
+                withContext(Dispatchers.Main) {
+                    _toast.value = installErrorMessage(e)
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    _toast.value = e.message ?: "Install failed"
+                }
+            }
+        }
+    }
+
+    fun dismissPendingInstall() {
+        _pendingInstall.value = null
+    }
+
+    fun listingAppIdForPending(): String? {
+        val pending = _pendingInstall.value ?: return null
+        if (pending.preview.trustLevel == "verified_listing") {
+            return pending.preview.manifest.id
+        }
+        return null
+    }
+
     fun uninstall(appId: String) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 mycelium.uninstallApp(appId)
+                MiniAppGrants.clearApp(appContext, appId)
                 withContext(Dispatchers.Main) {
                     _toast.value = "Uninstalled"
                     refresh()

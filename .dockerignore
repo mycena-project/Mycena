@@ -22,6 +22,7 @@ node_modules/
 android/app/build/
 android/uniffi-bindings/build/
 android/rust-build/
+android/local.properties
 
 # Runtime / secrets (never useful in an image)
 .mycelium-relay/

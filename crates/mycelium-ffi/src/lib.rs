@@ -24,6 +24,22 @@ use std::sync::{Arc, Mutex};
 use tokio::runtime::Runtime;
 use tokio::sync::RwLock;
 
+/// Matches `[Error] interface MyceliumException` in `mycelium.udl`.
+#[derive(Debug)]
+pub enum MyceliumException {
+    InstallError { detail: String },
+}
+
+impl std::fmt::Display for MyceliumException {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MyceliumException::InstallError { detail } => write!(f, "{detail}"),
+        }
+    }
+}
+
+impl std::error::Error for MyceliumException {}
+
 uniffi::include_scaffolding!("mycelium");
 
 #[derive(Debug, Clone)]
@@ -189,10 +205,36 @@ pub struct MiniAppInfo {
 }
 
 #[derive(Debug, Clone)]
+pub struct MiniAppPolicyData {
+    pub app_id: String,
+    pub reputation_score: u8,
+    pub safe_mode_active: bool,
+    pub safe_mode_forced: bool,
+    pub safe_mode_suggested: bool,
+    pub user_safe_mode: bool,
+    pub revoked: bool,
+    pub strict_csp_eligible: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct MiniAppInstallPreview {
+    pub manifest: MiniAppInfo,
+    pub bundle_hash: String,
+    pub trust_level: String,
+    pub listing_signature_ok: bool,
+    pub installed_version: Option<String>,
+    pub is_downgrade: bool,
+    pub has_inline_script: bool,
+    pub strict_csp_eligible: bool,
+    pub reproducible_attested: bool,
+}
+
+#[derive(Debug, Clone)]
 pub struct AppStoreListing {
     pub manifest: MiniAppInfo,
     pub bundle_hash: String,
     pub updated_at_ms: u64,
+    pub signature_valid: bool,
 }
 
 pub trait NodeEventCallback: Send + Sync {
@@ -248,6 +290,7 @@ struct NodeState {
     app_store: Arc<mycelium_app::miniapp::AppStore>,
     coin_node: Arc<CoinNode>,
     coin_identity_path: String,
+    cap_mac_key: [u8; 32],
     local_peer_id: String,
     display_name: Arc<RwLock<String>>,
     runner_task: tokio::task::JoinHandle<anyhow::Result<()>>,
@@ -304,7 +347,7 @@ pub fn init_node(config: NodeConfig) {
         let runner_task = tokio::spawn(async move { runner.run().await });
 
         let app_storage = Arc::new(
-            AppStorage::open(&format!("{}/app", config.db_path))
+            AppStorage::open_with_key(&format!("{}/app", config.db_path), storage_key)
                 .expect("failed to open app storage"),
         );
         let app_store = Arc::new(
@@ -428,12 +471,14 @@ pub fn init_node(config: NodeConfig) {
             }
         });
 
+        let cap_mac_key = mycelium_app::miniapp::mac_key_from_db_path(&config.db_path);
         let state = Arc::new(RwLock::new(NodeState {
             handle,
             app_node,
             app_store,
             coin_node,
             coin_identity_path,
+            cap_mac_key,
             local_peer_id,
             display_name: Arc::new(RwLock::new(config.display_name)),
             runner_task,
@@ -873,14 +918,95 @@ pub fn build_payment_request_uri(
 }
 
 pub fn parse_payment_request_uri(uri: String) -> Option<PaymentRequestData> {
-    PaymentRequest::from_uri(&uri)
-        .ok()
-        .map(|p| PaymentRequestData {
-            to_address: p.to_address,
-            amount_muon: p.amount_muon,
-            memo: p.memo,
-            expires_at_ms: p.expires_at_ms,
-        })
+    let p = PaymentRequest::from_uri(&uri).ok()?;
+    if p.is_expired() {
+        return None;
+    }
+    Some(PaymentRequestData {
+        to_address: p.to_address,
+        amount_muon: p.amount_muon,
+        memo: p.memo,
+        expires_at_ms: p.expires_at_ms,
+    })
+}
+
+pub fn miniapp_issue_bridge_session(app_id: String) -> String {
+    mycelium_app::miniapp::issue_session(&app_id)
+}
+
+pub fn miniapp_revoke_bridge_session(app_id: String) {
+    mycelium_app::miniapp::revoke_session(&app_id);
+}
+
+pub fn miniapp_issue_capability(
+    app_id: String,
+    permission: String,
+    session_token: String,
+) -> String {
+    with_state(|s| {
+        let perm = mycelium_app::miniapp::parse_permission_name(&permission)
+            .unwrap_or_else(|| panic!("unknown permission: {permission}"));
+        mycelium_app::miniapp::issue_capability(
+            &s.cap_mac_key,
+            &app_id,
+            &perm,
+            &session_token,
+            mycelium_app::miniapp::DEFAULT_CAP_TTL_MS,
+        )
+    })
+}
+
+pub fn miniapp_publish_revocation(app_id: String, reason: String) {
+    runtime().block_on(async {
+        let st = state_arc();
+        let guard = st.read().await;
+        let keypair = mycelium_node::load_or_create_keypair(&guard.coin_identity_path)
+            .expect("load identity keypair for revocation");
+        let entry = guard
+            .app_store
+            .build_revocation_gossip(&app_id, &reason, &guard.local_peer_id, &keypair)
+            .expect("build revocation gossip");
+        guard
+            .app_node
+            .publish_app_revocation(&entry)
+            .await
+            .expect("publish revocation gossip");
+    });
+}
+
+pub fn miniapp_get_policy(app_id: String) -> MiniAppPolicyData {
+    with_state(|s| {
+        let p = s
+            .app_store
+            .policy_snapshot(&app_id)
+            .expect("miniapp policy");
+        MiniAppPolicyData {
+            app_id: p.app_id,
+            reputation_score: p.reputation_score,
+            safe_mode_active: p.safe_mode_active,
+            safe_mode_forced: p.safe_mode_forced,
+            safe_mode_suggested: p.safe_mode_suggested,
+            user_safe_mode: p.user_safe_mode,
+            revoked: p.revoked,
+            strict_csp_eligible: p.strict_csp_eligible,
+        }
+    })
+}
+
+pub fn miniapp_set_safe_mode(app_id: String, enabled: bool) {
+    with_state(|s| {
+        s.app_store
+            .set_user_safe_mode(&app_id, enabled)
+            .expect("set safe mode");
+    });
+}
+
+pub fn miniapp_report_app(app_id: String) {
+    with_state(|s| {
+        s.app_store
+            .record_user_report(&app_id)
+            .expect("report app");
+    });
 }
 
 fn mini_app_manifest_to_info(m: mycelium_app::miniapp::MiniAppManifest) -> MiniAppInfo {
@@ -907,14 +1033,81 @@ pub fn list_installed_apps() -> Vec<MiniAppInfo> {
     })
 }
 
-pub fn install_app(bundle_data: Vec<u8>) -> MiniAppInfo {
+fn trust_level_name(level: mycelium_app::miniapp::InstallTrustLevel) -> String {
+    use mycelium_app::miniapp::InstallTrustLevel;
+    match level {
+        InstallTrustLevel::VerifiedListing => "verified_listing".to_string(),
+        InstallTrustLevel::MatchingListingHash => "matching_listing_hash".to_string(),
+        InstallTrustLevel::SideloadOnly => "sideload_only".to_string(),
+        InstallTrustLevel::HashMismatch => "hash_mismatch".to_string(),
+    }
+}
+
+pub fn preview_miniapp_install(
+    bundle_data: Vec<u8>,
+) -> Result<MiniAppInstallPreview, MyceliumException> {
     with_state(|s| {
-        let m = s.app_store.install(&bundle_data).expect("install mini-app");
-        mini_app_manifest_to_info(m)
+        let p = s
+            .app_store
+            .preview_install(&bundle_data)
+            .map_err(|e| MyceliumException::InstallError {
+                detail: e.to_string(),
+            })?;
+        Ok(MiniAppInstallPreview {
+            manifest: mini_app_manifest_to_info(p.manifest),
+            bundle_hash: p.bundle_hash,
+            trust_level: trust_level_name(p.trust_level),
+            listing_signature_ok: p.listing_signature_ok,
+            installed_version: p.installed_version,
+            is_downgrade: p.is_downgrade,
+            has_inline_script: p.has_inline_script,
+            strict_csp_eligible: p.strict_csp_eligible,
+            reproducible_attested: p.reproducible_attested,
+        })
+    })
+}
+
+pub fn install_app(
+    bundle_data: Vec<u8>,
+    listing_app_id: Option<String>,
+    allow_sideload: bool,
+    allow_downgrade: bool,
+) -> Result<MiniAppInfo, MyceliumException> {
+    with_state(|s| {
+        let trust = if listing_app_id.is_some() {
+            mycelium_app::miniapp::InstallTrust::VerifiedListing
+        } else if allow_sideload {
+            mycelium_app::miniapp::InstallTrust::SideloadAcknowledged
+        } else {
+            return Err(MyceliumException::InstallError {
+                detail: "listing_app_id or allow_sideload required".into(),
+            });
+        };
+        if let Some(ref id) = listing_app_id {
+            let preview = s
+                .app_store
+                .preview_install(&bundle_data)
+                .map_err(|e| MyceliumException::InstallError {
+                    detail: e.to_string(),
+                })?;
+            if preview.manifest.id != *id {
+                return Err(MyceliumException::InstallError {
+                    detail: "bundle app id does not match listing_app_id".into(),
+                });
+            }
+        }
+        let m = s
+            .app_store
+            .install_verified(&bundle_data, trust, allow_downgrade)
+            .map_err(|e| MyceliumException::InstallError {
+                detail: e.to_string(),
+            })?;
+        Ok(mini_app_manifest_to_info(m))
     })
 }
 
 pub fn uninstall_app(app_id: String) {
+    mycelium_app::miniapp::revoke_session(&app_id);
     with_state(|s| {
         s.app_store.uninstall(&app_id).expect("uninstall mini-app");
         let _ = s.app_node.storage().miniapp_clear_all_for_app(&app_id);
@@ -931,10 +1124,14 @@ pub fn browse_app_store() -> Vec<AppStoreListing> {
             .browse_listings()
             .unwrap_or_default()
             .into_iter()
-            .map(|row| AppStoreListing {
-                manifest: mini_app_manifest_to_info(row.manifest),
-                bundle_hash: row.bundle_hash,
-                updated_at_ms: row.updated_at_ms,
+            .map(|row| {
+                let signature_valid = row.verify_signature().unwrap_or(false);
+                AppStoreListing {
+                    manifest: mini_app_manifest_to_info(row.manifest),
+                    bundle_hash: row.bundle_hash,
+                    updated_at_ms: row.updated_at_ms,
+                    signature_valid,
+                }
             })
             .collect()
     })
@@ -948,7 +1145,14 @@ pub fn miniapp_storage_get(app_id: String, key: String) -> Option<String> {
 }
 
 pub fn miniapp_storage_set(app_id: String, key: String, value: String) {
+    use mycelium_app::miniapp::storage_quota::{validate_key, validate_value};
     with_state(|s| {
+        if let Err(e) = validate_key(&key) {
+            panic!("miniapp storage set: {e}");
+        }
+        if let Err(e) = validate_value(&value) {
+            panic!("miniapp storage set: {e}");
+        }
         let sk = format!("app:{app_id}:{key}");
         s.app_node
             .storage()
@@ -977,6 +1181,10 @@ pub fn miniapp_bridge_call(app_id: String, method: String, args_json: String) ->
         let manifest = guard.app_store.get_manifest(&app_id).ok().flatten();
         let permissions = manifest.map(|m| m.permissions).unwrap_or_default();
         let enc = guard.app_node.node_handle().local_enc_pubkey_hex();
+        let safe_mode = guard
+            .app_store
+            .effective_safe_mode(&app_id)
+            .unwrap_or(false);
         let host = mycelium_app::miniapp::bridge_host::BridgeHost::new(
             app_id,
             permissions,
@@ -986,6 +1194,8 @@ pub fn miniapp_bridge_call(app_id: String, method: String, args_json: String) ->
             Some(guard.coin_node.clone()),
             guard.local_peer_id.clone(),
             enc,
+            safe_mode,
+            guard.cap_mac_key,
         );
         match host.handle(&method, &args).await {
             Ok(v) => serde_json::to_string(&v).unwrap_or_else(|_| "{}".to_string()),
@@ -1043,10 +1253,12 @@ fn to_chat_message(m: AppChatMessage, from_peer: String) -> ChatMessage {
 }
 
 fn to_app_store_listing(l: mycelium_app::miniapp::store::AppStoreListing) -> AppStoreListing {
+    let signature_valid = l.verify_signature().unwrap_or(false);
     AppStoreListing {
         manifest: mini_app_manifest_to_info(l.manifest),
         bundle_hash: l.bundle_hash,
         updated_at_ms: l.updated_at_ms,
+        signature_valid,
     }
 }
 

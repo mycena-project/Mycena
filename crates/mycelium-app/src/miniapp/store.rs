@@ -28,6 +28,67 @@ pub struct AppStore {
 }
 
 impl AppStore {
+    pub fn is_app_revoked(&self, app_id: &str) -> anyhow::Result<bool> {
+        super::revocation::is_revoked(&self.db, app_id)
+    }
+
+    /// Local-only revocation (tests / emergency); gossip via `AppNode::publish_app_revocation`.
+    pub fn revoke_app_local(&self, app_id: &str) -> anyhow::Result<()> {
+        super::revocation::revoke_app(&self.db, app_id)
+    }
+
+    pub fn record_bridge_anomaly(&self, app_id: &str) -> anyhow::Result<()> {
+        super::reputation::record_bridge_anomaly(&self.db, app_id)
+    }
+
+    pub fn record_install_reputation(
+        &self,
+        app_id: &str,
+        trust: super::install_policy::InstallTrustLevel,
+    ) -> anyhow::Result<()> {
+        super::reputation::record_install_trust(&self.db, app_id, trust)
+    }
+
+    pub fn policy_snapshot(&self, app_id: &str) -> anyhow::Result<super::MiniAppPolicy> {
+        super::MiniAppPolicy::load_with_store(&self.db, app_id, Some(self))
+    }
+
+    pub fn ingest_revocation_gossip(
+        &self,
+        entry: &super::revocation::RevocationGossip,
+    ) -> anyhow::Result<bool> {
+        super::revocation::ingest_gossip_revocation(&self.db, entry)
+    }
+
+    /// Build a signed revocation gossip entry (curator / local node key).
+    pub fn build_revocation_gossip(
+        &self,
+        app_id: &str,
+        reason: &str,
+        curator_peer_id: &str,
+        keypair: &Keypair,
+    ) -> anyhow::Result<super::revocation::RevocationGossip> {
+        super::revocation::RevocationGossip::new_signed(
+            app_id.to_string(),
+            reason.to_string(),
+            curator_peer_id.to_string(),
+            keypair,
+        )
+    }
+
+    pub fn set_user_safe_mode(&self, app_id: &str, enabled: bool) -> anyhow::Result<()> {
+        super::prefs::set_safe_mode(&self.db, app_id, enabled)
+    }
+
+    pub fn effective_safe_mode(&self, app_id: &str) -> anyhow::Result<bool> {
+        super::prefs::effective_safe_mode(&self.db, app_id)
+    }
+
+    pub fn record_user_report(&self, app_id: &str) -> anyhow::Result<()> {
+        super::reputation::record_user_report(&self.db, app_id)?;
+        Ok(())
+    }
+
     pub fn open(db_path: &str) -> anyhow::Result<Self> {
         let db = sled::Config::new()
             .path(db_path)
@@ -35,11 +96,15 @@ impl AppStore {
             .open()?;
         let installed = db.open_tree("installed_apps")?;
         let listings = db.open_tree("app_listings")?;
-        Ok(Self {
+        let store = Self {
             db,
             installed,
             listings,
-        })
+        };
+        if let Err(e) = super::revocation::merge_bundled_defaults(&store.db) {
+            tracing::warn!("bundled miniapp revocations merge failed: {e}");
+        }
+        Ok(store)
     }
 
     pub fn install(&self, bundle_bytes: &[u8]) -> anyhow::Result<MiniAppManifest> {
@@ -69,8 +134,6 @@ impl AppStore {
         self.installed.remove(app_id.as_bytes())?;
         let tree_name = format!("app_files:{app_id}");
         let _ = self.db.drop_tree(tree_name.as_bytes());
-        let kv_name = format!("miniapp_kv:{app_id}");
-        let _ = self.db.drop_tree(kv_name.as_bytes());
         Ok(())
     }
 
@@ -115,42 +178,6 @@ impl AppStore {
         Ok(listings)
     }
 
-    pub fn miniapp_storage_get(&self, app_id: &str, key: &str) -> anyhow::Result<Option<String>> {
-        let tree = self.db.open_tree(format!("miniapp_kv:{app_id}"))?;
-        Ok(tree
-            .get(key.as_bytes())?
-            .map(|v| String::from_utf8_lossy(&v).into_owned()))
-    }
-
-    pub fn miniapp_storage_set(&self, app_id: &str, key: &str, value: &str) -> anyhow::Result<()> {
-        let tree = self.db.open_tree(format!("miniapp_kv:{app_id}"))?;
-        tree.insert(key.as_bytes(), value.as_bytes())?;
-        Ok(())
-    }
-
-    pub fn miniapp_storage_delete(&self, app_id: &str, key: &str) -> anyhow::Result<()> {
-        let tree = self.db.open_tree(format!("miniapp_kv:{app_id}"))?;
-        tree.remove(key.as_bytes())?;
-        Ok(())
-    }
-
-    pub fn miniapp_storage_list_keys(
-        &self,
-        app_id: &str,
-        prefix: &str,
-    ) -> anyhow::Result<Vec<String>> {
-        let tree = self.db.open_tree(format!("miniapp_kv:{app_id}"))?;
-        let mut out = Vec::new();
-        for item in tree.iter() {
-            let (k, _) = item?;
-            let ks = String::from_utf8_lossy(&k);
-            if ks.starts_with(prefix) {
-                out.push(ks.into_owned());
-            }
-        }
-        out.sort();
-        Ok(out)
-    }
 }
 
 impl AppStoreListing {
@@ -222,7 +249,7 @@ impl AppStoreListing {
     }
 }
 
-fn public_key_from_peer_id(peer_id: &PeerId) -> Option<PublicKey> {
+pub(crate) fn public_key_from_peer_id(peer_id: &PeerId) -> Option<PublicKey> {
     let mh = peer_id.as_ref();
     // Identity multihash (code 0) embeds the protobuf-encoded public key.
     if mh.code() != 0 {
@@ -260,6 +287,9 @@ mod tests {
             accepts_payments: false,
             payment_address: None,
             categories: vec![],
+            runtime: "webview".into(),
+            bulletin_scopes: vec![],
+            reproducible_build: None,
         }
     }
 

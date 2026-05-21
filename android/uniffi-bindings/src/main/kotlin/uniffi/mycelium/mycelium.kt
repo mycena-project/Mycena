@@ -874,6 +874,18 @@ internal open class UniffiVTableCallbackInterfaceNodeEventCallback(
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
 // A JNA Library to expose the extern-C FFI definitions.
 // This is an implementation detail which will be called internally by the public API.
 
@@ -926,7 +938,7 @@ internal interface UniffiLib : Library {
     ): RustBuffer.ByValue
     fun uniffi_mycelium_ffi_fn_func_init_node(`config`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
-    fun uniffi_mycelium_ffi_fn_func_install_app(`bundleData`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_mycelium_ffi_fn_func_install_app(`bundleData`: RustBuffer.ByValue,`listingAppId`: RustBuffer.ByValue,`allowSideload`: Byte,`allowDowngrade`: Byte,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_mycelium_ffi_fn_func_known_peers(uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
@@ -948,6 +960,16 @@ internal interface UniffiLib : Library {
     ): RustBuffer.ByValue
     fun uniffi_mycelium_ffi_fn_func_miniapp_bridge_call(`appId`: RustBuffer.ByValue,`method`: RustBuffer.ByValue,`argsJson`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
+    fun uniffi_mycelium_ffi_fn_func_miniapp_get_policy(`appId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_mycelium_ffi_fn_func_miniapp_issue_bridge_session(`appId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_mycelium_ffi_fn_func_miniapp_report_app(`appId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
+    fun uniffi_mycelium_ffi_fn_func_miniapp_revoke_bridge_session(`appId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
+    fun uniffi_mycelium_ffi_fn_func_miniapp_set_safe_mode(`appId`: RustBuffer.ByValue,`enabled`: Byte,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
     fun uniffi_mycelium_ffi_fn_func_miniapp_storage_delete(`appId`: RustBuffer.ByValue,`key`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
     fun uniffi_mycelium_ffi_fn_func_miniapp_storage_get(`appId`: RustBuffer.ByValue,`key`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
@@ -958,6 +980,8 @@ internal interface UniffiLib : Library {
     ): RustBuffer.ByValue
     fun uniffi_mycelium_ffi_fn_func_post_bulletin(`scope`: RustBuffer.ByValue,`title`: RustBuffer.ByValue,`body`: RustBuffer.ByValue,`ttlSecs`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
+    fun uniffi_mycelium_ffi_fn_func_preview_miniapp_install(`bundleData`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
     fun uniffi_mycelium_ffi_fn_func_request_faucet(uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
     fun uniffi_mycelium_ffi_fn_func_send_chat_broadcast(`body`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
@@ -1160,6 +1184,16 @@ internal interface UniffiLib : Library {
     ): Short
     fun uniffi_mycelium_ffi_checksum_func_miniapp_bridge_call(
     ): Short
+    fun uniffi_mycelium_ffi_checksum_func_miniapp_get_policy(
+    ): Short
+    fun uniffi_mycelium_ffi_checksum_func_miniapp_issue_bridge_session(
+    ): Short
+    fun uniffi_mycelium_ffi_checksum_func_miniapp_report_app(
+    ): Short
+    fun uniffi_mycelium_ffi_checksum_func_miniapp_revoke_bridge_session(
+    ): Short
+    fun uniffi_mycelium_ffi_checksum_func_miniapp_set_safe_mode(
+    ): Short
     fun uniffi_mycelium_ffi_checksum_func_miniapp_storage_delete(
     ): Short
     fun uniffi_mycelium_ffi_checksum_func_miniapp_storage_get(
@@ -1169,6 +1203,8 @@ internal interface UniffiLib : Library {
     fun uniffi_mycelium_ffi_checksum_func_parse_payment_request_uri(
     ): Short
     fun uniffi_mycelium_ffi_checksum_func_post_bulletin(
+    ): Short
+    fun uniffi_mycelium_ffi_checksum_func_preview_miniapp_install(
     ): Short
     fun uniffi_mycelium_ffi_checksum_func_request_faucet(
     ): Short
@@ -1286,7 +1322,7 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_mycelium_ffi_checksum_func_init_node() != 22974.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_install_app() != 33607.toShort()) {
+    if (lib.uniffi_mycelium_ffi_checksum_func_install_app() != 25884.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_mycelium_ffi_checksum_func_known_peers() != 29951.toShort()) {
@@ -1319,6 +1355,21 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_mycelium_ffi_checksum_func_miniapp_bridge_call() != 64158.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_mycelium_ffi_checksum_func_miniapp_get_policy() != 45404.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mycelium_ffi_checksum_func_miniapp_issue_bridge_session() != 10854.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mycelium_ffi_checksum_func_miniapp_report_app() != 28909.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mycelium_ffi_checksum_func_miniapp_revoke_bridge_session() != 14099.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mycelium_ffi_checksum_func_miniapp_set_safe_mode() != 47391.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_mycelium_ffi_checksum_func_miniapp_storage_delete() != 10014.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
@@ -1332,6 +1383,9 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_mycelium_ffi_checksum_func_post_bulletin() != 6189.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mycelium_ffi_checksum_func_preview_miniapp_install() != 47604.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_mycelium_ffi_checksum_func_request_faucet() != 55185.toShort()) {
@@ -1452,6 +1506,29 @@ inline fun <T : Disposable?, R> T.use(block: (T) -> R) =
  * @suppress
  * */
 object NoPointer
+
+/**
+ * @suppress
+ */
+public object FfiConverterUByte: FfiConverter<UByte, Byte> {
+    override fun lift(value: Byte): UByte {
+        return value.toUByte()
+    }
+
+    override fun read(buf: ByteBuffer): UByte {
+        return lift(buf.get())
+    }
+
+    override fun lower(value: UByte): Byte {
+        return value.toByte()
+    }
+
+    override fun allocationSize(value: UByte) = 1UL
+
+    override fun write(value: UByte, buf: ByteBuffer) {
+        buf.put(value.toByte())
+    }
+}
 
 /**
  * @suppress
@@ -1603,7 +1680,8 @@ public object FfiConverterByteArray: FfiConverterRustBuffer<ByteArray> {
 data class AppStoreListing (
     var `manifest`: MiniAppInfo, 
     var `bundleHash`: kotlin.String, 
-    var `updatedAtMs`: kotlin.ULong
+    var `updatedAtMs`: kotlin.ULong, 
+    var `signatureValid`: kotlin.Boolean
 ) {
     
     companion object
@@ -1618,19 +1696,22 @@ public object FfiConverterTypeAppStoreListing: FfiConverterRustBuffer<AppStoreLi
             FfiConverterTypeMiniAppInfo.read(buf),
             FfiConverterString.read(buf),
             FfiConverterULong.read(buf),
+            FfiConverterBoolean.read(buf),
         )
     }
 
     override fun allocationSize(value: AppStoreListing) = (
             FfiConverterTypeMiniAppInfo.allocationSize(value.`manifest`) +
             FfiConverterString.allocationSize(value.`bundleHash`) +
-            FfiConverterULong.allocationSize(value.`updatedAtMs`)
+            FfiConverterULong.allocationSize(value.`updatedAtMs`) +
+            FfiConverterBoolean.allocationSize(value.`signatureValid`)
     )
 
     override fun write(value: AppStoreListing, buf: ByteBuffer) {
             FfiConverterTypeMiniAppInfo.write(value.`manifest`, buf)
             FfiConverterString.write(value.`bundleHash`, buf)
             FfiConverterULong.write(value.`updatedAtMs`, buf)
+            FfiConverterBoolean.write(value.`signatureValid`, buf)
     }
 }
 
@@ -1972,6 +2053,122 @@ public object FfiConverterTypeMiniAppInfo: FfiConverterRustBuffer<MiniAppInfo> {
 
 
 
+data class MiniAppInstallPreview (
+    var `manifest`: MiniAppInfo, 
+    var `bundleHash`: kotlin.String, 
+    var `trustLevel`: kotlin.String, 
+    var `listingSignatureOk`: kotlin.Boolean, 
+    var `installedVersion`: kotlin.String?, 
+    var `isDowngrade`: kotlin.Boolean, 
+    var `hasInlineScript`: kotlin.Boolean, 
+    var `strictCspEligible`: kotlin.Boolean, 
+    var `reproducibleAttested`: kotlin.Boolean
+) {
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeMiniAppInstallPreview: FfiConverterRustBuffer<MiniAppInstallPreview> {
+    override fun read(buf: ByteBuffer): MiniAppInstallPreview {
+        return MiniAppInstallPreview(
+            FfiConverterTypeMiniAppInfo.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterBoolean.read(buf),
+            FfiConverterOptionalString.read(buf),
+            FfiConverterBoolean.read(buf),
+            FfiConverterBoolean.read(buf),
+            FfiConverterBoolean.read(buf),
+            FfiConverterBoolean.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: MiniAppInstallPreview) = (
+            FfiConverterTypeMiniAppInfo.allocationSize(value.`manifest`) +
+            FfiConverterString.allocationSize(value.`bundleHash`) +
+            FfiConverterString.allocationSize(value.`trustLevel`) +
+            FfiConverterBoolean.allocationSize(value.`listingSignatureOk`) +
+            FfiConverterOptionalString.allocationSize(value.`installedVersion`) +
+            FfiConverterBoolean.allocationSize(value.`isDowngrade`) +
+            FfiConverterBoolean.allocationSize(value.`hasInlineScript`) +
+            FfiConverterBoolean.allocationSize(value.`strictCspEligible`) +
+            FfiConverterBoolean.allocationSize(value.`reproducibleAttested`)
+    )
+
+    override fun write(value: MiniAppInstallPreview, buf: ByteBuffer) {
+            FfiConverterTypeMiniAppInfo.write(value.`manifest`, buf)
+            FfiConverterString.write(value.`bundleHash`, buf)
+            FfiConverterString.write(value.`trustLevel`, buf)
+            FfiConverterBoolean.write(value.`listingSignatureOk`, buf)
+            FfiConverterOptionalString.write(value.`installedVersion`, buf)
+            FfiConverterBoolean.write(value.`isDowngrade`, buf)
+            FfiConverterBoolean.write(value.`hasInlineScript`, buf)
+            FfiConverterBoolean.write(value.`strictCspEligible`, buf)
+            FfiConverterBoolean.write(value.`reproducibleAttested`, buf)
+    }
+}
+
+
+
+data class MiniAppPolicyData (
+    var `appId`: kotlin.String, 
+    var `reputationScore`: kotlin.UByte, 
+    var `safeModeActive`: kotlin.Boolean, 
+    var `safeModeForced`: kotlin.Boolean, 
+    var `safeModeSuggested`: kotlin.Boolean, 
+    var `userSafeMode`: kotlin.Boolean, 
+    var `revoked`: kotlin.Boolean, 
+    var `strictCspEligible`: kotlin.Boolean
+) {
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeMiniAppPolicyData: FfiConverterRustBuffer<MiniAppPolicyData> {
+    override fun read(buf: ByteBuffer): MiniAppPolicyData {
+        return MiniAppPolicyData(
+            FfiConverterString.read(buf),
+            FfiConverterUByte.read(buf),
+            FfiConverterBoolean.read(buf),
+            FfiConverterBoolean.read(buf),
+            FfiConverterBoolean.read(buf),
+            FfiConverterBoolean.read(buf),
+            FfiConverterBoolean.read(buf),
+            FfiConverterBoolean.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: MiniAppPolicyData) = (
+            FfiConverterString.allocationSize(value.`appId`) +
+            FfiConverterUByte.allocationSize(value.`reputationScore`) +
+            FfiConverterBoolean.allocationSize(value.`safeModeActive`) +
+            FfiConverterBoolean.allocationSize(value.`safeModeForced`) +
+            FfiConverterBoolean.allocationSize(value.`safeModeSuggested`) +
+            FfiConverterBoolean.allocationSize(value.`userSafeMode`) +
+            FfiConverterBoolean.allocationSize(value.`revoked`) +
+            FfiConverterBoolean.allocationSize(value.`strictCspEligible`)
+    )
+
+    override fun write(value: MiniAppPolicyData, buf: ByteBuffer) {
+            FfiConverterString.write(value.`appId`, buf)
+            FfiConverterUByte.write(value.`reputationScore`, buf)
+            FfiConverterBoolean.write(value.`safeModeActive`, buf)
+            FfiConverterBoolean.write(value.`safeModeForced`, buf)
+            FfiConverterBoolean.write(value.`safeModeSuggested`, buf)
+            FfiConverterBoolean.write(value.`userSafeMode`, buf)
+            FfiConverterBoolean.write(value.`revoked`, buf)
+            FfiConverterBoolean.write(value.`strictCspEligible`, buf)
+    }
+}
+
+
+
 data class NodeConfig (
     var `dbPath`: kotlin.String, 
     var `listenAddr`: kotlin.String, 
@@ -2257,6 +2454,65 @@ public object FfiConverterTypeEnergyState: FfiConverterRustBuffer<EnergyState> {
 }
 
 
+
+
+
+
+
+sealed class MyceliumException: kotlin.Exception() {
+    
+    class InstallException(
+        
+        val `detail`: kotlin.String
+        ) : MyceliumException() {
+        override val message
+            get() = "detail=${ `detail` }"
+    }
+    
+
+    companion object ErrorHandler : UniffiRustCallStatusErrorHandler<MyceliumException> {
+        override fun lift(error_buf: RustBuffer.ByValue): MyceliumException = FfiConverterTypeMyceliumException.lift(error_buf)
+    }
+
+    
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeMyceliumException : FfiConverterRustBuffer<MyceliumException> {
+    override fun read(buf: ByteBuffer): MyceliumException {
+        
+
+        return when(buf.getInt()) {
+            1 -> MyceliumException.InstallException(
+                FfiConverterString.read(buf),
+                )
+            else -> throw RuntimeException("invalid error enum value, something is very wrong!!")
+        }
+    }
+
+    override fun allocationSize(value: MyceliumException): ULong {
+        return when(value) {
+            is MyceliumException.InstallException -> (
+                // Add the size for the Int that specifies the variant plus the size needed for all fields
+                4UL
+                + FfiConverterString.allocationSize(value.`detail`)
+            )
+        }
+    }
+
+    override fun write(value: MyceliumException, buf: ByteBuffer) {
+        when(value) {
+            is MyceliumException.InstallException -> {
+                buf.putInt(1)
+                FfiConverterString.write(value.`detail`, buf)
+                Unit
+            }
+        }.let { /* this makes the `when` an expression, which ensures it is exhaustive */ }
+    }
+
+}
 
 
 
@@ -2964,11 +3220,12 @@ public object FfiConverterSequenceTypeTxInfo: FfiConverterRustBuffer<List<TxInfo
 }
     
     
- fun `installApp`(`bundleData`: kotlin.ByteArray): MiniAppInfo {
+
+    @Throws(MyceliumException::class) fun `installApp`(`bundleData`: kotlin.ByteArray, `listingAppId`: kotlin.String?, `allowSideload`: kotlin.Boolean, `allowDowngrade`: kotlin.Boolean): MiniAppInfo {
             return FfiConverterTypeMiniAppInfo.lift(
-    uniffiRustCall() { _status ->
+    uniffiRustCallWithError(MyceliumException) { _status ->
     UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_install_app(
-        FfiConverterByteArray.lower(`bundleData`),_status)
+        FfiConverterByteArray.lower(`bundleData`),FfiConverterOptionalString.lower(`listingAppId`),FfiConverterBoolean.lower(`allowSideload`),FfiConverterBoolean.lower(`allowDowngrade`),_status)
 }
     )
     }
@@ -3062,6 +3319,48 @@ public object FfiConverterSequenceTypeTxInfo: FfiConverterRustBuffer<List<TxInfo
     )
     }
     
+ fun `miniappGetPolicy`(`appId`: kotlin.String): MiniAppPolicyData {
+            return FfiConverterTypeMiniAppPolicyData.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_miniapp_get_policy(
+        FfiConverterString.lower(`appId`),_status)
+}
+    )
+    }
+    
+ fun `miniappIssueBridgeSession`(`appId`: kotlin.String): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_miniapp_issue_bridge_session(
+        FfiConverterString.lower(`appId`),_status)
+}
+    )
+    }
+    
+ fun `miniappReportApp`(`appId`: kotlin.String)
+        = 
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_miniapp_report_app(
+        FfiConverterString.lower(`appId`),_status)
+}
+    
+    
+ fun `miniappRevokeBridgeSession`(`appId`: kotlin.String)
+        = 
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_miniapp_revoke_bridge_session(
+        FfiConverterString.lower(`appId`),_status)
+}
+    
+    
+ fun `miniappSetSafeMode`(`appId`: kotlin.String, `enabled`: kotlin.Boolean)
+        = 
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_miniapp_set_safe_mode(
+        FfiConverterString.lower(`appId`),FfiConverterBoolean.lower(`enabled`),_status)
+}
+    
+    
  fun `miniappStorageDelete`(`appId`: kotlin.String, `key`: kotlin.String)
         = 
     uniffiRustCall() { _status ->
@@ -3103,6 +3402,16 @@ public object FfiConverterSequenceTypeTxInfo: FfiConverterRustBuffer<List<TxInfo
         FfiConverterString.lower(`scope`),FfiConverterString.lower(`title`),FfiConverterString.lower(`body`),FfiConverterULong.lower(`ttlSecs`),_status)
 }
     
+    
+
+    @Throws(MyceliumException::class) fun `previewMiniappInstall`(`bundleData`: kotlin.ByteArray): MiniAppInstallPreview {
+            return FfiConverterTypeMiniAppInstallPreview.lift(
+    uniffiRustCallWithError(MyceliumException) { _status ->
+    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_preview_miniapp_install(
+        FfiConverterByteArray.lower(`bundleData`),_status)
+}
+    )
+    }
     
  fun `requestFaucet`()
         = 

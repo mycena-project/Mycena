@@ -48,5 +48,9 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --de
 WORKDIR /src
 COPY . .
 
+# Host local.properties (often missing or wrong path) must not override container SDK.
+RUN rm -f android/local.properties \
+    && echo "sdk.dir=${ANDROID_SDK_ROOT}" > android/local.properties
+
 RUN chmod +x android/gradlew android/build.sh \
     && ./android/build.sh
