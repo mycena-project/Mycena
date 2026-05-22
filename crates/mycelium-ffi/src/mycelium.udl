@@ -173,6 +173,7 @@ dictionary MiniAppInfo {
   string developer;
   string entry;
   boolean accepts_payments;
+  string? payment_address;
   sequence<string> permissions;
 };
 

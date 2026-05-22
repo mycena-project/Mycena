@@ -66,7 +66,7 @@ fn explicit_storage_key_used_on_android_path() {
 fn panic_wipe_removes_db_including_secrets() {
     let dir = tempfile::tempdir().unwrap();
     let db_path = dir.path();
-    let vault = SecretVault::open(db_path.to_str().unwrap(), None).unwrap();
+    let vault = SecretVault::open_with_migration(db_path.to_str().unwrap(), None).unwrap();
     vault.write_secret("identity", b"test").unwrap();
     assert!(vault.secrets_dir().join("identity.enc").exists()); // test secret name "identity"
     std::fs::remove_dir_all(db_path).unwrap();

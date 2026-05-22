@@ -12,4 +12,7 @@ interface IMiniAppBridge {
     String getAppDisplayName(String appId);
     byte[] getAppFile(String appId, String path);
     String getAppEntry(String appId);
+    String getAppPaymentAddress(String appId);
+    long getWalletConfirmedMuon();
+    void sendTransaction(String toAddress, long amountMuon, String memo);
 }

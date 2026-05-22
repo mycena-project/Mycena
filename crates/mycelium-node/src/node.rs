@@ -673,7 +673,7 @@ impl NodeRunner {
                         self.register_strike(&from_peer);
                         return Ok(());
                     };
-                    if !message.envelope.verify(&author_id) {
+                    if !message.envelope.verify_or_transition(&author_id) {
                         warn!(
                             "dropping unsigned/invalid message (claimed author {})",
                             message.envelope.from_peer
@@ -762,32 +762,38 @@ impl NodeRunner {
                 let Some(remote_bloom) = BloomFilter::from_bytes(&bloom) else {
                     return Ok(());
                 };
+
                 let own_ids = self.store.list_ids_window(Duration::from_secs(600)).await?;
-                let mut missing_remote = Vec::new();
-                let mut missing_local = Vec::new();
+
+                let mut send_to_remote: Vec<String> = Vec::new();
                 for id in &own_ids {
                     if !remote_bloom.contains(id) {
-                        missing_remote.push(id.clone());
+                        send_to_remote.push(id.clone());
                     }
                 }
-                if own_ids.len() as f64 > (count as f64 * 0.8) && !missing_remote.is_empty() {
+
+                if own_ids.len() as f64 > (count as f64 * 0.8) && !send_to_remote.is_empty() {
                     self.transport
                         .send_direct(
                             from_peer.clone(),
                             WireMessage::SyncIds {
-                                ids: missing_remote,
+                                ids: send_to_remote.into_iter().take(256).collect(),
                             },
                         )
                         .await?;
-                }
-                for id in own_ids.iter().take(256) {
-                    if !self.store.contains(id).await? {
-                        missing_local.push(id.clone());
+                } else if (own_ids.len() as f64) < (count as f64 * 0.8) {
+                    let mut own_bloom = BloomFilter::new();
+                    for id in &own_ids {
+                        own_bloom.insert(id);
                     }
-                }
-                if !missing_local.is_empty() {
                     self.transport
-                        .send_direct(from_peer, WireMessage::SyncRequest { ids: missing_local })
+                        .send_direct(
+                            from_peer.clone(),
+                            WireMessage::SyncBloom {
+                                bloom: own_bloom.to_bytes(),
+                                count: own_ids.len() as u64,
+                            },
+                        )
                         .await?;
                 }
             }
@@ -825,14 +831,26 @@ impl NodeRunner {
                         .await?;
                 }
             }
-            WireMessage::PeerInfo { enc_pubkey_hex, .. } => {
+            WireMessage::PeerInfo {
+                enc_pubkey_hex,
+                supported_scopes,
+                ..
+            } => {
                 if let Ok(pk) = crypto::parse_x25519_public_hex(&enc_pubkey_hex) {
                     self.peer_x25519
                         .write()
                         .await
                         .insert(from_peer.clone(), *pk.as_bytes());
-                    info!("stored x25519 enc pubkey for peer {from_peer}");
                 }
+                let validated: HashSet<String> = supported_scopes
+                    .into_iter()
+                    .filter(|s| !s.is_empty() && s.len() <= 128 && !s.contains('\0'))
+                    .take(32)
+                    .collect();
+                if !validated.is_empty() {
+                    self.peer_scopes.insert(from_peer.clone(), validated);
+                }
+                info!("stored peer info for {from_peer}");
             }
             WireMessage::EncryptedDirect {
                 to_peer,
@@ -894,8 +912,20 @@ impl NodeRunner {
                 self.forward_wire_to_others(&from_peer, &message).await?;
             }
             WireMessage::ScopeAnnounce { scopes } => {
-                self.peer_scopes
-                    .insert(from_peer, scopes.into_iter().collect::<HashSet<_>>());
+                let known_peers = self.transport.known_peers();
+                if !known_peers.iter().any(|p| p == &from_peer) {
+                    warn!("ScopeAnnounce from unknown peer {from_peer} — ignoring");
+                    return Ok(());
+                }
+                let validated_scopes: HashSet<String> = scopes
+                    .into_iter()
+                    .filter(|s| !s.is_empty() && s.len() <= 128 && !s.contains('\0'))
+                    .take(32)
+                    .collect();
+                if validated_scopes.is_empty() {
+                    return Ok(());
+                }
+                self.peer_scopes.insert(from_peer, validated_scopes);
             }
         }
         Ok(())

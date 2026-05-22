@@ -205,8 +205,6 @@ private fun createIsolatedMiniAppWebView(
     val scriptNonce = UUID.randomUUID().toString().replace("-", "")
     val sessionToken = bridge.issueSession(appId)
     val entry = bridge.getAppEntry(appId) ?: "index.html"
-    val policy = JSONObject(bridge.getPolicyJson(appId))
-    val allowInline = !policy.optBoolean("strict_csp_eligible")
     val html =
         buildMiniappHtmlIsolated(
             context,
@@ -215,7 +213,6 @@ private fun createIsolatedMiniAppWebView(
             scriptNonce,
             sessionToken,
             bridge,
-            allowInline,
         ) ?: "<html><body>Unknown app</body></html>"
     return WebView(context).apply {
         layoutParams =
@@ -231,10 +228,6 @@ private fun createIsolatedMiniAppWebView(
         )
         webViewClient =
             object : WebViewClient() {
-                override fun onPageFinished(view: WebView, url: String) {
-                    evaluateJavascript(MINIAPP_NETWORK_BLOCK_JS, null)
-                }
-
                 override fun shouldOverrideUrlLoading(
                     view: WebView,
                     request: WebResourceRequest,
@@ -270,21 +263,6 @@ private fun createIsolatedMiniAppWebView(
 
 private const val MINIAPP_BASE = "https://app.mycelium.local/"
 
-private const val MINIAPP_NETWORK_BLOCK_JS = """
-window.fetch = function() {
-    return Promise.reject(new Error('Network access not allowed in Mycelium mini-apps.'));
-};
-window.XMLHttpRequest = function() {
-    throw new Error('Network access not allowed in Mycelium mini-apps.');
-};
-window.WebSocket = function() {
-    throw new Error('WebSocket not allowed in Mycelium mini-apps.');
-};
-if (navigator.sendBeacon) {
-    navigator.sendBeacon = function() { return false; };
-};
-"""
-
 private fun miniappMimeForPath(path: String): String {
     val lower = path.lowercase()
     return when {
@@ -302,24 +280,44 @@ private fun buildMiniappHtmlIsolated(
     scriptNonce: String,
     sessionToken: String,
     bridge: IMiniAppBridge,
-    allowInlineScripts: Boolean,
 ): String? {
     val bytes = bridge.getAppFile(appId, entry) ?: return null
-    val body = String(bytes, Charsets.UTF_8)
+    val bodyHtml = String(bytes, Charsets.UTF_8)
     val bridgeJs =
         try {
             context.assets.open("miniapp/bridge_api.js").bufferedReader().use { it.readText() }
         } catch (_: Exception) {
             return null
         }
-    val shim =
+
+    val networkBlockScript =
+        """
+        <script nonce="$scriptNonce">
+        window.fetch = function() { return Promise.reject(new Error('Network blocked')); };
+        window.XMLHttpRequest = function() { throw new Error('Network blocked'); };
+        window.WebSocket = function() { throw new Error('WebSocket blocked'); };
+        if (navigator.sendBeacon) { navigator.sendBeacon = function() { return false; }; }
+        </script>
+        """.trimIndent()
+
+    val initScript =
         """
         <script nonce="$scriptNonce">
         window.__mycelium_session = ${JSONObject.quote(sessionToken)};
-        window.__mycelium_native_call = function (json) { MyceliumMiniapp.onNativeCall(json); };
-        </script><script nonce="$scriptNonce">
+        window.__mycelium_native_call = function(json) { MyceliumMiniapp.onNativeCall(json); };
+        </script>
         """.trimIndent()
-    return MiniAppCsp.injectIntoHtml("$shim$bridgeJs</script>\n$body", scriptNonce, allowInlineScripts)
+
+    val bridgeScript =
+        """
+        <script nonce="$scriptNonce">
+        $bridgeJs
+        </script>
+        """.trimIndent()
+
+    val appHtmlWithNonces = MiniAppCsp.addNonceToScripts(bodyHtml, scriptNonce)
+    val fullHtml = "$networkBlockScript\n$initScript\n$bridgeScript\n$appHtmlWithNonces"
+    return MiniAppCsp.injectIntoHtml(fullHtml, scriptNonce)
 }
 
 private class IsolatedMiniappJsBridge(
@@ -464,22 +462,30 @@ private class IsolatedMiniappJsBridge(
                         .show()
                 }
                 "payment_confirmation_required" -> {
-                    AlertDialog.Builder(ctx)
-                        .setTitle(ctx.getString(R.string.miniapp_payment_confirm_title))
-                        .setMessage(
-                            ctx.getString(
-                                R.string.miniapp_payment_confirm_message,
-                                result.optLong("amount_muon"),
-                                result.optString("memo", ""),
-                            ),
-                        )
-                        .setPositiveButton(android.R.string.ok) { _, _ ->
-                            resolveOk(callId, "acknowledged")
-                        }
-                        .setNegativeButton(android.R.string.cancel) { _, _ ->
-                            resolveError(callId, "cancelled")
-                        }
-                        .show()
+                    showMiniAppPaymentConfirmation(
+                        ctx = ctx,
+                        appId = appId,
+                        appDisplayName = appDisplayName,
+                        result = result,
+                        host =
+                            object : MiniAppPaymentHost {
+                                override fun paymentAddressFor(appId: String): String? =
+                                    bridge.getAppPaymentAddress(appId)
+
+                                override fun walletConfirmedMuon(): Long =
+                                    bridge.getWalletConfirmedMuon()
+
+                                override fun sendPayment(
+                                    toAddress: String,
+                                    amountMuon: Long,
+                                    memo: String?,
+                                ) {
+                                    bridge.sendTransaction(toAddress, amountMuon, memo)
+                                }
+                            },
+                        resolveOk = { resolveOk(callId, it) },
+                        resolveError = { resolveError(callId, it) },
+                    )
                 }
                 "render_qr" -> {
                     val uri = result.optString("uri")

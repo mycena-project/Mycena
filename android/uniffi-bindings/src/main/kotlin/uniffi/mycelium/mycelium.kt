@@ -886,6 +886,10 @@ internal open class UniffiVTableCallbackInterfaceNodeEventCallback(
 
 
 
+
+
+
+
 // A JNA Library to expose the extern-C FFI definitions.
 // This is an implementation detail which will be called internally by the public API.
 
@@ -964,6 +968,10 @@ internal interface UniffiLib : Library {
     ): RustBuffer.ByValue
     fun uniffi_mycelium_ffi_fn_func_miniapp_issue_bridge_session(`appId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
+    fun uniffi_mycelium_ffi_fn_func_miniapp_issue_capability(`appId`: RustBuffer.ByValue,`permission`: RustBuffer.ByValue,`sessionToken`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_mycelium_ffi_fn_func_miniapp_publish_revocation(`appId`: RustBuffer.ByValue,`reason`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
     fun uniffi_mycelium_ffi_fn_func_miniapp_report_app(`appId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
     fun uniffi_mycelium_ffi_fn_func_miniapp_revoke_bridge_session(`appId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
@@ -1188,6 +1196,10 @@ internal interface UniffiLib : Library {
     ): Short
     fun uniffi_mycelium_ffi_checksum_func_miniapp_issue_bridge_session(
     ): Short
+    fun uniffi_mycelium_ffi_checksum_func_miniapp_issue_capability(
+    ): Short
+    fun uniffi_mycelium_ffi_checksum_func_miniapp_publish_revocation(
+    ): Short
     fun uniffi_mycelium_ffi_checksum_func_miniapp_report_app(
     ): Short
     fun uniffi_mycelium_ffi_checksum_func_miniapp_revoke_bridge_session(
@@ -1359,6 +1371,12 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_mycelium_ffi_checksum_func_miniapp_issue_bridge_session() != 10854.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mycelium_ffi_checksum_func_miniapp_issue_capability() != 29876.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_mycelium_ffi_checksum_func_miniapp_publish_revocation() != 57074.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_mycelium_ffi_checksum_func_miniapp_report_app() != 28909.toShort()) {
@@ -2005,6 +2023,7 @@ data class MiniAppInfo (
     var `developer`: kotlin.String, 
     var `entry`: kotlin.String, 
     var `acceptsPayments`: kotlin.Boolean, 
+    var `paymentAddress`: kotlin.String?, 
     var `permissions`: List<kotlin.String>
 ) {
     
@@ -2024,6 +2043,7 @@ public object FfiConverterTypeMiniAppInfo: FfiConverterRustBuffer<MiniAppInfo> {
             FfiConverterString.read(buf),
             FfiConverterString.read(buf),
             FfiConverterBoolean.read(buf),
+            FfiConverterOptionalString.read(buf),
             FfiConverterSequenceString.read(buf),
         )
     }
@@ -2036,6 +2056,7 @@ public object FfiConverterTypeMiniAppInfo: FfiConverterRustBuffer<MiniAppInfo> {
             FfiConverterString.allocationSize(value.`developer`) +
             FfiConverterString.allocationSize(value.`entry`) +
             FfiConverterBoolean.allocationSize(value.`acceptsPayments`) +
+            FfiConverterOptionalString.allocationSize(value.`paymentAddress`) +
             FfiConverterSequenceString.allocationSize(value.`permissions`)
     )
 
@@ -2047,6 +2068,7 @@ public object FfiConverterTypeMiniAppInfo: FfiConverterRustBuffer<MiniAppInfo> {
             FfiConverterString.write(value.`developer`, buf)
             FfiConverterString.write(value.`entry`, buf)
             FfiConverterBoolean.write(value.`acceptsPayments`, buf)
+            FfiConverterOptionalString.write(value.`paymentAddress`, buf)
             FfiConverterSequenceString.write(value.`permissions`, buf)
     }
 }
@@ -3070,7 +3092,9 @@ public object FfiConverterSequenceTypeTxInfo: FfiConverterRustBuffer<List<TxInfo
             FfiConverterTypeTxInfo.write(it, buf)
         }
     }
-} fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
+}
+
+fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
         = 
     uniffiRustCall() { _status ->
     UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_add_bootstrap_peer(
@@ -3336,6 +3360,23 @@ public object FfiConverterSequenceTypeTxInfo: FfiConverterRustBuffer<List<TxInfo
 }
     )
     }
+    
+ fun `miniappIssueCapability`(`appId`: kotlin.String, `permission`: kotlin.String, `sessionToken`: kotlin.String): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_miniapp_issue_capability(
+        FfiConverterString.lower(`appId`),FfiConverterString.lower(`permission`),FfiConverterString.lower(`sessionToken`),_status)
+}
+    )
+    }
+    
+ fun `miniappPublishRevocation`(`appId`: kotlin.String, `reason`: kotlin.String)
+        = 
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_miniapp_publish_revocation(
+        FfiConverterString.lower(`appId`),FfiConverterString.lower(`reason`),_status)
+}
+    
     
  fun `miniappReportApp`(`appId`: kotlin.String)
         = 

@@ -60,6 +60,16 @@ class MiniAppBridgeService : Service() {
 
             override fun getAppEntry(appId: String): String? =
                 mycelium.listInstalledApps().find { it.id == appId }?.entry
+
+            override fun getAppPaymentAddress(appId: String): String? =
+                mycelium.listInstalledApps().find { it.id == appId }?.paymentAddress
+
+            override fun getWalletConfirmedMuon(): Long =
+                mycelium.walletBalance().confirmedMuon.toLong()
+
+            override fun sendTransaction(toAddress: String, amountMuon: Long, memo: String?) {
+                mycelium.sendTransaction(toAddress, amountMuon.toULong(), memo?.ifBlank { null })
+            }
         }
 
     override fun onBind(intent: Intent?): IBinder = binder

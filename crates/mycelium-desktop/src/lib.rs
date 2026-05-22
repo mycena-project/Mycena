@@ -665,6 +665,7 @@ async fn miniapp_browse_store(
 async fn miniapp_get_entry_html(
     state: State<'_, SharedState>,
     app_id: String,
+    script_nonce: String,
 ) -> Result<String, String> {
     let g = state.read().await;
     let s = g.as_ref().ok_or_else(|| "node not started".to_string())?;
@@ -681,8 +682,16 @@ async fn miniapp_get_entry_html(
     let body = String::from_utf8(bytes).map_err(|e| e.to_string())?;
     let session = mycelium_app::miniapp::issue_session(&app_id);
     let bridge = mycelium_app::miniapp::bridge_api_js_source();
+    let network_block = format!(
+        r#"<script nonce="{script_nonce}">
+window.fetch = function() {{ return Promise.reject(new Error('Network blocked')); }};
+window.XMLHttpRequest = function() {{ throw new Error('Network blocked'); }};
+window.WebSocket = function() {{ throw new Error('WebSocket blocked'); }};
+if (navigator.sendBeacon) {{ navigator.sendBeacon = function() {{ return false; }}; }}
+</script>"#
+    );
     let shim = format!(
-        r#"<script>
+        r#"<script nonce="{script_nonce}">
 window.__mycelium_session = {session_json};
 window.addEventListener("message", function (ev) {{
   if (ev.data && ev.data.__mycelium_resolve && window.__mycelium_resolve) {{
@@ -693,11 +702,11 @@ window.addEventListener("message", function (ev) {{
 window.__mycelium_native_call = function (json) {{
   window.parent.postMessage({{ __mycelium_call: json }}, window.location.origin);
 }};
-</script><script>
+</script><script nonce="{script_nonce}">
 "#,
         session_json = serde_json::to_string(&session).map_err(|e| e.to_string())?
     );
-    Ok(format!("{shim}{bridge}</script>\n{body}"))
+    Ok(format!("{network_block}\n{shim}{bridge}</script>\n{body}"))
 }
 
 #[tauri::command]

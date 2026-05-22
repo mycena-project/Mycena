@@ -201,6 +201,7 @@ pub struct MiniAppInfo {
     pub developer: String,
     pub entry: String,
     pub accepts_payments: bool,
+    pub payment_address: Option<String>,
     pub permissions: Vec<String>,
 }
 
@@ -1016,6 +1017,7 @@ fn mini_app_manifest_to_info(m: mycelium_app::miniapp::MiniAppManifest) -> MiniA
         developer: m.developer,
         entry: m.entry,
         accepts_payments: m.accepts_payments,
+        payment_address: m.payment_address,
         permissions: m.permissions.iter().map(|p| format!("{p:?}")).collect(),
     }
 }

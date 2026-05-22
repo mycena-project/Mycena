@@ -6,8 +6,11 @@
   let iframeEl;
   let html = $state("");
   let scriptNonce = crypto.randomUUID().replace(/-/g, "");
+  let appDisplayName = $state(appId);
 
   const GRANTS_KEY = "mycelium_miniapp_grants";
+  const MAX_SINGLE_PAYMENT = 100_000_000;
+  const DEFAULT_FEE_MUON = 1000;
 
   const CAP_METHOD_PERM = {
     "identity.get": "Identity",
@@ -63,11 +66,15 @@
     return window.confirm(`${title}\n\n${message}`);
   }
 
-  function buildCsp(nonce, allowInlineScripts) {
-    const scriptSrc = allowInlineScripts
-      ? `'nonce-${nonce}' 'unsafe-inline'`
-      : `'nonce-${nonce}'`;
-    return `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src ${scriptSrc}; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; form-action 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; wasm-unsafe-eval 'none';">`;
+  function buildCsp(nonce) {
+    return `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; form-action 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; wasm-unsafe-eval 'none';">`;
+  }
+
+  function addNonceToScripts(html, nonce) {
+    return html.replace(/<script(\s[^>]*)?>/gi, (match, attrs = "") => {
+      if (attrs.includes("nonce=")) return match;
+      return `<script nonce="${nonce}"${attrs}>`;
+    });
   }
 
   let bridgeTargetOrigin = $state("*");
@@ -98,22 +105,113 @@
     iframeEl?.contentWindow?.postMessage(msg, bridgeTargetOrigin);
   }
 
-  const networkBlock = `<script nonce="${scriptNonce}">
-    window.fetch = () => Promise.reject(new Error('Network blocked'));
-    window.XMLHttpRequest = function() { throw new Error('Network blocked'); };
-    window.WebSocket = function() { throw new Error('Network blocked'); };
-    if (navigator.sendBeacon) { navigator.sendBeacon = function() { return false; }; };
-  <\/script>`;
-
   async function loadApp() {
-    const rawHtml = await invoke("miniapp_get_entry_html", { appId });
-    const pol = policy ?? (await invoke("miniapp_get_policy", { appId }));
-    const allowInline = pol ? !pol.strict_csp_eligible : true;
-    const csp = buildCsp(scriptNonce, allowInline);
-    if (rawHtml.includes("<head>")) {
-      html = rawHtml.replace("<head>", `<head>${csp}${networkBlock}`);
+    const rawHtml = await invoke("miniapp_get_entry_html", {
+      appId,
+      scriptNonce,
+    });
+    const installed = await invoke("miniapp_list_installed");
+    const info = installed.find((a) => a.id === appId);
+    if (info?.name) appDisplayName = info.name;
+
+    const csp = buildCsp(scriptNonce);
+    const withNonces = addNonceToScripts(rawHtml, scriptNonce);
+    if (withNonces.includes("<head>")) {
+      html = withNonces.replace("<head>", `<head>${csp}`);
     } else {
-      html = `${csp}${networkBlock}${rawHtml}`;
+      html = `${csp}${withNonces}`;
+    }
+  }
+
+  async function handlePaymentConfirmation(id, result) {
+    const amountMuon = Number(result.amount_muon ?? 0);
+    const memo = result.memo ?? "";
+
+    const installed = await invoke("miniapp_list_installed");
+    const appInfo = installed.find((a) => a.id === appId);
+    const paymentAddress = appInfo?.payment_address;
+
+    if (!paymentAddress) {
+      postToIframe({
+        __mycelium_resolve: {
+          id,
+          result: null,
+          error: "app has no payment address configured",
+        },
+      });
+      return;
+    }
+    if (amountMuon <= 0) {
+      postToIframe({
+        __mycelium_resolve: { id, result: null, error: "invalid payment amount" },
+      });
+      return;
+    }
+    if (amountMuon > MAX_SINGLE_PAYMENT) {
+      postToIframe({
+        __mycelium_resolve: {
+          id,
+          result: null,
+          error: "payment amount exceeds maximum allowed per transaction (100 MXC)",
+        },
+      });
+      return;
+    }
+
+    const bal = await invoke("wallet_balance");
+    const confirmed = Number(bal.confirmed_muon ?? 0);
+    if (confirmed < amountMuon) {
+      postToIframe({
+        __mycelium_resolve: { id, result: null, error: "insufficient balance" },
+      });
+      return;
+    }
+
+    const amountMxc = `${(amountMuon / 1_000_000).toFixed(4)} MXC`;
+    const addressPreview =
+      paymentAddress.length > 16
+        ? `${paymentAddress.slice(0, 16)}…`
+        : paymentAddress;
+    const memoSuffix = memo ? `\n\nMemo: ${memo}` : "";
+
+    const ok = window.confirm(
+      `${appDisplayName} wants to charge:\n\n${amountMxc}\n\nTo: ${addressPreview}${memoSuffix}\n\nConfirm payment?`
+    );
+    if (!ok) {
+      postToIframe({
+        __mycelium_resolve: { id, result: null, error: "user cancelled payment" },
+      });
+      return;
+    }
+
+    try {
+      await invoke("wallet_send", {
+        toAddress: paymentAddress,
+        amountMuon,
+        feeMuon: DEFAULT_FEE_MUON,
+        memo: memo || null,
+      });
+      postToIframe({
+        __mycelium_resolve: {
+          id,
+          result: {
+            status: "submitted",
+            amount_muon: amountMuon,
+            to: paymentAddress,
+            memo,
+          },
+          error: null,
+        },
+      });
+    } catch (err) {
+      const msg = err?.message ?? String(err);
+      postToIframe({
+        __mycelium_resolve: {
+          id,
+          result: null,
+          error: `payment failed: ${msg}`,
+        },
+      });
     }
   }
 
@@ -143,19 +241,9 @@
         });
         break;
       }
-      case "payment_confirmation_required": {
-        const ok = window.confirm(
-          `Payment request: ${result.amount_muon} muon\nMemo: ${result.memo ?? ""}`
-        );
-        postToIframe({
-          __mycelium_resolve: {
-            id,
-            result: ok ? "acknowledged" : null,
-            error: ok ? null : "cancelled",
-          },
-        });
+      case "payment_confirmation_required":
+        handlePaymentConfirmation(id, result);
         break;
-      }
       case "render_qr":
         window.alert(`Payment QR (mxcpay):\n${result.uri ?? result._qr_content ?? ""}`);
         postToIframe({

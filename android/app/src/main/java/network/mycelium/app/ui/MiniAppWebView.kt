@@ -39,28 +39,14 @@ import java.io.ByteArrayInputStream
 import java.util.UUID
 import network.mycelium.app.R
 import network.mycelium.app.miniapp.MiniAppBridgeCoordinator
+import network.mycelium.app.miniapp.MiniAppCsp
 import network.mycelium.app.miniapp.MiniAppGrants
+import network.mycelium.app.miniapp.MiniAppPaymentHost
+import network.mycelium.app.miniapp.showMiniAppPaymentConfirmation
 import network.mycelium.bindings.mycelium
 import org.json.JSONObject
 
 private const val MINIAPP_BASE = "https://app.mycelium.local/"
-
-private const val NETWORK_BLOCK_JS = """
-window.fetch = function() {
-    return Promise.reject(new Error(
-        'Network access not allowed in Mycelium mini-apps. Use window.mycelium APIs.'
-    ));
-};
-window.XMLHttpRequest = function() {
-    throw new Error('Network access not allowed in Mycelium mini-apps.');
-};
-window.WebSocket = function() {
-    throw new Error('WebSocket not allowed in Mycelium mini-apps.');
-};
-if (navigator.sendBeacon) {
-    navigator.sendBeacon = function() { return false; };
-};
-"""
 
 private fun mimeForPath(path: String): String {
     val lower = path.lowercase()
@@ -79,16 +65,6 @@ private fun mimeForPath(path: String): String {
     }
 }
 
-private fun injectCsp(html: String, scriptNonce: String): String {
-    val csp =
-        """<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'nonce-$scriptNonce' 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; form-action 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; wasm-unsafe-eval 'none';">"""
-    return if (html.contains("<head>", ignoreCase = true)) {
-        html.replaceFirst("<head>", "<head>\n$csp\n", ignoreCase = true)
-    } else {
-        "$csp\n$html"
-    }
-}
-
 @SuppressLint("SetJavaScriptEnabled")
 private fun buildMiniappHtml(
     context: Context,
@@ -98,21 +74,43 @@ private fun buildMiniappHtml(
 ): String? {
     val info = mycelium.listInstalledApps().find { it.id == appId } ?: return null
     val bytes = mycelium.getAppFile(appId, info.entry) ?: return null
-    val body = String(bytes, Charsets.UTF_8)
-    val bridge =
+    val bodyHtml = String(bytes, Charsets.UTF_8)
+
+    val bridgeJs =
         try {
             context.assets.open("miniapp/bridge_api.js").bufferedReader().use { it.readText() }
         } catch (_: Exception) {
             return "<html><body><p>Missing miniapp/bridge_api.js in assets.</p></body></html>"
         }
-    val shim =
+
+    val networkBlockScript =
+        """
+        <script nonce="$scriptNonce">
+        window.fetch = function() { return Promise.reject(new Error('Network blocked')); };
+        window.XMLHttpRequest = function() { throw new Error('Network blocked'); };
+        window.WebSocket = function() { throw new Error('WebSocket blocked'); };
+        if (navigator.sendBeacon) { navigator.sendBeacon = function() { return false; }; }
+        </script>
+        """.trimIndent()
+
+    val initScript =
         """
         <script nonce="$scriptNonce">
         window.__mycelium_session = ${JSONObject.quote(sessionToken)};
-        window.__mycelium_native_call = function (json) { MyceliumMiniapp.onNativeCall(json); };
-        </script><script nonce="$scriptNonce">
+        window.__mycelium_native_call = function(json) { MyceliumMiniapp.onNativeCall(json); };
+        </script>
         """.trimIndent()
-    return injectCsp("$shim$bridge</script>\n$body", scriptNonce)
+
+    val bridgeScript =
+        """
+        <script nonce="$scriptNonce">
+        $bridgeJs
+        </script>
+        """.trimIndent()
+
+    val appHtmlWithNonces = MiniAppCsp.addNonceToScripts(bodyHtml, scriptNonce)
+    val fullHtml = "$networkBlockScript\n$initScript\n$bridgeScript\n$appHtmlWithNonces"
+    return MiniAppCsp.injectIntoHtml(fullHtml, scriptNonce)
 }
 
 class MiniappJsBridge(
@@ -236,24 +234,36 @@ class MiniappJsBridge(
                         .show()
                 }
                 "payment_confirmation_required" -> {
-                    val amount = result.optLong("amount_muon")
-                    val memo = result.optString("memo", "")
-                    AlertDialog.Builder(ctx)
-                        .setTitle(ctx.getString(R.string.miniapp_payment_confirm_title))
-                        .setMessage(
-                            ctx.getString(
-                                R.string.miniapp_payment_confirm_message,
-                                amount,
-                                memo,
-                            ),
-                        )
-                        .setPositiveButton(android.R.string.ok) { _, _ ->
-                            resolveOk(callId, "acknowledged")
-                        }
-                        .setNegativeButton(android.R.string.cancel) { _, _ ->
-                            resolveError(callId, "cancelled")
-                        }
-                        .show()
+                    showMiniAppPaymentConfirmation(
+                        ctx = ctx,
+                        appId = appId,
+                        appDisplayName = appDisplayName,
+                        result = result,
+                        host =
+                            object : MiniAppPaymentHost {
+                                override fun paymentAddressFor(appId: String): String? =
+                                    mycelium.listInstalledApps()
+                                        .find { it.id == appId }
+                                        ?.paymentAddress
+
+                                override fun walletConfirmedMuon(): Long =
+                                    mycelium.walletBalance().confirmedMuon.toLong()
+
+                                override fun sendPayment(
+                                    toAddress: String,
+                                    amountMuon: Long,
+                                    memo: String?,
+                                ) {
+                                    mycelium.sendTransaction(
+                                        toAddress,
+                                        amountMuon.toULong(),
+                                        memo,
+                                    )
+                                }
+                            },
+                        resolveOk = { resolveOk(callId, it) },
+                        resolveError = { resolveError(callId, it) },
+                    )
                 }
                 "render_qr" -> {
                     val uri = result.optString("uri")
@@ -356,10 +366,6 @@ private fun createMiniAppWebView(context: Context, appId: String): WebView {
         )
         webViewClient =
             object : WebViewClient() {
-                override fun onPageFinished(view: WebView, url: String) {
-                    evaluateJavascript(NETWORK_BLOCK_JS, null)
-                }
-
                 override fun shouldOverrideUrlLoading(
                     view: WebView,
                     request: WebResourceRequest,

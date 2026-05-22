@@ -12,7 +12,7 @@ const ENC_SECRET: &str = "enc_x25519";
 pub type StorageKey = Option<[u8; 32]>;
 
 pub fn open_vault(db_path: &str, storage_key: StorageKey) -> anyhow::Result<SecretVault> {
-    SecretVault::open(db_path, storage_key)
+    SecretVault::open_with_migration(db_path, storage_key)
 }
 
 pub fn load_or_create_keypair(

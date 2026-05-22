@@ -157,6 +157,8 @@
     <string name="miniapp_grant_payments_message">This app can read balance and show payment QR codes.</string>
     <string name="miniapp_payment_confirm_title">Payment request</string>
     <string name="miniapp_payment_confirm_message">App requests payment of %1$d muon. Memo: %2$s</string>
+    <string name="miniapp_payment_confirm_yes">Confirm payment</string>
+    <string name="miniapp_payment_confirm_message_detailed">%1$s wants to charge:\n\n%2$s\n\nTo: %3$s%4$s</string>
     <string name="miniapp_payment_qr_title">Payment QR (mxcpay)</string>
     <string name="miniapp_hosted_dialog_notice">This message comes from a mini-app, not from Mycelium.</string>
     <string name="miniapp_downgrade_warning">This install is older than the version on your device (v%1$s → v%2$s). Downgrades can be risky.</string>
