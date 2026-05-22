@@ -244,10 +244,7 @@ mod tests {
         let key1 = load_or_create_file_fallback_key(dir1.path().to_str().unwrap()).unwrap();
         let key2 = load_or_create_file_fallback_key(dir2.path().to_str().unwrap()).unwrap();
 
-        assert_ne!(
-            key1, key2,
-            "fallback keys must be random, not path-derived"
-        );
+        assert_ne!(key1, key2, "fallback keys must be random, not path-derived");
     }
 
     #[test]
@@ -258,10 +255,7 @@ mod tests {
         let key1 = load_or_create_file_fallback_key(path).unwrap();
         let key2 = load_or_create_file_fallback_key(path).unwrap();
 
-        assert_eq!(
-            key1, key2,
-            "fallback key must be persistent across calls"
-        );
+        assert_eq!(key1, key2, "fallback key must be persistent across calls");
     }
 
     #[test]
@@ -273,18 +267,9 @@ mod tests {
             let path = dir.path().to_str().unwrap();
             load_or_create_file_fallback_key(path).unwrap();
 
-            let key_path = Path::new(path)
-                .join(".secrets")
-                .join("fallback_master.key");
-            let mode = std::fs::metadata(&key_path)
-                .unwrap()
-                .permissions()
-                .mode();
-            assert_eq!(
-                mode & 0o777,
-                0o600,
-                "key file must not be world-readable"
-            );
+            let key_path = Path::new(path).join(".secrets").join("fallback_master.key");
+            let mode = std::fs::metadata(&key_path).unwrap().permissions().mode();
+            assert_eq!(mode & 0o777, 0o600, "key file must not be world-readable");
         }
     }
 
