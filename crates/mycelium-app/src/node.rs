@@ -29,7 +29,19 @@ pub struct AppNode {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EncryptionResult {
     Encrypted,
-    Unencrypted,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ChatSendResult {
+    SentEncrypted,
+    SentPlaintext,
+}
+
+fn enc_key_not_yet_exchanged_err() -> anyhow::Error {
+    anyhow::anyhow!(
+        "enc_key_not_yet_exchanged: message not sent. \
+         Connect to the peer first and wait for key exchange."
+    )
 }
 
 impl AppNode {
@@ -216,71 +228,48 @@ impl AppNode {
         }
     }
 
-    /// Sends a direct chat as raw [`AppMessage`] on the wire (no payload E2E).
-    async fn send_chat_plain_direct(&self, to_peer: String, body: String) -> anyhow::Result<()> {
-        let display_name = self.display_name.read().await.clone();
-        let chat = ChatMessage {
-            id: uuid::Uuid::new_v4(),
-            from_display_name: display_name,
-            body: body.clone(),
-            timestamp_ms: mycelium_core::data::now_ms(),
-            reply_to: None,
-        };
-        let payload = AppMessage {
-            app_id: AppId::Chat,
-            payload: AppPayload::Chat(chat.clone()),
-        }
-        .encode()?;
-        self.storage.save_chat(&to_peer, &chat)?;
-        self.handle
-            .send(NodeCommand::SendDirectPayload {
-                to_peer,
-                body,
-                payload,
-            })
-            .await?;
-        Ok(())
-    }
-
-    pub async fn send_chat(&self, to_peer: Option<String>, body: String) -> anyhow::Result<()> {
-        if let Some(to) = to_peer.clone() {
-            if self.handle.has_enc_key_for(&to).await {
-                let _ = self.send_chat_encrypted(to, body).await?;
-                return Ok(());
+    pub async fn send_chat(
+        &self,
+        to_peer: Option<String>,
+        body: String,
+    ) -> anyhow::Result<ChatSendResult> {
+        match to_peer {
+            None => {
+                let display_name = self.display_name.read().await.clone();
+                let chat = ChatMessage {
+                    id: uuid::Uuid::new_v4(),
+                    from_display_name: display_name,
+                    body: body.clone(),
+                    timestamp_ms: mycelium_core::data::now_ms(),
+                    reply_to: None,
+                };
+                let payload = AppMessage {
+                    app_id: AppId::Chat,
+                    payload: AppPayload::Chat(chat),
+                }
+                .encode()?;
+                self.handle
+                    .send(NodeCommand::BroadcastPayload {
+                        scope: "mycelium/chat".to_string(),
+                        body,
+                        payload,
+                    })
+                    .await?;
+                Ok(ChatSendResult::SentPlaintext)
+            }
+            Some(to) => {
+                if self.handle.has_enc_key_for(&to).await {
+                    self.send_chat_encrypted(to, body).await?;
+                    Ok(ChatSendResult::SentEncrypted)
+                } else {
+                    warn!(
+                        "SD-081: no enc key for {to} — refusing plaintext. \
+                         Key will arrive via PeerInfo on next connection."
+                    );
+                    Err(enc_key_not_yet_exchanged_err())
+                }
             }
         }
-        let display_name = self.display_name.read().await.clone();
-        let chat = ChatMessage {
-            id: uuid::Uuid::new_v4(),
-            from_display_name: display_name,
-            body: body.clone(),
-            timestamp_ms: mycelium_core::data::now_ms(),
-            reply_to: None,
-        };
-        let payload = AppMessage {
-            app_id: AppId::Chat,
-            payload: AppPayload::Chat(chat.clone()),
-        }
-        .encode()?;
-        if let Some(to) = to_peer {
-            self.storage.save_chat(&to, &chat)?;
-            self.handle
-                .send(NodeCommand::SendDirectPayload {
-                    to_peer: to,
-                    body,
-                    payload,
-                })
-                .await?;
-        } else {
-            self.handle
-                .send(NodeCommand::BroadcastPayload {
-                    scope: "mycelium/chat".to_string(),
-                    body,
-                    payload,
-                })
-                .await?;
-        }
-        Ok(())
     }
 
     /// Broadcast a chat payload on an arbitrary mesh scope (e.g. `mycelium/chat`).
@@ -346,9 +335,7 @@ impl AppNode {
             self.storage.save_chat(&to_peer, &chat)?;
             return Ok(EncryptionResult::Encrypted);
         }
-        warn!("no enc key for {to_peer}, sending unencrypted");
-        self.send_chat_plain_direct(to_peer, body).await?;
-        Ok(EncryptionResult::Unencrypted)
+        Err(enc_key_not_yet_exchanged_err())
     }
 
     pub async fn send_group_message(&self, group: &Group, body: String) -> anyhow::Result<()> {
@@ -656,5 +643,11 @@ mod dispatch_tests {
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].manifest.id, listing.manifest.id);
         assert_eq!(rows[0].manifest.version, listing.manifest.version);
+    }
+
+    #[test]
+    fn sd081_enc_key_error_is_actionable() {
+        let err = enc_key_not_yet_exchanged_err();
+        assert!(err.to_string().contains("enc_key_not_yet_exchanged"));
     }
 }

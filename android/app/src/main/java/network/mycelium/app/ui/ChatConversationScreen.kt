@@ -16,10 +16,14 @@ import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -31,6 +35,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import network.mycelium.app.R
+import network.mycelium.app.viewmodel.ChatUiEvent
 import network.mycelium.app.viewmodel.ChatViewModel
 
 @Composable
@@ -78,36 +83,49 @@ fun ChatConversationScreen(peerId: String, vm: ChatViewModel = viewModel()) {
     val messages by vm.chatHistory(peerId).collectAsState(emptyList())
     val hasEncKey by vm.peerHasEncKey(peerId).collectAsState(false)
     var input by remember { mutableStateOf("") }
+    val snackbarHostState = remember { SnackbarHostState() }
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 6.dp),
-            horizontalArrangement = Arrangement.Center,
-        ) {
-            EncryptionBadge(isEncrypted = hasEncKey)
-        }
-        LazyColumn(modifier = Modifier.weight(1f, fill = true)) {
-            items(messages) { msg ->
-                Text("${msg.fromDisplayName}: ${msg.body}", modifier = Modifier.padding(8.dp))
+    LaunchedEffect(vm) {
+        vm.uiEvent.collect { event ->
+            when (event) {
+                is ChatUiEvent.ShowError -> snackbarHostState.showSnackbar(event.message)
             }
         }
-        Row(modifier = Modifier.fillMaxWidth().padding(8.dp)) {
-            TextField(
-                value = input,
-                onValueChange = { input = it },
-                modifier = Modifier.weight(1f),
-                placeholder = { Text(stringResource(R.string.chat_message_hint)) },
-            )
-            IconButton(
-                onClick = {
-                    vm.sendChat(peerId, input)
-                    input = ""
-                },
+    }
+
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+    ) { padding ->
+        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.Center,
             ) {
-                Icon(Icons.Default.Send, contentDescription = stringResource(R.string.chat_send))
+                EncryptionBadge(isEncrypted = hasEncKey)
+            }
+            LazyColumn(modifier = Modifier.weight(1f, fill = true)) {
+                items(messages) { msg ->
+                    Text("${msg.fromDisplayName}: ${msg.body}", modifier = Modifier.padding(8.dp))
+                }
+            }
+            Row(modifier = Modifier.fillMaxWidth().padding(8.dp)) {
+                TextField(
+                    value = input,
+                    onValueChange = { input = it },
+                    modifier = Modifier.weight(1f),
+                    placeholder = { Text(stringResource(R.string.chat_message_hint)) },
+                )
+                IconButton(
+                    onClick = {
+                        val body = input
+                        vm.sendChat(peerId, body) { input = "" }
+                    },
+                ) {
+                    Icon(Icons.Default.Send, contentDescription = stringResource(R.string.chat_send))
+                }
             }
         }
     }

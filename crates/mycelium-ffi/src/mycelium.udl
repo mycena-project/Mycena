@@ -5,9 +5,12 @@ namespace mycelium {
   sequence<string> known_peers();
   NodeMetrics metrics();
 
+  [Throws=MyceliumException]
   void send_chat_direct(string to_peer, string body);
+  [Throws=MyceliumException]
   void send_chat_broadcast(string body);
   string local_enc_pubkey();
+  [Throws=MyceliumException]
   void send_chat_encrypted(string to_peer, string body);
   boolean has_enc_key_for(string peer_id);
   sequence<ChatMessage> chat_history(string peer_id, u32 limit);
@@ -231,4 +234,5 @@ callback interface NodeEventCallback {
 [Error]
 interface MyceliumException {
   InstallError(string detail);
+  ChatError(string detail);
 };

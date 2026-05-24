@@ -96,6 +96,7 @@ async fn start_node(
         connectivity_rx: None,
         display_name: Some(display_name.clone()),
         storage_key: None,
+        max_relay_fanout: 3,
     };
     let (runner, handle) = NodeRunner::new(config).map_err(|e| e.to_string())?;
     let local_peer_id = runner.local_peer_id().to_string();
@@ -198,6 +199,7 @@ async fn send_chat(
     s.app_node
         .send_chat(Some(to_peer), body)
         .await
+        .map(|_| ())
         .map_err(|e| e.to_string())
 }
 
@@ -216,20 +218,15 @@ async fn send_chat_encrypted(
     to_peer: String,
     body: String,
 ) -> Result<String, String> {
-    use mycelium_app::node::EncryptionResult;
     let guard = state.read().await;
     let s = guard
         .as_ref()
         .ok_or_else(|| "node not started".to_string())?;
-    let r = s
-        .app_node
+    s.app_node
         .send_chat_encrypted(to_peer, body)
         .await
-        .map_err(|e| e.to_string())?;
-    Ok(match r {
-        EncryptionResult::Encrypted => "encrypted".to_string(),
-        EncryptionResult::Unencrypted => "unencrypted".to_string(),
-    })
+        .map(|_| "encrypted".to_string())
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]

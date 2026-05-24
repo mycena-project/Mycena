@@ -28,12 +28,14 @@ use tokio::sync::RwLock;
 #[derive(Debug)]
 pub enum MyceliumException {
     InstallError { detail: String },
+    ChatError { detail: String },
 }
 
 impl std::fmt::Display for MyceliumException {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             MyceliumException::InstallError { detail } => write!(f, "{detail}"),
+            MyceliumException::ChatError { detail } => write!(f, "{detail}"),
         }
     }
 }
@@ -340,6 +342,7 @@ pub fn init_node(config: NodeConfig) {
             connectivity_rx: Some(connectivity_rx_node),
             display_name: Some(config.display_name.clone()),
             storage_key,
+            max_relay_fanout: 3,
         };
 
         let (runner, handle) =
@@ -533,32 +536,53 @@ pub fn metrics() -> NodeMetrics {
     })
 }
 
-pub fn send_chat_direct(to_peer: String, body: String) {
+pub fn send_chat_direct(to_peer: String, body: String) -> Result<(), MyceliumException> {
     let state = state_arc();
     runtime().block_on(async {
         let state = state.read().await;
-        let _ = state.app_node.send_chat(Some(to_peer), body).await;
-    });
+        state
+            .app_node
+            .send_chat(Some(to_peer), body)
+            .await
+            .map(|_| ())
+            .map_err(|e| MyceliumException::ChatError {
+                detail: e.to_string(),
+            })
+    })
 }
 
-pub fn send_chat_broadcast(body: String) {
+pub fn send_chat_broadcast(body: String) -> Result<(), MyceliumException> {
     let state = state_arc();
     runtime().block_on(async {
         let state = state.read().await;
-        let _ = state.app_node.send_chat(None, body).await;
-    });
+        state
+            .app_node
+            .send_chat(None, body)
+            .await
+            .map(|_| ())
+            .map_err(|e| MyceliumException::ChatError {
+                detail: e.to_string(),
+            })
+    })
 }
 
 pub fn local_enc_pubkey() -> String {
     with_state(|s| s.handle.local_enc_pubkey_hex())
 }
 
-pub fn send_chat_encrypted(to_peer: String, body: String) {
+pub fn send_chat_encrypted(to_peer: String, body: String) -> Result<(), MyceliumException> {
     let state = state_arc();
     runtime().block_on(async {
         let state = state.read().await;
-        let _ = state.app_node.send_chat_encrypted(to_peer, body).await;
-    });
+        state
+            .app_node
+            .send_chat_encrypted(to_peer, body)
+            .await
+            .map(|_| ())
+            .map_err(|e| MyceliumException::ChatError {
+                detail: e.to_string(),
+            })
+    })
 }
 
 pub fn has_enc_key_for(peer_id: String) -> bool {

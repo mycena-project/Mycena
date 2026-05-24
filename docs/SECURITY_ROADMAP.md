@@ -12,13 +12,13 @@
 
 | Priority | Item | Debt IDs | Effort | Owner |
 |----------|------|----------|--------|-------|
-| P0 | Reject unsigned `WireMessage::Data` (protocol v2) | SD-030, SD-140 | S | node |
-| P0 | Fail-closed encrypted chat (no plaintext fallback) | SD-081, SD-141 | S | app |
-| P0 | Cap relay fanout / no broadcast-to-all-peers | SD-031 | M | node |
-| P0 | Fix gossip re-sign semantics | SD-080 | M | node |
-| P0 | Mini-app install signature verification | SD-041, SD-240 | S | app-store |
-| P0 | Tighten CSP (remove `unsafe-inline` or nonce-only) | SD-040 | M | Android + desktop |
-| P0 | `android:allowBackup="false"` + full-backup exclusion | SD-171 | S | Android |
+| P0 | Reject unsigned `WireMessage::Data` (protocol v2) | SD-030, SD-140 | S | node — **done** |
+| P0 | Fail-closed encrypted chat (no plaintext fallback) | SD-081, SD-141 | S | app — **done** |
+| P0 | Cap relay fanout / no broadcast-to-all-peers | SD-031 | M | node — **done** |
+| P0 | Fix gossip re-sign semantics | SD-080 | M | node — **done** |
+| P0 | Mini-app install signature verification | SD-041, SD-240 | S | app-store — **PARTIAL** (store sig + sideload ack) |
+| P0 | Tighten CSP (remove `unsafe-inline` or nonce-only) | SD-040 | M | Android + desktop — **partial** |
+| P0 | `android:allowBackup="false"` + full-backup exclusion | SD-171 | S | Android — **done** |
 | P0 | Desktop: refuse weak vault fallback | SD-131 | S | node/secrets |
 | P0 | MeshCoin UX = preview only (no real-money copy) | SD-011, SD-160 | S | product/legal |
 | P0 | Emergency settlement caps (balance, tx, velocity) | SD-011, SD-160 | S | mycelium-coin |

@@ -2,6 +2,7 @@ use crate::forwarding::{
     EnergyPolicy, ForwardDecision, ForwardingPolicy, IngestPipeline, ProbabilisticForwardingPolicy,
     SeenCache, SimpleEnergyPolicy,
 };
+use crate::security::{self, Sd030DropReason};
 use crate::storage::SledMessageStore;
 use crate::transport::Libp2pTransport;
 use libp2p::{identity, Multiaddr, PeerId};
@@ -41,6 +42,12 @@ pub struct NodeConfig {
     pub display_name: Option<String>,
     /// Optional 32-byte master key for at-rest encryption (Android Keystore-backed prefs).
     pub storage_key: Option<[u8; 32]>,
+    /// Max relay candidates when the destination peer is not directly connected.
+    pub max_relay_fanout: usize,
+}
+
+fn default_max_relay_fanout() -> usize {
+    3
 }
 
 impl Default for NodeConfig {
@@ -57,6 +64,7 @@ impl Default for NodeConfig {
             connectivity_rx: None,
             display_name: None,
             storage_key: None,
+            max_relay_fanout: default_max_relay_fanout(),
         }
     }
 }
@@ -77,6 +85,7 @@ impl NodeConfig {
             connectivity_rx: None,
             display_name: None,
             storage_key: None,
+            max_relay_fanout: default_max_relay_fanout(),
         }
     }
 }
@@ -239,6 +248,7 @@ pub struct NodeRunner {
     enc_keypair: EncryptionKeypair,
     display_name: Option<String>,
     peer_x25519: Arc<RwLock<HashMap<String, [u8; 32]>>>,
+    max_relay_fanout: usize,
 }
 
 impl NodeRunner {
@@ -309,6 +319,7 @@ impl NodeRunner {
                 enc_keypair,
                 display_name,
                 peer_x25519: peer_x25519.clone(),
+                max_relay_fanout: config.max_relay_fanout,
             },
             NodeHandle {
                 tx,
@@ -481,8 +492,30 @@ impl NodeRunner {
         } else if peers.is_empty() {
             warn!("no relay candidates available for {}", to_peer);
         } else {
-            for peer in peers {
-                self.enqueue(peer, msg.clone()).await?;
+            let peer_strikes: HashMap<String, u8> = self
+                .peer_reputations
+                .lock()
+                .expect("reputation lock")
+                .iter()
+                .map(|(peer, rep)| (peer.clone(), rep.strikes))
+                .collect();
+            let relay_candidates = security::select_relay_candidates(
+                &peers,
+                &to_peer,
+                &peer_strikes,
+                self.max_relay_fanout,
+            );
+            if relay_candidates.is_empty() {
+                warn!("SD-031: no suitable relay candidates for {}", to_peer);
+            } else {
+                info!(
+                    "SD-031: relaying to {} candidate(s) toward {}",
+                    relay_candidates.len(),
+                    to_peer
+                );
+                for peer in relay_candidates {
+                    self.enqueue(peer, msg.clone()).await?;
+                }
             }
             info!("message queued for relay toward {}", to_peer);
         }
@@ -578,11 +611,11 @@ impl NodeRunner {
                         .map(|wm| matches!(wm, WireMessage::EncryptedGroup { .. }))
                         .unwrap_or(false)
                 {
-                    let mut envelope =
-                        mycelium_core::data::Envelope::new(from_peer.clone(), None, payload);
-                    if let Some(keypair) = &self.keypair {
-                        let _ = envelope.sign(keypair);
-                    }
+                    let envelope = mycelium_core::data::Envelope::new_unsigned(
+                        from_peer.clone(),
+                        None,
+                        payload,
+                    );
                     let stored = DirectMessage {
                         envelope,
                         body: "[mycelium:group]".into(),
@@ -599,11 +632,11 @@ impl NodeRunner {
                 // App store listings are bincode payloads; they may decode as UTF-8 by chance.
                 // Always route this scope through the app pipeline with a stable body tag.
                 if scope == "mycelium/appstore/v1" {
-                    let mut envelope =
-                        mycelium_core::data::Envelope::new(from_peer.clone(), None, payload);
-                    if let Some(keypair) = &self.keypair {
-                        let _ = envelope.sign(keypair);
-                    }
+                    let envelope = mycelium_core::data::Envelope::new_unsigned(
+                        from_peer.clone(),
+                        None,
+                        payload,
+                    );
                     let stored = DirectMessage {
                         envelope,
                         body: "[appstore]".into(),
@@ -668,18 +701,42 @@ impl NodeRunner {
         }
         match message {
             WireMessage::Data(mut message) => {
-                if message.envelope.signature.is_some() {
-                    let Ok(author_id) = message.envelope.from_peer.parse::<PeerId>() else {
+                match security::validate_data_message_signature(&message, now_ms()) {
+                    Err(Sd030DropReason::NoSignature) => {
+                        warn!(
+                            "SD-030: dropping unsigned message from {} (payload {} bytes)",
+                            from_peer,
+                            message.envelope.payload.len()
+                        );
+                        let mut metrics = self.metrics.write().await;
+                        metrics.messages_dropped_no_sig += 1;
+                        return Ok(());
+                    }
+                    Err(Sd030DropReason::InvalidSignature) => {
+                        warn!("SD-030: dropping invalid-sig message from {}", from_peer);
+                        let mut metrics = self.metrics.write().await;
+                        metrics.messages_dropped_invalid_sig += 1;
                         self.register_strike(&from_peer);
                         return Ok(());
-                    };
-                    if !message.envelope.verify_or_transition(&author_id) {
+                    }
+                    Err(Sd030DropReason::UnparseableAuthor) => {
                         warn!(
-                            "dropping unsigned/invalid message (claimed author {})",
+                            "SD-030: dropping message — unparseable author {}",
                             message.envelope.from_peer
                         );
-                        self.register_strike(&from_peer);
+                        let mut metrics = self.metrics.write().await;
+                        metrics.messages_dropped_no_sig += 1;
                         return Ok(());
+                    }
+                    Ok(()) => {
+                        if message.envelope.signature.is_none()
+                            && !security::is_gossip_relay_body(&message.body)
+                        {
+                            warn!(
+                                "SD-030: unsigned message from {} — will drop after grace period",
+                                from_peer
+                            );
+                        }
                     }
                 }
                 if message.envelope.hop_count >= message.envelope.max_hops {

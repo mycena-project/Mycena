@@ -1,5 +1,10 @@
 # Mycelium Mini-App — Runtime Hardening & Implementation Review
 
+> **Status May 2026**: Items §1 (CSP), §3 (bridge sessions), §4 (process isolation),
+> §8 (rate limits), §9 (capability tokens) are implemented.
+> Open items: §2 (sideload without sig, partially), §5 (WASM runtime, future).
+> See [BETA_BLOCKERS.md](./BETA_BLOCKERS.md) for current P0 list.
+
 **Last updated:** May 2026  
 **Scope:** Code review of current mini-app stack vs zero-trust target ([MINIAPP_SECURITY_ARCHITECTURE.md](./MINIAPP_SECURITY_ARCHITECTURE.md))
 
@@ -40,8 +45,8 @@
 
 | # | Assumption | Reality | Risk |
 |---|------------|---------|------|
-| T1 | “Listing signature verified” = safe app | Install does not verify listing or bundle | AS-01, AS-02 |
-| T2 | “Permissions in manifest” = enforced | `identity.get`, `util.scan_qr` skip checks | AS-05, AS-08 |
+| T1 | “Listing signature verified” = safe app | Install does not verify listing or bundle | AS-01, AS-02 — **partially resolved** (store path + sideload ack) |
+| T2 | “Permissions in manifest” = enforced | ~~`identity.get`, `util.scan_qr` skip checks~~ **resolved** in `bridge_session.rs` | AS-05, AS-08 |
 | T3 | `_bridge_action` = security UX | Android only implements `show_alert` | AS-06, AS-07 |
 | T4 | “WebView CSP” = XSS safe | `unsafe-inline` allowed | AS-04 |
 | T5 | “Sideload from file” = same as store | No provenance UI distinction | AS-01 |
@@ -59,7 +64,7 @@
 | Network | Deny all guest egress | **Enforced** (JS stubs + intercept) ✓ |
 | Filesystem | Virtual app URL only | **Enforced** WebView intercept ✓ |
 | Storage | Encrypted per-app | **Plaintext** sled; prefix isolation ✓ |
-| Identity | Cap-gated | **Ungated** `identity.get` |
+| Identity | Cap-gated | **Resolved** — session + capability tokens in bridge |
 | Coin | Native confirm | **Ungated** QR generation |
 | CPU/time | Quotas | **None** |
 | IPC | Capability tokens | **Direct** bridge string call |
@@ -103,7 +108,7 @@
 | MIME / polyglot scan | ✓ | ✓ (install) | N/A |
 | HTML entry sanity (no `file:`) | ✓ | ✓ (install) | N/A |
 | Entry file count limit | ✓ (128) | ✓ (install) | N/A |
-| Signature over bundle | ✗ | ✗ | listing only |
+| Signature over bundle | ✗ sideload | ✗ sideload / **✓ store listing sig** | listing only |
 | `bundle_hash` match | ✗ | ✗ | on publish only |
 | Downgrade guard | ✗ | ✗ | ✗ |
 | Revocation check | ✓ | ✓ (preview/install) | ingest ✓ |

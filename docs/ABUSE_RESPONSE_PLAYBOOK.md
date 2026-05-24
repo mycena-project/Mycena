@@ -14,7 +14,7 @@
 | Default relay (`mycelium-relay`) | Peer-to-peer message storage on user devices |
 | App store binaries | Bulletin content after gossip |
 | Bootstrap peer list in releases | Witness gossip for MeshCoin |
-| Mini-app store listings we sign | Sideloaded unsigned ZIPs (until SD-041 fixed) |
+| Mini-app store listings we sign | Sideload: user ack in install UI (partially mitigated — no crypto verify for sideload) |
 
 **Moderation is impossible at scale** (SD-230)—response = **tooling + legal + client updates**, not “delete from server.”
 

@@ -21,7 +21,9 @@
 
     <application
         android:name=".MyceliumApplication"
-        android:allowBackup="true"
+        android:allowBackup="false"
+        android:fullBackupContent="false"
+        android:dataExtractionRules="@xml/backup_rules"
         android:label="@string/app_name"
         android:supportsRtl="true">
         <activity

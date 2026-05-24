@@ -23,6 +23,8 @@
     <string name="chat_offline">Offline</string>
     <string name="chat_encrypted">End-to-end encrypted</string>
     <string name="chat_not_encrypted">Key exchange pending…</string>
+    <string name="chat_key_not_yet_exchanged">Encryption key not yet received from this contact. The key will be exchanged automatically when they connect. Please try again in a moment.</string>
+    <string name="chat_sending_encrypted">🔒 Sending encrypted…</string>
     <string name="chat_group">Group</string>
     <string name="group_new">New group</string>
     <string name="group_invite_scan">Scan group invite</string>

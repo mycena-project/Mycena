@@ -7,6 +7,7 @@
   let messages = $state([]);
   let input = $state("");
   let isEncrypted = $state(false);
+  let errorMsg = $state("");
 
   async function refresh() {
     peers = await invoke("get_peers");
@@ -20,9 +21,20 @@
 
   async function send() {
     if (!input.trim() || !selectedPeer) return;
-    await invoke("send_chat_encrypted", { toPeer: selectedPeer, body: input });
-    input = "";
-    await refresh();
+    errorMsg = "";
+    try {
+      await invoke("send_chat_encrypted", { toPeer: selectedPeer, body: input });
+      input = "";
+      await refresh();
+    } catch (e) {
+      const msg = String(e);
+      if (msg.includes("enc_key_not_yet_exchanged")) {
+        errorMsg =
+          "Key exchange pending — message not sent. Try again shortly.";
+      } else {
+        errorMsg = msg;
+      }
+    }
   }
 
   $effect(() => {
@@ -50,6 +62,9 @@
         ? "🔒 End-to-end encrypted"
         : "⚠ Not encrypted – peer key not yet exchanged"}
     </div>
+    {#if errorMsg}
+      <div class="error-banner">{errorMsg}</div>
+    {/if}
     <div class="messages">
       {#each messages as msg}
         <div class="msg" class:own={msg.from_peer === peerId}>
@@ -81,6 +96,13 @@
   .enc-badge.encrypted {
     background: var(--accent-subtle);
     color: var(--text);
+  }
+  .error-banner {
+    font-size: 12px;
+    padding: 8px 10px;
+    background: rgba(200, 60, 60, 0.15);
+    color: #c0392b;
+    border-bottom: 1px solid var(--border);
   }
   .messages { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 8px; }
   .msg { max-width: 70%; padding: 8px 12px; border-radius: 10px; background: var(--border); }

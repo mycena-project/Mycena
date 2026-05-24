@@ -3,6 +3,7 @@ pub mod connectivity;
 mod forwarding;
 mod node;
 pub mod secrets;
+pub mod security;
 mod storage;
 mod transport;
 

@@ -1409,13 +1409,13 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_mycelium_ffi_checksum_func_request_faucet() != 55185.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_send_chat_broadcast() != 26485.toShort()) {
+    if (lib.uniffi_mycelium_ffi_checksum_func_send_chat_broadcast() != 19543.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_send_chat_direct() != 57327.toShort()) {
+    if (lib.uniffi_mycelium_ffi_checksum_func_send_chat_direct() != 61412.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_send_chat_encrypted() != 12194.toShort()) {
+    if (lib.uniffi_mycelium_ffi_checksum_func_send_chat_encrypted() != 20718.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_mycelium_ffi_checksum_func_send_group_message() != 57059.toShort()) {
@@ -2491,6 +2491,14 @@ sealed class MyceliumException: kotlin.Exception() {
             get() = "detail=${ `detail` }"
     }
     
+    class ChatException(
+        
+        val `detail`: kotlin.String
+        ) : MyceliumException() {
+        override val message
+            get() = "detail=${ `detail` }"
+    }
+    
 
     companion object ErrorHandler : UniffiRustCallStatusErrorHandler<MyceliumException> {
         override fun lift(error_buf: RustBuffer.ByValue): MyceliumException = FfiConverterTypeMyceliumException.lift(error_buf)
@@ -2510,6 +2518,9 @@ public object FfiConverterTypeMyceliumException : FfiConverterRustBuffer<Myceliu
             1 -> MyceliumException.InstallException(
                 FfiConverterString.read(buf),
                 )
+            2 -> MyceliumException.ChatException(
+                FfiConverterString.read(buf),
+                )
             else -> throw RuntimeException("invalid error enum value, something is very wrong!!")
         }
     }
@@ -2521,6 +2532,11 @@ public object FfiConverterTypeMyceliumException : FfiConverterRustBuffer<Myceliu
                 4UL
                 + FfiConverterString.allocationSize(value.`detail`)
             )
+            is MyceliumException.ChatException -> (
+                // Add the size for the Int that specifies the variant plus the size needed for all fields
+                4UL
+                + FfiConverterString.allocationSize(value.`detail`)
+            )
         }
     }
 
@@ -2528,6 +2544,11 @@ public object FfiConverterTypeMyceliumException : FfiConverterRustBuffer<Myceliu
         when(value) {
             is MyceliumException.InstallException -> {
                 buf.putInt(1)
+                FfiConverterString.write(value.`detail`, buf)
+                Unit
+            }
+            is MyceliumException.ChatException -> {
+                buf.putInt(2)
                 FfiConverterString.write(value.`detail`, buf)
                 Unit
             }
@@ -3462,25 +3483,28 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
 }
     
     
- fun `sendChatBroadcast`(`body`: kotlin.String)
+
+    @Throws(MyceliumException::class) fun `sendChatBroadcast`(`body`: kotlin.String)
         = 
-    uniffiRustCall() { _status ->
+    uniffiRustCallWithError(MyceliumException) { _status ->
     UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_send_chat_broadcast(
         FfiConverterString.lower(`body`),_status)
 }
     
     
- fun `sendChatDirect`(`toPeer`: kotlin.String, `body`: kotlin.String)
+
+    @Throws(MyceliumException::class) fun `sendChatDirect`(`toPeer`: kotlin.String, `body`: kotlin.String)
         = 
-    uniffiRustCall() { _status ->
+    uniffiRustCallWithError(MyceliumException) { _status ->
     UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_send_chat_direct(
         FfiConverterString.lower(`toPeer`),FfiConverterString.lower(`body`),_status)
 }
     
     
- fun `sendChatEncrypted`(`toPeer`: kotlin.String, `body`: kotlin.String)
+
+    @Throws(MyceliumException::class) fun `sendChatEncrypted`(`toPeer`: kotlin.String, `body`: kotlin.String)
         = 
-    uniffiRustCall() { _status ->
+    uniffiRustCallWithError(MyceliumException) { _status ->
     UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_send_chat_encrypted(
         FfiConverterString.lower(`toPeer`),FfiConverterString.lower(`body`),_status)
 }

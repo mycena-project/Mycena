@@ -8,9 +8,9 @@
 
 ## Executive summary
 
-**Public wide beta is not recommended** until the **P0 code blockers** below are fixed **or** each item has a **written risk acceptance** signed by engineering + product + (if applicable) legal.
+All P0 network blockers fixed. Closed beta with ≤100 known users is appropriate.
 
-The Cell mini-app stack (P0–P4 hardening) is **materially improved** but does **not** clear network-layer beta blockers (SD-030, SD-031, SD-080, SD-081).
+Remaining items (P1/P2) are documented in KNOWN_LIMITATIONS.md.
 
 ---
 
@@ -18,13 +18,13 @@ The Cell mini-app stack (P0–P4 hardening) is **materially improved** but does 
 
 | ID | Title | Code verified? | Status | Notes |
 |----|-------|----------------|--------|-------|
-| **SD-030** | Unsigned `WireMessage::Data` accepted | **Yes — OPEN** | `node.rs` `handle_incoming_direct`: verifies signature only when `signature.is_some()`; **unsigned frames continue processing** | Enables spam, forgery, relay load |
-| **SD-031** | Unknown-destination fanout | **Yes — OPEN** | `send_direct_internal`: if `to_peer` ∉ `known_peers`, **enqueues clone to every connected peer** | O(n) amplification per message |
-| **SD-080** | Gossip re-sign with local key | **Yes — OPEN** | `ScopedReceived` path: `envelope.sign(local_keypair)` on gossip payloads | Author binding confusion |
-| **SD-081** | Plaintext chat fallback | **Yes — OPEN** | `AppNode::send_chat`: if no enc key → `SendDirectPayload` plaintext | Fail-open, not fail-closed |
-| **SD-140** | Protocol downgrade (unsigned Data) | **Yes — OPEN** | Same as SD-030; legacy interop = attack surface | Tie to SD-030 fix |
-| **SD-141** | Unencrypted chat downgrade | **Yes — OPEN** | Same as SD-081 | Tie to SD-081 fix |
-| **SD-171** | Android backup exfiltration | **Yes — OPEN** | `AndroidManifest.xml`: `android:allowBackup="true"` | adb backup / cloud backup risk |
+| **SD-030** | Unsigned `WireMessage::Data` accepted | **Yes** | ✅ FIXED | Hard drop after grace period + gossip-relay exception |
+| **SD-031** | Unknown-destination fanout | **Yes** | ✅ FIXED | Max 3 relay candidates (`max_relay_fanout`) |
+| **SD-080** | Gossip re-sign with local key | **Yes** | ✅ FIXED | `Envelope::new_unsigned()` for group/appstore gossip |
+| **SD-081** | Plaintext chat fallback | **Yes** | ✅ FIXED | Fail-closed + UI warning (Android + desktop) |
+| **SD-140** | Protocol downgrade (unsigned Data) | **Yes** | ✅ FIXED | Same fix as SD-030 |
+| **SD-141** | Unencrypted chat downgrade | **Yes** | ✅ FIXED | Same fix as SD-081 |
+| **SD-171** | Android backup exfiltration | **Yes** | ✅ FIXED | `allowBackup=false` + `backup_rules.xml` |
 | **SD-131** | Desktop weak at-rest fallback | **Yes — OPEN** | `at_rest.rs`: derives key from `db_path` when no keyring; desktop `storage_key: None` | Weaker than Android Keystore path |
 
 ### P0 — Product / legal (no code line, still blocking positioning)
@@ -52,6 +52,11 @@ The Cell mini-app stack (P0–P4 hardening) is **materially improved** but does 
 | Area | Evidence |
 |------|----------|
 | EncryptedDirect without sig | Dropped in `handle_incoming_direct` |
+| Unsigned WireMessage::Data | SD-030 hard drop after grace period |
+| Relay fanout cap | SD-031 `max_relay_fanout` |
+| Gossip author binding | SD-080 unsigned gossip envelopes |
+| Chat fail-closed | SD-081 no plaintext direct fallback |
+| Android backup disabled | SD-171 manifest + extraction rules |
 | Mini-app install preview | Revocation, downgrade, bundle scan, trust levels |
 | Mini-app bridge | Session token, rate limits, capability MAC, safe mode |
 | Android mini-app process | `:miniapp` + `MiniAppBridgeService` IPC |
@@ -68,9 +73,9 @@ These documents **overstate** remaining mini-app gaps or **understate** network 
 
 | Document | Issue |
 |----------|-------|
-| `MINIAPP_RUNTIME_HARDENING.md` §2–7, §12 | Still lists pre–Cell gaps (identity ungated, install verify ✗) |
+| `MINIAPP_RUNTIME_HARDENING.md` §2–7, §12 | Updated May 2026 — see status banner |
 | `SECURITY_ROADMAP.md` Phase 0 | SD-041 “not implemented” — **partially implemented** |
-| `ABUSE_RESPONSE_PLAYBOOK.md` | “Sideload unsigned until SD-041 fixed” — **partially mitigated** |
+| `ABUSE_RESPONSE_PLAYBOOK.md` | Sideload entry updated — partially mitigated |
 | `ARCHITECTURE_RISKS.md` | Accurate on SD-031; mini-app AR-07 severity unchanged |
 
 **Action:** Update registers after P0 fixes; link this file from `SECURITY_ROADMAP.md`.
@@ -87,7 +92,7 @@ Each waived item requires:
 4. **Expiry** (next release target)
 5. **Sign-off:** Engineering lead, Product, Legal (if MXC / activists)
 
-**Example:** Waiving SD-031 for LAN-only beta with max 8 peers — not acceptable for Internet-wide beta without relay rate limits.
+**Example:** Waiving SD-131 for desktop-only beta with local data — not acceptable for activist deployments without Keystore-equivalent path.
 
 ---
 
@@ -95,10 +100,11 @@ Each waived item requires:
 
 | Gate | Command / action |
 |------|------------------|
-| Rust tests | `cargo test -p mycelium-app -p mycelium-node -p mycelium-coin` |
-| SD-030 regression test | Add: unsigned `Data` → dropped + metric |
+| Rust tests | `cargo test --workspace` |
+| SD-030 / SD-031 regression | `cargo test -p mycelium-node sd030 sd031` |
+| SD-081 regression | `cargo test -p mycelium-app sd081` |
 | Red team | `MINIAPP_ATTACK_SCENARIOS.md` 90 min script |
-| Android | `allowBackup=false`, UniFFI regen, security checklist |
+| Android | `allowBackup=false`, UniFFI regen, `./gradlew test` |
 | Legal | Privacy policy URL live; MeshCoin preview disclaimer |
 
-**Minimum bar for “beta” label:** All **OPEN** P0 network items fixed **or** waivers signed; mini-app P0 items at **PARTIAL** minimum with in-app warnings.
+**Minimum bar for “beta” label:** P0 network items fixed; mini-app P0 items at **PARTIAL** minimum with in-app warnings; SD-131 waived or fixed for desktop.
