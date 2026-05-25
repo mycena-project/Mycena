@@ -68,6 +68,7 @@ class MeshService : Service() {
                 storageKeyHex = storageKeyHex,
             ),
         )
+        mycelium.setDisplayName(displayName)
         when (prefs.getString("energy_state", "Active")) {
             "Intermittent" -> mycelium.setEnergyState(EnergyState.INTERMITTENT)
             "Passive" -> mycelium.setEnergyState(EnergyState.PASSIVE)

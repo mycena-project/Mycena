@@ -61,4 +61,29 @@
     <string name="miniapp_no_listings">لا توجد قوائم مخبأة على هذا الجهاز.</string>
     <string name="miniapp_bundle_hash">بصمة الحزمة</string>
     <string name="miniapp_back">رجوع</string>
+
+    <string name="onboarding_next">متابعة →</string>
+    <string name="onboarding_start">بدء Mycelium</string>
+    <string name="onboarding_1_title">تواصل بدون إنترنت</string>
+    <string name="onboarding_1_body">يعمل Mycelium عند تعطل شبكات الجوال. تنتقل الرسائل مباشرة بين الأجهزة دون خوادم.</string>
+    <string name="onboarding_feature_noserver_title">لا خوادم</string>
+    <string name="onboarding_feature_noserver_body">لا تمر الرسائل عبر بنيتنا. لا يمكننا قراءتها.</string>
+    <string name="onboarding_feature_noaccount_title">لا حاجة لحساب</string>
+    <string name="onboarding_feature_noaccount_body">لا رقم هاتف ولا بريد ولا تسجيل. ثبّت واتصل.</string>
+    <string name="onboarding_feature_panicwipe_title">مسح طوارئ</string>
+    <string name="onboarding_feature_panicwipe_body">نقرة واحدة في الإعدادات تحذف كل شيء فوراً.</string>
+    <string name="onboarding_3_title">ماذا يناديك الآخرون؟</string>
+    <string name="onboarding_3_body">يظهر هذا الاسم في رسائلك. يمكنك تغييره لاحقاً.</string>
+    <string name="onboarding_name_hint">الاسم المعروض</string>
+    <string name="onboarding_name_placeholder">مثلاً: Alex، عامل إغاثة</string>
+    <string name="onboarding_name_privacy_note">هذا الاسم مرئي لمن تتواصل معهم. يمكنك استخدام اسم مستعار.</string>
+    <string name="status_searching_internet">البحث عن نظراء عبر relay…</string>
+    <string name="status_searching_local">البحث عن نظراء محليين عبر Wi‑Fi…</string>
+    <string name="status_connected">%1$d نظير متصل</string>
+    <string name="chat_share_location">مشاركة موقعي</string>
+    <string name="location_privacy_title">مشاركة موقعك؟</string>
+    <string name="location_privacy_body">تُرسل إحداثيات GPS الحالية مرة واحدة. لا يتتبع Mycelium موقعك باستمرار. الرسالة مشفرة.</string>
+    <string name="location_share_once">مشاركة مرة واحدة</string>
+    <string name="location_open_maps">فتح في الخرائط</string>
+    <string name="error_location_unavailable">تعذر الحصول على الموقع. تحقق من GPS والأذونات.</string>
 </resources>

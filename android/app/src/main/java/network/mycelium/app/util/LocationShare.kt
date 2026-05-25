@@ -1,0 +1,27 @@
+package network.mycelium.app.util
+
+import android.content.Context
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import network.mycelium.app.R
+
+suspend fun shareCurrentLocation(
+    context: Context,
+    onLoading: (Boolean) -> Unit,
+    onDeliver: (String) -> Unit,
+    onError: (String) -> Unit,
+) {
+    withContext(Dispatchers.Main) { onLoading(true) }
+    try {
+        val locationMsg = LocationHelper.getCurrentLocationMessage(context)
+        if (locationMsg != null) {
+            withContext(Dispatchers.Main) { onDeliver(locationMsg) }
+        } else {
+            withContext(Dispatchers.Main) {
+                onError(context.getString(R.string.error_location_unavailable))
+            }
+        }
+    } finally {
+        withContext(Dispatchers.Main) { onLoading(false) }
+    }
+}

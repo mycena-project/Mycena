@@ -105,4 +105,29 @@
     <string name="share_app_wifi_note">Beide Geräte müssen im gleichen WLAN oder Hotspot sein</string>
     <string name="share_app_transfers">Mit %1$d Gerät(en) geteilt ✓</string>
     <string name="share_app_qr_content_description">QR-Code zur Installation</string>
+
+    <string name="onboarding_next">Weiter →</string>
+    <string name="onboarding_start">Myzelium starten</string>
+    <string name="onboarding_1_title">Kommunikation ohne Internet</string>
+    <string name="onboarding_1_body">Myzelium funktioniert, wenn Mobilfunknetze ausfallen. Nachrichten wandern direkt zwischen Geräten – ohne Server.</string>
+    <string name="onboarding_feature_noserver_title">Keine Server</string>
+    <string name="onboarding_feature_noserver_body">Nachrichten passieren nie unsere Infrastruktur. Wir können sie nicht lesen.</string>
+    <string name="onboarding_feature_noaccount_title">Kein Konto nötig</string>
+    <string name="onboarding_feature_noaccount_body">Keine Telefonnummer, keine E-Mail, keine Anmeldung. Einfach installieren und verbinden.</string>
+    <string name="onboarding_feature_panicwipe_title">Panic-Wipe verfügbar</string>
+    <string name="onboarding_feature_panicwipe_body">Ein Tipp in den Einstellungen löscht sofort alles.</string>
+    <string name="onboarding_3_title">Wie sollen andere dich nennen?</string>
+    <string name="onboarding_3_body">Dieser Name erscheint in deinen Nachrichten. Du kannst ihn später ändern.</string>
+    <string name="onboarding_name_hint">Anzeigename</string>
+    <string name="onboarding_name_placeholder">z. B. Alex, Feuerwehr Nord</string>
+    <string name="onboarding_name_privacy_note">Dieser Name ist für deine Kontakte sichtbar. Ein Pseudonym ist möglich.</string>
+    <string name="status_searching_internet">Suche Peers über Relay…</string>
+    <string name="status_searching_local">Suche lokale Peers über WLAN…</string>
+    <string name="status_connected">%1$d Peer(s) verbunden</string>
+    <string name="chat_share_location">Meinen Standort teilen</string>
+    <string name="location_privacy_title">Standort teilen?</string>
+    <string name="location_privacy_body">Deine aktuellen GPS-Koordinaten werden einmal als Nachricht gesendet. Myzelium verfolgt dich nicht dauerhaft. Die Nachricht ist Ende-zu-Ende verschlüsselt.</string>
+    <string name="location_share_once">Einmal teilen</string>
+    <string name="location_open_maps">In Karten öffnen</string>
+    <string name="error_location_unavailable">Standort nicht verfügbar. GPS und Berechtigungen prüfen.</string>
 </resources>

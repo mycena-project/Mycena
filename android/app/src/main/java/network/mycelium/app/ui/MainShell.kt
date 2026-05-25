@@ -1,5 +1,7 @@
 package network.mycelium.app.ui
 
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
@@ -72,11 +74,15 @@ fun MainShell() {
             }
         },
     ) { padding ->
-        NavHost(
-            navController = nav,
-            startDestination = "chat",
-            modifier = Modifier.padding(padding),
-        ) {
+        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+            if (showBottomBar) {
+                ConnectionStatusBanner()
+            }
+            NavHost(
+                navController = nav,
+                startDestination = "chat",
+                modifier = Modifier.weight(1f, fill = true),
+            ) {
             composable("chat") { ChatScreen(nav) }
             composable("chat/{peerId}") { backStack ->
                 ChatConversationScreen(backStack.arguments?.getString("peerId") ?: "")
@@ -105,6 +111,7 @@ fun MainShell() {
             }
             composable("wallet") { WalletScreen(nav) }
             composable("share_app") { ShareAppScreen() }
+            }
         }
     }
 }

@@ -7,6 +7,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flow
@@ -17,6 +20,8 @@ import network.mycelium.bindings.GroupInfo
 import network.mycelium.bindings.mycelium
 
 class GroupViewModel(application: Application) : AndroidViewModel(application) {
+    private val _errors = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    val errors: SharedFlow<String> = _errors.asSharedFlow()
     val groups: StateFlow<List<GroupInfo>> =
         flow {
             while (true) {
@@ -55,6 +60,23 @@ class GroupViewModel(application: Application) : AndroidViewModel(application) {
     fun sendGroupMessage(groupId: String, body: String) {
         viewModelScope.launch(Dispatchers.IO) {
             mycelium.sendGroupMessage(groupId, body)
+        }
+    }
+
+    fun sendLocation(
+        context: android.content.Context,
+        onLoading: (Boolean) -> Unit = {},
+        onMessage: (String) -> Unit,
+    ) {
+        viewModelScope.launch {
+            network.mycelium.app.util.shareCurrentLocation(
+                context = context,
+                onLoading = onLoading,
+                onDeliver = onMessage,
+                onError = { msg ->
+                    launch { _errors.emit(msg) }
+                },
+            )
         }
     }
 }

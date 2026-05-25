@@ -1,6 +1,7 @@
 package network.mycelium.app.viewmodel
 
 import android.app.Application
+import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
@@ -13,8 +14,11 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import network.mycelium.app.MeshEvent
+import network.mycelium.app.R
 import network.mycelium.app.meshEvents
+import network.mycelium.app.util.shareCurrentLocation
 import network.mycelium.bindings.ChatMessage
 import network.mycelium.bindings.mycelium
 import uniffi.mycelium.MyceliumException
@@ -79,6 +83,23 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             } catch (e: Exception) {
                 _uiEvent.emit(ChatUiEvent.ShowError(e.message ?: "Unknown error"))
             }
+        }
+    }
+
+    fun sendLocation(
+        context: Context,
+        onLoading: (Boolean) -> Unit = {},
+        onMessage: (String) -> Unit,
+    ) {
+        viewModelScope.launch {
+            shareCurrentLocation(
+                context = context,
+                onLoading = onLoading,
+                onDeliver = onMessage,
+                onError = { msg ->
+                    launch { _uiEvent.emit(ChatUiEvent.ShowError(msg)) }
+                },
+            )
         }
     }
 }

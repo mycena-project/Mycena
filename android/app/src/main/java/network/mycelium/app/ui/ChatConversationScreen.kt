@@ -12,23 +12,17 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
-import androidx.compose.material.icons.filled.Send
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -54,7 +48,7 @@ fun EncryptionBadge(isEncrypted: Boolean) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Icon(
+            androidx.compose.material3.Icon(
                 imageVector = if (isEncrypted) Icons.Default.Lock else Icons.Default.LockOpen,
                 contentDescription = null,
                 modifier = Modifier.size(12.dp),
@@ -82,7 +76,7 @@ fun EncryptionBadge(isEncrypted: Boolean) {
 fun ChatConversationScreen(peerId: String, vm: ChatViewModel = viewModel()) {
     val messages by vm.chatHistory(peerId).collectAsState(emptyList())
     val hasEncKey by vm.peerHasEncKey(peerId).collectAsState(false)
-    var input by remember { mutableStateOf("") }
+    val localPeerId = vm.localPeerId
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(vm) {
@@ -106,27 +100,30 @@ fun ChatConversationScreen(peerId: String, vm: ChatViewModel = viewModel()) {
             ) {
                 EncryptionBadge(isEncrypted = hasEncKey)
             }
-            LazyColumn(modifier = Modifier.weight(1f, fill = true)) {
-                items(messages) { msg ->
-                    Text("${msg.fromDisplayName}: ${msg.body}", modifier = Modifier.padding(8.dp))
+            LazyColumn(
+                modifier = Modifier.weight(1f, fill = true),
+                reverseLayout = false,
+            ) {
+                items(messages, key = { it.id }) { msg ->
+                    val isOwn = msg.fromPeer == localPeerId
+                    Row(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 4.dp),
+                        horizontalArrangement =
+                            if (isOwn) Arrangement.End else Arrangement.Start,
+                    ) {
+                        ChatMessageBubble(message = msg, isOwn = isOwn)
+                    }
                 }
             }
-            Row(modifier = Modifier.fillMaxWidth().padding(8.dp)) {
-                TextField(
-                    value = input,
-                    onValueChange = { input = it },
-                    modifier = Modifier.weight(1f),
-                    placeholder = { Text(stringResource(R.string.chat_message_hint)) },
-                )
-                IconButton(
-                    onClick = {
-                        val body = input
-                        vm.sendChat(peerId, body) { input = "" }
-                    },
-                ) {
-                    Icon(Icons.Default.Send, contentDescription = stringResource(R.string.chat_send))
-                }
-            }
+            ChatInputRow(
+                onSend = { body -> vm.sendChat(peerId, body) },
+                shareLocation = { ctx, loading, msg ->
+                    vm.sendLocation(ctx, onLoading = loading, onMessage = msg)
+                },
+            )
         }
     }
 }

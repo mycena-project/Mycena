@@ -12,6 +12,7 @@
   import Setup from "./views/Setup.svelte";
   import MiniApp from "./views/MiniApp.svelte";
   import MiniAppStore from "./views/MiniAppStore.svelte";
+  import ConnectionStatus from "./components/ConnectionStatus.svelte";
 
   let nodeStarted = $state(false);
   let peerId = $state("");
@@ -58,6 +59,7 @@
       </div>
     </nav>
     <main>
+      <ConnectionStatus peerCount={peers} />
       {#if activeView === "chat"}
         <Chat {peerId} />
       {:else if activeView === "groups"}

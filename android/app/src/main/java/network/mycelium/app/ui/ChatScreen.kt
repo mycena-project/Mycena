@@ -47,9 +47,10 @@ fun ChatScreen(navController: NavController, vm: ChatViewModel = viewModel()) {
             items(peers) { peer ->
                 Text(
                     text = peer,
-                    modifier = Modifier
-                        .clickable { navController.navigate("chat/$peer") }
-                        .padding(16.dp),
+                    modifier =
+                        Modifier
+                            .clickable { navController.navigate("chat/$peer") }
+                            .padding(16.dp),
                 )
             }
         }
