@@ -8,6 +8,12 @@ Decentralized, delay-tolerant mesh networking stack (Rust): node, apps, FFI
 > The copyright holder may later publish parts under an open-source license; see
 > [`RELICENSE-INTENT.md`](RELICENSE-INTENT.md).
 
+## Beta landing (web)
+
+Public story and beta signup: **https://mycelium-beta.vercel.app** (source repo:
+[the maintainer/mycelium-web](https://github.com/mycena-project/mycelium-web)).
+Do not use `mycelium-web.vercel.app` — that hostname points to an unrelated project.
+
 ## Run (CLI)
 
 ```bash
