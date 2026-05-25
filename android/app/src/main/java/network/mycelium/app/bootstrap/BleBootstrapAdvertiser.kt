@@ -34,7 +34,7 @@ class BleBootstrapAdvertiser(private val context: Context) {
     private var isAdvertising = false
     private var callback: AdvertiseCallback? = null
 
-    fun startAdvertising(peerId: String, installUrl: String = "https://mycelium.network/get") {
+    fun startAdvertising(peerId: String, installUrl: String = "https://mycelium-web.vercel.app/") {
         if (isAdvertising) return
         @Suppress("UNUSED_VARIABLE")
         val unusedInstallUrl = installUrl
