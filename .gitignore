@@ -15,6 +15,7 @@
 /android/keystore.jks
 /android/local.properties
 /android/rust-build/
+/android/app/src/main/assets/miniapp/
 
 # IDE / OS
 .idea/
@@ -33,3 +34,17 @@ Thumbs.db
 # Node (desktop UI)
 node_modules/
 **/node_modules/
+
+# Accidental APK extraction at repo root
+/AndroidManifest.xml
+/resources.arsc
+/DebugProbesKt.bin
+/classes*.dex
+/META-INF/
+/assets/
+/res/
+/kotlin/
+/lib/
+/okhttp3/
+/com/
+/mycelium-serve.sh
