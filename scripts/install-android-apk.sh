@@ -4,7 +4,8 @@
 # Usage:
 #   ./scripts/install-android-apk.sh                 # local build output
 #   ./scripts/install-android-apk.sh --build         # build then install
-#   ./scripts/install-android-apk.sh --from-github   # latest CI debug artifact
+#   ./scripts/install-android-apk.sh --from-github   # latest CI debug APK artifact
+#   ./scripts/install-android-apk.sh --trigger-github  # run workflow, then download
 #   ./scripts/install-android-apk.sh /path/to.apk
 set -euo pipefail
 
@@ -13,15 +14,19 @@ DEFAULT_APK="$ROOT/android/app/build/outputs/apk/debug/app-debug.apk"
 APK="$DEFAULT_APK"
 DO_BUILD=0
 FROM_GITHUB=0
+TRIGGER_GITHUB=0
 REPO="${MYCELIUM_GITHUB_REPO:-the maintainer/Mycelium}"
-WORKFLOW="${MYCELIUM_ANDROID_WORKFLOW:-android-debug-apk.yml}"
+ARTIFACT="${MYCELIUM_ANDROID_ARTIFACT:-mycelium-debug-apk}"
+# Workflows that upload the debug APK (in priority order).
+WORKFLOWS=("android-debug-apk.yml" "android-ci.yml")
 
 for arg in "$@"; do
   case "$arg" in
     --build) DO_BUILD=1 ;;
     --from-github) FROM_GITHUB=1 ;;
+    --trigger-github) TRIGGER_GITHUB=1; FROM_GITHUB=1 ;;
     -h|--help)
-      sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'
+      sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'
       exit 0
       ;;
     --*) echo "Unknown option: $arg" >&2; exit 2 ;;
@@ -34,24 +39,52 @@ if [[ "$DO_BUILD" -eq 1 ]]; then
   APK="$DEFAULT_APK"
 fi
 
-if [[ "$FROM_GITHUB" -eq 1 ]]; then
+find_github_apk() {
+  local tmpdir="$1"
   if ! command -v gh >/dev/null 2>&1; then
-    echo "gh CLI required for --from-github (https://cli.github.com)" >&2
-    exit 1
+    echo "gh CLI required (https://cli.github.com)" >&2
+    return 1
   fi
+
+  local wf run_id found=""
+  for wf in "${WORKFLOWS[@]}"; do
+    run_id="$(gh run list --repo "$REPO" --workflow "$wf" --limit 30 \
+      --json databaseId,conclusion \
+      -q '[.[] | select(.conclusion=="success")][0].databaseId' 2>/dev/null || true)"
+    if [[ -n "$run_id" && "$run_id" != "null" ]]; then
+      echo "Using workflow $wf run $run_id"
+      gh run download "$run_id" --repo "$REPO" -n "$ARTIFACT" -D "$tmpdir" 2>/dev/null \
+        || gh run download "$run_id" --repo "$REPO" -D "$tmpdir"
+      found="$(find "$tmpdir" -name '*.apk' | head -1)"
+      if [[ -n "$found" ]]; then
+        echo "$found"
+        return 0
+      fi
+    fi
+  done
+  return 1
+}
+
+if [[ "$FROM_GITHUB" -eq 1 ]]; then
   tmpdir="$(mktemp -d)"
   trap 'rm -rf "$tmpdir"' EXIT
-  run_id="$(gh run list --repo "$REPO" --workflow "$WORKFLOW" --limit 20 --json databaseId,conclusion,status \
-    -q '[.[] | select(.conclusion=="success")][0].databaseId')"
-  if [[ -z "$run_id" || "$run_id" == "null" ]]; then
-    echo "No successful '$WORKFLOW' run found on $REPO" >&2
-    exit 1
+
+  if [[ "$TRIGGER_GITHUB" -eq 1 ]]; then
+    echo "Starting Android debug APK workflow on $REPO…"
+    gh workflow run android-debug-apk.yml --repo "$REPO" --ref main
+    echo "Waiting for workflow to finish (up to 90 min)…"
+    gh run watch --repo "$REPO" --exit-status || true
   fi
-  echo "Downloading artifact from run $run_id…"
-  gh run download "$run_id" --repo "$REPO" -D "$tmpdir"
-  found="$(find "$tmpdir" -name '*.apk' | head -1)"
-  if [[ -z "$found" ]]; then
-    echo "No APK in workflow artifacts" >&2
+
+  if ! found="$(find_github_apk "$tmpdir")"; then
+    echo "No successful CI APK found on $REPO." >&2
+    echo "" >&2
+    echo "The debug APK workflow only runs on demand. Try:" >&2
+    echo "  ./scripts/install-android-apk.sh --trigger-github" >&2
+    echo "  # or after the next green Android CI on main:" >&2
+    echo "  ./scripts/install-android-apk.sh --from-github" >&2
+    echo "  # or build locally:" >&2
+    echo "  ./scripts/install-android-apk.sh --build" >&2
     exit 1
   fi
   APK="$found"

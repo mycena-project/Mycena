@@ -51,4 +51,7 @@ android-apk:
 android-install:
 	./scripts/install-android-apk.sh
 
+android-install-github:
+	./scripts/install-android-apk.sh --from-github
+
 android-deploy: android-apk android-install

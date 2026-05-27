@@ -16,6 +16,7 @@
 /android/local.properties
 /android/rust-build/
 /android/app/src/main/assets/miniapp/
+/android/uniffi-bindings/src/main/kotlin/uniffi/mycelium/uniffi/
 
 # IDE / OS
 .idea/

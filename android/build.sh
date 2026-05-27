@@ -22,6 +22,8 @@ cargo ndk \
   -o android/rust-build \
   build --release -p mycelium-ffi
 
+"$ROOT/scripts/prune-android-native-libs.sh"
+
 # Guard against stale duplicate UniFFI outputs from previous runs.
 rm -rf android/uniffi-bindings/src/main/kotlin/uniffi/mycelium/uniffi
 find android/uniffi-bindings/src/main/kotlin -name 'mycelium.kt' -delete

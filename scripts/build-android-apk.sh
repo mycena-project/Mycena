@@ -11,6 +11,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 BUMP=1
 MODE="gradle"
+MIN_FREE_KB=$((5 * 1024 * 1024)) # 5 GiB
 
 for arg in "$@"; do
   case "$arg" in
@@ -25,6 +26,13 @@ for arg in "$@"; do
   esac
 done
 
+avail_kb="$(df -k "$ROOT" | awk 'NR==2 {print $4}')"
+if [[ "$avail_kb" -lt "$MIN_FREE_KB" ]]; then
+  echo "ERROR: less than 5 GiB free on $(df -h "$ROOT" | awk 'NR==2 {print $1}') — packageDebug often fails when disk is full." >&2
+  echo "Free some space, then retry. Current free: $(df -h "$ROOT" | awk 'NR==2 {print $4}')" >&2
+  exit 1
+fi
+
 if [[ "$BUMP" -eq 1 ]]; then
   "$ROOT/scripts/bump-android-version.sh"
 fi
@@ -33,19 +41,29 @@ version_name="$(grep -E '^versionName=' "$ROOT/android/version.properties" | cut
 version_code="$(grep -E '^versionCode=' "$ROOT/android/version.properties" | cut -d= -f2)"
 echo "Building Mycelium Android ${version_name} (${version_code})…"
 
+has_rust_libs() {
+  find "$ROOT/android/rust-build" -name 'libuniffi_mycelium.so' 2>/dev/null | grep -q .
+}
+
 if [[ "$MODE" == "full" ]]; then
   bash "$ROOT/android/build.sh"
 else
-  if [[ ! -d "$ROOT/android/rust-build" ]] || [[ -z "$(find "$ROOT/android/rust-build" -name 'libmycelium_ffi.so' 2>/dev/null | head -1)" ]]; then
-    echo "No Rust libs in android/rust-build — running full build (use --full explicitly next time)." >&2
+  if ! has_rust_libs; then
+    echo "No libuniffi_mycelium.so in android/rust-build — running full build." >&2
     bash "$ROOT/android/build.sh"
   else
+    "$ROOT/scripts/prune-android-native-libs.sh"
     export JAVA_HOME="${JAVA_HOME:-$(/usr/libexec/java_home -v 21 2>/dev/null || true)}"
     cd "$ROOT/android"
-    ./gradlew --no-daemon --max-workers=1 \
+    if ! ./gradlew --no-daemon --max-workers=1 \
       -Dorg.gradle.parallel=false \
       -Dorg.gradle.jvmargs='-Xmx1024m -XX:MaxMetaspaceSize=384m -Dfile.encoding=UTF-8' \
-      :app:assembleDebug --console=plain
+      :app:assembleDebug --console=plain; then
+      echo "" >&2
+      echo "assembleDebug failed. If you saw :app:packageDebug fail, free disk space and run:" >&2
+      echo "  cd android && ./gradlew clean :app:assembleDebug" >&2
+      exit 1
+    fi
   fi
 fi
 
@@ -56,7 +74,7 @@ if [[ -f "$APK" ]]; then
   echo "Install: ./scripts/install-android-apk.sh"
   if command -v unzip >/dev/null 2>&1; then
     echo "Native libs:"
-    unzip -l "$APK" | grep 'lib/.*/lib\(jnidispatch\|mycelium_ffi\)\.so' || true
+    unzip -l "$APK" | grep -E 'lib/.*/lib(jnidispatch|uniffi_mycelium)\.so' || true
   fi
 else
   echo "APK not found at $APK" >&2
