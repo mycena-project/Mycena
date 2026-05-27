@@ -87,15 +87,27 @@ jobs:
 
       - name: Generate UniFFI Kotlin bindings
         run: |
+          rm -rf android/uniffi-bindings/src/main/kotlin/uniffi/mycelium/uniffi
+          find android/uniffi-bindings/src/main/kotlin -name 'mycelium.kt' -delete
           cargo run -p mycelium-ffi --bin uniffi-bindgen -- generate \
             crates/mycelium-ffi/src/mycelium.udl \
             --language kotlin \
             --out-dir android/uniffi-bindings/src/main/kotlin/
+          count="$(find android/uniffi-bindings/src/main/kotlin -name 'mycelium.kt' | wc -l | tr -d ' ')"
+          if [ "$count" -ne 1 ]; then
+            echo "ERROR: expected exactly one generated mycelium.kt, found $count" >&2
+            find android/uniffi-bindings/src/main/kotlin -name 'mycelium.kt' -print >&2 || true
+            exit 1
+          fi
 
       - name: Fix UniFFI Kotlin newline (no ktlint in CI)
         run: |
+          UNIFFI_KT="android/uniffi-bindings/src/main/kotlin/uniffi/mycelium/mycelium.kt"
+          if [ ! -f "$UNIFFI_KT" ]; then
+            UNIFFI_KT="$(find android/uniffi-bindings/src/main/kotlin -name 'mycelium.kt' | head -1)"
+          fi
           perl -0777 -pi -e 's/\}\s+fun `addBootstrapPeer`/}\n\nfun `addBootstrapPeer`/' \
-            android/uniffi-bindings/src/main/kotlin/uniffi/mycelium/mycelium.kt
+            "$UNIFFI_KT"
 
       - name: Upload .so artifacts
         uses: actions/upload-artifact@v7
