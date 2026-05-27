@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">مايسيليوم</string>
+    <string name="app_name">Mycelium</string>
     <string name="app_tagline">شبكة غير متصلة</string>
     <string name="nav_chat">محادثة</string>
     <string name="nav_bulletin">لوحة</string>
@@ -86,4 +86,7 @@
     <string name="location_share_once">مشاركة مرة واحدة</string>
     <string name="location_open_maps">فتح في الخرائط</string>
     <string name="error_location_unavailable">تعذر الحصول على الموقع. تحقق من GPS والأذونات.</string>
+    <string name="settings_version_format">الإصدار %1$s (البناء %2$d)</string>
+    <string name="peers_offline_title">لا يوجد نظراء متصلون</string>
+    <string name="peers_offline_body">يعمل عقد الشبكة في الخلفية. يتصل عند توفر جهاز آخر أو relay عام. يساعد Bluetooth وWi‑Fi للأجهزة القريبة — لا حاجة لإبقاء شريط البحث ظاهراً دائماً.</string>
 </resources>

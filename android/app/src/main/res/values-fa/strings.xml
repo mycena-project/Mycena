@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">میسلیوم</string>
+    <string name="app_name">Mycelium</string>
     <string name="app_tagline">شبکه آفلاین</string>
     <string name="nav_chat">چت</string>
     <string name="nav_bulletin">تابلو</string>
@@ -104,4 +104,7 @@
     <string name="location_share_once">یک‌بار به‌اشتراک</string>
     <string name="location_open_maps">باز کردن در نقشه</string>
     <string name="error_location_unavailable">موقعیت در دسترس نیست. GPS و مجوزها را بررسی کنید.</string>
+    <string name="settings_version_format">نسخه %1$s (ساخت %2$d)</string>
+    <string name="peers_offline_title">همتای متصل نیست</string>
+    <string name="peers_offline_body">گره mesh در پس‌زمینه فعال می‌ماند. وقتی دستگاه دیگر یا relay عمومی در دسترس باشد وصل می‌شود. بلوتوث و Wi‑Fi برای همسایه‌های نزدیک کمک می‌کند — بنر جستجو لازم نیست همیشه نمایش داده شود.</string>
 </resources>

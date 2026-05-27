@@ -6,6 +6,7 @@ license-file.workspace = true
 authors.workspace = true
 
 [lib]
+name = "uniffi_mycelium"
 crate-type = ["cdylib", "staticlib"]
 
 [dependencies]

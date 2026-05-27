@@ -28,8 +28,13 @@ cargo run -p mycelium-ffi --bin uniffi-bindgen -- generate \
   --out-dir android/uniffi-bindings/src/main/kotlin/
 
 # When ktlint is missing, UniFFI can emit `} fun` without a newline; repair invalid Kotlin.
-perl -0777 -pi -e 's/\}\s+fun `addBootstrapPeer`/}\n\nfun `addBootstrapPeer`/' \
-  android/uniffi-bindings/src/main/kotlin/uniffi/mycelium/mycelium.kt
+UNIFFI_KT="android/uniffi-bindings/src/main/kotlin/uniffi/mycelium/mycelium.kt"
+if [[ ! -f "$UNIFFI_KT" ]]; then
+  UNIFFI_KT="$(find android/uniffi-bindings/src/main/kotlin -name 'mycelium.kt' | head -1)"
+fi
+if [[ -n "$UNIFFI_KT" && -f "$UNIFFI_KT" ]]; then
+  perl -0777 -pi -e 's/\}\s+fun `addBootstrapPeer`/}\n\nfun `addBootstrapPeer`/' "$UNIFFI_KT"
+fi
 
 cd android
 ./gradlew assembleDebug

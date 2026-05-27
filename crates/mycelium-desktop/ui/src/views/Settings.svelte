@@ -1,5 +1,6 @@
 <script>
   import { invoke } from '@tauri-apps/api/core';
+  import { getVersion } from '@tauri-apps/api/app';
   import { confirm } from '@tauri-apps/plugin-dialog';
 
   let { peerId } = $props();
@@ -10,6 +11,7 @@
   let storeStats = $state({ count: 0, oldest_ms: 0 });
   let gcResult = $state(null);
   let saved = $state(false);
+  let appVersion = $state('');
 
   const energyOptions = ['Active', 'Intermittent', 'Passive'];
 
@@ -50,7 +52,10 @@
     }
   }
 
-  $effect(() => { load(); });
+  $effect(() => {
+    load();
+    getVersion().then((v) => (appVersion = v));
+  });
 </script>
 
 <div class="settings">
@@ -107,6 +112,10 @@
     {saved ? '✓ Saved' : 'Save settings'}
   </button>
 
+  {#if appVersion}
+    <p class="version">Version {appVersion}</p>
+  {/if}
+
   <section class="danger-zone">
     <h4>⚠ Danger zone</h4>
     <p>
@@ -141,4 +150,5 @@
   .success { color: var(--accent); font-size: 12px; }
   .danger-zone { border-color: #dc2626; }
   .danger-zone h4 { color: #dc2626; }
+  .version { font-size: 12px; color: var(--text-muted); margin: 0; }
 </style>

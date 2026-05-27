@@ -1,0 +1,58 @@
+# Manual debug APK for sideload / adb install (not Play Store).
+name: Android debug APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  apk:
+    if: github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Bump Android version (ephemeral — commit version.properties locally for permanent bumps)
+        run: ./scripts/bump-android-version.sh
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk --locked
+
+      - name: Add Android Rust targets
+        run: rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Install NDK
+        run: sdkmanager "ndk;26.1.10909125"
+
+      - name: Export NDK for cargo-ndk
+        run: |
+          echo "ANDROID_NDK_HOME=${ANDROID_SDK_ROOT}/ndk/26.1.10909125" >> "$GITHUB_ENV"
+          echo "NDK_HOME=${ANDROID_SDK_ROOT}/ndk/26.1.10909125" >> "$GITHUB_ENV"
+
+      - name: Build Android (Rust + UniFFI + Gradle)
+        run: bash android/build.sh
+
+      - name: Show version built
+        run: cat android/version.properties
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: mycelium-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Мицелий</string>
+    <string name="app_name">Mycelium</string>
     <string name="app_tagline">Автономная сеть</string>
     <string name="nav_chat">Чат</string>
     <string name="nav_bulletin">Доска</string>
@@ -108,4 +108,7 @@
     <string name="location_share_once">Отправить один раз</string>
     <string name="location_open_maps">Открыть в картах</string>
     <string name="error_location_unavailable">Не удалось получить местоположение. Проверьте GPS и разрешения.</string>
+    <string name="settings_version_format">Версия %1$s (сборка %2$d)</string>
+    <string name="peers_offline_title">Нет подключённых узлов</string>
+    <string name="peers_offline_body">Узел mesh продолжает работать в фоне. Подключение появится, когда другое устройство или публичный relay станут доступны. Bluetooth и Wi‑Fi помогают для ближних узлов — баннер поиска не нужно держать постоянно.</string>
 </resources>

@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import network.mycelium.app.BuildConfig
 import network.mycelium.app.R
 import network.mycelium.app.StorageKeyHelper
 import network.mycelium.app.bootstrap.BleBootstrapPermissions
@@ -183,6 +184,18 @@ fun SettingsScreen(navController: NavController) {
             PanicWipeSection(
                 modifier = Modifier.padding(top = 24.dp),
                 onPanicWipe = { performPanicWipe(context) },
+            )
+
+            Text(
+                text =
+                    stringResource(
+                        R.string.settings_version_format,
+                        BuildConfig.VERSION_NAME,
+                        BuildConfig.VERSION_CODE,
+                    ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 24.dp, bottom = 8.dp),
             )
         }
     }

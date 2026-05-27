@@ -104,8 +104,8 @@ class MeshService : Service() {
 
                 override fun onConnectivityChanged(mode: ConnectivityMode) {
                     sendBroadcast(
-                        Intent("mycelium.CONNECTIVITY").putExtra(
-                            "internet",
+                        Intent(MeshEvents.CONNECTIVITY).putExtra(
+                            MeshEvents.EXTRA_INTERNET,
                             mode == ConnectivityMode.INTERNET,
                         ),
                     )

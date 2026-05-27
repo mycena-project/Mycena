@@ -8,6 +8,7 @@ import android.os.Build
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import network.mycelium.bindings.ConnectivityMode
 
 sealed interface MeshEvent {
     data object Chat : MeshEvent
@@ -16,6 +17,7 @@ sealed interface MeshEvent {
     data object PeerUp : MeshEvent
     data object PeerDown : MeshEvent
     data object AppStore : MeshEvent
+    data class Connectivity(val mode: ConnectivityMode) : MeshEvent
 }
 
 fun Context.meshEvents(): Flow<MeshEvent> =
@@ -34,6 +36,12 @@ fun Context.meshEvents(): Flow<MeshEvent> =
                             MeshEvents.PEER_UP -> MeshEvent.PeerUp
                             MeshEvents.PEER_DOWN -> MeshEvent.PeerDown
                             MeshEvents.APPSTORE -> MeshEvent.AppStore
+                            MeshEvents.CONNECTIVITY -> {
+                                val internet = intent.getBooleanExtra(MeshEvents.EXTRA_INTERNET, true)
+                                MeshEvent.Connectivity(
+                                    if (internet) ConnectivityMode.INTERNET else ConnectivityMode.MESH_ONLY,
+                                )
+                            }
                             else -> return
                         }
                     trySend(event)
@@ -47,6 +55,7 @@ fun Context.meshEvents(): Flow<MeshEvent> =
                 addAction(MeshEvents.PEER_UP)
                 addAction(MeshEvents.PEER_DOWN)
                 addAction(MeshEvents.APPSTORE)
+                addAction(MeshEvents.CONNECTIVITY)
             }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)

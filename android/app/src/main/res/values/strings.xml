@@ -90,6 +90,9 @@
     <string name="settings_store_size">Stored messages</string>
     <string name="settings_clear_store">Clear old messages</string>
     <string name="settings_version">Version</string>
+    <string name="settings_version_format">Version %1$s (build %2$d)</string>
+    <string name="peers_offline_title">No peers connected</string>
+    <string name="peers_offline_body">The mesh node keeps running in the background. It connects when another device or the public relay is reachable. Bluetooth and Wi‑Fi help for nearby peers — the search banner does not need to stay visible.</string>
     <string name="settings_open_wallet">Open wallet</string>
     <string name="settings_mini_apps">Mini apps</string>
     <string name="settings_danger_zone">Danger zone</string>

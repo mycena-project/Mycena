@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Myzelium</string>
+    <string name="app_name">Mycelium</string>
     <string name="app_tagline">Offline-Maschennetz</string>
     <string name="nav_chat">Chat</string>
     <string name="nav_bulletin">Brett</string>
@@ -130,4 +130,7 @@
     <string name="location_share_once">Einmal teilen</string>
     <string name="location_open_maps">In Karten öffnen</string>
     <string name="error_location_unavailable">Standort nicht verfügbar. GPS und Berechtigungen prüfen.</string>
+    <string name="settings_version_format">Version %1$s (Build %2$d)</string>
+    <string name="peers_offline_title">Keine Peers verbunden</string>
+    <string name="peers_offline_body">Der Mesh-Knoten läuft im Hintergrund weiter. Er verbindet sich, wenn ein anderes Gerät oder der öffentliche Relay erreichbar ist. Bluetooth und WLAN helfen für Geräte in der Nähe — der Such-Banner muss nicht dauerhaft sichtbar bleiben.</string>
 </resources>

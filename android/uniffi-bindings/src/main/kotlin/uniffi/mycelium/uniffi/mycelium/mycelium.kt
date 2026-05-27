@@ -58,7 +58,7 @@ open class RustBuffer : Structure() {
     companion object {
         internal fun alloc(size: ULong = 0UL) = uniffiRustCall() { status ->
             // Note: need to convert the size to a `Long` value to make this work with JVM.
-            UniffiLib.INSTANCE.ffi_mycelium_ffi_rustbuffer_alloc(size.toLong(), status)
+            UniffiLib.INSTANCE.ffi_uniffi_mycelium_rustbuffer_alloc(size.toLong(), status)
         }.also {
             if(it.data == null) {
                throw RuntimeException("RustBuffer.alloc() returned null data pointer (size=${size})")
@@ -74,7 +74,7 @@ open class RustBuffer : Structure() {
         }
 
         internal fun free(buf: RustBuffer.ByValue) = uniffiRustCall() { status ->
-            UniffiLib.INSTANCE.ffi_mycelium_ffi_rustbuffer_free(buf, status)
+            UniffiLib.INSTANCE.ffi_uniffi_mycelium_rustbuffer_free(buf, status)
         }
     }
 
@@ -906,367 +906,367 @@ internal interface UniffiLib : Library {
         
     }
 
-    fun uniffi_mycelium_ffi_fn_init_callback_vtable_nodeeventcallback(`vtable`: UniffiVTableCallbackInterfaceNodeEventCallback,
+    fun uniffi_uniffi_mycelium_fn_init_callback_vtable_nodeeventcallback(`vtable`: UniffiVTableCallbackInterfaceNodeEventCallback,
     ): Unit
-    fun uniffi_mycelium_ffi_fn_func_add_bootstrap_peer(`multiaddr`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_add_bootstrap_peer(`multiaddr`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
-    fun uniffi_mycelium_ffi_fn_func_browse_app_store(uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_browse_app_store(uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    fun uniffi_mycelium_ffi_fn_func_build_payment_request_uri(`toAddress`: RustBuffer.ByValue,`amountMuon`: Long,`memo`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_build_payment_request_uri(`toAddress`: RustBuffer.ByValue,`amountMuon`: Long,`memo`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    fun uniffi_mycelium_ffi_fn_func_bulletins_for_scope(`scope`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_bulletins_for_scope(`scope`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    fun uniffi_mycelium_ffi_fn_func_chat_history(`peerId`: RustBuffer.ByValue,`limit`: Int,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_chat_history(`peerId`: RustBuffer.ByValue,`limit`: Int,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    fun uniffi_mycelium_ffi_fn_func_create_group(`name`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_create_group(`name`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    fun uniffi_mycelium_ffi_fn_func_current_connectivity_mode(uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_current_connectivity_mode(uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    fun uniffi_mycelium_ffi_fn_func_delete_group(`groupId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_delete_group(`groupId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
-    fun uniffi_mycelium_ffi_fn_func_display_name(uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_display_name(uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    fun uniffi_mycelium_ffi_fn_func_export_group_invite(`groupId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_export_group_invite(`groupId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    fun uniffi_mycelium_ffi_fn_func_get_app_file(`appId`: RustBuffer.ByValue,`path`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_get_app_file(`appId`: RustBuffer.ByValue,`path`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    fun uniffi_mycelium_ffi_fn_func_get_hot_wallet_config(uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_get_hot_wallet_config(uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    fun uniffi_mycelium_ffi_fn_func_group_chat_history(`groupId`: RustBuffer.ByValue,`limit`: Int,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_group_chat_history(`groupId`: RustBuffer.ByValue,`limit`: Int,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    fun uniffi_mycelium_ffi_fn_func_has_enc_key_for(`peerId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_has_enc_key_for(`peerId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Byte
-    fun uniffi_mycelium_ffi_fn_func_hot_wallet_status(uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_hot_wallet_status(uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    fun uniffi_mycelium_ffi_fn_func_import_group_invite(`json`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_import_group_invite(`json`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    fun uniffi_mycelium_ffi_fn_func_init_node(`config`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_init_node(`config`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
-    fun uniffi_mycelium_ffi_fn_func_install_app(`bundleData`: RustBuffer.ByValue,`listingAppId`: RustBuffer.ByValue,`allowSideload`: Byte,`allowDowngrade`: Byte,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_install_app(`bundleData`: RustBuffer.ByValue,`listingAppId`: RustBuffer.ByValue,`allowSideload`: Byte,`allowDowngrade`: Byte,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    fun uniffi_mycelium_ffi_fn_func_known_peers(uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_known_peers(uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    fun uniffi_mycelium_ffi_fn_func_list_groups(uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_list_groups(uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    fun uniffi_mycelium_ffi_fn_func_list_installed_apps(uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_list_installed_apps(uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    fun uniffi_mycelium_ffi_fn_func_local_enc_pubkey(uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_local_enc_pubkey(uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    fun uniffi_mycelium_ffi_fn_func_local_peer_id(uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_local_peer_id(uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    fun uniffi_mycelium_ffi_fn_func_mail_inbox(`limit`: Int,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_mail_inbox(`limit`: Int,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    fun uniffi_mycelium_ffi_fn_func_mail_sent(`limit`: Int,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_mail_sent(`limit`: Int,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    fun uniffi_mycelium_ffi_fn_func_mark_mail_read(`mailId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_mark_mail_read(`mailId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
-    fun uniffi_mycelium_ffi_fn_func_metrics(uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_metrics(uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    fun uniffi_mycelium_ffi_fn_func_miniapp_bridge_call(`appId`: RustBuffer.ByValue,`method`: RustBuffer.ByValue,`argsJson`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_miniapp_bridge_call(`appId`: RustBuffer.ByValue,`method`: RustBuffer.ByValue,`argsJson`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    fun uniffi_mycelium_ffi_fn_func_miniapp_get_policy(`appId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_miniapp_get_policy(`appId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    fun uniffi_mycelium_ffi_fn_func_miniapp_issue_bridge_session(`appId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_miniapp_issue_bridge_session(`appId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    fun uniffi_mycelium_ffi_fn_func_miniapp_issue_capability(`appId`: RustBuffer.ByValue,`permission`: RustBuffer.ByValue,`sessionToken`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_miniapp_issue_capability(`appId`: RustBuffer.ByValue,`permission`: RustBuffer.ByValue,`sessionToken`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    fun uniffi_mycelium_ffi_fn_func_miniapp_publish_revocation(`appId`: RustBuffer.ByValue,`reason`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_miniapp_publish_revocation(`appId`: RustBuffer.ByValue,`reason`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
-    fun uniffi_mycelium_ffi_fn_func_miniapp_report_app(`appId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_miniapp_report_app(`appId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
-    fun uniffi_mycelium_ffi_fn_func_miniapp_revoke_bridge_session(`appId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_miniapp_revoke_bridge_session(`appId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
-    fun uniffi_mycelium_ffi_fn_func_miniapp_set_safe_mode(`appId`: RustBuffer.ByValue,`enabled`: Byte,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_miniapp_set_safe_mode(`appId`: RustBuffer.ByValue,`enabled`: Byte,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
-    fun uniffi_mycelium_ffi_fn_func_miniapp_storage_delete(`appId`: RustBuffer.ByValue,`key`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_miniapp_storage_delete(`appId`: RustBuffer.ByValue,`key`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
-    fun uniffi_mycelium_ffi_fn_func_miniapp_storage_get(`appId`: RustBuffer.ByValue,`key`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_miniapp_storage_get(`appId`: RustBuffer.ByValue,`key`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    fun uniffi_mycelium_ffi_fn_func_miniapp_storage_set(`appId`: RustBuffer.ByValue,`key`: RustBuffer.ByValue,`value`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_miniapp_storage_set(`appId`: RustBuffer.ByValue,`key`: RustBuffer.ByValue,`value`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
-    fun uniffi_mycelium_ffi_fn_func_parse_payment_request_uri(`uri`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_parse_payment_request_uri(`uri`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    fun uniffi_mycelium_ffi_fn_func_post_bulletin(`scope`: RustBuffer.ByValue,`title`: RustBuffer.ByValue,`body`: RustBuffer.ByValue,`ttlSecs`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_post_bulletin(`scope`: RustBuffer.ByValue,`title`: RustBuffer.ByValue,`body`: RustBuffer.ByValue,`ttlSecs`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
-    fun uniffi_mycelium_ffi_fn_func_preview_miniapp_install(`bundleData`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_preview_miniapp_install(`bundleData`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    fun uniffi_mycelium_ffi_fn_func_request_faucet(uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_request_faucet(uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
-    fun uniffi_mycelium_ffi_fn_func_send_chat_broadcast(`body`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_send_chat_broadcast(`body`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
-    fun uniffi_mycelium_ffi_fn_func_send_chat_direct(`toPeer`: RustBuffer.ByValue,`body`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_send_chat_direct(`toPeer`: RustBuffer.ByValue,`body`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
-    fun uniffi_mycelium_ffi_fn_func_send_chat_encrypted(`toPeer`: RustBuffer.ByValue,`body`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_send_chat_encrypted(`toPeer`: RustBuffer.ByValue,`body`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
-    fun uniffi_mycelium_ffi_fn_func_send_group_message(`groupId`: RustBuffer.ByValue,`body`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_send_group_message(`groupId`: RustBuffer.ByValue,`body`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
-    fun uniffi_mycelium_ffi_fn_func_send_mail(`toPeer`: RustBuffer.ByValue,`subject`: RustBuffer.ByValue,`body`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_send_mail(`toPeer`: RustBuffer.ByValue,`subject`: RustBuffer.ByValue,`body`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
-    fun uniffi_mycelium_ffi_fn_func_send_transaction(`toAddress`: RustBuffer.ByValue,`amountMuon`: Long,`memo`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_send_transaction(`toAddress`: RustBuffer.ByValue,`amountMuon`: Long,`memo`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
-    fun uniffi_mycelium_ffi_fn_func_set_cold_wallet_address(`address`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_set_cold_wallet_address(`address`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
-    fun uniffi_mycelium_ffi_fn_func_set_display_name(`name`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_set_display_name(`name`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
-    fun uniffi_mycelium_ffi_fn_func_set_energy_state(`state`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_set_energy_state(`state`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
-    fun uniffi_mycelium_ffi_fn_func_set_event_callback(`callback`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_set_event_callback(`callback`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
-    fun uniffi_mycelium_ffi_fn_func_set_hot_wallet_config(`config`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_set_hot_wallet_config(`config`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
-    fun uniffi_mycelium_ffi_fn_func_stop_node(uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_stop_node(uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
-    fun uniffi_mycelium_ffi_fn_func_uninstall_app(`appId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_uninstall_app(`appId`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
-    fun uniffi_mycelium_ffi_fn_func_wallet_address(uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_wallet_address(uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    fun uniffi_mycelium_ffi_fn_func_wallet_balance(uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_wallet_balance(uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    fun uniffi_mycelium_ffi_fn_func_wallet_recent_transactions(`limit`: Int,uniffi_out_err: UniffiRustCallStatus, 
+    fun uniffi_uniffi_mycelium_fn_func_wallet_recent_transactions(`limit`: Int,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    fun ffi_mycelium_ffi_rustbuffer_alloc(`size`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_uniffi_mycelium_rustbuffer_alloc(`size`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    fun ffi_mycelium_ffi_rustbuffer_from_bytes(`bytes`: ForeignBytes.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_uniffi_mycelium_rustbuffer_from_bytes(`bytes`: ForeignBytes.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    fun ffi_mycelium_ffi_rustbuffer_free(`buf`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_uniffi_mycelium_rustbuffer_free(`buf`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
-    fun ffi_mycelium_ffi_rustbuffer_reserve(`buf`: RustBuffer.ByValue,`additional`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_uniffi_mycelium_rustbuffer_reserve(`buf`: RustBuffer.ByValue,`additional`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    fun ffi_mycelium_ffi_rust_future_poll_u8(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+    fun ffi_uniffi_mycelium_rust_future_poll_u8(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
-    fun ffi_mycelium_ffi_rust_future_cancel_u8(`handle`: Long,
+    fun ffi_uniffi_mycelium_rust_future_cancel_u8(`handle`: Long,
     ): Unit
-    fun ffi_mycelium_ffi_rust_future_free_u8(`handle`: Long,
+    fun ffi_uniffi_mycelium_rust_future_free_u8(`handle`: Long,
     ): Unit
-    fun ffi_mycelium_ffi_rust_future_complete_u8(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_uniffi_mycelium_rust_future_complete_u8(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Byte
-    fun ffi_mycelium_ffi_rust_future_poll_i8(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+    fun ffi_uniffi_mycelium_rust_future_poll_i8(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
-    fun ffi_mycelium_ffi_rust_future_cancel_i8(`handle`: Long,
+    fun ffi_uniffi_mycelium_rust_future_cancel_i8(`handle`: Long,
     ): Unit
-    fun ffi_mycelium_ffi_rust_future_free_i8(`handle`: Long,
+    fun ffi_uniffi_mycelium_rust_future_free_i8(`handle`: Long,
     ): Unit
-    fun ffi_mycelium_ffi_rust_future_complete_i8(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_uniffi_mycelium_rust_future_complete_i8(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Byte
-    fun ffi_mycelium_ffi_rust_future_poll_u16(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+    fun ffi_uniffi_mycelium_rust_future_poll_u16(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
-    fun ffi_mycelium_ffi_rust_future_cancel_u16(`handle`: Long,
+    fun ffi_uniffi_mycelium_rust_future_cancel_u16(`handle`: Long,
     ): Unit
-    fun ffi_mycelium_ffi_rust_future_free_u16(`handle`: Long,
+    fun ffi_uniffi_mycelium_rust_future_free_u16(`handle`: Long,
     ): Unit
-    fun ffi_mycelium_ffi_rust_future_complete_u16(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_uniffi_mycelium_rust_future_complete_u16(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Short
-    fun ffi_mycelium_ffi_rust_future_poll_i16(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+    fun ffi_uniffi_mycelium_rust_future_poll_i16(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
-    fun ffi_mycelium_ffi_rust_future_cancel_i16(`handle`: Long,
+    fun ffi_uniffi_mycelium_rust_future_cancel_i16(`handle`: Long,
     ): Unit
-    fun ffi_mycelium_ffi_rust_future_free_i16(`handle`: Long,
+    fun ffi_uniffi_mycelium_rust_future_free_i16(`handle`: Long,
     ): Unit
-    fun ffi_mycelium_ffi_rust_future_complete_i16(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_uniffi_mycelium_rust_future_complete_i16(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Short
-    fun ffi_mycelium_ffi_rust_future_poll_u32(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+    fun ffi_uniffi_mycelium_rust_future_poll_u32(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
-    fun ffi_mycelium_ffi_rust_future_cancel_u32(`handle`: Long,
+    fun ffi_uniffi_mycelium_rust_future_cancel_u32(`handle`: Long,
     ): Unit
-    fun ffi_mycelium_ffi_rust_future_free_u32(`handle`: Long,
+    fun ffi_uniffi_mycelium_rust_future_free_u32(`handle`: Long,
     ): Unit
-    fun ffi_mycelium_ffi_rust_future_complete_u32(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_uniffi_mycelium_rust_future_complete_u32(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Int
-    fun ffi_mycelium_ffi_rust_future_poll_i32(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+    fun ffi_uniffi_mycelium_rust_future_poll_i32(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
-    fun ffi_mycelium_ffi_rust_future_cancel_i32(`handle`: Long,
+    fun ffi_uniffi_mycelium_rust_future_cancel_i32(`handle`: Long,
     ): Unit
-    fun ffi_mycelium_ffi_rust_future_free_i32(`handle`: Long,
+    fun ffi_uniffi_mycelium_rust_future_free_i32(`handle`: Long,
     ): Unit
-    fun ffi_mycelium_ffi_rust_future_complete_i32(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_uniffi_mycelium_rust_future_complete_i32(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Int
-    fun ffi_mycelium_ffi_rust_future_poll_u64(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+    fun ffi_uniffi_mycelium_rust_future_poll_u64(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
-    fun ffi_mycelium_ffi_rust_future_cancel_u64(`handle`: Long,
+    fun ffi_uniffi_mycelium_rust_future_cancel_u64(`handle`: Long,
     ): Unit
-    fun ffi_mycelium_ffi_rust_future_free_u64(`handle`: Long,
+    fun ffi_uniffi_mycelium_rust_future_free_u64(`handle`: Long,
     ): Unit
-    fun ffi_mycelium_ffi_rust_future_complete_u64(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_uniffi_mycelium_rust_future_complete_u64(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Long
-    fun ffi_mycelium_ffi_rust_future_poll_i64(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+    fun ffi_uniffi_mycelium_rust_future_poll_i64(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
-    fun ffi_mycelium_ffi_rust_future_cancel_i64(`handle`: Long,
+    fun ffi_uniffi_mycelium_rust_future_cancel_i64(`handle`: Long,
     ): Unit
-    fun ffi_mycelium_ffi_rust_future_free_i64(`handle`: Long,
+    fun ffi_uniffi_mycelium_rust_future_free_i64(`handle`: Long,
     ): Unit
-    fun ffi_mycelium_ffi_rust_future_complete_i64(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_uniffi_mycelium_rust_future_complete_i64(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Long
-    fun ffi_mycelium_ffi_rust_future_poll_f32(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+    fun ffi_uniffi_mycelium_rust_future_poll_f32(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
-    fun ffi_mycelium_ffi_rust_future_cancel_f32(`handle`: Long,
+    fun ffi_uniffi_mycelium_rust_future_cancel_f32(`handle`: Long,
     ): Unit
-    fun ffi_mycelium_ffi_rust_future_free_f32(`handle`: Long,
+    fun ffi_uniffi_mycelium_rust_future_free_f32(`handle`: Long,
     ): Unit
-    fun ffi_mycelium_ffi_rust_future_complete_f32(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_uniffi_mycelium_rust_future_complete_f32(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Float
-    fun ffi_mycelium_ffi_rust_future_poll_f64(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+    fun ffi_uniffi_mycelium_rust_future_poll_f64(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
-    fun ffi_mycelium_ffi_rust_future_cancel_f64(`handle`: Long,
+    fun ffi_uniffi_mycelium_rust_future_cancel_f64(`handle`: Long,
     ): Unit
-    fun ffi_mycelium_ffi_rust_future_free_f64(`handle`: Long,
+    fun ffi_uniffi_mycelium_rust_future_free_f64(`handle`: Long,
     ): Unit
-    fun ffi_mycelium_ffi_rust_future_complete_f64(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_uniffi_mycelium_rust_future_complete_f64(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Double
-    fun ffi_mycelium_ffi_rust_future_poll_pointer(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+    fun ffi_uniffi_mycelium_rust_future_poll_pointer(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
-    fun ffi_mycelium_ffi_rust_future_cancel_pointer(`handle`: Long,
+    fun ffi_uniffi_mycelium_rust_future_cancel_pointer(`handle`: Long,
     ): Unit
-    fun ffi_mycelium_ffi_rust_future_free_pointer(`handle`: Long,
+    fun ffi_uniffi_mycelium_rust_future_free_pointer(`handle`: Long,
     ): Unit
-    fun ffi_mycelium_ffi_rust_future_complete_pointer(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_uniffi_mycelium_rust_future_complete_pointer(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Pointer
-    fun ffi_mycelium_ffi_rust_future_poll_rust_buffer(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+    fun ffi_uniffi_mycelium_rust_future_poll_rust_buffer(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
-    fun ffi_mycelium_ffi_rust_future_cancel_rust_buffer(`handle`: Long,
+    fun ffi_uniffi_mycelium_rust_future_cancel_rust_buffer(`handle`: Long,
     ): Unit
-    fun ffi_mycelium_ffi_rust_future_free_rust_buffer(`handle`: Long,
+    fun ffi_uniffi_mycelium_rust_future_free_rust_buffer(`handle`: Long,
     ): Unit
-    fun ffi_mycelium_ffi_rust_future_complete_rust_buffer(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_uniffi_mycelium_rust_future_complete_rust_buffer(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
-    fun ffi_mycelium_ffi_rust_future_poll_void(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
+    fun ffi_uniffi_mycelium_rust_future_poll_void(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
-    fun ffi_mycelium_ffi_rust_future_cancel_void(`handle`: Long,
+    fun ffi_uniffi_mycelium_rust_future_cancel_void(`handle`: Long,
     ): Unit
-    fun ffi_mycelium_ffi_rust_future_free_void(`handle`: Long,
+    fun ffi_uniffi_mycelium_rust_future_free_void(`handle`: Long,
     ): Unit
-    fun ffi_mycelium_ffi_rust_future_complete_void(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    fun ffi_uniffi_mycelium_rust_future_complete_void(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
-    fun uniffi_mycelium_ffi_checksum_func_add_bootstrap_peer(
+    fun uniffi_uniffi_mycelium_checksum_func_add_bootstrap_peer(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_browse_app_store(
+    fun uniffi_uniffi_mycelium_checksum_func_browse_app_store(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_build_payment_request_uri(
+    fun uniffi_uniffi_mycelium_checksum_func_build_payment_request_uri(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_bulletins_for_scope(
+    fun uniffi_uniffi_mycelium_checksum_func_bulletins_for_scope(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_chat_history(
+    fun uniffi_uniffi_mycelium_checksum_func_chat_history(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_create_group(
+    fun uniffi_uniffi_mycelium_checksum_func_create_group(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_current_connectivity_mode(
+    fun uniffi_uniffi_mycelium_checksum_func_current_connectivity_mode(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_delete_group(
+    fun uniffi_uniffi_mycelium_checksum_func_delete_group(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_display_name(
+    fun uniffi_uniffi_mycelium_checksum_func_display_name(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_export_group_invite(
+    fun uniffi_uniffi_mycelium_checksum_func_export_group_invite(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_get_app_file(
+    fun uniffi_uniffi_mycelium_checksum_func_get_app_file(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_get_hot_wallet_config(
+    fun uniffi_uniffi_mycelium_checksum_func_get_hot_wallet_config(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_group_chat_history(
+    fun uniffi_uniffi_mycelium_checksum_func_group_chat_history(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_has_enc_key_for(
+    fun uniffi_uniffi_mycelium_checksum_func_has_enc_key_for(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_hot_wallet_status(
+    fun uniffi_uniffi_mycelium_checksum_func_hot_wallet_status(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_import_group_invite(
+    fun uniffi_uniffi_mycelium_checksum_func_import_group_invite(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_init_node(
+    fun uniffi_uniffi_mycelium_checksum_func_init_node(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_install_app(
+    fun uniffi_uniffi_mycelium_checksum_func_install_app(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_known_peers(
+    fun uniffi_uniffi_mycelium_checksum_func_known_peers(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_list_groups(
+    fun uniffi_uniffi_mycelium_checksum_func_list_groups(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_list_installed_apps(
+    fun uniffi_uniffi_mycelium_checksum_func_list_installed_apps(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_local_enc_pubkey(
+    fun uniffi_uniffi_mycelium_checksum_func_local_enc_pubkey(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_local_peer_id(
+    fun uniffi_uniffi_mycelium_checksum_func_local_peer_id(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_mail_inbox(
+    fun uniffi_uniffi_mycelium_checksum_func_mail_inbox(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_mail_sent(
+    fun uniffi_uniffi_mycelium_checksum_func_mail_sent(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_mark_mail_read(
+    fun uniffi_uniffi_mycelium_checksum_func_mark_mail_read(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_metrics(
+    fun uniffi_uniffi_mycelium_checksum_func_metrics(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_miniapp_bridge_call(
+    fun uniffi_uniffi_mycelium_checksum_func_miniapp_bridge_call(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_miniapp_get_policy(
+    fun uniffi_uniffi_mycelium_checksum_func_miniapp_get_policy(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_miniapp_issue_bridge_session(
+    fun uniffi_uniffi_mycelium_checksum_func_miniapp_issue_bridge_session(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_miniapp_issue_capability(
+    fun uniffi_uniffi_mycelium_checksum_func_miniapp_issue_capability(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_miniapp_publish_revocation(
+    fun uniffi_uniffi_mycelium_checksum_func_miniapp_publish_revocation(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_miniapp_report_app(
+    fun uniffi_uniffi_mycelium_checksum_func_miniapp_report_app(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_miniapp_revoke_bridge_session(
+    fun uniffi_uniffi_mycelium_checksum_func_miniapp_revoke_bridge_session(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_miniapp_set_safe_mode(
+    fun uniffi_uniffi_mycelium_checksum_func_miniapp_set_safe_mode(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_miniapp_storage_delete(
+    fun uniffi_uniffi_mycelium_checksum_func_miniapp_storage_delete(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_miniapp_storage_get(
+    fun uniffi_uniffi_mycelium_checksum_func_miniapp_storage_get(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_miniapp_storage_set(
+    fun uniffi_uniffi_mycelium_checksum_func_miniapp_storage_set(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_parse_payment_request_uri(
+    fun uniffi_uniffi_mycelium_checksum_func_parse_payment_request_uri(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_post_bulletin(
+    fun uniffi_uniffi_mycelium_checksum_func_post_bulletin(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_preview_miniapp_install(
+    fun uniffi_uniffi_mycelium_checksum_func_preview_miniapp_install(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_request_faucet(
+    fun uniffi_uniffi_mycelium_checksum_func_request_faucet(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_send_chat_broadcast(
+    fun uniffi_uniffi_mycelium_checksum_func_send_chat_broadcast(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_send_chat_direct(
+    fun uniffi_uniffi_mycelium_checksum_func_send_chat_direct(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_send_chat_encrypted(
+    fun uniffi_uniffi_mycelium_checksum_func_send_chat_encrypted(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_send_group_message(
+    fun uniffi_uniffi_mycelium_checksum_func_send_group_message(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_send_mail(
+    fun uniffi_uniffi_mycelium_checksum_func_send_mail(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_send_transaction(
+    fun uniffi_uniffi_mycelium_checksum_func_send_transaction(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_set_cold_wallet_address(
+    fun uniffi_uniffi_mycelium_checksum_func_set_cold_wallet_address(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_set_display_name(
+    fun uniffi_uniffi_mycelium_checksum_func_set_display_name(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_set_energy_state(
+    fun uniffi_uniffi_mycelium_checksum_func_set_energy_state(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_set_event_callback(
+    fun uniffi_uniffi_mycelium_checksum_func_set_event_callback(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_set_hot_wallet_config(
+    fun uniffi_uniffi_mycelium_checksum_func_set_hot_wallet_config(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_stop_node(
+    fun uniffi_uniffi_mycelium_checksum_func_stop_node(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_uninstall_app(
+    fun uniffi_uniffi_mycelium_checksum_func_uninstall_app(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_wallet_address(
+    fun uniffi_uniffi_mycelium_checksum_func_wallet_address(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_wallet_balance(
+    fun uniffi_uniffi_mycelium_checksum_func_wallet_balance(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_func_wallet_recent_transactions(
+    fun uniffi_uniffi_mycelium_checksum_func_wallet_recent_transactions(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_method_nodeeventcallback_on_peer_discovered(
+    fun uniffi_uniffi_mycelium_checksum_method_nodeeventcallback_on_peer_discovered(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_method_nodeeventcallback_on_peer_lost(
+    fun uniffi_uniffi_mycelium_checksum_method_nodeeventcallback_on_peer_lost(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_method_nodeeventcallback_on_chat_received(
+    fun uniffi_uniffi_mycelium_checksum_method_nodeeventcallback_on_chat_received(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_method_nodeeventcallback_on_mail_received(
+    fun uniffi_uniffi_mycelium_checksum_method_nodeeventcallback_on_mail_received(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_method_nodeeventcallback_on_bulletin_received(
+    fun uniffi_uniffi_mycelium_checksum_method_nodeeventcallback_on_bulletin_received(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_method_nodeeventcallback_on_app_store_listing(
+    fun uniffi_uniffi_mycelium_checksum_method_nodeeventcallback_on_app_store_listing(
     ): Short
-    fun uniffi_mycelium_ffi_checksum_method_nodeeventcallback_on_connectivity_changed(
+    fun uniffi_uniffi_mycelium_checksum_method_nodeeventcallback_on_connectivity_changed(
     ): Short
-    fun ffi_mycelium_ffi_uniffi_contract_version(
+    fun ffi_uniffi_mycelium_uniffi_contract_version(
     ): Int
     
 }
@@ -1275,7 +1275,7 @@ private fun uniffiCheckContractApiVersion(lib: UniffiLib) {
     // Get the bindings contract version from our ComponentInterface
     val bindings_contract_version = 26
     // Get the scaffolding contract version by calling the into the dylib
-    val scaffolding_contract_version = lib.ffi_mycelium_ffi_uniffi_contract_version()
+    val scaffolding_contract_version = lib.ffi_uniffi_mycelium_uniffi_contract_version()
     if (bindings_contract_version != scaffolding_contract_version) {
         throw RuntimeException("UniFFI contract version mismatch: try cleaning and rebuilding your project")
     }
@@ -1283,199 +1283,199 @@ private fun uniffiCheckContractApiVersion(lib: UniffiLib) {
 
 @Suppress("UNUSED_PARAMETER")
 private fun uniffiCheckApiChecksums(lib: UniffiLib) {
-    if (lib.uniffi_mycelium_ffi_checksum_func_add_bootstrap_peer() != 59246.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_add_bootstrap_peer() != 53006.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_browse_app_store() != 28240.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_browse_app_store() != 50085.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_build_payment_request_uri() != 16827.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_build_payment_request_uri() != 35853.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_bulletins_for_scope() != 4068.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_bulletins_for_scope() != 53804.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_chat_history() != 35631.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_chat_history() != 28823.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_create_group() != 43240.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_create_group() != 60912.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_current_connectivity_mode() != 22061.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_current_connectivity_mode() != 3887.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_delete_group() != 6456.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_delete_group() != 17778.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_display_name() != 36992.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_display_name() != 24856.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_export_group_invite() != 45605.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_export_group_invite() != 11880.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_get_app_file() != 52357.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_get_app_file() != 21181.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_get_hot_wallet_config() != 28880.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_get_hot_wallet_config() != 60398.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_group_chat_history() != 45690.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_group_chat_history() != 53127.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_has_enc_key_for() != 25579.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_has_enc_key_for() != 14740.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_hot_wallet_status() != 20097.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_hot_wallet_status() != 19515.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_import_group_invite() != 18561.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_import_group_invite() != 7966.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_init_node() != 22974.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_init_node() != 20066.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_install_app() != 25884.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_install_app() != 64609.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_known_peers() != 29951.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_known_peers() != 50624.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_list_groups() != 27894.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_list_groups() != 50480.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_list_installed_apps() != 29312.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_list_installed_apps() != 65493.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_local_enc_pubkey() != 16056.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_local_enc_pubkey() != 33253.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_local_peer_id() != 52468.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_local_peer_id() != 51632.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_mail_inbox() != 53596.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_mail_inbox() != 29607.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_mail_sent() != 38151.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_mail_sent() != 23536.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_mark_mail_read() != 50661.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_mark_mail_read() != 61509.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_metrics() != 29003.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_metrics() != 52279.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_miniapp_bridge_call() != 64158.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_miniapp_bridge_call() != 17341.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_miniapp_get_policy() != 45404.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_miniapp_get_policy() != 51502.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_miniapp_issue_bridge_session() != 10854.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_miniapp_issue_bridge_session() != 1510.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_miniapp_issue_capability() != 29876.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_miniapp_issue_capability() != 33119.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_miniapp_publish_revocation() != 57074.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_miniapp_publish_revocation() != 58598.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_miniapp_report_app() != 28909.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_miniapp_report_app() != 1091.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_miniapp_revoke_bridge_session() != 14099.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_miniapp_revoke_bridge_session() != 19383.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_miniapp_set_safe_mode() != 47391.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_miniapp_set_safe_mode() != 30286.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_miniapp_storage_delete() != 10014.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_miniapp_storage_delete() != 18192.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_miniapp_storage_get() != 23416.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_miniapp_storage_get() != 55254.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_miniapp_storage_set() != 5408.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_miniapp_storage_set() != 33522.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_parse_payment_request_uri() != 55057.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_parse_payment_request_uri() != 52601.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_post_bulletin() != 6189.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_post_bulletin() != 28649.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_preview_miniapp_install() != 47604.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_preview_miniapp_install() != 58620.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_request_faucet() != 55185.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_request_faucet() != 45315.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_send_chat_broadcast() != 19543.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_send_chat_broadcast() != 45604.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_send_chat_direct() != 61412.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_send_chat_direct() != 28925.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_send_chat_encrypted() != 20718.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_send_chat_encrypted() != 38736.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_send_group_message() != 57059.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_send_group_message() != 13440.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_send_mail() != 35213.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_send_mail() != 55186.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_send_transaction() != 59650.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_send_transaction() != 14819.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_set_cold_wallet_address() != 64181.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_set_cold_wallet_address() != 60381.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_set_display_name() != 33565.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_set_display_name() != 44089.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_set_energy_state() != 18913.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_set_energy_state() != 55392.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_set_event_callback() != 51877.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_set_event_callback() != 45376.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_set_hot_wallet_config() != 32316.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_set_hot_wallet_config() != 26581.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_stop_node() != 29797.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_stop_node() != 9898.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_uninstall_app() != 7151.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_uninstall_app() != 63118.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_wallet_address() != 15773.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_wallet_address() != 32821.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_wallet_balance() != 49625.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_wallet_balance() != 16832.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_func_wallet_recent_transactions() != 17514.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_func_wallet_recent_transactions() != 36346.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_method_nodeeventcallback_on_peer_discovered() != 4491.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_method_nodeeventcallback_on_peer_discovered() != 44237.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_method_nodeeventcallback_on_peer_lost() != 63082.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_method_nodeeventcallback_on_peer_lost() != 36305.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_method_nodeeventcallback_on_chat_received() != 13871.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_method_nodeeventcallback_on_chat_received() != 47247.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_method_nodeeventcallback_on_mail_received() != 11056.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_method_nodeeventcallback_on_mail_received() != 40404.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_method_nodeeventcallback_on_bulletin_received() != 53694.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_method_nodeeventcallback_on_bulletin_received() != 11722.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_method_nodeeventcallback_on_app_store_listing() != 29130.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_method_nodeeventcallback_on_app_store_listing() != 48588.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_mycelium_ffi_checksum_method_nodeeventcallback_on_connectivity_changed() != 16580.toShort()) {
+    if (lib.uniffi_uniffi_mycelium_checksum_method_nodeeventcallback_on_connectivity_changed() != 52315.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
 }
@@ -2720,7 +2720,7 @@ internal object uniffiCallbackInterfaceNodeEventCallback {
     // Registers the foreign callback with the Rust side.
     // This method is generated for each callback interface.
     internal fun register(lib: UniffiLib) {
-        lib.uniffi_mycelium_ffi_fn_init_callback_vtable_nodeeventcallback(vtable)
+        lib.uniffi_uniffi_mycelium_fn_init_callback_vtable_nodeeventcallback(vtable)
     }
 }
 
@@ -3113,12 +3113,10 @@ public object FfiConverterSequenceTypeTxInfo: FfiConverterRustBuffer<List<TxInfo
             FfiConverterTypeTxInfo.write(it, buf)
         }
     }
-}
-
-fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
+} fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
         = 
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_add_bootstrap_peer(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_add_bootstrap_peer(
         FfiConverterString.lower(`multiaddr`),_status)
 }
     
@@ -3126,7 +3124,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
  fun `browseAppStore`(): List<AppStoreListing> {
             return FfiConverterSequenceTypeAppStoreListing.lift(
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_browse_app_store(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_browse_app_store(
         _status)
 }
     )
@@ -3135,7 +3133,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
  fun `buildPaymentRequestUri`(`toAddress`: kotlin.String, `amountMuon`: kotlin.ULong, `memo`: kotlin.String?): kotlin.String {
             return FfiConverterString.lift(
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_build_payment_request_uri(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_build_payment_request_uri(
         FfiConverterString.lower(`toAddress`),FfiConverterULong.lower(`amountMuon`),FfiConverterOptionalString.lower(`memo`),_status)
 }
     )
@@ -3144,7 +3142,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
  fun `bulletinsForScope`(`scope`: kotlin.String): List<BulletinPost> {
             return FfiConverterSequenceTypeBulletinPost.lift(
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_bulletins_for_scope(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_bulletins_for_scope(
         FfiConverterString.lower(`scope`),_status)
 }
     )
@@ -3153,7 +3151,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
  fun `chatHistory`(`peerId`: kotlin.String, `limit`: kotlin.UInt): List<ChatMessage> {
             return FfiConverterSequenceTypeChatMessage.lift(
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_chat_history(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_chat_history(
         FfiConverterString.lower(`peerId`),FfiConverterUInt.lower(`limit`),_status)
 }
     )
@@ -3162,7 +3160,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
  fun `createGroup`(`name`: kotlin.String): GroupInfo {
             return FfiConverterTypeGroupInfo.lift(
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_create_group(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_create_group(
         FfiConverterString.lower(`name`),_status)
 }
     )
@@ -3171,7 +3169,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
  fun `currentConnectivityMode`(): ConnectivityMode {
             return FfiConverterTypeConnectivityMode.lift(
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_current_connectivity_mode(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_current_connectivity_mode(
         _status)
 }
     )
@@ -3180,7 +3178,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
  fun `deleteGroup`(`groupId`: kotlin.String)
         = 
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_delete_group(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_delete_group(
         FfiConverterString.lower(`groupId`),_status)
 }
     
@@ -3188,7 +3186,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
  fun `displayName`(): kotlin.String {
             return FfiConverterString.lift(
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_display_name(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_display_name(
         _status)
 }
     )
@@ -3197,7 +3195,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
  fun `exportGroupInvite`(`groupId`: kotlin.String): kotlin.String {
             return FfiConverterString.lift(
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_export_group_invite(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_export_group_invite(
         FfiConverterString.lower(`groupId`),_status)
 }
     )
@@ -3206,7 +3204,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
  fun `getAppFile`(`appId`: kotlin.String, `path`: kotlin.String): kotlin.ByteArray? {
             return FfiConverterOptionalByteArray.lift(
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_get_app_file(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_get_app_file(
         FfiConverterString.lower(`appId`),FfiConverterString.lower(`path`),_status)
 }
     )
@@ -3215,7 +3213,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
  fun `getHotWalletConfig`(): HotWalletConfig {
             return FfiConverterTypeHotWalletConfig.lift(
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_get_hot_wallet_config(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_get_hot_wallet_config(
         _status)
 }
     )
@@ -3224,7 +3222,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
  fun `groupChatHistory`(`groupId`: kotlin.String, `limit`: kotlin.UInt): List<ChatMessage> {
             return FfiConverterSequenceTypeChatMessage.lift(
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_group_chat_history(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_group_chat_history(
         FfiConverterString.lower(`groupId`),FfiConverterUInt.lower(`limit`),_status)
 }
     )
@@ -3233,7 +3231,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
  fun `hasEncKeyFor`(`peerId`: kotlin.String): kotlin.Boolean {
             return FfiConverterBoolean.lift(
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_has_enc_key_for(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_has_enc_key_for(
         FfiConverterString.lower(`peerId`),_status)
 }
     )
@@ -3242,7 +3240,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
  fun `hotWalletStatus`(): HotWalletStatus {
             return FfiConverterTypeHotWalletStatus.lift(
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_hot_wallet_status(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_hot_wallet_status(
         _status)
 }
     )
@@ -3251,7 +3249,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
  fun `importGroupInvite`(`json`: kotlin.String): GroupInfo? {
             return FfiConverterOptionalTypeGroupInfo.lift(
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_import_group_invite(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_import_group_invite(
         FfiConverterString.lower(`json`),_status)
 }
     )
@@ -3260,7 +3258,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
  fun `initNode`(`config`: NodeConfig)
         = 
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_init_node(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_init_node(
         FfiConverterTypeNodeConfig.lower(`config`),_status)
 }
     
@@ -3269,7 +3267,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
     @Throws(MyceliumException::class) fun `installApp`(`bundleData`: kotlin.ByteArray, `listingAppId`: kotlin.String?, `allowSideload`: kotlin.Boolean, `allowDowngrade`: kotlin.Boolean): MiniAppInfo {
             return FfiConverterTypeMiniAppInfo.lift(
     uniffiRustCallWithError(MyceliumException) { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_install_app(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_install_app(
         FfiConverterByteArray.lower(`bundleData`),FfiConverterOptionalString.lower(`listingAppId`),FfiConverterBoolean.lower(`allowSideload`),FfiConverterBoolean.lower(`allowDowngrade`),_status)
 }
     )
@@ -3278,7 +3276,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
  fun `knownPeers`(): List<kotlin.String> {
             return FfiConverterSequenceString.lift(
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_known_peers(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_known_peers(
         _status)
 }
     )
@@ -3287,7 +3285,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
  fun `listGroups`(): List<GroupInfo> {
             return FfiConverterSequenceTypeGroupInfo.lift(
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_list_groups(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_list_groups(
         _status)
 }
     )
@@ -3296,7 +3294,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
  fun `listInstalledApps`(): List<MiniAppInfo> {
             return FfiConverterSequenceTypeMiniAppInfo.lift(
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_list_installed_apps(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_list_installed_apps(
         _status)
 }
     )
@@ -3305,7 +3303,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
  fun `localEncPubkey`(): kotlin.String {
             return FfiConverterString.lift(
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_local_enc_pubkey(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_local_enc_pubkey(
         _status)
 }
     )
@@ -3314,7 +3312,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
  fun `localPeerId`(): kotlin.String {
             return FfiConverterString.lift(
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_local_peer_id(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_local_peer_id(
         _status)
 }
     )
@@ -3323,7 +3321,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
  fun `mailInbox`(`limit`: kotlin.UInt): List<MailMessage> {
             return FfiConverterSequenceTypeMailMessage.lift(
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_mail_inbox(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_mail_inbox(
         FfiConverterUInt.lower(`limit`),_status)
 }
     )
@@ -3332,7 +3330,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
  fun `mailSent`(`limit`: kotlin.UInt): List<MailMessage> {
             return FfiConverterSequenceTypeMailMessage.lift(
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_mail_sent(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_mail_sent(
         FfiConverterUInt.lower(`limit`),_status)
 }
     )
@@ -3341,7 +3339,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
  fun `markMailRead`(`mailId`: kotlin.String)
         = 
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_mark_mail_read(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_mark_mail_read(
         FfiConverterString.lower(`mailId`),_status)
 }
     
@@ -3349,7 +3347,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
  fun `metrics`(): NodeMetrics {
             return FfiConverterTypeNodeMetrics.lift(
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_metrics(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_metrics(
         _status)
 }
     )
@@ -3358,7 +3356,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
  fun `miniappBridgeCall`(`appId`: kotlin.String, `method`: kotlin.String, `argsJson`: kotlin.String): kotlin.String {
             return FfiConverterString.lift(
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_miniapp_bridge_call(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_miniapp_bridge_call(
         FfiConverterString.lower(`appId`),FfiConverterString.lower(`method`),FfiConverterString.lower(`argsJson`),_status)
 }
     )
@@ -3367,7 +3365,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
  fun `miniappGetPolicy`(`appId`: kotlin.String): MiniAppPolicyData {
             return FfiConverterTypeMiniAppPolicyData.lift(
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_miniapp_get_policy(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_miniapp_get_policy(
         FfiConverterString.lower(`appId`),_status)
 }
     )
@@ -3376,7 +3374,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
  fun `miniappIssueBridgeSession`(`appId`: kotlin.String): kotlin.String {
             return FfiConverterString.lift(
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_miniapp_issue_bridge_session(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_miniapp_issue_bridge_session(
         FfiConverterString.lower(`appId`),_status)
 }
     )
@@ -3385,7 +3383,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
  fun `miniappIssueCapability`(`appId`: kotlin.String, `permission`: kotlin.String, `sessionToken`: kotlin.String): kotlin.String {
             return FfiConverterString.lift(
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_miniapp_issue_capability(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_miniapp_issue_capability(
         FfiConverterString.lower(`appId`),FfiConverterString.lower(`permission`),FfiConverterString.lower(`sessionToken`),_status)
 }
     )
@@ -3394,7 +3392,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
  fun `miniappPublishRevocation`(`appId`: kotlin.String, `reason`: kotlin.String)
         = 
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_miniapp_publish_revocation(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_miniapp_publish_revocation(
         FfiConverterString.lower(`appId`),FfiConverterString.lower(`reason`),_status)
 }
     
@@ -3402,7 +3400,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
  fun `miniappReportApp`(`appId`: kotlin.String)
         = 
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_miniapp_report_app(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_miniapp_report_app(
         FfiConverterString.lower(`appId`),_status)
 }
     
@@ -3410,7 +3408,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
  fun `miniappRevokeBridgeSession`(`appId`: kotlin.String)
         = 
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_miniapp_revoke_bridge_session(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_miniapp_revoke_bridge_session(
         FfiConverterString.lower(`appId`),_status)
 }
     
@@ -3418,7 +3416,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
  fun `miniappSetSafeMode`(`appId`: kotlin.String, `enabled`: kotlin.Boolean)
         = 
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_miniapp_set_safe_mode(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_miniapp_set_safe_mode(
         FfiConverterString.lower(`appId`),FfiConverterBoolean.lower(`enabled`),_status)
 }
     
@@ -3426,7 +3424,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
  fun `miniappStorageDelete`(`appId`: kotlin.String, `key`: kotlin.String)
         = 
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_miniapp_storage_delete(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_miniapp_storage_delete(
         FfiConverterString.lower(`appId`),FfiConverterString.lower(`key`),_status)
 }
     
@@ -3434,7 +3432,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
  fun `miniappStorageGet`(`appId`: kotlin.String, `key`: kotlin.String): kotlin.String? {
             return FfiConverterOptionalString.lift(
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_miniapp_storage_get(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_miniapp_storage_get(
         FfiConverterString.lower(`appId`),FfiConverterString.lower(`key`),_status)
 }
     )
@@ -3443,7 +3441,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
  fun `miniappStorageSet`(`appId`: kotlin.String, `key`: kotlin.String, `value`: kotlin.String)
         = 
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_miniapp_storage_set(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_miniapp_storage_set(
         FfiConverterString.lower(`appId`),FfiConverterString.lower(`key`),FfiConverterString.lower(`value`),_status)
 }
     
@@ -3451,7 +3449,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
  fun `parsePaymentRequestUri`(`uri`: kotlin.String): PaymentRequestData? {
             return FfiConverterOptionalTypePaymentRequestData.lift(
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_parse_payment_request_uri(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_parse_payment_request_uri(
         FfiConverterString.lower(`uri`),_status)
 }
     )
@@ -3460,7 +3458,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
  fun `postBulletin`(`scope`: kotlin.String, `title`: kotlin.String, `body`: kotlin.String, `ttlSecs`: kotlin.ULong)
         = 
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_post_bulletin(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_post_bulletin(
         FfiConverterString.lower(`scope`),FfiConverterString.lower(`title`),FfiConverterString.lower(`body`),FfiConverterULong.lower(`ttlSecs`),_status)
 }
     
@@ -3469,7 +3467,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
     @Throws(MyceliumException::class) fun `previewMiniappInstall`(`bundleData`: kotlin.ByteArray): MiniAppInstallPreview {
             return FfiConverterTypeMiniAppInstallPreview.lift(
     uniffiRustCallWithError(MyceliumException) { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_preview_miniapp_install(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_preview_miniapp_install(
         FfiConverterByteArray.lower(`bundleData`),_status)
 }
     )
@@ -3478,7 +3476,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
  fun `requestFaucet`()
         = 
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_request_faucet(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_request_faucet(
         _status)
 }
     
@@ -3487,7 +3485,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
     @Throws(MyceliumException::class) fun `sendChatBroadcast`(`body`: kotlin.String)
         = 
     uniffiRustCallWithError(MyceliumException) { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_send_chat_broadcast(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_send_chat_broadcast(
         FfiConverterString.lower(`body`),_status)
 }
     
@@ -3496,7 +3494,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
     @Throws(MyceliumException::class) fun `sendChatDirect`(`toPeer`: kotlin.String, `body`: kotlin.String)
         = 
     uniffiRustCallWithError(MyceliumException) { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_send_chat_direct(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_send_chat_direct(
         FfiConverterString.lower(`toPeer`),FfiConverterString.lower(`body`),_status)
 }
     
@@ -3505,7 +3503,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
     @Throws(MyceliumException::class) fun `sendChatEncrypted`(`toPeer`: kotlin.String, `body`: kotlin.String)
         = 
     uniffiRustCallWithError(MyceliumException) { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_send_chat_encrypted(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_send_chat_encrypted(
         FfiConverterString.lower(`toPeer`),FfiConverterString.lower(`body`),_status)
 }
     
@@ -3513,7 +3511,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
  fun `sendGroupMessage`(`groupId`: kotlin.String, `body`: kotlin.String)
         = 
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_send_group_message(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_send_group_message(
         FfiConverterString.lower(`groupId`),FfiConverterString.lower(`body`),_status)
 }
     
@@ -3521,7 +3519,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
  fun `sendMail`(`toPeer`: kotlin.String, `subject`: kotlin.String, `body`: kotlin.String)
         = 
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_send_mail(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_send_mail(
         FfiConverterString.lower(`toPeer`),FfiConverterString.lower(`subject`),FfiConverterString.lower(`body`),_status)
 }
     
@@ -3529,7 +3527,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
  fun `sendTransaction`(`toAddress`: kotlin.String, `amountMuon`: kotlin.ULong, `memo`: kotlin.String?)
         = 
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_send_transaction(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_send_transaction(
         FfiConverterString.lower(`toAddress`),FfiConverterULong.lower(`amountMuon`),FfiConverterOptionalString.lower(`memo`),_status)
 }
     
@@ -3537,7 +3535,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
  fun `setColdWalletAddress`(`address`: kotlin.String?)
         = 
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_set_cold_wallet_address(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_set_cold_wallet_address(
         FfiConverterOptionalString.lower(`address`),_status)
 }
     
@@ -3545,7 +3543,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
  fun `setDisplayName`(`name`: kotlin.String)
         = 
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_set_display_name(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_set_display_name(
         FfiConverterString.lower(`name`),_status)
 }
     
@@ -3553,7 +3551,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
  fun `setEnergyState`(`state`: EnergyState)
         = 
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_set_energy_state(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_set_energy_state(
         FfiConverterTypeEnergyState.lower(`state`),_status)
 }
     
@@ -3561,7 +3559,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
  fun `setEventCallback`(`callback`: NodeEventCallback)
         = 
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_set_event_callback(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_set_event_callback(
         FfiConverterTypeNodeEventCallback.lower(`callback`),_status)
 }
     
@@ -3569,7 +3567,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
  fun `setHotWalletConfig`(`config`: HotWalletConfig)
         = 
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_set_hot_wallet_config(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_set_hot_wallet_config(
         FfiConverterTypeHotWalletConfig.lower(`config`),_status)
 }
     
@@ -3577,7 +3575,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
  fun `stopNode`()
         = 
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_stop_node(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_stop_node(
         _status)
 }
     
@@ -3585,7 +3583,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
  fun `uninstallApp`(`appId`: kotlin.String)
         = 
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_uninstall_app(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_uninstall_app(
         FfiConverterString.lower(`appId`),_status)
 }
     
@@ -3593,7 +3591,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
  fun `walletAddress`(): kotlin.String {
             return FfiConverterString.lift(
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_wallet_address(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_wallet_address(
         _status)
 }
     )
@@ -3602,7 +3600,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
  fun `walletBalance`(): WalletBalance {
             return FfiConverterTypeWalletBalance.lift(
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_wallet_balance(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_wallet_balance(
         _status)
 }
     )
@@ -3611,7 +3609,7 @@ fun `addBootstrapPeer`(`multiaddr`: kotlin.String)
  fun `walletRecentTransactions`(`limit`: kotlin.UInt): List<TxInfo> {
             return FfiConverterSequenceTypeTxInfo.lift(
     uniffiRustCall() { _status ->
-    UniffiLib.INSTANCE.uniffi_mycelium_ffi_fn_func_wallet_recent_transactions(
+    UniffiLib.INSTANCE.uniffi_uniffi_mycelium_fn_func_wallet_recent_transactions(
         FfiConverterUInt.lower(`limit`),_status)
 }
     )

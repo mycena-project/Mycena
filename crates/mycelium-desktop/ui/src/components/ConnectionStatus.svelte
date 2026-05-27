@@ -1,28 +1,64 @@
 <script>
+  import { onMount } from "svelte";
+
   let { peerCount = 0 } = $props();
 
   let showConnected = $state(false);
+  let showSearching = $state(false);
   let prevPeers = $state(0);
+  let searchingTimer;
+
+  const SEARCHING_INITIAL_MS = 25_000;
+  const SEARCHING_PULSE_MS = 20_000;
+  const CONNECTED_MS = 4_000;
+
+  function clearSearchingTimer() {
+    if (searchingTimer) {
+      clearTimeout(searchingTimer);
+      searchingTimer = undefined;
+    }
+  }
+
+  function pulseSearching(durationMs) {
+    if (peerCount > 0) return;
+    showSearching = true;
+    clearSearchingTimer();
+    searchingTimer = setTimeout(() => {
+      if (peerCount === 0) {
+        showSearching = false;
+      }
+    }, durationMs);
+  }
 
   $effect(() => {
     if (peerCount > 0 && prevPeers === 0) {
+      showSearching = false;
+      clearSearchingTimer();
       showConnected = true;
       const t = setTimeout(() => {
         showConnected = false;
-      }, 4000);
+      }, CONNECTED_MS);
       prevPeers = peerCount;
       return () => clearTimeout(t);
     }
     if (peerCount === 0) {
       showConnected = false;
+      if (prevPeers > 0) {
+        pulseSearching(SEARCHING_PULSE_MS);
+      }
       prevPeers = 0;
     } else {
       prevPeers = peerCount;
     }
   });
+
+  onMount(() => {
+    pulseSearching(SEARCHING_INITIAL_MS);
+    return () => clearSearchingTimer();
+  });
 </script>
 
-{#if peerCount === 0}
+{#if showSearching && peerCount === 0}
   <div class="status-banner searching">
     <span class="spinner"></span>
     Searching for peers via relay…

@@ -1,7 +1,17 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
 }
+
+val versionProps =
+    Properties().apply {
+        val file = rootProject.file("version.properties")
+        if (file.exists()) {
+            file.inputStream().use { load(it) }
+        }
+    }
 
 android {
     namespace = "network.mycelium.app"
@@ -11,8 +21,8 @@ android {
         applicationId = "network.mycelium.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = versionProps.getProperty("versionCode", "1").toInt()
+        versionName = versionProps.getProperty("versionName", "0.1.0")
         ndk {
             abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86_64")
         }
@@ -33,6 +43,7 @@ android {
     buildFeatures {
         compose = true
         aidl = true
+        buildConfig = true
     }
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.14"
@@ -67,6 +78,23 @@ android {
             jniLibs.srcDir("../rust-build")
         }
     }
+
+    packaging {
+        jniLibs {
+            pickFirsts +=
+                setOf(
+                    "**/libjnidispatch.so",
+                    "**/libmycelium_ffi.so",
+                )
+        }
+
+        resources {
+            excludes += "META-INF/AL2.0"
+            excludes += "META-INF/LGPL2.1"
+            excludes -= setOf("com/sun/jna/**")
+        }
+    }
+
 }
 
 val copyMiniappBridge =
@@ -100,4 +128,9 @@ dependencies {
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test:runner:1.6.2")
     androidTestImplementation("androidx.test:core-ktx:1.6.1")
+
+    implementation("net.java.dev.jna:jna:5.13.0@aar")
+    implementation("net.java.dev.jna:jna-platform:5.13.0") {
+        exclude(group = "net.java.dev.jna", module = "jna")
+    }
 }

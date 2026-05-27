@@ -19,5 +19,5 @@ android {
 }
 
 dependencies {
-    implementation("net.java.dev.jna:jna:5.14.0")
+    compileOnly("net.java.dev.jna:jna:5.13.0")
 }

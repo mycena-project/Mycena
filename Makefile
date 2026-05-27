@@ -1,6 +1,6 @@
 SHELL := /bin/zsh
 
-.PHONY: test test-fast test-unit test-sim check clippy ci fmt docker-android-ci docker-compose-android gradle-wrapper
+.PHONY: test test-fast test-unit test-sim check clippy ci fmt docker-android-ci docker-compose-android gradle-wrapper desktop-dev desktop-check-relay android-apk android-install android-deploy
 
 # One-shot: add Gradle wrapper under android/ using Docker (no local Gradle needed).
 gradle-wrapper:
@@ -38,3 +38,17 @@ ci: check test-fast clippy
 
 fmt:
 	CARGO_HOME="$(CURDIR)/.cargo-home" cargo fmt --all
+
+desktop-check-relay:
+	./scripts/check-mycelium-relay.sh
+
+desktop-dev:
+	./scripts/run-desktop.sh
+
+android-apk:
+	./scripts/build-android-apk.sh
+
+android-install:
+	./scripts/install-android-apk.sh
+
+android-deploy: android-apk android-install

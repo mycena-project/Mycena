@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">菌丝网络</string>
+    <string name="app_name">Mycelium</string>
     <string name="app_tagline">离线网状网络</string>
     <string name="nav_chat">聊天</string>
     <string name="nav_bulletin">公告板</string>
@@ -104,4 +104,7 @@
     <string name="location_share_once">分享一次</string>
     <string name="location_open_maps">在地图中打开</string>
     <string name="error_location_unavailable">无法获取位置，请检查 GPS 和权限。</string>
+    <string name="settings_version_format">版本 %1$s（构建 %2$d）</string>
+    <string name="peers_offline_title">未连接节点</string>
+    <string name="peers_offline_body">网状节点在后台继续运行。当有其他设备或公共中继可用时会自动连接。蓝牙和 Wi‑Fi 有助于发现附近设备——无需一直保持搜索横幅。</string>
 </resources>

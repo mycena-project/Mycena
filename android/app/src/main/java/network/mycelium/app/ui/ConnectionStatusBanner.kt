@@ -38,6 +38,7 @@ private const val CONNECTED_BANNER_MS = 4_000L
 fun ConnectionStatusBanner(vm: StatusViewModel = viewModel()) {
     val peerCount by vm.peerCount.collectAsState()
     val connectivityMode by vm.connectivityMode.collectAsState()
+    val showSearchingBanner by vm.showSearchingBanner.collectAsState()
     var showConnectedBanner by remember { mutableStateOf(false) }
 
     LaunchedEffect(peerCount) {
@@ -51,7 +52,7 @@ fun ConnectionStatusBanner(vm: StatusViewModel = viewModel()) {
     }
 
     AnimatedVisibility(
-        visible = peerCount == 0,
+        visible = showSearchingBanner && peerCount == 0,
         enter = slideInVertically(),
         exit = slideOutVertically(),
     ) {

@@ -7,4 +7,6 @@ object MeshEvents {
     const val PEER_UP = "mycelium.PEER_UP"
     const val PEER_DOWN = "mycelium.PEER_DOWN"
     const val APPSTORE = "mycelium.APPSTORE_RECEIVED"
+    const val CONNECTIVITY = "mycelium.CONNECTIVITY"
+    const val EXTRA_INTERNET = "internet"
 }
