@@ -166,6 +166,7 @@ async fn cmd_app_publish_live(
         display_name: Some("publisher".into()),
         storage_key: None,
         max_relay_fanout: 3,
+        rendezvous_enabled: true,
     };
     let (runner, handle) = NodeRunner::new(config)?;
     let publisher_peer = runner.local_peer_id().to_string();
@@ -213,6 +214,7 @@ async fn run_interactive_server(cli: RunArgs) -> anyhow::Result<()> {
         display_name: Some(cli.name.clone()),
         storage_key: None,
         max_relay_fanout: 3,
+        rendezvous_enabled: true,
     };
     let (runner, handle) = NodeRunner::new(config)?;
     let local_peer_id = runner.local_peer_id().to_string();
