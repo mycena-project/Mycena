@@ -59,3 +59,6 @@ updates:
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
       - dependency-name: "ssd1306"
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      # hmac 0.13 requires digest 0.10+ API migration (Hmac::new_from_slice trait changes)
+      - dependency-name: "hmac"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
