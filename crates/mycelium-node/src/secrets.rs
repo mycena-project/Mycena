@@ -28,8 +28,16 @@ pub fn load_or_create_keypair(
         .unwrap_or(path);
     let vault = open_vault(db_path, storage_key)?;
 
-    if let Some(bytes) = vault.read_secret(IDENTITY_SECRET)? {
-        return keypair_from_ed25519_secret(&bytes);
+    match vault.read_secret(IDENTITY_SECRET) {
+        Ok(Some(bytes)) => return keypair_from_ed25519_secret(&bytes),
+        Ok(None) => {}
+        Err(e) => {
+            tracing::warn!(
+                "unreadable encrypted identity at {:?}: {e}; removing corrupt secret",
+                vault.secrets_dir().join(format!("{IDENTITY_SECRET}.enc"))
+            );
+            let _ = vault.delete_secret(IDENTITY_SECRET);
+        }
     }
 
     if let Some(legacy) = read_legacy_sled_identity(path)? {
@@ -52,8 +60,16 @@ pub fn load_or_create_enc_keypair(
 ) -> anyhow::Result<EncryptionKeypair> {
     let vault = open_vault(db_path, storage_key)?;
 
-    if let Some(bytes) = vault.read_secret(ENC_SECRET)? {
-        return enc_from_secret_bytes(&bytes);
+    match vault.read_secret(ENC_SECRET) {
+        Ok(Some(bytes)) => return enc_from_secret_bytes(&bytes),
+        Ok(None) => {}
+        Err(e) => {
+            tracing::warn!(
+                "unreadable encrypted enc key at {:?}: {e}; removing corrupt secret",
+                vault.secrets_dir().join(format!("{ENC_SECRET}.enc"))
+            );
+            let _ = vault.delete_secret(ENC_SECRET);
+        }
     }
 
     let legacy_path = Path::new(db_path).join("enc_x25519.secret");

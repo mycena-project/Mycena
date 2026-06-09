@@ -5,9 +5,10 @@ use mycelium_app::envelope::{
     AppMessage, BulletinPost as AppBulletinPost, ChatMessage as AppChatMessage,
     MailMessage as AppMailMessage,
 };
+use mycelium_app::contacts::{Contact, ContactStatus as AppContactStatus};
 use mycelium_app::groups::Group;
 use mycelium_app::node::AppNode;
-use mycelium_app::notify::NoopNotifier;
+use mycelium_app::notify::NotificationSink;
 use mycelium_app::storage::AppStorage;
 use mycelium_coin::{
     address_from_keypair, CoinNode, CoinTransport, HotWallet,
@@ -53,6 +54,7 @@ pub struct NodeConfig {
     pub bootstrap_peers: Vec<String>,
     /// Optional 64-char hex master key for at-rest encryption (Android).
     pub storage_key_hex: Option<String>,
+    pub rendezvous_enabled: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -103,6 +105,33 @@ pub struct GroupInfo {
     pub name: String,
     pub member_count: u32,
     pub created_at_ms: u64,
+}
+
+#[derive(Debug, Clone)]
+pub enum ContactStatus {
+    Pending,
+    Accepted,
+}
+
+#[derive(Debug, Clone)]
+pub struct ContactInfo {
+    pub peer_id: String,
+    pub display_name: String,
+    pub added_at_ms: u64,
+    pub status: ContactStatus,
+}
+
+fn contact_to_info(c: Contact) -> ContactInfo {
+    let status = match c.status {
+        AppContactStatus::Pending => ContactStatus::Pending,
+        AppContactStatus::Accepted => ContactStatus::Accepted,
+    };
+    ContactInfo {
+        peer_id: c.peer_id,
+        display_name: c.display_name,
+        added_at_ms: c.added_at_ms,
+        status,
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -248,6 +277,23 @@ pub trait NodeEventCallback: Send + Sync {
     fn on_bulletin_received(&self, _post: BulletinPost) {}
     fn on_app_store_listing(&self, _listing: AppStoreListing) {}
     fn on_connectivity_changed(&self, _mode: ConnectivityMode) {}
+    fn on_contact_request(&self, _peer_id: String, _display_name: String) {}
+}
+
+struct FfiNotifier;
+
+impl NotificationSink for FfiNotifier {
+    fn on_chat_received(&self, _from: &str, _preview: &str) {}
+
+    fn on_mail_received(&self, _from: &str, _subject: &str) {}
+
+    fn on_bulletin_posted(&self, _scope: &str, _title: &str) {}
+
+    fn on_contact_request(&self, peer_id: &str, display_name: &str) {
+        if let Some(cb) = CALLBACK.lock().expect("callback lock").clone() {
+            cb.on_contact_request(peer_id.to_string(), display_name.to_string());
+        }
+    }
 }
 
 static RUNTIME: OnceCell<Runtime> = OnceCell::new();
@@ -343,6 +389,7 @@ pub fn init_node(config: NodeConfig) {
             display_name: Some(config.display_name.clone()),
             storage_key,
             max_relay_fanout: 3,
+            rendezvous_enabled: config.rendezvous_enabled,
         };
 
         let (runner, handle) =
@@ -421,7 +468,7 @@ pub fn init_node(config: NodeConfig) {
             local_peer_id.clone(),
             config.display_name.clone(),
             app_storage.clone(),
-            Arc::new(NoopNotifier),
+            Arc::new(FfiNotifier),
             Some(coin_node.clone()),
             Some(app_store.clone()),
         );
@@ -590,6 +637,76 @@ pub fn has_enc_key_for(peer_id: String) -> bool {
     runtime().block_on(async {
         let state = state.read().await;
         state.handle.has_enc_key_for(&peer_id).await
+    })
+}
+
+pub fn list_contacts() -> Vec<ContactInfo> {
+    with_state(|state| {
+        state
+            .app_node
+            .list_contacts()
+            .unwrap_or_default()
+            .into_iter()
+            .map(contact_to_info)
+            .collect()
+    })
+}
+
+pub fn list_accepted_contacts() -> Vec<ContactInfo> {
+    with_state(|state| {
+        state
+            .app_node
+            .list_accepted_contacts()
+            .unwrap_or_default()
+            .into_iter()
+            .map(contact_to_info)
+            .collect()
+    })
+}
+
+pub fn list_pending_contacts() -> Vec<ContactInfo> {
+    with_state(|state| {
+        state
+            .app_node
+            .list_pending_contacts()
+            .unwrap_or_default()
+            .into_iter()
+            .map(contact_to_info)
+            .collect()
+    })
+}
+
+pub fn add_contact(peer_id: String, display_name: String, accepted: bool) -> ContactInfo {
+    with_state(|state| {
+        contact_to_info(
+            state
+                .app_node
+                .add_contact(&peer_id, &display_name, accepted)
+                .expect("add contact"),
+        )
+    })
+}
+
+pub fn accept_contact(peer_id: String) -> ContactInfo {
+    with_state(|state| {
+        contact_to_info(
+            state
+                .app_node
+                .accept_contact(&peer_id)
+                .expect("accept contact"),
+        )
+    })
+}
+
+pub fn reject_contact(peer_id: String) {
+    with_state(|state| {
+        let _ = state.app_node.reject_contact(&peer_id);
+    })
+}
+
+pub fn remove_contact(peer_id: String) {
+    with_state(|state| {
+        let _ = state.app_node.remove_contact(&peer_id);
     })
 }
 
@@ -805,6 +922,17 @@ pub fn set_energy_state(state: EnergyState) {
     runtime().block_on(async {
         let st = state.read().await;
         let _ = st.handle.send(cmd).await;
+    });
+}
+
+pub fn set_rendezvous_enabled(enabled: bool) {
+    let state = state_arc();
+    runtime().block_on(async {
+        let st = state.read().await;
+        let _ = st
+            .handle
+            .send(NodeCommand::SetRendezvousEnabled(enabled))
+            .await;
     });
 }
 

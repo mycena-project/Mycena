@@ -18,6 +18,7 @@ import kotlinx.coroutines.launch
 import network.mycelium.app.bootstrap.BleBootstrapAdvertiser
 import network.mycelium.app.bootstrap.BleBootstrapScanner
 import network.mycelium.app.bootstrap.BleBootstrapPermissions
+import network.mycelium.app.bootstrap.WifiMulticastLock
 import network.mycelium.app.viewmodel.SettingsViewModel
 import network.mycelium.bindings.AppStoreListing
 import network.mycelium.bindings.BulletinPost
@@ -39,6 +40,7 @@ class MeshService : Service() {
     private var bleCollectJob: kotlinx.coroutines.Job? = null
     private val notifiedPeerPrefixes = mutableSetOf<String>()
     private var nodeInitialized = false
+    private var wifiMulticastLock: WifiMulticastLock? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForeground(NOTIFICATION_ID, buildNotification())
@@ -59,6 +61,8 @@ class MeshService : Service() {
             ?.filter { it.isNotEmpty() }
             ?: emptyList()
         val storageKeyHex = StorageKeyHelper.getOrCreateStorageKeyHex(this)
+        wifiMulticastLock = WifiMulticastLock(this).also { it.acquire() }
+        val rendezvousEnabled = prefs.getBoolean("rendezvous_enabled", true)
         mycelium.initNode(
             NodeConfig(
                 dbPath = dbPath,
@@ -66,9 +70,11 @@ class MeshService : Service() {
                 displayName = displayName,
                 bootstrapPeers = bootstrapPeers,
                 storageKeyHex = storageKeyHex,
+                rendezvousEnabled = rendezvousEnabled,
             ),
         )
         mycelium.setDisplayName(displayName)
+        mycelium.setRendezvousEnabled(rendezvousEnabled)
         when (prefs.getString("energy_state", "Active")) {
             "Intermittent" -> mycelium.setEnergyState(EnergyState.INTERMITTENT)
             "Passive" -> mycelium.setEnergyState(EnergyState.PASSIVE)
@@ -108,6 +114,14 @@ class MeshService : Service() {
                             MeshEvents.EXTRA_INTERNET,
                             mode == ConnectivityMode.INTERNET,
                         ),
+                    )
+                }
+
+                override fun onContactRequest(peerId: String, displayName: String) {
+                    sendBroadcast(
+                        Intent(MeshEvents.CONTACTS)
+                            .putExtra("peer_id", peerId)
+                            .putExtra("display_name", displayName),
                     )
                 }
             },
@@ -248,6 +262,8 @@ class MeshService : Service() {
 
     override fun onDestroy() {
         stopBleBootstrap()
+        wifiMulticastLock?.release()
+        wifiMulticastLock = null
         serviceScope.cancel()
         mycelium.stopNode()
         super.onDestroy()

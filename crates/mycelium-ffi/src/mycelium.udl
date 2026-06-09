@@ -15,6 +15,14 @@ namespace mycelium {
   boolean has_enc_key_for(string peer_id);
   sequence<ChatMessage> chat_history(string peer_id, u32 limit);
 
+  sequence<ContactInfo> list_contacts();
+  sequence<ContactInfo> list_accepted_contacts();
+  sequence<ContactInfo> list_pending_contacts();
+  ContactInfo add_contact(string peer_id, string display_name, boolean accepted);
+  ContactInfo accept_contact(string peer_id);
+  void reject_contact(string peer_id);
+  void remove_contact(string peer_id);
+
   sequence<GroupInfo> list_groups();
   GroupInfo create_group(string name);
   GroupInfo? import_group_invite(string json);
@@ -34,6 +42,7 @@ namespace mycelium {
   void set_display_name(string name);
   string display_name();
   void set_energy_state(EnergyState state);
+  void set_rendezvous_enabled(boolean enabled);
   void add_bootstrap_peer(string multiaddr);
   void set_event_callback(NodeEventCallback callback);
 
@@ -98,6 +107,8 @@ dictionary NodeConfig {
   sequence<string> bootstrap_peers;
   /// Optional 64-char hex (32 bytes) master key for at-rest encryption (Android).
   string? storage_key_hex;
+  /// Opt-in relay rendezvous (find/be found on public relay).
+  boolean rendezvous_enabled;
 };
 
 dictionary NodeMetrics {
@@ -168,6 +179,18 @@ dictionary GroupInfo {
   u64 created_at_ms;
 };
 
+enum ContactStatus {
+  "Pending",
+  "Accepted",
+};
+
+dictionary ContactInfo {
+  string peer_id;
+  string display_name;
+  u64 added_at_ms;
+  ContactStatus status;
+};
+
 dictionary MiniAppInfo {
   string id;
   string name;
@@ -229,6 +252,7 @@ callback interface NodeEventCallback {
   void on_bulletin_received(BulletinPost post);
   void on_app_store_listing(AppStoreListing listing);
   void on_connectivity_changed(ConnectivityMode mode);
+  void on_contact_request(string peer_id, string display_name);
 };
 
 [Error]

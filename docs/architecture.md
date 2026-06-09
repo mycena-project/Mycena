@@ -39,4 +39,6 @@
 - Chosen: sled for embeddable local durability.
   - Tradeoff: eventually may need SQLite for richer query/index migration paths.
 - Chosen: mDNS discovery for LAN-first environments.
-  - Tradeoff: not useful across routed/network-partition boundaries (future: BLE + rendezvous relays + DTN sync digests).
+  - Tradeoff: not useful across routed/network-partition boundaries without relay rendezvous (opt-in) or manual multiaddr/QR.
+- Relay rendezvous: HTTP opt-in peer list on the public relay; nodes dial every ~45s when enabled in settings.
+- Contacts (app layer): chat gated on accepted contacts; transport peers shown separately on Peers tab.

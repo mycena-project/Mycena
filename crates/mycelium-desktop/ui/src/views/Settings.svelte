@@ -8,6 +8,7 @@
   let displayName = $state('');
   let energyState = $state('Active');
   let bootstrapPeers = $state('');
+  let rendezvousEnabled = $state(false);
   let storeStats = $state({ count: 0, oldest_ms: 0 });
   let gcResult = $state(null);
   let saved = $state(false);
@@ -19,6 +20,7 @@
     const settings = await invoke('get_settings');
     displayName = settings.display_name ?? '';
     energyState = settings.energy_state ?? 'Active';
+    rendezvousEnabled = settings.rendezvous_enabled ?? true;
     storeStats = await invoke('get_store_stats');
     const custom = await invoke('get_custom_bootstrap_peers');
     bootstrapPeers = custom.join('\n');
@@ -27,6 +29,7 @@
   async function save() {
     await invoke('set_display_name', { name: displayName });
     await invoke('set_energy_state', { energyState });
+    await invoke('set_rendezvous_enabled', { enabled: rendezvousEnabled });
     await invoke('set_custom_bootstrap_peers', {
       peers: bootstrapPeers
         .split('\n')
@@ -63,14 +66,14 @@
 
   <section>
     <h4>Identity</h4>
-    <label>
-      Peer ID
-      <code class="peer-id">{peerId}</code>
-    </label>
-    <label>
-      Display name
-      <input bind:value={displayName} placeholder="Your name in the network" />
-    </label>
+    <p class="field-label">Peer ID</p>
+    <code class="peer-id">{peerId}</code>
+    <label for="settings-display-name">Display name</label>
+    <input
+      id="settings-display-name"
+      bind:value={displayName}
+      placeholder="Your name in the network"
+    />
   </section>
 
   <section>
@@ -92,6 +95,14 @@
       ></textarea>
       <small>One per line. Leave empty to use default relay.</small>
     </label>
+    <label class="checkbox-row">
+      <input type="checkbox" bind:checked={rendezvousEnabled} />
+      Relay discovery (opt-in)
+    </label>
+    <small class="hint">
+      When enabled, your device appears on the public relay rendezvous list and
+      auto-dials other opted-in peers. Chat still requires accepted contacts.
+    </small>
   </section>
 
   <section>
@@ -132,7 +143,8 @@
             border: 1px solid var(--border); border-radius: 8px; }
   h3 { font-size: 18px; font-weight: 600; margin: 0; }
   h4 { font-size: 14px; font-weight: 600; margin: 0; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; }
-  label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+  label, .field-label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+  .field-label { margin: 0; }
   input, select, textarea {
     padding: 7px 10px; border-radius: 6px; border: 1px solid var(--border);
     background: none; color: inherit; font-size: 13px; font-family: inherit;

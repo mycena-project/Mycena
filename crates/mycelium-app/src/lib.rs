@@ -1,4 +1,5 @@
 pub mod api;
+pub mod contacts;
 pub mod envelope;
 pub mod groups;
 pub mod miniapp;
@@ -6,6 +7,10 @@ mod miniapp_storage_enc;
 pub mod node;
 pub mod notify;
 pub mod storage;
+
+#[cfg(test)]
+#[path = "contacts_tests.rs"]
+mod contacts_tests;
 
 #[cfg(test)]
 mod tests {

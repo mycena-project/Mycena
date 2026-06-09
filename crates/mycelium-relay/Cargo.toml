@@ -25,6 +25,7 @@ libp2p = { version = "0.54", features = [
   "macros",
 ] }
 mycelium-node = { path = "../mycelium-node" }
+serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 tokio.workspace = true
 tracing.workspace = true

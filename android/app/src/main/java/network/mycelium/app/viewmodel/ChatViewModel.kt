@@ -14,14 +14,21 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import network.mycelium.app.MeshEvent
 import network.mycelium.app.R
+import network.mycelium.app.bootstrap.RelayBootstrap
 import network.mycelium.app.meshEvents
 import network.mycelium.app.util.shareCurrentLocation
 import network.mycelium.bindings.ChatMessage
 import network.mycelium.bindings.mycelium
+import uniffi.mycelium.ContactStatus
 import uniffi.mycelium.MyceliumException
+
+data class ChatListEntry(
+    val peerId: String,
+    val displayName: String,
+    val online: Boolean,
+)
 
 sealed class ChatUiEvent {
     data class ShowError(val message: String) : ChatUiEvent()
@@ -35,16 +42,93 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     private val _uiEvent = MutableSharedFlow<ChatUiEvent>(extraBufferCapacity = 1)
     val uiEvent: SharedFlow<ChatUiEvent> = _uiEvent.asSharedFlow()
 
-    val peers: StateFlow<List<String>> =
+    private fun refreshContacts(): Pair<List<ChatListEntry>, List<ChatListEntry>> {
+        val online = mycelium.knownPeers().toSet() - RelayBootstrap.RELAY_PEER_ID
+        val accepted =
+            mycelium.listAcceptedContacts().map { c ->
+                ChatListEntry(
+                    peerId = c.peerId,
+                    displayName = c.displayName.ifBlank { c.peerId.take(16) },
+                    online = c.peerId in online,
+                )
+            }
+        val pending =
+            mycelium.listPendingContacts().map { c ->
+                ChatListEntry(
+                    peerId = c.peerId,
+                    displayName = c.displayName.ifBlank { c.peerId.take(16) },
+                    online = c.peerId in online,
+                )
+            }
+        return accepted to pending
+    }
+
+    val acceptedContacts: StateFlow<List<ChatListEntry>> =
         flow {
-            emit(mycelium.knownPeers())
+            val (accepted, _) = refreshContacts()
+            emit(accepted)
             appContext.meshEvents().collect {
                 when (it) {
-                    MeshEvent.Chat, MeshEvent.PeerUp, MeshEvent.PeerDown -> emit(mycelium.knownPeers())
+                    MeshEvent.Chat,
+                    MeshEvent.Contacts,
+                    MeshEvent.PeerUp,
+                    MeshEvent.PeerDown,
+                    -> {
+                        val (a, _) = refreshContacts()
+                        emit(a)
+                    }
                     else -> Unit
                 }
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val pendingContacts: StateFlow<List<ChatListEntry>> =
+        flow {
+            val (_, pending) = refreshContacts()
+            emit(pending)
+            appContext.meshEvents().collect {
+                when (it) {
+                    MeshEvent.Chat,
+                    MeshEvent.Contacts,
+                    MeshEvent.PeerUp,
+                    MeshEvent.PeerDown,
+                    -> {
+                        val (_, p) = refreshContacts()
+                        emit(p)
+                    }
+                    else -> Unit
+                }
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** @deprecated use [acceptedContacts] — kept for any legacy callers */
+    val peers: StateFlow<List<String>> =
+        flow {
+            emit(mycelium.listAcceptedContacts().map { it.peerId })
+            appContext.meshEvents().collect {
+                when (it) {
+                    MeshEvent.Chat,
+                    MeshEvent.Contacts,
+                    MeshEvent.PeerUp,
+                    MeshEvent.PeerDown,
+                    ->
+                        emit(mycelium.listAcceptedContacts().map { it.peerId })
+                    else -> Unit
+                }
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    fun acceptContact(peerId: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            mycelium.acceptContact(peerId)
+        }
+    }
+
+    fun rejectContact(peerId: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            mycelium.rejectContact(peerId)
+        }
+    }
 
     fun chatHistory(peerId: String): Flow<List<ChatMessage>> =
         flow {
@@ -75,7 +159,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             } catch (e: MyceliumException.ChatException) {
                 val message =
                     if (e.detail.contains("enc_key_not_yet_exchanged")) {
-                        appContext.getString(network.mycelium.app.R.string.chat_key_not_yet_exchanged)
+                        appContext.getString(R.string.chat_key_not_yet_exchanged)
                     } else {
                         e.detail
                     }

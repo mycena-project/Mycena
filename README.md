@@ -67,10 +67,11 @@ docker compose --profile rust run --rm rust-tests
 
 The image uses a **slim** Rust base (smaller pull than `rust:…-bookworm`); the first `build` is mostly downloading that layer plus `apt` deps for Tauri/GTK. Use `docker compose --progress=plain --profile rust build rust-tests` if you want build logs.
 
-Full Android CI image (downloads SDK inside Docker):
+Minimal Android toolchain image + APK build (sources mounted; ~3–4 GiB image, not 10+ GiB):
 
 ```bash
-docker compose --profile android build android-ci
+make docker-android-ci
+./scripts/docker-android-build.sh
 ```
 
 See [`docker-compose.yml`](docker-compose.yml) and [`docs/AGENT_CONTINUATION.md`](docs/AGENT_CONTINUATION.md).

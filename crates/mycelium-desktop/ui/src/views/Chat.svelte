@@ -4,7 +4,8 @@
 
   let { peerId } = $props();
   let selectedPeer = $state("");
-  let peers = $state([]);
+  let acceptedContacts = $state([]);
+  let pendingContacts = $state([]);
   let messages = $state([]);
   let input = $state("");
   let isEncrypted = $state(false);
@@ -36,14 +37,31 @@
     return { lat, lon };
   }
 
+  async function refreshContacts() {
+    acceptedContacts = await invoke("list_accepted_contacts");
+    pendingContacts = await invoke("list_pending_contacts");
+  }
+
   async function refresh() {
-    peers = await invoke("get_peers");
+    await refreshContacts();
     if (selectedPeer) {
       messages = await invoke("chat_history", { peerId: selectedPeer, limit: 100 });
       isEncrypted = await invoke("peer_has_enc_key", { peerId: selectedPeer });
     } else {
       isEncrypted = false;
     }
+  }
+
+  async function acceptContact(peerId) {
+    await invoke("accept_contact", { peerId });
+    selectedPeer = peerId;
+    await refresh();
+  }
+
+  async function rejectContact(peerId) {
+    await invoke("reject_contact", { peerId });
+    if (selectedPeer === peerId) selectedPeer = "";
+    await refresh();
   }
 
   async function sendBody(body) {
@@ -121,7 +139,8 @@
     const unsubs = [];
     (async () => {
       unsubs.push(await listen("chat-updated", refresh));
-      unsubs.push(await listen("metrics-updated", refresh));
+      unsubs.push(await listen("contacts-updated", refresh));
+      unsubs.push(await listen("metrics-updated", refreshContacts));
     })();
     return () => unsubs.forEach((u) => u?.());
   });
@@ -148,9 +167,32 @@
 
 <div class="chat-layout">
   <div class="sidebar">
-    {#each peers as peer}
-      <button onclick={() => ((selectedPeer = peer), refresh())} class:active={selectedPeer === peer}>
-        {peer.slice(0, 16)}...
+    {#if pendingContacts.length > 0}
+      <p class="section-label">Contact requests</p>
+      {#each pendingContacts as c}
+        <div class="pending-row">
+          <span class="pending-name">{c.display_name || c.peer_id.slice(0, 16)}</span>
+          <div class="pending-actions">
+            <button type="button" class="small" onclick={() => acceptContact(c.peer_id)}>
+              Accept
+            </button>
+            <button type="button" class="small secondary" onclick={() => rejectContact(c.peer_id)}>
+              Decline
+            </button>
+          </div>
+        </div>
+      {/each}
+    {/if}
+    <p class="section-label">Contacts</p>
+    {#if acceptedContacts.length === 0}
+      <p class="empty-hint">No contacts yet. Connect a device on the Connect tab (scan QR or paste invite).</p>
+    {/if}
+    {#each acceptedContacts as c}
+      <button
+        onclick={() => ((selectedPeer = c.peer_id), refresh())}
+        class:active={selectedPeer === c.peer_id}
+      >
+        {c.display_name || c.peer_id.slice(0, 16) + "…"}
       </button>
     {/each}
   </div>
@@ -206,10 +248,37 @@
     height: 100%;
   }
   .sidebar {
-    width: 220px;
+    width: 240px;
     border-right: 1px solid var(--border);
     overflow-y: auto;
     padding: 8px;
+  }
+  .section-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    margin: 8px 4px 4px;
+  }
+  .empty-hint {
+    font-size: 12px;
+    color: var(--text-muted);
+    padding: 8px 4px;
+    margin: 0;
+  }
+  .pending-row {
+    padding: 6px 4px 10px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 4px;
+  }
+  .pending-name {
+    display: block;
+    font-size: 13px;
+    margin-bottom: 4px;
+  }
+  .pending-actions {
+    display: flex;
+    gap: 6px;
   }
   .sidebar button {
     display: block;
@@ -221,10 +290,18 @@
     background: none;
     cursor: pointer;
     font-size: 13px;
-    font-family: monospace;
   }
   .sidebar button.active {
     background: var(--accent-subtle);
+  }
+  button.small {
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+  button.secondary {
+    background: none;
+    color: inherit;
+    border: 1px solid var(--border);
   }
   .conversation {
     flex: 1;

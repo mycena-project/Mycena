@@ -1,17 +1,21 @@
 SHELL := /bin/zsh
 
-.PHONY: test test-fast test-unit test-sim check clippy ci fmt docker-android-ci docker-compose-android gradle-wrapper desktop-dev desktop-check-relay android-apk android-install android-deploy
+.PHONY: test test-fast test-unit test-sim check clippy ci fmt docker-android-ci docker-compose-android gradle-wrapper desktop-dev desktop-check-relay android-apk android-apk-ci android-apk-local android-install android-deploy clean
 
 # One-shot: add Gradle wrapper under android/ using Docker (no local Gradle needed).
 gradle-wrapper:
 	docker run --rm -v "$(CURDIR):/workspace" -w /workspace/android gradle:8.7-jdk17 \
 		gradle wrapper --gradle-version=8.7 --distribution-type=bin
 
-# Full Rust NDK + UniFFI + assembleDebug inside Docker (needs Docker + network).
+# Toolchain-only image (~3–4 GiB; NDK + JDK + Rust). No project COPY / no baked APK.
 docker-android-ci:
-	docker build -f docker/android-ci/Dockerfile -t mycelium-android-ci "$(CURDIR)"
+	docker build --platform linux/amd64 -t mycelium-android-ci docker/android-ci
 
-# Same as docker-android-ci via Compose (profile "android").
+# Build APK via mounted repo (caches in Docker volumes, not on host).
+docker-android-apk:
+	./scripts/docker-android-build.sh
+
+# Same toolchain image via Compose (profile "android").
 docker-compose-android:
 	docker compose --profile android build android-ci
 
@@ -45,8 +49,17 @@ desktop-check-relay:
 desktop-dev:
 	./scripts/run-desktop.sh
 
+# Default: mingc/android-build-box (no local rustup). See scripts/mingc-android-build.sh
 android-apk:
-	./scripts/build-android-apk.sh
+	./scripts/mingc-android-build.sh
+
+# Slim mycelium-android-ci image (scripts/docker-android-build.sh)
+android-apk-ci:
+	./scripts/docker-android-build.sh
+
+# Host Rust + Gradle (needs rustup + Android NDK targets).
+android-apk-local:
+	./scripts/build-android-apk.sh --local
 
 android-install:
 	./scripts/install-android-apk.sh
@@ -55,3 +68,6 @@ android-install-github:
 	./scripts/install-android-apk.sh --from-github
 
 android-deploy: android-apk android-install
+
+clean:
+	./scripts/clean-repo.sh --deep

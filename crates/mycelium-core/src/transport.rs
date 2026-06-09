@@ -237,6 +237,10 @@ pub trait MeshTransport: Send {
     fn known_peers(&self) -> Vec<String>;
     fn local_keypair(&self) -> Option<libp2p::identity::Keypair>;
     async fn dial_peer(&mut self, multiaddr: String) -> anyhow::Result<()>;
+    /// Store multiaddr for periodic re-dial and connect now (QR / Connect tab).
+    async fn remember_and_dial(&mut self, multiaddr: String) -> anyhow::Result<()>;
+    /// Re-attempt all remembered bootstrap / invite dial targets.
+    fn redial_stored_targets(&mut self);
     async fn send_direct(&mut self, to_peer: String, message: WireMessage) -> anyhow::Result<()>;
     async fn publish_scoped(&mut self, scope: ScopeId, payload: Vec<u8>) -> anyhow::Result<()>;
     /// Join a gossipsub topic so scoped messages for `scope` are received.

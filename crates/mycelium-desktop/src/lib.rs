@@ -2,13 +2,15 @@ use async_trait::async_trait;
 use mycelium_app::envelope::AppMessage;
 use mycelium_app::groups::Group;
 use mycelium_app::node::{AppInbox, AppNode};
-use mycelium_app::notify::NoopNotifier;
+use mycelium_app::contacts::{Contact, ContactStatus};
+use mycelium_app::notify::NotificationSink;
 use mycelium_app::storage::AppStorage;
 use mycelium_coin::{address_from_keypair, CoinNode, CoinTransport, LocalLedger};
 use mycelium_core::bootstrap::{load_custom_bootstrap_peers, save_custom_bootstrap_peers};
 use mycelium_core::energy::NodeState;
 use mycelium_node::{NodeCommand, NodeConfig, NodeHandle, NodeRunner};
 use serde_json::json;
+use std::path::PathBuf;
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter, State};
 use tokio::sync::RwLock;
@@ -24,9 +26,65 @@ pub struct AppState {
     db_path: String,
     cap_mac_key: [u8; 32],
     energy_state: NodeState,
+    rendezvous_enabled: bool,
 }
 
 type SharedState = Arc<RwLock<Option<AppState>>>;
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+struct UiSettings {
+    #[serde(default = "default_rendezvous_enabled")]
+    rendezvous_enabled: bool,
+}
+
+fn default_rendezvous_enabled() -> bool {
+    true
+}
+
+impl Default for UiSettings {
+    fn default() -> Self {
+        Self {
+            rendezvous_enabled: true,
+        }
+    }
+}
+
+fn ui_settings_path(db_path: &str) -> PathBuf {
+    PathBuf::from(db_path).join("ui_settings.json")
+}
+
+fn load_ui_settings(db_path: &str) -> UiSettings {
+    let path = ui_settings_path(db_path);
+    std::fs::read_to_string(path)
+        .ok()
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or_default()
+}
+
+fn save_ui_settings(db_path: &str, settings: &UiSettings) -> Result<(), String> {
+    let path = ui_settings_path(db_path);
+    let json = serde_json::to_string_pretty(settings).map_err(|e| e.to_string())?;
+    std::fs::write(path, json).map_err(|e| e.to_string())
+}
+
+struct DesktopNotifier {
+    app: AppHandle,
+}
+
+impl NotificationSink for DesktopNotifier {
+    fn on_chat_received(&self, _from: &str, _preview: &str) {}
+
+    fn on_mail_received(&self, _from: &str, _subject: &str) {}
+
+    fn on_bulletin_posted(&self, _scope: &str, _title: &str) {}
+
+    fn on_contact_request(&self, peer_id: &str, display_name: &str) {
+        let _ = self.app.emit(
+            "contacts-updated",
+            json!({ "peer_id": peer_id, "display_name": display_name }),
+        );
+    }
+}
 
 #[derive(Clone)]
 struct DesktopCoinTransport {
@@ -64,11 +122,27 @@ impl CoinTransport for DesktopCoinTransport {
 
 #[tauri::command]
 fn get_default_db_path() -> String {
+    default_db_path()
+}
+
+fn default_db_path() -> String {
     dirs::data_dir()
         .unwrap_or_else(|| std::path::PathBuf::from("."))
         .join("mycelium")
         .to_string_lossy()
         .to_string()
+}
+
+/// Delete local Mycelium data (identity, messages, keys). Safe before first successful start.
+#[tauri::command]
+fn reset_local_data(db_path: Option<String>) -> Result<(), String> {
+    let path = db_path.unwrap_or_else(default_db_path);
+    mycelium_core::at_rest::clear_keyring_master(&path);
+    if std::path::Path::new(&path).exists() {
+        std::fs::remove_dir_all(&path).map_err(|e| format!("failed to reset local data: {e}"))?;
+        tracing::info!("reset local data at {path}");
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -86,6 +160,9 @@ async fn start_node(
         }
     }
 
+    let ui_settings = load_ui_settings(&db_path);
+    let connectivity = mycelium_node::ConnectivityMonitor::new();
+    mycelium_node::ConnectivityMonitor::spawn_monitor(connectivity.mode_tx.clone());
     let config = NodeConfig {
         listen_addr: "/ip4/0.0.0.0/tcp/0".parse().expect("valid listen addr"),
         db_path: db_path.clone(),
@@ -93,10 +170,11 @@ async fn start_node(
         forwarding_interval_ms: 500,
         sync_interval_secs: 30,
         bootstrap_peers,
-        connectivity_rx: None,
+        connectivity_rx: Some(connectivity.mode_rx.clone()),
         display_name: Some(display_name.clone()),
         storage_key: None,
         max_relay_fanout: 3,
+        rendezvous_enabled: ui_settings.rendezvous_enabled,
     };
     let (runner, handle) = NodeRunner::new(config).map_err(|e| e.to_string())?;
     let local_peer_id = runner.local_peer_id().to_string();
@@ -132,7 +210,9 @@ async fn start_node(
         local_peer_id.clone(),
         display_name,
         app_storage.clone(),
-        Arc::new(NoopNotifier),
+        Arc::new(DesktopNotifier {
+            app: app.clone(),
+        }),
         Some(coin_node.clone()),
         Some(app_store.clone()),
     );
@@ -152,6 +232,7 @@ async fn start_node(
         db_path: db_path.clone(),
         cap_mac_key,
         energy_state: NodeState::Active,
+        rendezvous_enabled: ui_settings.rendezvous_enabled,
     });
 
     Ok(local_peer_id)
@@ -163,7 +244,172 @@ async fn get_peers(state: State<'_, SharedState>) -> Result<Vec<String>, String>
     let Some(s) = guard.as_ref() else {
         return Ok(vec![]);
     };
-    Ok(s.handle.known_peers().await)
+    let relay = mycelium_core::bootstrap::RELAY_PEER_ID;
+    Ok(s.handle
+        .known_peers()
+        .await
+        .into_iter()
+        .filter(|p| p != relay)
+        .collect())
+}
+
+#[tauri::command]
+fn get_relay_status() -> Result<serde_json::Value, String> {
+    let status = mycelium_core::relay_status::fetch_relay_status(None);
+    serde_json::to_value(status).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn get_shareable_multiaddrs(state: State<'_, SharedState>) -> Result<Vec<String>, String> {
+    let guard = state.read().await;
+    let s = guard
+        .as_ref()
+        .ok_or_else(|| "node not started".to_string())?;
+    let listen = s.handle.listen_addrs().await;
+    Ok(mycelium_core::bootstrap::shareable_dial_multiaddrs(
+        &s.local_peer_id,
+        &listen,
+    ))
+}
+
+#[tauri::command]
+async fn connect_peer_id(state: State<'_, SharedState>, peer_id: String) -> Result<(), String> {
+    let input = peer_id.trim();
+    let target = mycelium_core::invite::parse_invite(input)
+        .ok_or_else(|| "invalid invite — use mycelium://invite/v1#… or a peer ID".to_string())?;
+    match target {
+        mycelium_core::invite::InviteTarget::Multiaddr(addr) => add_peer(state, addr).await,
+        mycelium_core::invite::InviteTarget::PeerId(peer_id) => {
+            let label = peer_id.chars().take(16).collect::<String>();
+            {
+                let guard = state.read().await;
+                let s = guard
+                    .as_ref()
+                    .ok_or_else(|| "node not started".to_string())?;
+                let _ = s
+                    .app_node
+                    .add_contact(&peer_id, &label, true)
+                    .map_err(|e| e.to_string())?;
+            }
+            let addr = mycelium_core::bootstrap::relay_circuit_multiaddr(&peer_id)
+                .ok_or_else(|| "invalid peer id".to_string())?;
+            add_peer(state, addr).await
+        }
+    }
+}
+
+fn contact_json(c: Contact) -> serde_json::Value {
+    let status = match c.status {
+        ContactStatus::Pending => "pending",
+        ContactStatus::Accepted => "accepted",
+    };
+    json!({
+        "peer_id": c.peer_id,
+        "display_name": c.display_name,
+        "added_at_ms": c.added_at_ms,
+        "status": status,
+    })
+}
+
+#[tauri::command]
+async fn list_contacts(state: State<'_, SharedState>) -> Result<Vec<serde_json::Value>, String> {
+    let guard = state.read().await;
+    let s = guard
+        .as_ref()
+        .ok_or_else(|| "node not started".to_string())?;
+    Ok(s.app_node
+        .list_contacts()
+        .map_err(|e| e.to_string())?
+        .into_iter()
+        .map(contact_json)
+        .collect())
+}
+
+#[tauri::command]
+async fn list_accepted_contacts(
+    state: State<'_, SharedState>,
+) -> Result<Vec<serde_json::Value>, String> {
+    let guard = state.read().await;
+    let s = guard
+        .as_ref()
+        .ok_or_else(|| "node not started".to_string())?;
+    Ok(s.app_node
+        .list_accepted_contacts()
+        .map_err(|e| e.to_string())?
+        .into_iter()
+        .map(contact_json)
+        .collect())
+}
+
+#[tauri::command]
+async fn list_pending_contacts(
+    state: State<'_, SharedState>,
+) -> Result<Vec<serde_json::Value>, String> {
+    let guard = state.read().await;
+    let s = guard
+        .as_ref()
+        .ok_or_else(|| "node not started".to_string())?;
+    Ok(s.app_node
+        .list_pending_contacts()
+        .map_err(|e| e.to_string())?
+        .into_iter()
+        .map(contact_json)
+        .collect())
+}
+
+#[tauri::command]
+async fn add_contact(
+    app: AppHandle,
+    state: State<'_, SharedState>,
+    peer_id: String,
+    display_name: String,
+    accepted: bool,
+) -> Result<serde_json::Value, String> {
+    let guard = state.read().await;
+    let s = guard
+        .as_ref()
+        .ok_or_else(|| "node not started".to_string())?;
+    let c = s
+        .app_node
+        .add_contact(&peer_id, &display_name, accepted)
+        .map_err(|e| e.to_string())?;
+    let _ = app.emit("contacts-updated", ());
+    Ok(contact_json(c))
+}
+
+#[tauri::command]
+async fn accept_contact(
+    app: AppHandle,
+    state: State<'_, SharedState>,
+    peer_id: String,
+) -> Result<serde_json::Value, String> {
+    let guard = state.read().await;
+    let s = guard
+        .as_ref()
+        .ok_or_else(|| "node not started".to_string())?;
+    let c = s
+        .app_node
+        .accept_contact(&peer_id)
+        .map_err(|e| e.to_string())?;
+    let _ = app.emit("contacts-updated", ());
+    Ok(contact_json(c))
+}
+
+#[tauri::command]
+async fn reject_contact(
+    app: AppHandle,
+    state: State<'_, SharedState>,
+    peer_id: String,
+) -> Result<(), String> {
+    let guard = state.read().await;
+    let s = guard
+        .as_ref()
+        .ok_or_else(|| "node not started".to_string())?;
+    s.app_node
+        .reject_contact(&peer_id)
+        .map_err(|e| e.to_string())?;
+    let _ = app.emit("contacts-updated", ());
+    Ok(())
 }
 
 #[tauri::command]
@@ -855,7 +1101,28 @@ async fn get_settings(state: State<'_, SharedState>) -> Result<serde_json::Value
         "display_name": display_name,
         "energy_state": node_state_label(s.energy_state),
         "local_peer_id": s.local_peer_id,
+        "rendezvous_enabled": s.rendezvous_enabled,
     }))
+}
+
+#[tauri::command]
+async fn set_rendezvous_enabled(
+    state: State<'_, SharedState>,
+    enabled: bool,
+) -> Result<(), String> {
+    let mut guard = state.write().await;
+    let s = guard
+        .as_mut()
+        .ok_or_else(|| "node not started".to_string())?;
+    s.handle
+        .send(NodeCommand::SetRendezvousEnabled(enabled))
+        .await
+        .map_err(|e| e.to_string())?;
+    s.rendezvous_enabled = enabled;
+    let mut ui = load_ui_settings(&s.db_path);
+    ui.rendezvous_enabled = enabled;
+    save_ui_settings(&s.db_path, &ui)?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -1042,8 +1309,18 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             get_default_db_path,
+            reset_local_data,
             start_node,
             get_peers,
+            get_relay_status,
+            get_shareable_multiaddrs,
+            connect_peer_id,
+            list_contacts,
+            list_accepted_contacts,
+            list_pending_contacts,
+            add_contact,
+            accept_contact,
+            reject_contact,
             get_metrics,
             send_chat,
             peer_has_enc_key,
@@ -1080,6 +1357,7 @@ pub fn run() {
             get_settings,
             set_display_name,
             set_energy_state,
+            set_rendezvous_enabled,
             get_store_stats,
             run_gc,
             get_custom_bootstrap_peers,

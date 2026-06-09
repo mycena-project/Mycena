@@ -13,6 +13,7 @@ import kotlinx.coroutines.launch
 import network.mycelium.app.MeshEvent
 import network.mycelium.app.meshEvents
 import network.mycelium.bindings.ConnectivityMode
+import network.mycelium.app.bootstrap.RelayBootstrap
 import network.mycelium.bindings.mycelium
 
 /** How long to show the animated “searching” banner after start or connectivity change. */
@@ -60,7 +61,8 @@ class StatusViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun refreshPeerCount() {
-        _peerCount.value = mycelium.knownPeers().size
+        _peerCount.value =
+            mycelium.knownPeers().count { it != RelayBootstrap.RELAY_PEER_ID }
     }
 
     private fun pulseSearchingBanner(initial: Boolean = false) {

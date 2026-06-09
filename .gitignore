@@ -49,3 +49,6 @@ node_modules/
 /okhttp3/
 /com/
 /mycelium-serve.sh
+
+# Generated UniFFI Kotlin (regenerate via scripts/regenerate-uniffi-kotlin.sh)
+/android/uniffi-bindings/src/main/kotlin/uniffi/mycelium/mycelium.kt

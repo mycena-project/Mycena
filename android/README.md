@@ -30,17 +30,22 @@ This does:
 3. Generates Kotlin bindings from `crates/mycelium-ffi/src/mycelium.udl`
 4. Runs Android Gradle build (`./android/gradlew assembleDebug`)
 
-## 1b) Full build inside Docker (no local Android SDK / NDK)
+## 1b) Build inside Docker (no local Rust / Android SDK)
 
-From the **workspace root** (needs Docker, long first run for SDK + Gradle + Rust caches):
+**Toolchain image only** (~3–4 GiB, mostly NDK — not the whole repo):
 
 ```bash
 make docker-android-ci
-# or:
-make docker-compose-android
 ```
 
-This builds the image defined in `docker/android-ci/Dockerfile` (see also `docker-compose.yml` profile `android`), which installs JDK 17, Android SDK/NDK, Rust + `cargo-ndk`, then runs `./android/build.sh` so the APK is produced entirely in the container. The image targets **linux/amd64** by default (see `FROM` in the Dockerfile), which avoids some host-triple issues on arm64 Docker hosts; on Apple Silicon the first build can be slower due to emulation.
+**APK on host** (mounts repo; Rust/Gradle caches stay in Docker volumes):
+
+```bash
+./scripts/docker-android-build.sh
+adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+Do **not** use `docker build -f docker/android-ci/Dockerfile .` from repo root — that old pattern copied the project into the image and inflated it to 10+ GiB. The slim Dockerfile lives in `docker/android-ci/` with context `docker/android-ci` only.
 
 ## 1c) Manual GitHub Action → Google Play
 

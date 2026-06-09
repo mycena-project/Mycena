@@ -55,5 +55,11 @@
             android:name=".miniapp.MiniAppProcessActivity"
             android:exported="false"
             android:process=":miniapp" />
+
+        <activity
+            android:name=".PortraitQrScanActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:stateNotNeeded="true" />
     </application>
 </manifest>

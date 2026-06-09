@@ -1,3 +1,4 @@
+use crate::contacts::{Contact, ContactStatus};
 use crate::envelope::{
     AppId, AppMessage, AppPayload, Attachment, BulletinPost, ChatMessage, MailMessage,
 };
@@ -140,12 +141,49 @@ impl AppNode {
             Ok(app_msg) => match app_msg.payload {
                 AppPayload::Chat(m) => {
                     let peer = msg.envelope.from_peer.clone();
+                    if peer == self.local_peer_id {
+                        return;
+                    }
+                    let accepted = match self.storage.contact_by_id(&peer) {
+                        Ok(Some(c)) if c.status == ContactStatus::Accepted => true,
+                        Ok(Some(Contact {
+                            status: ContactStatus::Pending,
+                            display_name,
+                            ..
+                        })) => {
+                            self.notifier
+                                .on_contact_request(&peer, display_name.as_str());
+                            false
+                        }
+                        Ok(None) => {
+                            let name = if m.from_display_name.is_empty() {
+                                peer.chars().take(12).collect::<String>()
+                            } else {
+                                m.from_display_name.clone()
+                            };
+                            if let Err(e) = self
+                                .storage
+                                .upsert_contact(&peer, &name, ContactStatus::Pending)
+                            {
+                                warn!("failed to save pending contact: {e}");
+                            }
+                            self.notifier.on_contact_request(&peer, &name);
+                            false
+                        }
+                        Err(e) => {
+                            warn!("contact lookup failed: {e}");
+                            false
+                        }
+                        Ok(Some(_)) => false,
+                    };
                     if let Err(err) = self.storage.save_chat(&peer, &m) {
                         warn!("failed to save chat: {err}");
                     }
-                    self.notifier
-                        .on_chat_received(&peer, &m.body.chars().take(40).collect::<String>());
-                    let _ = self.chat_tx.send(m);
+                    if accepted {
+                        self.notifier
+                            .on_chat_received(&peer, &m.body.chars().take(40).collect::<String>());
+                        let _ = self.chat_tx.send(m);
+                    }
                 }
                 AppPayload::Bulletin(m) => {
                     if let Err(err) = self.storage.save_bulletin(&m) {
@@ -258,6 +296,7 @@ impl AppNode {
                 Ok(ChatSendResult::SentPlaintext)
             }
             Some(to) => {
+                self.ensure_contact_accepted_for_send(&to, "")?;
                 if self.handle.has_enc_key_for(&to).await {
                     self.send_chat_encrypted(to, body).await?;
                     Ok(ChatSendResult::SentEncrypted)
@@ -302,6 +341,7 @@ impl AppNode {
         to_peer: String,
         body: String,
     ) -> anyhow::Result<EncryptionResult> {
+        self.ensure_contact_accepted_for_send(&to_peer, "")?;
         let display_name = self.display_name.read().await.clone();
         let chat = ChatMessage {
             id: uuid::Uuid::new_v4(),
@@ -475,6 +515,72 @@ impl AppNode {
         limit: usize,
     ) -> anyhow::Result<Vec<ChatMessage>> {
         self.storage.chat_history(peer_id, limit)
+    }
+
+    pub fn ensure_contact_accepted_for_send(
+        &self,
+        peer_id: &str,
+        display_name: &str,
+    ) -> anyhow::Result<()> {
+        let name = if display_name.is_empty() {
+            self.storage
+                .contact_by_id(peer_id)?
+                .map(|c| c.display_name)
+                .unwrap_or_else(|| peer_id.chars().take(12).collect())
+        } else {
+            display_name.to_string()
+        };
+        self.storage
+            .upsert_contact(peer_id, &name, ContactStatus::Accepted)?;
+        Ok(())
+    }
+
+    pub fn list_contacts(&self) -> anyhow::Result<Vec<Contact>> {
+        self.storage.all_contacts()
+    }
+
+    pub fn list_accepted_contacts(&self) -> anyhow::Result<Vec<Contact>> {
+        self.storage.contacts_with_status(ContactStatus::Accepted)
+    }
+
+    pub fn list_pending_contacts(&self) -> anyhow::Result<Vec<Contact>> {
+        self.storage.contacts_with_status(ContactStatus::Pending)
+    }
+
+    pub fn add_contact(
+        &self,
+        peer_id: &str,
+        display_name: &str,
+        accepted: bool,
+    ) -> anyhow::Result<Contact> {
+        let status = if accepted {
+            ContactStatus::Accepted
+        } else {
+            ContactStatus::Pending
+        };
+        let name = if display_name.is_empty() {
+            peer_id.to_string()
+        } else {
+            display_name.to_string()
+        };
+        self.storage.upsert_contact(peer_id, &name, status)
+    }
+
+    pub fn accept_contact(&self, peer_id: &str) -> anyhow::Result<Contact> {
+        let existing = self.storage.contact_by_id(peer_id)?;
+        let name = existing
+            .map(|c| c.display_name)
+            .unwrap_or_else(|| peer_id.to_string());
+        self.storage
+            .upsert_contact(peer_id, &name, ContactStatus::Accepted)
+    }
+
+    pub fn reject_contact(&self, peer_id: &str) -> anyhow::Result<()> {
+        self.storage.delete_contact(peer_id)
+    }
+
+    pub fn remove_contact(&self, peer_id: &str) -> anyhow::Result<()> {
+        self.storage.delete_contact(peer_id)
     }
 
     pub fn bulletins_for_scope(&self, scope: &str) -> anyhow::Result<Vec<BulletinPost>> {

@@ -21,10 +21,23 @@
   let peers = $state(0);
   let forwarded = $state(0);
   let queue = $state(0);
-  const views = ["chat", "groups", "mail", "bulletin", "peers", "wallet", "miniapp", "settings"];
+  const views = [
+    { id: "chat", label: "Chat" },
+    { id: "groups", label: "Groups" },
+    { id: "mail", label: "Mail" },
+    { id: "bulletin", label: "Bulletin" },
+    { id: "peers", label: "Connect" },
+    { id: "wallet", label: "Wallet" },
+    { id: "miniapp", label: "Mini apps" },
+    { id: "settings", label: "Settings" },
+  ];
 
   async function startNode(config) {
-    peerId = await invoke("start_node", config);
+    peerId = await invoke("start_node", {
+      dbPath: config.dbPath,
+      displayName: config.displayName,
+      bootstrapPeers: config.bootstrapPeers ?? [],
+    });
     nodeStarted = true;
   }
 
@@ -39,7 +52,7 @@
 </script>
 
 {#if !nodeStarted}
-  <Setup on:start={(e) => startNode(e.detail)} />
+  <Setup onstart={startNode} />
 {:else}
   <div class="app">
     <nav>
@@ -49,8 +62,8 @@
         {peers} peer{peers !== 1 ? "s" : ""}
       </div>
       {#each views as view}
-        <button class:active={activeView === view} onclick={() => (activeView = view)}>
-          {view}
+        <button class:active={activeView === view.id} onclick={() => (activeView = view.id)}>
+          {view.label}
         </button>
       {/each}
       <div class="metrics-mini">
@@ -101,7 +114,13 @@
   nav button { text-align: left; padding: 8px 12px; border-radius: 6px; border: none; background: none; cursor: pointer; font-size: 14px; color: var(--text-secondary); text-transform: capitalize; }
   nav button.active { background: var(--accent-subtle); color: var(--accent); font-weight: 500; }
   .metrics-mini { margin-top: auto; font-size: 11px; color: var(--text-muted); padding: 4px 8px; display: flex; justify-content: space-between; }
-  main { flex: 1; overflow: hidden; }
+  main {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
   .miniapp-run {
     display: flex;
     flex-direction: column;
@@ -118,6 +137,8 @@
     cursor: pointer;
     font-size: 13px;
   }
+  :global(html, body, #app) { height: 100%; }
+  :global(body) { overflow: hidden; }
   :global(*) { box-sizing: border-box; margin: 0; padding: 0; }
   :global(:root) {
     --border: #e5e3da;

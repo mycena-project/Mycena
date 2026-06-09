@@ -17,6 +17,7 @@ sealed interface MeshEvent {
     data object PeerUp : MeshEvent
     data object PeerDown : MeshEvent
     data object AppStore : MeshEvent
+    data object Contacts : MeshEvent
     data class Connectivity(val mode: ConnectivityMode) : MeshEvent
 }
 
@@ -36,6 +37,7 @@ fun Context.meshEvents(): Flow<MeshEvent> =
                             MeshEvents.PEER_UP -> MeshEvent.PeerUp
                             MeshEvents.PEER_DOWN -> MeshEvent.PeerDown
                             MeshEvents.APPSTORE -> MeshEvent.AppStore
+                            MeshEvents.CONTACTS -> MeshEvent.Contacts
                             MeshEvents.CONNECTIVITY -> {
                                 val internet = intent.getBooleanExtra(MeshEvents.EXTRA_INTERNET, true)
                                 MeshEvent.Connectivity(
@@ -55,6 +57,7 @@ fun Context.meshEvents(): Flow<MeshEvent> =
                 addAction(MeshEvents.PEER_UP)
                 addAction(MeshEvents.PEER_DOWN)
                 addAction(MeshEvents.APPSTORE)
+                addAction(MeshEvents.CONTACTS)
                 addAction(MeshEvents.CONNECTIVITY)
             }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {

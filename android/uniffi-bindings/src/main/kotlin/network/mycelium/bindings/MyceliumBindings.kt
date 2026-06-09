@@ -14,6 +14,8 @@ typealias HotWalletConfig = uniffi.mycelium.HotWalletConfig
 typealias HotWalletStatus = uniffi.mycelium.HotWalletStatus
 typealias PaymentRequestData = uniffi.mycelium.PaymentRequestData
 typealias GroupInfo = uniffi.mycelium.GroupInfo
+typealias ContactInfo = uniffi.mycelium.ContactInfo
+typealias ContactStatus = uniffi.mycelium.ContactStatus
 typealias MiniAppInfo = uniffi.mycelium.MiniAppInfo
 typealias AppStoreListing = uniffi.mycelium.AppStoreListing
 typealias MiniAppInstallPreview = uniffi.mycelium.MiniAppInstallPreview
@@ -38,6 +40,7 @@ object mycelium {
     fun mailSent(limit: UInt): List<MailMessage> = uniffi.mycelium.mailSent(limit)
     fun markMailRead(mailId: String) = uniffi.mycelium.markMailRead(mailId)
     fun setDisplayName(name: String) = uniffi.mycelium.setDisplayName(name)
+    fun setRendezvousEnabled(enabled: Boolean) = uniffi.mycelium.setRendezvousEnabled(enabled)
     fun displayName(): String = uniffi.mycelium.displayName()
     fun setEnergyState(state: EnergyState) = uniffi.mycelium.setEnergyState(state)
     fun addBootstrapPeer(multiaddr: String) = uniffi.mycelium.addBootstrapPeer(multiaddr)
@@ -58,6 +61,15 @@ object mycelium {
         uniffi.mycelium.buildPaymentRequestUri(toAddress, amountMuon, memo)
     fun parsePaymentRequestUri(uri: String): PaymentRequestData? =
         uniffi.mycelium.parsePaymentRequestUri(uri)
+
+    fun listContacts(): List<ContactInfo> = uniffi.mycelium.listContacts()
+    fun listAcceptedContacts(): List<ContactInfo> = uniffi.mycelium.listAcceptedContacts()
+    fun listPendingContacts(): List<ContactInfo> = uniffi.mycelium.listPendingContacts()
+    fun addContact(peerId: String, displayName: String, accepted: Boolean): ContactInfo =
+        uniffi.mycelium.addContact(peerId, displayName, accepted)
+    fun acceptContact(peerId: String): ContactInfo = uniffi.mycelium.acceptContact(peerId)
+    fun rejectContact(peerId: String) = uniffi.mycelium.rejectContact(peerId)
+    fun removeContact(peerId: String) = uniffi.mycelium.removeContact(peerId)
 
     fun listGroups(): List<GroupInfo> = uniffi.mycelium.listGroups()
     fun createGroup(name: String): GroupInfo = uniffi.mycelium.createGroup(name)

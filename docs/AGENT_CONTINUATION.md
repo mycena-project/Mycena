@@ -24,14 +24,15 @@ docker compose --profile rust run --rm rust-tests
 
 ### Vollständiger Android-Build (Rust NDK + UniFFI + Gradle)
 
-Bereits vorhanden – lädt SDK/NDK im Image (langsamer erster Build, kein `ANDROID_HOME` auf dem Host nötig):
+Toolchain-Image (schlank, ohne Repo-COPY):
 
 ```bash
 cd Mycelium
-docker compose --profile android build android-ci
+make docker-android-ci
+./scripts/docker-android-build.sh
 ```
 
-Siehe Kommentare in `docker-compose.yml` und `docker/android-ci/Dockerfile`.
+Siehe `docker/android-ci/Dockerfile` und `scripts/docker-android-build.sh`.
 
 ### Lokal ohne Docker
 
@@ -39,6 +40,13 @@ Siehe Kommentare in `docker-compose.yml` und `docker/android-ci/Dockerfile`.
 - Android: `ANDROID_HOME` oder `android/local.properties` mit `sdk.dir=…`
 
 ---
+
+## Discovery & contacts (Phase A–C)
+
+- **Transport:** mDNS (LAN), relay circuit, rendezvous (opt-in), BLE bootstrap, manual multiaddr / `mycelium://invite/v1#…` QR.
+- **Contacts:** `contacts:data` in app storage; chat only with **Accepted**; unknown → **Pending** + `on_contact_request` / `contacts-updated`.
+- **Relay API:** `GET /rendezvous`, `POST /rendezvous/register`, `POST /rendezvous/unregister` (see [DISCOVERY.md](./DISCOVERY.md)).
+- **Android i18n:** `values-de`, `values-ar`, `values-ru`, `values-fa`, `values-zh-rCN` synced via `scripts/sync-android-i18n.py`.
 
 ## Implementiert (Stand MVP, E2E / Gruppen / Multi-Hop)
 

@@ -7,10 +7,50 @@
 
 /// Eingebettete Bootstrap-Peer-Adressen.
 /// Format: libp2p Multiaddr — /dns4/<host>/tcp/<port>/p2p/<peer-id>
+pub const RELAY_PEER_ID: &str = "12D3KooWGv6goWd2fHwcigDjqQm5Dfw28UijwEjnMcYwTpPRPZy6";
+
+/// Public relay / bootstrap infra — not a user device in Connect UI.
+pub fn is_relay_peer(peer_id: &str) -> bool {
+    peer_id.trim() == RELAY_PEER_ID
+}
+
 pub const BOOTSTRAP_PEERS: &[&str] = &[
     "/dns4/mycelium-relay.fly.dev/tcp/4001/p2p/12D3KooWGv6goWd2fHwcigDjqQm5Dfw28UijwEjnMcYwTpPRPZy6",
     "/dns4/mycelium-relay.fly.dev/udp/4001/quic-v1/p2p/12D3KooWGv6goWd2fHwcigDjqQm5Dfw28UijwEjnMcYwTpPRPZy6",
 ];
+
+/// libp2p circuit address to reach `remote_peer_id` via the public relay (NAT traversal).
+pub fn relay_circuit_multiaddr(remote_peer_id: &str) -> Option<String> {
+    let remote = remote_peer_id.trim();
+    if remote.is_empty() {
+        return None;
+    }
+    let base = BOOTSTRAP_PEERS
+        .iter()
+        .find(|addr| addr.contains("/tcp/"))?;
+    Some(format!("{base}/p2p-circuit/p2p/{remote}"))
+}
+
+/// Shareable dial info: compact invite first (QR), then relay circuit, then listen addrs.
+pub fn shareable_dial_multiaddrs(local_peer_id: &str, listen_addrs: &[String]) -> Vec<String> {
+    let mut out = Vec::new();
+    out.push(crate::invite::encode_invite(local_peer_id));
+    if let Some(circuit) = relay_circuit_multiaddr(local_peer_id) {
+        out.push(circuit);
+    }
+    for addr in listen_addrs {
+        let trimmed = addr.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        if trimmed.contains("/p2p/") {
+            out.push(trimmed.to_string());
+        } else {
+            out.push(format!("{trimmed}/p2p/{local_peer_id}"));
+        }
+    }
+    out
+}
 
 /// Lädt Bootstrap-Peers mit folgender Priorität:
 /// 1. Umgebungsvariable `MYCELIUM_BOOTSTRAP_PEERS` (kommasepariert)
@@ -78,6 +118,43 @@ pub fn load_custom_bootstrap_peers(db_path: &str) -> Vec<String> {
         .unwrap_or_default()
 }
 
+/// Peers / multiaddrs the user added via QR or Connect (retried until connected).
+const DIAL_PEERS_FILE: &str = "dial_peers.txt";
+
+/// Load persisted dial targets (one multiaddr per line).
+pub fn load_persisted_dial_peers(db_path: &str) -> Vec<String> {
+    let path = std::path::Path::new(db_path).join(DIAL_PEERS_FILE);
+    if !path.exists() {
+        return Vec::new();
+    }
+    std::fs::read_to_string(&path)
+        .map(|content| {
+            content
+                .lines()
+                .map(str::trim)
+                .filter(|l| !l.is_empty() && !l.starts_with('#'))
+                .map(String::from)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Append a dial target if not already stored (QR scan, Connect tab, etc.).
+pub fn persist_dial_peer(db_path: &str, multiaddr: &str) -> std::io::Result<()> {
+    let trimmed = multiaddr.trim();
+    if trimmed.is_empty() {
+        return Ok(());
+    }
+    let mut peers = load_persisted_dial_peers(db_path);
+    if peers.iter().any(|p| p == trimmed) {
+        return Ok(());
+    }
+    peers.push(trimmed.to_string());
+    std::fs::create_dir_all(db_path)?;
+    let path = std::path::Path::new(db_path).join(DIAL_PEERS_FILE);
+    std::fs::write(path, peers.join("\n"))
+}
+
 /// Persists custom bootstrap peers to `<db_path>/bootstrap.txt`.
 pub fn save_custom_bootstrap_peers(db_path: &str, peers: &[String]) -> std::io::Result<()> {
     std::fs::create_dir_all(db_path)?;
@@ -89,4 +166,18 @@ pub fn save_custom_bootstrap_peers(db_path: &str, peers: &[String]) -> std::io::
         return Ok(());
     }
     std::fs::write(path, peers.join("\n"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn relay_circuit_addr_uses_embedded_relay() {
+        let addr = relay_circuit_multiaddr("12D3KooWExamplePeerIdForTestOnly")
+            .expect("circuit addr");
+        assert!(addr.contains("mycelium-relay.fly.dev"));
+        assert!(addr.contains("/p2p-circuit/p2p/12D3KooWExamplePeerIdForTestOnly"));
+        assert!(addr.contains(RELAY_PEER_ID));
+    }
 }

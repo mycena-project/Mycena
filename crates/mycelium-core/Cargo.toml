@@ -20,6 +20,8 @@ libp2p.workspace = true
 rand.workspace = true
 rand_core.workspace = true
 serde.workspace = true
+serde_json.workspace = true
+ureq = { version = "2", default-features = false, features = ["tls", "json"] }
 sha2.workspace = true
 tracing.workspace = true
 x25519-dalek.workspace = true

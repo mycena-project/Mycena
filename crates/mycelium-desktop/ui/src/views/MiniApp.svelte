@@ -6,7 +6,7 @@
   let iframeEl;
   let html = $state("");
   let scriptNonce = crypto.randomUUID().replace(/-/g, "");
-  let appDisplayName = $state(appId);
+  let appDisplayName = $state("");
 
   const GRANTS_KEY = "mycelium_miniapp_grants";
   const MAX_SINGLE_PAYMENT = 100_000_000;
@@ -106,12 +106,14 @@
   }
 
   async function loadApp() {
+    const id = appId;
+    appDisplayName = id;
     const rawHtml = await invoke("miniapp_get_entry_html", {
-      appId,
+      appId: id,
       scriptNonce,
     });
     const installed = await invoke("miniapp_list_installed");
-    const info = installed.find((a) => a.id === appId);
+    const info = installed.find((a) => a.id === id);
     if (info?.name) appDisplayName = info.name;
 
     const csp = buildCsp(scriptNonce);
@@ -358,12 +360,13 @@
   }
 
   $effect(() => {
+    const id = appId;
     loadApp();
     loadPolicy();
     window.addEventListener("message", handleMessage);
     return () => {
       window.removeEventListener("message", handleMessage);
-      invoke("miniapp_revoke_bridge_session", { appId }).catch(() => {});
+      invoke("miniapp_revoke_bridge_session", { appId: id }).catch(() => {});
     };
   });
 </script>

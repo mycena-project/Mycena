@@ -35,7 +35,7 @@ for arg in "$@"; do
 done
 
 if [[ "$DO_BUILD" -eq 1 ]]; then
-  "$ROOT/scripts/build-android-apk.sh"
+  "$ROOT/scripts/mingc-android-build.sh"
   APK="$DEFAULT_APK"
 fi
 
@@ -93,7 +93,7 @@ fi
 
 if [[ ! -f "$APK" ]]; then
   echo "APK not found: $APK" >&2
-  echo "Run: ./scripts/build-android-apk.sh  or  ./scripts/install-android-apk.sh --build" >&2
+  echo "Run: make android-apk  or  ./scripts/install-android-apk.sh --build" >&2
   exit 1
 fi
 

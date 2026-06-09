@@ -17,6 +17,7 @@ use mycelium_core::transport::{
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet, VecDeque};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::sync::{broadcast, mpsc, RwLock};
@@ -44,6 +45,8 @@ pub struct NodeConfig {
     pub storage_key: Option<[u8; 32]>,
     /// Max relay candidates when the destination peer is not directly connected.
     pub max_relay_fanout: usize,
+    /// When true, register on relay rendezvous and dial other opted-in peers.
+    pub rendezvous_enabled: bool,
 }
 
 fn default_max_relay_fanout() -> usize {
@@ -65,6 +68,7 @@ impl Default for NodeConfig {
             display_name: None,
             storage_key: None,
             max_relay_fanout: default_max_relay_fanout(),
+            rendezvous_enabled: true,
         }
     }
 }
@@ -86,6 +90,7 @@ impl NodeConfig {
             display_name: None,
             storage_key: None,
             max_relay_fanout: default_max_relay_fanout(),
+            rendezvous_enabled: true,
         }
     }
 }
@@ -127,6 +132,7 @@ pub enum NodeCommand {
     },
     ListPeers,
     SetEnergyState(NodeState),
+    SetRendezvousEnabled(bool),
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
@@ -159,6 +165,7 @@ pub struct NodeHandle {
     scopes: Arc<RwLock<HashSet<String>>>,
     enc_pubkey_hex: String,
     peer_x25519: Arc<RwLock<HashMap<String, [u8; 32]>>>,
+    listen_addrs: Arc<RwLock<Vec<String>>>,
 }
 
 impl NodeHandle {
@@ -176,7 +183,17 @@ impl NodeHandle {
     }
 
     pub async fn known_peers(&self) -> Vec<String> {
-        self.peers.read().await.clone()
+        self.peers
+            .read()
+            .await
+            .iter()
+            .filter(|p| !mycelium_core::bootstrap::is_relay_peer(p))
+            .cloned()
+            .collect()
+    }
+
+    pub async fn listen_addrs(&self) -> Vec<String> {
+        self.listen_addrs.read().await.clone()
     }
 
     pub async fn peer_reputation(&self, peer_id: &str) -> Option<PeerReputationSnapshot> {
@@ -249,15 +266,23 @@ pub struct NodeRunner {
     display_name: Option<String>,
     peer_x25519: Arc<RwLock<HashMap<String, [u8; 32]>>>,
     max_relay_fanout: usize,
+    listen_addrs: Arc<RwLock<Vec<String>>>,
+    rendezvous_enabled: Arc<AtomicBool>,
+    db_path: String,
 }
 
 impl NodeRunner {
     pub fn new(config: NodeConfig) -> anyhow::Result<(Self, NodeHandle)> {
-        let bootstrap_peers = if config.bootstrap_peers.is_empty() {
+        let mut bootstrap_peers = if config.bootstrap_peers.is_empty() {
             load_bootstrap_peers(&config.db_path)
         } else {
             config.bootstrap_peers.clone()
         };
+        for extra in mycelium_core::bootstrap::load_persisted_dial_peers(&config.db_path) {
+            if !bootstrap_peers.iter().any(|p| p == &extra) {
+                bootstrap_peers.push(extra);
+            }
+        }
         let keypair_path = config
             .keypair_path
             .clone()
@@ -282,6 +307,7 @@ impl NodeRunner {
             crate::secrets::load_or_create_enc_keypair(&config.db_path, config.storage_key)?;
         let enc_pubkey_hex = enc_keypair.public_hex();
         let peer_x25519 = Arc::new(RwLock::new(HashMap::new()));
+        let listen_addrs = Arc::new(RwLock::new(Vec::new()));
         let display_name = config.display_name.clone();
         let store = Arc::new(SledMessageStore::open(&config.db_path)?);
         let ingest = IngestPipeline::new(store.clone());
@@ -294,6 +320,7 @@ impl NodeRunner {
         let scopes = Arc::new(RwLock::new(initial_scopes));
         let (incoming_tx, _) = broadcast::channel(512);
         let (tx, cmd_rx) = mpsc::channel(64);
+        let rendezvous_enabled = Arc::new(AtomicBool::new(config.rendezvous_enabled));
         Ok((
             Self {
                 local_peer_id,
@@ -320,6 +347,9 @@ impl NodeRunner {
                 display_name,
                 peer_x25519: peer_x25519.clone(),
                 max_relay_fanout: config.max_relay_fanout,
+                listen_addrs: listen_addrs.clone(),
+                rendezvous_enabled: rendezvous_enabled.clone(),
+                db_path: config.db_path.clone(),
             },
             NodeHandle {
                 tx,
@@ -330,6 +360,7 @@ impl NodeRunner {
                 scopes,
                 enc_pubkey_hex,
                 peer_x25519,
+                listen_addrs,
             },
         ))
     }
@@ -352,6 +383,35 @@ impl NodeRunner {
         sync_tick.set_missed_tick_behavior(MissedTickBehavior::Skip);
         let mut gc_tick = interval(Duration::from_secs(6 * 60 * 60));
         gc_tick.set_missed_tick_behavior(MissedTickBehavior::Skip);
+        let (rendezvous_tx, mut rendezvous_rx) = mpsc::channel::<Vec<String>>(8);
+        let rendezvous_local = self.local_peer_id.clone();
+        let rendezvous_flag = self.rendezvous_enabled.clone();
+        tokio::spawn(async move {
+            let mut tick = interval(Duration::from_secs(45));
+            tick.set_missed_tick_behavior(MissedTickBehavior::Skip);
+            loop {
+                tick.tick().await;
+                if !rendezvous_flag.load(Ordering::Relaxed) {
+                    continue;
+                }
+                let local = rendezvous_local.clone();
+                let remote_ids = tokio::task::spawn_blocking(move || {
+                    mycelium_core::rendezvous::set_relay_rendezvous_registration(
+                        &local, true, None,
+                    );
+                    mycelium_core::rendezvous::fetch_relay_rendezvous(None)
+                })
+                .await
+                .unwrap_or_default();
+                if rendezvous_tx.send(remote_ids).await.is_err() {
+                    break;
+                }
+            }
+        });
+
+        self.transport.redial_stored_targets();
+        let mut dial_tick = interval(Duration::from_secs(15));
+        dial_tick.set_missed_tick_behavior(MissedTickBehavior::Skip);
         loop {
             tokio::select! {
                 transport_event = self.transport.next_event() => {
@@ -359,6 +419,9 @@ impl NodeRunner {
                 }
                 Some(cmd) = self.cmd_rx.recv() => {
                     self.handle_command(cmd).await?;
+                }
+                Some(remote_ids) = rendezvous_rx.recv() => {
+                    self.dial_rendezvous_list(remote_ids).await;
                 }
                 _ = forward_tick.tick() => {
                     self.forward_once().await?;
@@ -372,6 +435,38 @@ impl NodeRunner {
                         info!("GC: deleted {} expired messages", deleted);
                     }
                 }
+                _ = dial_tick.tick() => {
+                    self.transport.redial_stored_targets();
+                }
+            }
+        }
+    }
+
+    /// Dial peers returned by relay rendezvous (HTTP runs off the transport loop).
+    async fn dial_rendezvous_list(&mut self, remote_ids: Vec<String>) {
+        if remote_ids.is_empty() {
+            return;
+        }
+        let relay_id = mycelium_core::bootstrap::RELAY_PEER_ID;
+        let known: HashSet<String> = self
+            .peers
+            .read()
+            .await
+            .iter()
+            .cloned()
+            .chain(self.transport.known_peers())
+            .collect();
+        for remote in remote_ids {
+            if remote == self.local_peer_id || remote == relay_id || known.contains(&remote) {
+                continue;
+            }
+            let Some(addr) = mycelium_core::bootstrap::relay_circuit_multiaddr(&remote) else {
+                continue;
+            };
+            if let Err(e) = self.transport.remember_and_dial(addr).await {
+                tracing::debug!("rendezvous dial {remote}: {e}");
+            } else {
+                info!("rendezvous: dialing peer {remote}");
             }
         }
     }
@@ -420,7 +515,12 @@ impl NodeRunner {
                 }
             }
             NodeCommand::AddBootstrapPeer { multiaddr } => {
-                self.transport.dial_peer(multiaddr).await?;
+                if let Err(e) =
+                    mycelium_core::bootstrap::persist_dial_peer(&self.db_path, &multiaddr)
+                {
+                    warn!("could not persist dial peer: {e}");
+                }
+                self.transport.remember_and_dial(multiaddr).await?;
             }
             NodeCommand::SubscribeScope(scope) => {
                 self.subscribed_scopes.write().await.insert(scope.clone());
@@ -458,6 +558,16 @@ impl NodeRunner {
             NodeCommand::SetEnergyState(state) => {
                 self.node_state = state;
                 info!("energy state updated to {:?}", self.node_state);
+            }
+            NodeCommand::SetRendezvousEnabled(enabled) => {
+                self.rendezvous_enabled.store(enabled, Ordering::Relaxed);
+                let local = self.local_peer_id.clone();
+                tokio::task::spawn_blocking(move || {
+                    mycelium_core::rendezvous::set_relay_rendezvous_registration(
+                        &local, enabled, None,
+                    );
+                });
+                info!("rendezvous discovery {}", if enabled { "enabled" } else { "disabled" });
             }
         }
         Ok(())
@@ -559,8 +669,17 @@ impl NodeRunner {
         match event {
             TransportEvent::Listening { address } => {
                 info!("listening on {address}");
+                {
+                    let mut addrs = self.listen_addrs.write().await;
+                    if !addrs.iter().any(|a| a == &address) {
+                        addrs.push(address);
+                    }
+                }
             }
             TransportEvent::PeerUp { peer_id } => {
+                if mycelium_core::bootstrap::is_relay_peer(&peer_id) {
+                    return Ok(());
+                }
                 info!("discovered peer={peer_id}");
                 {
                     let mut peers = self.peers.write().await;

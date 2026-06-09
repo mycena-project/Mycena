@@ -59,6 +59,7 @@ import java.io.File
 private const val PREFS_NAME = "settings"
 private const val KEY_BOOTSTRAP_PEERS = "bootstrap_peers"
 private const val KEY_ENERGY_STATE = "energy_state"
+private const val KEY_RENDEZVOUS = "rendezvous_enabled"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -76,6 +77,9 @@ fun SettingsScreen(navController: NavController) {
         mutableStateOf(prefs.getString(KEY_BOOTSTRAP_PEERS, "") ?: "")
     }
     var saved by remember { mutableStateOf(false) }
+    var rendezvousEnabled by remember {
+        mutableStateOf(prefs.getBoolean(KEY_RENDEZVOUS, true))
+    }
 
     Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.settings_title)) }) }) { padding ->
         Column(
@@ -128,6 +132,30 @@ fun SettingsScreen(navController: NavController) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp),
             )
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        stringResource(R.string.settings_rendezvous_title),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(
+                        stringResource(R.string.settings_rendezvous_sub),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                androidx.compose.material3.Switch(
+                    checked = rendezvousEnabled,
+                    onCheckedChange = { enabled ->
+                        rendezvousEnabled = enabled
+                        prefs.edit().putBoolean(KEY_RENDEZVOUS, enabled).apply()
+                        mycelium.setRendezvousEnabled(enabled)
+                    },
+                )
+            }
 
             Spacer(Modifier.height(16.dp))
             Button(

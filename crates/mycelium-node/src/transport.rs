@@ -7,6 +7,8 @@ use libp2p::{
     swarm::{Swarm, SwarmEvent},
     tcp, yamux, Multiaddr, PeerId, SwarmBuilder,
 };
+use libp2p::multiaddr::Protocol;
+use mycelium_core::bootstrap::is_relay_peer;
 use mycelium_core::transport::{
     ConnectivityMode, MeshTransport, MessageAck, ScopeId, TransportEvent, WireMessage,
 };
@@ -66,15 +68,57 @@ impl Libp2pTransport {
             bootstrap_peers,
         };
         transport.dial_all_bootstraps();
+        transport.enable_relay_inbound_listen();
         Ok(transport)
+    }
+
+    /// Listen on the public relay so other peers can reach us via `/p2p-circuit` (NAT traversal).
+    fn enable_relay_inbound_listen(&mut self) {
+        for addr in &self.bootstrap_peers {
+            let addr_str = addr.to_string();
+            if !addr_str.contains("/tcp/") {
+                continue;
+            }
+            let listen_str = format!("{addr_str}/p2p-circuit");
+            match listen_str.parse::<Multiaddr>() {
+                Ok(listen_addr) => {
+                    if let Err(e) = self.swarm.listen_on(listen_addr.clone()) {
+                        tracing::warn!("relay inbound listen on {listen_addr}: {e}");
+                    } else {
+                        tracing::info!("relay inbound listen enabled on {listen_addr}");
+                    }
+                }
+                Err(e) => tracing::warn!("invalid relay listen multiaddr {listen_str}: {e}"),
+            }
+            break;
+        }
     }
 
     fn dial_all_bootstraps(&mut self) {
         for addr in self.bootstrap_peers.clone() {
             if let Err(e) = self.swarm.dial(addr.clone()) {
-                tracing::warn!("failed to dial bootstrap peer {addr}: {e}");
+                tracing::warn!("dial {addr}: {e}");
+            } else {
+                tracing::info!("dialing {addr}");
             }
         }
+    }
+
+    fn track_user_peer(&mut self, peer_id: PeerId) -> bool {
+        if peer_id == self.local_peer_id || is_relay_peer(&peer_id.to_string()) {
+            return false;
+        }
+        self.peers.insert(peer_id)
+    }
+
+    fn queue_dial_target(&mut self, multiaddr: String) -> anyhow::Result<()> {
+        let addr: Multiaddr = multiaddr.parse()?;
+        if !self.bootstrap_peers.contains(&addr) {
+            self.bootstrap_peers.push(addr.clone());
+            tracing::info!("queued dial target: {addr}");
+        }
+        self.swarm.dial(addr)?;
+        Ok(())
     }
 
     fn handle_connectivity_change(&mut self, mode: ConnectivityMode) {
@@ -96,7 +140,11 @@ impl MeshTransport for Libp2pTransport {
     }
 
     fn known_peers(&self) -> Vec<String> {
-        self.peers.iter().map(ToString::to_string).collect()
+        self.peers
+            .iter()
+            .map(ToString::to_string)
+            .filter(|p| !is_relay_peer(p))
+            .collect()
     }
 
     fn local_keypair(&self) -> Option<identity::Keypair> {
@@ -107,6 +155,14 @@ impl MeshTransport for Libp2pTransport {
         let addr: Multiaddr = multiaddr.parse()?;
         self.swarm.dial(addr)?;
         Ok(())
+    }
+
+    async fn remember_and_dial(&mut self, multiaddr: String) -> anyhow::Result<()> {
+        self.queue_dial_target(multiaddr)
+    }
+
+    fn redial_stored_targets(&mut self) {
+        self.dial_all_bootstraps();
     }
 
     async fn send_direct(&mut self, to_peer: String, message: WireMessage) -> anyhow::Result<()> {
@@ -180,30 +236,71 @@ impl Libp2pTransport {
                 }));
             }
             SwarmEvent::Behaviour(MeshEvent::Mdns(mdns::Event::Discovered(list))) => {
-                if let Some((peer, _addr)) = list.into_iter().next() {
-                    self.peers.insert(peer);
+                for (peer, addr) in list {
+                    if peer == self.local_peer_id {
+                        continue;
+                    }
                     self.swarm.behaviour_mut().gossip.add_explicit_peer(&peer);
-                    return Ok(Some(TransportEvent::PeerUp {
-                        peer_id: peer.to_string(),
-                    }));
+                    let mut dial_addr = addr.clone();
+                    let has_peer = dial_addr
+                        .iter()
+                        .any(|p| matches!(p, Protocol::P2p(id) if id == peer));
+                    if !has_peer {
+                        dial_addr.push(Protocol::P2p(peer));
+                    }
+                    if !self.bootstrap_peers.contains(&dial_addr) {
+                        self.bootstrap_peers.push(dial_addr.clone());
+                    }
+                    tracing::info!("mDNS discovered {peer} at {addr}, dialing {dial_addr}");
+                    if let Err(e) = self.swarm.dial(dial_addr) {
+                        tracing::debug!("mDNS dial to {peer}: {e}");
+                    }
                 }
             }
             SwarmEvent::Behaviour(MeshEvent::Mdns(mdns::Event::Expired(list))) => {
-                if let Some((peer, _addr)) = list.into_iter().next() {
-                    self.peers.remove(&peer);
+                // mDNS TTL expiry ≠ TCP disconnect; only adjust gossip if not connected.
+                for (peer, _) in list {
+                    if peer == self.local_peer_id || is_relay_peer(&peer.to_string()) {
+                        continue;
+                    }
+                    if self.swarm.is_connected(&peer) {
+                        continue;
+                    }
                     self.swarm
                         .behaviour_mut()
                         .gossip
                         .remove_explicit_peer(&peer);
-                    return Ok(Some(TransportEvent::PeerDown {
-                        peer_id: peer.to_string(),
-                    }));
                 }
+            }
+            SwarmEvent::OutgoingConnectionError { peer_id, error, .. } => {
+                tracing::warn!("outgoing connection error peer={peer_id:?}: {error}");
+            }
+            SwarmEvent::ConnectionEstablished { peer_id, .. }
+                if self.track_user_peer(peer_id) =>
+            {
+                self.swarm
+                    .behaviour_mut()
+                    .gossip
+                    .add_explicit_peer(&peer_id);
+                return Ok(Some(TransportEvent::PeerUp {
+                    peer_id: peer_id.to_string(),
+                }));
+            }
+            SwarmEvent::ConnectionClosed { peer_id, .. }
+                if !is_relay_peer(&peer_id.to_string()) && self.peers.remove(&peer_id) =>
+            {
+                self.swarm
+                    .behaviour_mut()
+                    .gossip
+                    .remove_explicit_peer(&peer_id);
+                return Ok(Some(TransportEvent::PeerDown {
+                    peer_id: peer_id.to_string(),
+                }));
             }
             SwarmEvent::Behaviour(MeshEvent::Identify(identify::Event::Received {
                 peer_id,
                 ..
-            })) if self.peers.insert(peer_id) => {
+            })) if self.track_user_peer(peer_id) => {
                 self.swarm
                     .behaviour_mut()
                     .gossip
@@ -271,7 +368,9 @@ impl Libp2pTransport {
                     payload: message.data,
                 }));
             }
-            SwarmEvent::Behaviour(MeshEvent::Relay(_)) => {}
+            SwarmEvent::Behaviour(MeshEvent::Relay(ev)) => {
+                tracing::debug!("relay client event: {ev:?}");
+            }
             SwarmEvent::Behaviour(MeshEvent::Dcutr(_)) => {}
             _ => {}
         }

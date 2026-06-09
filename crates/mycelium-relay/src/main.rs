@@ -1,4 +1,10 @@
-use axum::{routing::get, Json, Router};
+use axum::{
+    extract::State,
+    http::StatusCode,
+    routing::{get, post},
+    Json, Router,
+};
+use serde::Deserialize;
 use clap::Parser;
 use libp2p::{
     futures::StreamExt,
@@ -6,8 +12,9 @@ use libp2p::{
     swarm::{NetworkBehaviour, SwarmEvent},
     tcp, yamux, Multiaddr, SwarmBuilder,
 };
+use std::collections::HashSet;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 use tracing::info;
 
@@ -36,8 +43,51 @@ struct StatusState {
     peer_id: String,
     connections: Arc<AtomicU64>,
     reservations: Arc<AtomicU64>,
+    connected_peers: Arc<RwLock<HashSet<String>>>,
+    rendezvous_opt_in: Arc<RwLock<HashSet<String>>>,
     started: Instant,
     version: &'static str,
+}
+
+#[derive(Debug, Deserialize)]
+struct RendezvousPeerBody {
+    peer_id: String,
+}
+
+async fn rendezvous(State(s): State<StatusState>) -> Json<serde_json::Value> {
+    let connected = s.connected_peers.read().expect("connected_peers lock");
+    let opt_in = s.rendezvous_opt_in.read().expect("rendezvous_opt_in lock");
+    let peers: Vec<String> = connected
+        .iter()
+        .filter(|p| opt_in.contains(*p))
+        .cloned()
+        .collect();
+    Json(serde_json::json!({ "peers": peers }))
+}
+
+async fn rendezvous_register(
+    State(s): State<StatusState>,
+    Json(body): Json<RendezvousPeerBody>,
+) -> StatusCode {
+    if body.peer_id.is_empty() {
+        return StatusCode::BAD_REQUEST;
+    }
+    s.rendezvous_opt_in
+        .write()
+        .expect("rendezvous_opt_in lock")
+        .insert(body.peer_id);
+    StatusCode::NO_CONTENT
+}
+
+async fn rendezvous_unregister(
+    State(s): State<StatusState>,
+    Json(body): Json<RendezvousPeerBody>,
+) -> StatusCode {
+    s.rendezvous_opt_in
+        .write()
+        .expect("rendezvous_opt_in lock")
+        .remove(&body.peer_id);
+    StatusCode::NO_CONTENT
 }
 
 async fn status(
@@ -86,16 +136,23 @@ async fn main() -> anyhow::Result<()> {
     let connections = Arc::new(AtomicU64::new(0));
     let reservations = Arc::new(AtomicU64::new(0));
 
+    let connected_peers = Arc::new(RwLock::new(HashSet::new()));
+    let rendezvous_opt_in = Arc::new(RwLock::new(HashSet::new()));
     let state = StatusState {
         peer_id: local_peer_id.to_string(),
         connections: connections.clone(),
         reservations: reservations.clone(),
+        connected_peers: connected_peers.clone(),
+        rendezvous_opt_in: rendezvous_opt_in.clone(),
         started: Instant::now(),
         version: env!("CARGO_PKG_VERSION"),
     };
     let app = Router::new()
         .route("/", get(status))
         .route("/health", get(health))
+        .route("/rendezvous", get(rendezvous))
+        .route("/rendezvous/register", post(rendezvous_register))
+        .route("/rendezvous/unregister", post(rendezvous_unregister))
         .with_state(state);
     let status_port = args.status_port;
     tokio::spawn(async move {
@@ -150,10 +207,18 @@ async fn main() -> anyhow::Result<()> {
             }
             SwarmEvent::ConnectionEstablished { peer_id, .. } => {
                 connections.fetch_add(1, Ordering::Relaxed);
+                connected_peers
+                    .write()
+                    .expect("connected_peers lock")
+                    .insert(peer_id.to_string());
                 info!("+ {peer_id} ({})", connections.load(Ordering::Relaxed));
             }
             SwarmEvent::ConnectionClosed { peer_id, .. } => {
                 atomic_saturating_sub(&connections);
+                connected_peers
+                    .write()
+                    .expect("connected_peers lock")
+                    .remove(&peer_id.to_string());
                 info!("- {peer_id} ({})", connections.load(Ordering::Relaxed));
             }
             SwarmEvent::Behaviour(RelayBehaviourEvent::Relay(ev)) => match ev {

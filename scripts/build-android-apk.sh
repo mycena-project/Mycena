@@ -1,30 +1,46 @@
 #!/usr/bin/env bash
-# Build a debug APK (optionally bump version, optionally full Rust+Gradle via build.sh).
+# Build a debug APK.
 #
-# Usage:
-#   ./scripts/build-android-apk.sh           # bump version + assembleDebug
+# Default (no flag): mingc/android-build-box via mingc-android-build.sh
+#   (make android-apk / make android-deploy — no local rustup).
+#
+# Host build (--local):
+#   ./scripts/build-android-apk.sh --local           # bump; Rust if FFI stale
+#   ./scripts/build-android-apk.sh --local --no-bump
+#   ./scripts/build-android-apk.sh --local --full    # always Rust NDK + UniFFI + Gradle
+#   ./scripts/build-android-apk.sh --local --gradle-only
+#
+# Docker:
+#   ./scripts/build-android-apk.sh              # same as make android-apk
 #   ./scripts/build-android-apk.sh --no-bump
-#   ./scripts/build-android-apk.sh --full    # Rust NDK + UniFFI + Gradle (heavy)
-#   ./scripts/build-android-apk.sh --gradle-only  # skip bump, Gradle only
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 BUMP=1
 MODE="gradle"
+USE_DOCKER=1
 MIN_FREE_KB=$((5 * 1024 * 1024)) # 5 GiB
 
 for arg in "$@"; do
   case "$arg" in
     --no-bump) BUMP=0 ;;
-    --full) MODE="full" ;;
-    --gradle-only) BUMP=0; MODE="gradle" ;;
+    --local) USE_DOCKER=0 ;;
+    --docker) USE_DOCKER=1 ;;
+    --full) MODE="full"; USE_DOCKER=0 ;;
+    --gradle-only) BUMP=0; MODE="gradle"; USE_DOCKER=0 ;;
     -h|--help)
-      sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'
+      sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'
       exit 0
       ;;
     *) echo "Unknown option: $arg" >&2; exit 2 ;;
   esac
 done
+
+if [[ "$USE_DOCKER" -eq 1 ]]; then
+  docker_args=()
+  [[ "$BUMP" -eq 0 ]] && docker_args+=(--no-bump)
+  exec "$ROOT/scripts/mingc-android-build.sh" "${docker_args[@]}"
+fi
 
 avail_kb="$(df -k "$ROOT" | awk 'NR==2 {print $4}')"
 if [[ "$avail_kb" -lt "$MIN_FREE_KB" ]]; then
@@ -41,18 +57,15 @@ version_name="$(grep -E '^versionName=' "$ROOT/android/version.properties" | cut
 version_code="$(grep -E '^versionCode=' "$ROOT/android/version.properties" | cut -d= -f2)"
 echo "Building Mycelium Android ${version_name} (${version_code})…"
 
-has_rust_libs() {
-  find "$ROOT/android/rust-build" -name 'libuniffi_mycelium.so' 2>/dev/null | grep -q .
-}
-
 if [[ "$MODE" == "full" ]]; then
   bash "$ROOT/android/build.sh"
 else
-  if ! has_rust_libs; then
-    echo "No libuniffi_mycelium.so in android/rust-build — running full build." >&2
+  if bash "$ROOT/scripts/android-ffi-stale.sh"; then
+    echo "Android native libs missing or out of date — running full Rust + UniFFI build." >&2
     bash "$ROOT/android/build.sh"
   else
     "$ROOT/scripts/prune-android-native-libs.sh"
+    "$ROOT/scripts/regenerate-uniffi-kotlin.sh"
     export JAVA_HOME="${JAVA_HOME:-$(/usr/libexec/java_home -v 21 2>/dev/null || true)}"
     cd "$ROOT/android"
     if ! ./gradlew --no-daemon --max-workers=1 \
@@ -68,15 +81,16 @@ else
 fi
 
 APK="$ROOT/android/app/build/outputs/apk/debug/app-debug.apk"
-if [[ -f "$APK" ]]; then
-  echo ""
-  echo "APK: $APK"
-  echo "Install: ./scripts/install-android-apk.sh"
-  if command -v unzip >/dev/null 2>&1; then
-    echo "Native libs:"
-    unzip -l "$APK" | grep -E 'lib/.*/lib(jnidispatch|uniffi_mycelium)\.so' || true
-  fi
-else
+if [[ ! -f "$APK" ]]; then
   echo "APK not found at $APK" >&2
+  echo "The build did not finish — do not install an older APK from a previous run." >&2
   exit 1
+fi
+
+echo ""
+echo "APK: $APK"
+echo "Install: ./scripts/install-android-apk.sh"
+if command -v unzip >/dev/null 2>&1; then
+  echo "Native libs:"
+  unzip -l "$APK" | grep -E 'lib/.*/lib(jnidispatch|uniffi_mycelium)\.so' || true
 fi

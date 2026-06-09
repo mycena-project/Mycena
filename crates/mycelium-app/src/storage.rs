@@ -1,3 +1,4 @@
+use crate::contacts::{Contact, ContactStatus};
 use crate::envelope::{BulletinPost, ChatMessage, MailMessage};
 use crate::groups::Group;
 use mycelium_core::data::now_ms;
@@ -37,6 +38,68 @@ impl AppStorage {
             out.push(bincode::deserialize(&v)?);
         }
         Ok(out)
+    }
+
+    pub fn save_contact(&self, contact: &Contact) -> anyhow::Result<()> {
+        let tree = self.db.open_tree("contacts:data")?;
+        tree.insert(
+            contact.peer_id.as_bytes(),
+            bincode::serialize(contact)?,
+        )?;
+        Ok(())
+    }
+
+    pub fn contact_by_id(&self, peer_id: &str) -> anyhow::Result<Option<Contact>> {
+        let tree = self.db.open_tree("contacts:data")?;
+        Ok(match tree.get(peer_id.as_bytes())? {
+            Some(v) => Some(bincode::deserialize(&v)?),
+            None => None,
+        })
+    }
+
+    pub fn all_contacts(&self) -> anyhow::Result<Vec<Contact>> {
+        let tree = self.db.open_tree("contacts:data")?;
+        let mut out: Vec<Contact> = Vec::new();
+        for item in tree.iter() {
+            let (_k, v) = item?;
+            out.push(bincode::deserialize(&v)?);
+        }
+        out.sort_by_key(|c| std::cmp::Reverse(c.added_at_ms));
+        Ok(out)
+    }
+
+    pub fn contacts_with_status(&self, status: ContactStatus) -> anyhow::Result<Vec<Contact>> {
+        Ok(self
+            .all_contacts()?
+            .into_iter()
+            .filter(|c| c.status == status)
+            .collect())
+    }
+
+    pub fn delete_contact(&self, peer_id: &str) -> anyhow::Result<()> {
+        let tree = self.db.open_tree("contacts:data")?;
+        tree.remove(peer_id.as_bytes())?;
+        Ok(())
+    }
+
+    pub fn upsert_contact(
+        &self,
+        peer_id: &str,
+        display_name: &str,
+        status: ContactStatus,
+    ) -> anyhow::Result<Contact> {
+        let contact = match self.contact_by_id(peer_id)? {
+            Some(mut existing) => {
+                if !display_name.is_empty() {
+                    existing.display_name = display_name.to_string();
+                }
+                existing.status = status;
+                existing
+            }
+            None => Contact::new(peer_id.to_string(), display_name.to_string(), status),
+        };
+        self.save_contact(&contact)?;
+        Ok(contact)
     }
 
     pub fn save_bulletin(&self, post: &BulletinPost) -> anyhow::Result<()> {
