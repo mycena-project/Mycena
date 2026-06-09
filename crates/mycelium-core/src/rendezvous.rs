@@ -43,7 +43,10 @@ pub fn set_relay_rendezvous_registration(peer_id: &str, register: bool, host: Op
 pub fn fetch_relay_rendezvous(host: Option<&str>) -> Vec<String> {
     let host = relay_host(host);
     let url = format!("https://{host}/rendezvous");
-    let resp = match ureq::get(&url).timeout(std::time::Duration::from_secs(8)).call() {
+    let resp = match ureq::get(&url)
+        .timeout(std::time::Duration::from_secs(8))
+        .call()
+    {
         Ok(r) => r,
         Err(e) => {
             tracing::debug!("rendezvous fetch failed: {e}");

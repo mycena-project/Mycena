@@ -567,7 +567,10 @@ impl NodeRunner {
                         &local, enabled, None,
                     );
                 });
-                info!("rendezvous discovery {}", if enabled { "enabled" } else { "disabled" });
+                info!(
+                    "rendezvous discovery {}",
+                    if enabled { "enabled" } else { "disabled" }
+                );
             }
         }
         Ok(())

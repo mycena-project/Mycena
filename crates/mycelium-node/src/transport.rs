@@ -2,12 +2,12 @@ use crate::behaviour::{
     make_direct_response, DirectMessageRequest, DirectMessageResponse, MeshBehaviour,
 };
 use futures::StreamExt;
+use libp2p::multiaddr::Protocol;
 use libp2p::{
     gossipsub, identify, identity, mdns, noise, request_response,
     swarm::{Swarm, SwarmEvent},
     tcp, yamux, Multiaddr, PeerId, SwarmBuilder,
 };
-use libp2p::multiaddr::Protocol;
 use mycelium_core::bootstrap::is_relay_peer;
 use mycelium_core::transport::{
     ConnectivityMode, MeshTransport, MessageAck, ScopeId, TransportEvent, WireMessage,
@@ -275,9 +275,7 @@ impl Libp2pTransport {
             SwarmEvent::OutgoingConnectionError { peer_id, error, .. } => {
                 tracing::warn!("outgoing connection error peer={peer_id:?}: {error}");
             }
-            SwarmEvent::ConnectionEstablished { peer_id, .. }
-                if self.track_user_peer(peer_id) =>
-            {
+            SwarmEvent::ConnectionEstablished { peer_id, .. } if self.track_user_peer(peer_id) => {
                 self.swarm
                     .behaviour_mut()
                     .gossip

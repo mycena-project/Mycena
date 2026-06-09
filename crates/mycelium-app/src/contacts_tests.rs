@@ -18,7 +18,9 @@ fn contact_crud_and_filter_by_status() {
         .expect("accept");
     assert_eq!(accepted.status, ContactStatus::Accepted);
 
-    let pending = storage.contacts_with_status(ContactStatus::Pending).expect("pending");
+    let pending = storage
+        .contacts_with_status(ContactStatus::Pending)
+        .expect("pending");
     assert!(pending.is_empty());
 
     let all = storage.all_contacts().expect("all");
