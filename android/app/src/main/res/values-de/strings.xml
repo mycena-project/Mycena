@@ -124,6 +124,7 @@
     <string name="notification_channel_name">Myzel-Netzwerk</string>
     <string name="notification_peers">%1$d Peers verbunden</string>
     <string name="notification_running">Myzelium-Netz aktiv</string>
+    <string name="notification_new_message_from">Neue Nachricht von %1$s</string>
     <string name="onboarding_1_body">Myzelium funktioniert, wenn Mobilfunknetze ausfallen. Nachrichten wandern direkt zwischen Geräten – ohne Server.</string>
     <string name="onboarding_1_title">Kommunikation ohne Internet</string>
     <string name="onboarding_3_body">Dieser Name erscheint in deinen Nachrichten. Du kannst ihn später ändern.</string>

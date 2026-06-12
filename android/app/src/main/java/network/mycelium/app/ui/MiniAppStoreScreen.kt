@@ -60,6 +60,7 @@ fun MiniAppStoreScreen(navController: NavController, vm: MiniAppViewModel = view
         MiniAppInstallProvenanceDialog(
             previewTrust = pending.preview.trustLevel,
             listingSignatureOk = pending.preview.listingSignatureOk,
+            bundleSignatureOk = pending.preview.bundleSignatureOk,
             hasInlineScript = pending.preview.hasInlineScript,
             reproducibleAttested = pending.preview.reproducibleAttested,
             isDowngrade = pending.preview.isDowngrade,

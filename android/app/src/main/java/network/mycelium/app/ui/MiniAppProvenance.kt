@@ -27,6 +27,7 @@ import network.mycelium.bindings.MiniAppInfo
 fun MiniAppInstallProvenanceDialog(
     previewTrust: String,
     listingSignatureOk: Boolean,
+    bundleSignatureOk: Boolean,
     hasInlineScript: Boolean,
     reproducibleAttested: Boolean,
     isDowngrade: Boolean,
@@ -55,6 +56,13 @@ fun MiniAppInstallProvenanceDialog(
                 if (listingSignatureOk) {
                     Text(
                         stringResource(R.string.miniapp_listing_signed),
+                        color = MaterialTheme.colorScheme.primary,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                if (bundleSignatureOk) {
+                    Text(
+                        stringResource(R.string.miniapp_bundle_signed),
                         color = MaterialTheme.colorScheme.primary,
                         style = MaterialTheme.typography.bodySmall,
                     )

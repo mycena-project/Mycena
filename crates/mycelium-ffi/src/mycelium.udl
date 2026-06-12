@@ -247,6 +247,7 @@ dictionary MiniAppInstallPreview {
   boolean is_downgrade;
   boolean has_inline_script;
   boolean strict_csp_eligible;
+  boolean bundle_signature_ok;
   boolean reproducible_attested;
 };
 

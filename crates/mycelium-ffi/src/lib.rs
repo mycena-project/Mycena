@@ -341,6 +341,7 @@ pub struct MiniAppInstallPreview {
     pub is_downgrade: bool,
     pub has_inline_script: bool,
     pub strict_csp_eligible: bool,
+    pub bundle_signature_ok: bool,
     pub reproducible_attested: bool,
 }
 
@@ -1508,6 +1509,7 @@ pub fn preview_miniapp_install(
             is_downgrade: p.is_downgrade,
             has_inline_script: p.has_inline_script,
             strict_csp_eligible: p.strict_csp_eligible,
+            bundle_signature_ok: p.bundle_signature_ok,
             reproducible_attested: p.reproducible_attested,
         })
     })

@@ -23,16 +23,16 @@ Not a marketing document.
 | **Long-term tracking via PeerId** | PeerId is stable identity |
 | **Retroactive decrypt (1:1)** | No double ratchet; static X25519 |
 | **Group QR leak** | Single PSK; no epoch rotation on member leave |
-| **Forged unsigned wire messages** | **SD-030 OPEN** — unsigned `Data` still processed |
-| **Plaintext chat mistake** | **SD-081 OPEN** — sends plaintext if enc key missing |
+| **Forged unsigned wire messages** | Mitigated (SD-030) — unsigned `Data` dropped; gossip relay bodies exempt |
+| **Plaintext chat mistake** | Mitigated (SD-081) — send blocked until enc key exchanged |
 
 ### Abuse & availability
 
 | Threat | Why |
 |--------|-----|
-| **Relay amplification** | **SD-031 OPEN** — unknown destination may fan out to all peers |
+| **Relay amplification** | Mitigated (SD-031) — relay fanout capped (default 3 peers) |
 | **Sybil spam at scale** | No global proof-of-identity |
-| **Gossip author confusion** | **SD-080 OPEN** — local re-sign on scoped gossip |
+| **Gossip author confusion** | Mitigated (SD-080) — gossip payloads stored unsigned; no local re-sign |
 | **Bulletin illegal content** | Censorship-resistant design; no global moderation |
 
 ### Device & platform
@@ -40,8 +40,8 @@ Not a marketing document.
 | Threat | Why |
 |--------|-----|
 | **WebView 0-day (mini-apps)** | Chromium in WebView = full app TCB break |
-| **Android backup exfiltration** | **SD-171 OPEN** — `allowBackup=true` |
-| **Desktop weak vault** | Derived fallback key without OS keyring |
+| **Android backup exfiltration** | Mitigated (SD-171) — `allowBackup=false` + backup rules |
+| **Desktop weak vault** | Mitigated (SD-131) — new installs require OS keyring; existing file fallback migrated only |
 | **Rooted / seized device** | Local sled holds history |
 
 ### Economic
@@ -97,14 +97,14 @@ Treat as **preview only**:
 **If you are an activist or journalist:**
 
 - Assume **PeerId + IP + timing** are exposed to relay and local network observers.
-- Use **encrypted chat only** after verifying enc key exchange — today app may still plaintext-fallback.
+- Use **encrypted chat only** after verifying enc key exchange — app refuses send without peer enc key.
 - Do not share group invites in public channels.
 - Prefer **LAN-only** mode if Internet bootstrap is untrusted.
 - Plan **panic wipe** before field use; assume phone seizure reveals local DB.
 
 **If you are a protest organizer:**
 
-- Expect **spam and amplification** until SD-030/031 fixed.
+- Expect **spam and amplification** mitigations active (SD-030/031); Sybil scale remains open.
 - MeshCoin tips are **not** settlement for vendors at scale.
 
 **If you are in disaster zone / internet outage:**
@@ -118,7 +118,7 @@ Treat as **preview only**:
 
 | Area | What works | What does not |
 |------|------------|---------------|
-| Mini-apps | Network block, sessions, caps, safe mode, bundle scan, Android isolated process | `unsafe-inline` for some bundles; WebView CVE class |
+| Mini-apps | Network block, sessions, caps, safe mode, bundle scan, Android isolated process, strict CSP (no inline scripts), sideload requires `mycelium-bundle.sig.json` | WebView CVE class |
 | Chat E2E | Encrypted path when keys present | Plaintext fallback |
 | Install | Listing verify, revocation, downgrade block | Sideload still possible |
 | Relay | Circuit limits, blind forward | Single operator, IP visibility |

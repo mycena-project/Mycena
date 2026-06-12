@@ -10,5 +10,7 @@
   "min_mycelium_version": "0.1.0",
   "accepts_payments": false,
   "payment_address": null,
-  "categories": ["Social", "Local"]
+  "categories": ["Social", "Local"],
+  "runtime": "webview",
+  "bulletin_scopes": []
 }

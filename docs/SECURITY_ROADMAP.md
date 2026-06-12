@@ -16,10 +16,10 @@
 | P0 | Fail-closed encrypted chat (no plaintext fallback) | SD-081, SD-141 | S | app — **done** |
 | P0 | Cap relay fanout / no broadcast-to-all-peers | SD-031 | M | node — **done** |
 | P0 | Fix gossip re-sign semantics | SD-080 | M | node — **done** |
-| P0 | Mini-app install signature verification | SD-041, SD-240 | S | app-store — **PARTIAL** (store sig + sideload ack) |
-| P0 | Tighten CSP (remove `unsafe-inline` or nonce-only) | SD-040 | M | Android + desktop — **partial** |
+| P0 | Mini-app install signature verification | SD-041, SD-240 | S | app-store — **done** |
+| P0 | Tighten CSP (remove `unsafe-inline` or nonce-only) | SD-040 | M | Android + desktop — **done** |
 | P0 | `android:allowBackup="false"` + full-backup exclusion | SD-171 | S | Android — **done** |
-| P0 | Desktop: refuse weak vault fallback | SD-131 | S | node/secrets |
+| P0 | Desktop: refuse weak vault fallback | SD-131 | S | node/secrets — **done** |
 | P0 | MeshCoin UX = preview only (no real-money copy) | SD-011, SD-160 | S | product/legal |
 | P0 | Emergency settlement caps (balance, tx, velocity) | SD-011, SD-160 | S | mycelium-coin |
 
@@ -35,8 +35,8 @@
 
 | Priority | Item | Debt IDs | Effort |
 |----------|------|----------|--------|
-| P1 | Per-author rate limits (direct + gossip) | SD-032 | S |
-| P1 | Replay window + monotonic nonces | SD-060 | S |
+| P1 | Per-author rate limits (direct + gossip) | SD-032 | S | **Done** — `ingest_guard.rs` |
+| P1 | Replay window + monotonic nonces | SD-060 | S | **Done** — 30 min freshness + per-author id window |
 | P1 | `postMessage` origin lock (desktop) | SD-051 | S |
 | P1 | Mini-app permission UI at install | SD-042 | M |
 | P1 | Signed remote bootstrap manifest | SD-091, SD-221 | M |

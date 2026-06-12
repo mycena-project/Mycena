@@ -1,0 +1,3 @@
+# Generated Ed25519 signing keys — do not commit secrets.
+official.ed25519
+*.ed25519

@@ -7,6 +7,7 @@ pub mod bridge_limits;
 pub mod bridge_session;
 pub mod bundle;
 pub mod bundle_scan;
+pub mod bundle_signature;
 pub mod capability_token;
 pub mod csp;
 pub mod install_policy;

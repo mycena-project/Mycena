@@ -9,5 +9,6 @@
   "min_mycelium_version": "0.1.0",
   "accepts_payments": false,
   "categories": ["Emergency", "Community"],
+  "runtime": "webview",
   "bulletin_scopes": ["mycelium/meshaid/v1"]
 }

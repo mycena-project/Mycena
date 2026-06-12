@@ -9,6 +9,7 @@
   "min_mycelium_version": "0.1.0",
   "accepts_payments": false,
   "categories": ["Commerce", "Local"],
+  "runtime": "webview",
   "bulletin_scopes": [
     "market/food",
     "market/tools",

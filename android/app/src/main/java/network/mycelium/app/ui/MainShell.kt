@@ -79,6 +79,7 @@ fun MainShell() {
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             if (showBottomBar) {
                 ConnectionStatusBanner()
+                NotificationPermissionBanner()
             }
             NavHost(
                 navController = nav,

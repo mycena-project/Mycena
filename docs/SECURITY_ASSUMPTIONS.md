@@ -35,7 +35,7 @@ We **do not** claim protection against:
 ### 2.1 You trust your device OS
 
 - Keystore / StrongBox (Android) when `storage_key` is configured.
-- Desktop falls back to **derived key from db path** if keyring unavailable — **weaker**.
+- Desktop refuses **new** weak path-derived vault keys without OS keyring; existing fallback keys migrate (SD-131).
 
 ### 2.2 You trust the official binary
 
@@ -61,7 +61,7 @@ We **do not** claim protection against:
 ### 2.6 You trust mini-app install decisions
 
 - Store listings with valid signatures are only as trustworthy as **publisher keys**.
-- Sideload installs require **your** explicit risk acceptance.
+- Sideload installs require **valid developer bundle signature** (`mycelium-bundle.sig.json`) unless from a signed store listing.
 - WebView remains a large attack surface (Chromium).
 
 ---
@@ -72,7 +72,7 @@ We **do not** claim protection against:
 |----------|------------|
 | libp2p PeerId | Long-lived; **not** rotated by default |
 | X25519 enc keys | Static until rotated manually; **no forward secrecy** on 1:1 |
-| Ed25519 envelope sig | **Not required today on all `Data` frames** (SD-030) — beta gap |
+| Ed25519 envelope sig | **Required on direct `Data` frames** (SD-030 mitigated); gossip relay bodies remain unsigned with inner auth |
 | Group keys | PSK in QR; leak of QR = full group history compromise |
 | At-rest encryption | ChaCha20-Poly1305 with master key from vault or fallback |
 
@@ -133,4 +133,5 @@ Before trusting this release, verify:
 
 | Date | Change |
 |------|--------|
+| Jun 2026 | SD-030/041 mitigated; SD-032/060 Phase-1 ingest guards; desktop vault hardening |
 | May 2026 | Initial pre–public beta assumptions |

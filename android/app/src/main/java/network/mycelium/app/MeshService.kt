@@ -47,8 +47,14 @@ class MeshService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForeground(NOTIFICATION_ID, buildNotification())
 
-        if (intent?.action == ACTION_UPDATE_BLE && nodeInitialized) {
-            updateBleBootstrap()
+        if (intent?.action == ACTION_UPDATE_BLE) {
+            if (nodeInitialized) {
+                updateBleBootstrap()
+            }
+            return START_STICKY
+        }
+
+        if (nodeInitialized) {
             return START_STICKY
         }
 
@@ -245,10 +251,13 @@ class MeshService : Service() {
         )
         val notification = NotificationCompat.Builder(this, "mycelium_bg")
             .setContentTitle(getString(R.string.chat_title))
-            .setContentText("${message.fromDisplayName}: ${message.body}")
+            .setContentText(
+                getString(R.string.notification_new_message_from, message.fromDisplayName),
+            )
             .setSmallIcon(android.R.drawable.stat_notify_chat)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .build()
         manager.notify(1001, notification)
     }
@@ -262,11 +271,14 @@ class MeshService : Service() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         val notification = NotificationCompat.Builder(this, "mycelium_bg")
-            .setContentTitle(message.subject)
-            .setContentText(message.fromDisplayName)
+            .setContentTitle(getString(R.string.mail_title))
+            .setContentText(
+                getString(R.string.notification_new_message_from, message.fromDisplayName),
+            )
             .setSmallIcon(android.R.drawable.stat_notify_more)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .build()
         manager.notify(1002, notification)
     }

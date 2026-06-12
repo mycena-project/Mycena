@@ -995,22 +995,24 @@ This register records **known** security, privacy, abuse, and legal debt. It is 
 
 ## Beta-blocker summary (must resolve or sign off)
 
-| ID | Title | Beta-blocker |
-|----|-------|----------------|
-| SD-030 | Unsigned `WireMessage::Data` accepted | **yes** |
-| SD-031 | Flood amplification to all peers | **yes** |
-| SD-040 | CSP `unsafe-inline` | **yes** |
-| SD-041 | Sideload install without signature | **yes** |
-| SD-080 | Gossip re-sign with local key | **yes** |
-| SD-081 | Plaintext chat fallback | **yes** |
-| SD-131 | Desktop weak vault fallback | **yes** (desktop) |
-| SD-140 | Protocol downgrade unsigned Data | **yes** |
-| SD-141 | Unencrypted chat downgrade | **yes** |
-| SD-171 | Android backup exfiltration | **yes** |
-| SD-240 | Unsigned offline mini-app payloads | **yes** |
-| SD-011 | MeshCoin Sybil witnesses | **yes** only if MXC ≠ preview |
+| ID | Title | Beta-blocker | Status (Jun 2026) |
+|----|-------|--------------|-------------------|
+| SD-030 | Unsigned `WireMessage::Data` accepted | **yes** | **Mitigated** — grace period removed |
+| SD-031 | Flood amplification to all peers | **yes** | **Mitigated** — max fanout 3 |
+| SD-040 | CSP `unsafe-inline` | **yes** | **Mitigated** — nonce-only; inline scripts rejected at install |
+| SD-041 | Sideload install without signature | **yes** | **Mitigated** — sideload requires `mycelium-bundle.sig.json` |
+| SD-080 | Gossip re-sign with local key | **yes** | **Mitigated** — unsigned gossip storage |
+| SD-081 | Plaintext chat fallback | **yes** | **Mitigated** — fail-closed send |
+| SD-131 | Desktop weak vault fallback | **yes** (desktop) | **Mitigated** — refuse new weak fallback |
+| SD-140 | Protocol downgrade unsigned Data | **yes** | **Mitigated** (same as SD-030) |
+| SD-141 | Unencrypted chat downgrade | **yes** | **Mitigated** (same as SD-081) |
+| SD-171 | Android backup exfiltration | **yes** | **Mitigated** |
+| SD-240 | Unsigned offline mini-app payloads | **yes** | **Mitigated** (same as SD-041) |
+| SD-032 | Per-author gossip/direct rate limits | no | **Mitigated** — `IngestGuard` in `mycelium-node` |
+| SD-060 | Replay window at ingest | no | **Mitigated** — 30 min freshness + author id window |
+| SD-011 | MeshCoin Sybil witnesses | **yes** only if MXC ≠ preview | Open (preview-only OK) |
 
-**Recently mitigated (do not regress):** EncryptedDirect mesh signature hard-reject; EncryptionKeypair zeroize; mini-app network block + CSP baseline.
+**Recently mitigated (do not regress):** EncryptedDirect mesh signature hard-reject; EncryptionKeypair zeroize; mini-app network block + strict CSP; Android lockscreen-safe chat/mail notifications; POST_NOTIFICATIONS runtime prompt + denied banner; official mini-app pack/sign tooling; Phase-1 ingest rate limits and replay window (SD-032, SD-060).
 
 ---
 

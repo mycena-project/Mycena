@@ -92,6 +92,7 @@
     <string name="miniapp_installed">Installed</string>
     <string name="miniapp_launch_review_title">Open mini-app</string>
     <string name="miniapp_listing_signed">Signed listing</string>
+    <string name="miniapp_bundle_signed">Developer bundle signature verified</string>
     <string name="miniapp_no_apps">No mini apps installed yet.</string>
     <string name="miniapp_no_listings">No listings cached on this device.</string>
     <string name="miniapp_open">Open</string>
@@ -124,6 +125,8 @@
     <string name="notification_channel_name">Mycelium Network</string>
     <string name="notification_peers">%1$d peers connected</string>
     <string name="notification_running">Mesh network active</string>
+    <string name="notification_new_message_from">New message from %1$s</string>
+    <string name="notification_permission_denied">Notifications are off — you may miss new messages and mail.</string>
     <string name="onboarding_1_body">Mycelium works when cell networks fail. Messages travel between devices directly, without servers or infrastructure.</string>
     <string name="onboarding_1_title">Communicate without internet</string>
     <string name="onboarding_3_body">This name appears in your messages. You can change it later.</string>

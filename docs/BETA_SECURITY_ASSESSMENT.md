@@ -11,27 +11,25 @@
 
 | Scenario | Verdict |
 |----------|---------|
-| Protest | **No** (Internet path) / **Limited** (LAN-only, trained users) |
+| Protest | **Limited** (LAN-only, trained users) / **No** (Internet path with default relay) |
 | Disaster zone | **Limited** |
 | Hostile country | **No** |
 | Censorship event | **Limited** (LAN) / **No** (Internet via default relay) |
 | Internet outage | **Limited** (good LAN fit) |
 | Targeted surveillance | **No** |
 
-**Overall:** Suitable for **technical early adopters** who read [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md) and accept open P0 network bugs. **Not** suitable as primary life-safety or high-risk activist comms until P0 closed.
+**Overall:** Suitable for **technical early adopters** who read [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md). P0 network signature and sideload gaps are **closed**; remaining risk is metadata, Sybil, and WebView TCB. **Not** suitable as primary life-safety or high-risk activist comms without LAN-only OPSEC.
 
 ---
 
 ## Protest
 
-**Would we trust it?** **No** for a large street protest with Internet bootstrap; **Limited** for a small crew on LAN with trained OPSEC.
+**Would we trust it?** **Limited** for a small street crew on LAN with trained OPSEC; **No** for a large protest relying on default Internet bootstrap.
 
-**Why no:**
+**Why no (Internet path):**
 
-- **SD-030:** Anyone can inject unsigned direct traffic — harassment and forged messages scale.
-- **SD-031:** Flooding unknown PeerIds amplifies to every connected peer — battery and mesh noise.
+- **SD-031:** Flooding unknown PeerIds still amplifies to connected peers (bounded fanout mitigated).
 - **Metadata:** PeerId, scopes, and timing visible to relay and nearby observers — correlation with physical presence.
-- **Plaintext fallback (SD-081):** Organizer thinks E2E is on; first messages may be plaintext before keys exchange.
 
 **Why limited yes:**
 
@@ -56,7 +54,7 @@
 
 - Initial peer discovery still hard for non-technical users.
 - No guarantee strangers on mesh are honest (Sybil, scam listings).
-- Seized phone exposes local history; backup on Android still open (SD-171).
+- Seized phone exposes local history; Android backup disabled (SD-171 mitigated).
 
 **Personal use:** Yes for **small neighborhood mesh** after training; no for **city-wide** untrusted mesh.
 

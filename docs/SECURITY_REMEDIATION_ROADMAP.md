@@ -36,13 +36,13 @@
 
 | # | Item | Debt | Effort |
 |---|------|------|--------|
-| 1 | Per-author rate limits (direct + gossip) | SD-032 | S |
-| 2 | Replay window + monotonic envelope nonces | SD-060 | S |
+| 1 | Per-author rate limits (direct + gossip) | SD-032 | S | **Done** |
+| 2 | Replay window + monotonic envelope nonces | SD-060 | S | **Done** |
 | 3 | Signed bootstrap manifest (multi-relay) | SD-022, SD-091 | M |
 | 4 | Multi-relay pool (3+ operators) | SD-020 | M |
 | 5 | Curator peer allowlist for revocations + listings | new | M |
-| 6 | Mini-app: mandatory sig OR hardened sideload tier | SD-041, SD-240 | M |
-| 7 | Remove `unsafe-inline` entirely (reject bundles) | SD-040 | M |
+| 6 | Mini-app: mandatory sig OR hardened sideload tier | SD-041, SD-240 | M | **Done** |
+| 7 | Remove `unsafe-inline` entirely (reject bundles) | SD-040 | M | **Done** |
 | 8 | Safety numbers / key change UI | SD-102 | M |
 | 9 | `cargo vet` / SBOM in CI | SD-150 | M |
 | 10 | FFI + wire fuzz harness | SD-151 | M |
