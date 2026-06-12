@@ -21,10 +21,15 @@ Implemented methods today (subset; others return “unsupported” on some hosts
 | `identity.get` | Local peer id, display name, encryption pubkey hex. |
 | `app.get_id` / `app.get_version` | Installed app id and manifest version. |
 | `util.now` | Host monotonic wall clock ms. |
-| `messaging.send` | `{ to_peer, payload }` → encrypted chat send. |
-| `messaging.subscribe` | Ack only (no push pipe yet). |
+| `messaging.send` | `{ to_peer, payload }` → encrypted chat send (requires **accepted contact**). |
+| `messaging.subscribe` | Registers `onMessage(handler)`; host pushes `[app/{id}]`-prefixed chat to the handler when a message arrives. |
+| `mycelium.registerBulletinRefresh(fn)` | Called when a bulletin post arrives on a subscribed scope (host-triggered refresh). |
 | `storage.get` / `set` / `delete` / `list` | Per-app key/value in `AppStorage` tree `miniapp_storage` (`app:{app_id}:{key}`). |
-| `bulletin.get` | `{ scope }` → JSON list of posts (snake_case fields). |
+| `bulletin.get` | `{ scope }` → JSON list of posts (snake_case fields). Auto-subscribes the node to the scope. |
+
+**Safe mode** (user- or policy-enforced) blocks writes including `proximity.start`, `bulletin.post`, and `messaging.send`. Reads such as `bulletin.get`, `storage.get`, and bulletin refresh hooks still work.
+
+**Push delivery:** Bulletin posts trigger `registerBulletinRefresh` on Android and desktop. App-scoped chat (`[app/{manifest.id}] …` prefix from `messaging.send`) is pushed to `onMessage` handlers when the host receives encrypted chat from an accepted contact.
 
 ## Desktop (Tauri)
 

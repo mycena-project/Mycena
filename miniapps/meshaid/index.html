@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MeshAid</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, sans-serif; background: #f8f7f4; color: #1a1a18; min-height: 100vh; }
+    .header { padding: 14px 16px; background: white; border-bottom: 0.5px solid rgba(0,0,0,0.08); display: flex; align-items: center; justify-content: space-between; }
+    .header h1 { font-size: 18px; font-weight: 600; }
+    .type-tabs { display: flex; overflow-x: auto; gap: 6px; padding: 10px 12px; background: white; border-bottom: 0.5px solid rgba(0,0,0,0.06); scrollbar-width: none; }
+    .type-tab { padding: 5px 12px; border-radius: 16px; white-space: nowrap; font-size: 13px; cursor: pointer; border: none; background: #f0f0ee; color: #444; }
+    .type-tab.active { background: #1D9E75; color: white; }
+    .posts { padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+    .post { background: white; border-radius: 10px; padding: 12px; border-left: 3px solid #ccc; }
+    .post.help { border-left-color: #dc2626; }
+    .post.available { border-left-color: #1D9E75; }
+    .post.resource { border-left-color: #2563eb; }
+    .post.blocked { border-left-color: #9333ea; }
+    .post.resolved { border-left-color: #94a3b8; opacity: 0.6; }
+    .post.location { border-left-color: #f59e0b; }
+    .post-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .post-type { font-size: 18px; }
+    .post-meta { font-size: 12px; color: #888; }
+    .post-title { font-weight: 500; font-size: 15px; margin-bottom: 3px; }
+    .post-body { font-size: 13px; color: #444; line-height: 1.4; }
+    .post-actions { display: flex; gap: 6px; margin-top: 8px; }
+    .btn-sm { padding: 4px 10px; border-radius: 6px; font-size: 12px; cursor: pointer; border: 0.5px solid rgba(0,0,0,0.12); background: white; }
+    .btn-sm.resolve { background: #1D9E75; color: white; border-color: #1D9E75; }
+    .fab { position: fixed; bottom: 20px; right: 20px; width: 52px; height: 52px; border-radius: 50%; background: #dc2626; color: white; border: none; font-size: 24px; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center; }
+    .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: flex-end; }
+    .modal { background: white; border-radius: 16px 16px 0 0; padding: 20px; width: 100%; max-height: 85vh; overflow-y: auto; }
+    .modal h2 { font-size: 18px; margin-bottom: 16px; }
+    .type-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+    .type-option { padding: 10px; border-radius: 8px; border: 1.5px solid #e0e0e0; cursor: pointer; text-align: center; }
+    .type-option.selected { border-color: #1D9E75; background: #E1F5EE; }
+    .type-option .emoji { font-size: 22px; display: block; }
+    .type-option .label { font-size: 12px; margin-top: 4px; }
+    .field { margin-bottom: 12px; }
+    .field label { display: block; font-size: 12px; color: #666; margin-bottom: 4px; }
+    .field input, .field textarea, .field select { width: 100%; padding: 9px 11px; border-radius: 8px; border: 0.5px solid rgba(0,0,0,0.15); font-size: 14px; font-family: inherit; background: white; }
+    .field textarea { resize: vertical; min-height: 60px; }
+    .submit-btn { width: 100%; padding: 12px; background: #dc2626; color: white; border: none; border-radius: 10px; font-size: 15px; cursor: pointer; }
+    .empty { text-align: center; padding: 40px 20px; color: #888; }
+  </style>
+</head>
+<body>
+<div class="header">
+  <h1>🆘 MeshAid</h1>
+  <span id="post-count" style="font-size:13px;color:#888">0 posts</span>
+</div>
+<div class="type-tabs">
+  <button class="type-tab active" data-filter="all">All</button>
+  <button class="type-tab" data-filter="help">🆘 Help needed</button>
+  <button class="type-tab" data-filter="available">✅ Help available</button>
+  <button class="type-tab" data-filter="resource">💧 Resource</button>
+  <button class="type-tab" data-filter="blocked">🚫 Blocked</button>
+  <button class="type-tab" data-filter="location">📍 Location</button>
+</div>
+<div class="posts" id="posts-list"></div>
+<button class="fab" id="new-post-btn" title="New post">+</button>
+<div class="modal-bg" id="modal" style="display:none">
+  <div class="modal">
+    <h2>New post</h2>
+    <div class="type-grid">
+      <div class="type-option selected" data-type="help"><span class="emoji">🆘</span><span class="label">Help needed</span></div>
+      <div class="type-option" data-type="available"><span class="emoji">✅</span><span class="label">Help available</span></div>
+      <div class="type-option" data-type="resource"><span class="emoji">💧</span><span class="label">Resource</span></div>
+      <div class="type-option" data-type="blocked"><span class="emoji">🚫</span><span class="label">Route blocked</span></div>
+      <div class="type-option" data-type="location"><span class="emoji">📍</span><span class="label">Location</span></div>
+      <div class="type-option" data-type="resolved"><span class="emoji">✓</span><span class="label">Mark resolved</span></div>
+    </div>
+    <div class="field"><label>Title</label><input type="text" id="f-title" placeholder="Brief description" maxlength="80"></div>
+    <div class="field"><label>Details (optional)</label><textarea id="f-body" placeholder="Address, number of people, what you need…" maxlength="300"></textarea></div>
+    <div class="field"><label>Share location?</label><select id="f-location"><option value="no">No</option><option value="yes">Yes — add my GPS coordinates</option></select></div>
+    <div class="field"><label>Expires after</label><select id="f-ttl"><option value="3600">1 hour</option><option value="7200">2 hours</option><option value="21600">6 hours</option><option value="86400">24 hours</option></select></div>
+    <button class="submit-btn" id="submit-post">Broadcast post</button><br><br>
+    <button style="width:100%;padding:10px;background:none;border:none;cursor:pointer;color:#888" id="cancel-btn">Cancel</button>
+  </div>
+</div>
+<script>
+  const SCOPE = 'mycelium/meshaid/v1';
+  const TYPE_ICONS = { help:'🆘', available:'✅', resource:'💧', blocked:'🚫', resolved:'✓', location:'📍' };
+  const TYPE_LABELS = { help:'Help needed', available:'Help available', resource:'Resource', blocked:'Blocked', resolved:'Resolved', location:'Location' };
+  const STORAGE_KEY = 'meshaid_posts';
+  let posts = [], activeFilter = 'all', selectedType = 'help';
+
+  function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  async function loadPosts() {
+    try {
+      const stored = await window.mycelium?.storage.get(STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        posts = parsed.filter(p => p.expires_at > Date.now());
+      }
+      const bulletins = await window.mycelium?.getBulletins(SCOPE) || [];
+      bulletins.forEach(b => {
+        try {
+          const post = JSON.parse(b.body);
+          if (post.meshaid_type && !posts.find(p => p.id === post.id)) {
+            posts.push({ ...post, from: b.from_display_name, expires_at: b.expires_at_ms });
+          }
+        } catch {}
+      });
+      renderPosts();
+    } catch (e) { console.error('loadPosts:', e); }
+  }
+
+  function renderPosts() {
+    const list = document.getElementById('posts-list');
+    const filtered = activeFilter === 'all' ? posts : posts.filter(p => p.meshaid_type === activeFilter);
+    document.getElementById('post-count').textContent = `${filtered.length} posts`;
+    if (!filtered.length) {
+      list.innerHTML = `<div class="empty"><p style="font-size:36px">📡</p><p>${activeFilter==='all'?'No posts yet. Be the first to post.':'No posts of this type.'}</p></div>`;
+      return;
+    }
+    const sorted = [...filtered].sort((a,b) => {
+      if (a.meshaid_type==='resolved' && b.meshaid_type!=='resolved') return 1;
+      if (b.meshaid_type==='resolved' && a.meshaid_type!=='resolved') return -1;
+      return b.created_at - a.created_at;
+    });
+    list.innerHTML = sorted.map(p => {
+      const age = Math.round((Date.now()-p.created_at)/60000);
+      const ageStr = age < 60 ? `${age}m ago` : `${Math.round(age/60)}h ago`;
+      return `<div class="post ${p.meshaid_type}">
+        <div class="post-header"><span class="post-type">${TYPE_ICONS[p.meshaid_type]||'📌'}</span>
+        <div><div style="font-size:12px;font-weight:500">${TYPE_LABELS[p.meshaid_type]||p.meshaid_type}</div>
+        <div class="post-meta">${esc(p.from||'Unknown')} · ${ageStr}</div></div></div>
+        <div class="post-title">${esc(p.title)}</div>
+        ${p.body?`<div class="post-body">${esc(p.body)}</div>`:''}
+        ${p.location?`<div class="post-body"><a href="geo:${p.location.lat},${p.location.lon}" style="color:#1D9E75">📍 ${p.location.lat.toFixed(4)}, ${p.location.lon.toFixed(4)}</a></div>`:''}
+        ${p.meshaid_type!=='resolved'?`<div class="post-actions"><button class="btn-sm resolve" data-resolve="${p.id}">✓ Mark resolved</button></div>`:''}
+      </div>`;
+    }).join('');
+    document.querySelectorAll('[data-resolve]').forEach(btn => btn.addEventListener('click', () => resolvePost(btn.dataset.resolve)));
+  }
+
+  async function submitPost() {
+    const title = document.getElementById('f-title').value.trim();
+    if (!title) { alert('Please enter a title'); return; }
+    const ttl = parseInt(document.getElementById('f-ttl').value, 10);
+    let location = null;
+    if (document.getElementById('f-location').value === 'yes' && navigator.geolocation) {
+      try {
+        location = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(
+          p => res({ lat: p.coords.latitude, lon: p.coords.longitude }), rej, { timeout: 5000 }));
+      } catch {}
+    }
+    const post = { id: crypto.randomUUID(), meshaid_type: selectedType, title,
+      body: document.getElementById('f-body').value.trim(), location,
+      created_at: Date.now(), expires_at: Date.now() + ttl * 1000 };
+    posts.push({ ...post, from: 'You' });
+    await window.mycelium?.storage.set(STORAGE_KEY, JSON.stringify(posts));
+    await window.mycelium?.postBulletin(SCOPE, post.title, JSON.stringify(post), ttl);
+    document.getElementById('modal').style.display = 'none';
+    document.getElementById('f-title').value = '';
+    document.getElementById('f-body').value = '';
+    renderPosts();
+  }
+
+  async function resolvePost(postId) {
+    const post = posts.find(p => p.id === postId);
+    if (!post) return;
+    post.meshaid_type = 'resolved';
+    await window.mycelium?.storage.set(STORAGE_KEY, JSON.stringify(posts));
+    await window.mycelium?.postBulletin(SCOPE, `RESOLVED: ${post.title}`, JSON.stringify({ ...post, meshaid_type: 'resolved' }), 3600);
+    renderPosts();
+  }
+
+  document.getElementById('new-post-btn').addEventListener('click', () => { document.getElementById('modal').style.display = 'flex'; });
+  document.getElementById('cancel-btn').addEventListener('click', () => { document.getElementById('modal').style.display = 'none'; });
+  document.getElementById('submit-post').addEventListener('click', submitPost);
+  document.querySelectorAll('.type-option').forEach(opt => opt.addEventListener('click', () => {
+    document.querySelectorAll('.type-option').forEach(o => o.classList.remove('selected'));
+    opt.classList.add('selected'); selectedType = opt.dataset.type;
+  }));
+  document.querySelectorAll('.type-tab').forEach(tab => tab.addEventListener('click', () => {
+    document.querySelectorAll('.type-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active'); activeFilter = tab.dataset.filter; renderPosts();
+  }));
+  loadPosts();
+  window.mycelium?.registerBulletinRefresh?.(loadPosts);
+  setInterval(loadPosts, 15000);
+</script>
+</body>
+</html>

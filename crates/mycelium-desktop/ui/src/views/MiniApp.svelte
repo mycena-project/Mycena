@@ -1,5 +1,6 @@
 <script>
   import { invoke } from "@tauri-apps/api/core";
+  import { listen } from "@tauri-apps/api/event";
 
   let { appId } = $props();
 
@@ -22,6 +23,11 @@
     "util.scan_qr": "Camera",
     "bulletin.post": "BulletinWrite",
     "peers.nearby": "PeerDiscovery",
+    "proximity.start": "PeerDiscovery",
+    "proximity.nearby": "PeerDiscovery",
+    "proximity.connect": "PeerDiscovery",
+    "proximity.messages": "Messaging",
+    "proximity.send_message": "Messaging",
   };
 
   async function attachCapability(method, args) {
@@ -359,13 +365,43 @@
     dispatchBridge(id, method, args);
   }
 
+  function postBulletinRefresh() {
+    postToIframe({ __mycelium_bulletin_refresh: true });
+  }
+
+  function postAppMessage(fromPeer, body) {
+    const prefix = `[app/${appId}] `;
+    if (!body.startsWith(prefix)) return;
+    postToIframe({
+      __mycelium_dispatch_message: JSON.stringify({
+        from_peer: fromPeer,
+        payload: body.slice(prefix.length),
+      }),
+    });
+  }
+
   $effect(() => {
     const id = appId;
     loadApp();
     loadPolicy();
     window.addEventListener("message", handleMessage);
+    let unlistenBulletin = () => {};
+    let unlistenChat = () => {};
+    listen("bulletin-updated", postBulletinRefresh).then((fn) => {
+      unlistenBulletin = fn;
+    });
+    listen("chat-updated", (event) => {
+      const data = event.payload;
+      if (data && typeof data === "object" && data.from_peer && data.body) {
+        postAppMessage(data.from_peer, data.body);
+      }
+    }).then((fn) => {
+      unlistenChat = fn;
+    });
     return () => {
       window.removeEventListener("message", handleMessage);
+      unlistenBulletin();
+      unlistenChat();
       invoke("miniapp_revoke_bridge_session", { appId: id }).catch(() => {});
     };
   });

@@ -6,4 +6,6 @@ package network.mycelium.app.miniapp
 object MiniAppBridgeCoordinator {
     var requestQrScan: ((onResult: (String?) -> Unit) -> Unit)? = null
     var pendingScanCallback: ((String?) -> Unit)? = null
+    var onBulletinRefresh: (() -> Unit)? = null
+    var onAppMessage: ((fromPeer: String, payload: String) -> Unit)? = null
 }

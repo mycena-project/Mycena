@@ -19,13 +19,19 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tokio::sync::{broadcast, mpsc, RwLock};
 use tokio::time::{interval, MissedTickBehavior};
 use tracing::{debug, info, warn};
 
 /// Scopes subscribed on the libp2p gossip layer at node startup.
 pub const SYSTEM_SCOPES: &[&str] = &["mycelium/chat", "mycelium/coin/v1", "mycelium/appstore/v1"];
+
+const RELAY_KEY_ROTATION_SECS: u64 = 86_400;
+
+fn default_max_peers() -> usize {
+    50
+}
 
 #[derive(Debug, Clone)]
 pub struct NodeConfig {
@@ -47,6 +53,11 @@ pub struct NodeConfig {
     pub max_relay_fanout: usize,
     /// When true, register on relay rendezvous and dial other opted-in peers.
     pub rendezvous_enabled: bool,
+    /// Bulletin-Board-Scopes die der Nutzer explizit abonniert hat.
+    /// Leer = kein Bulletin Board (default).
+    pub bulletin_subscriptions: Vec<String>,
+    /// Max direkte Peer-Verbindungen. Default 50.
+    pub max_peers: usize,
 }
 
 fn default_max_relay_fanout() -> usize {
@@ -69,6 +80,8 @@ impl Default for NodeConfig {
             storage_key: None,
             max_relay_fanout: default_max_relay_fanout(),
             rendezvous_enabled: true,
+            bulletin_subscriptions: Vec::new(),
+            max_peers: default_max_peers(),
         }
     }
 }
@@ -91,7 +104,54 @@ impl NodeConfig {
             storage_key: None,
             max_relay_fanout: default_max_relay_fanout(),
             rendezvous_enabled: true,
+            bulletin_subscriptions: Vec::new(),
+            max_peers: default_max_peers(),
         }
+    }
+}
+
+#[derive(Clone)]
+struct RelayIdentity {
+    keypair: Arc<Mutex<identity::Keypair>>,
+    created_at: Arc<Mutex<Instant>>,
+}
+
+impl RelayIdentity {
+    fn new() -> Self {
+        Self {
+            keypair: Arc::new(Mutex::new(identity::Keypair::generate_ed25519())),
+            created_at: Arc::new(Mutex::new(Instant::now())),
+        }
+    }
+
+    fn peer_id(&self) -> String {
+        self.keypair
+            .lock()
+            .expect("relay keypair lock")
+            .public()
+            .to_peer_id()
+            .to_string()
+    }
+
+    fn age_secs(&self) -> u64 {
+        self.created_at
+            .lock()
+            .expect("relay created_at lock")
+            .elapsed()
+            .as_secs()
+    }
+
+    fn maybe_rotate(&self) {
+        if self.age_secs() > RELAY_KEY_ROTATION_SECS {
+            *self.keypair.lock().expect("relay keypair lock") =
+                identity::Keypair::generate_ed25519();
+            *self.created_at.lock().expect("relay created_at lock") = Instant::now();
+            info!("relay keypair rotated");
+        }
+    }
+
+    fn signing_keypair(&self) -> identity::Keypair {
+        self.keypair.lock().expect("relay keypair lock").clone()
     }
 }
 
@@ -124,6 +184,8 @@ pub enum NodeCommand {
     },
     SubscribeScope(String),
     UnsubscribeScope(String),
+    SubscribeBulletinScope(String),
+    UnsubscribeBulletinScope(String),
     GcNow {
         reply: Option<tokio::sync::oneshot::Sender<usize>>,
     },
@@ -146,6 +208,9 @@ pub struct NodeMetrics {
     pub messages_delivered_local: u64,
     pub pending_queue_size: usize,
     pub seen_cache_size: usize,
+    pub connected_peers: usize,
+    pub max_peers: usize,
+    pub peer_cap_rejections: u64,
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
@@ -163,6 +228,8 @@ pub struct NodeHandle {
     peers: Arc<RwLock<Vec<String>>>,
     reputations: Arc<Mutex<HashMap<String, PeerReputationSnapshot>>>,
     scopes: Arc<RwLock<HashSet<String>>>,
+    bulletin_subscriptions: Arc<RwLock<Vec<String>>>,
+    relay_identity: RelayIdentity,
     enc_pubkey_hex: String,
     peer_x25519: Arc<RwLock<HashMap<String, [u8; 32]>>>,
     listen_addrs: Arc<RwLock<Vec<String>>>,
@@ -206,6 +273,31 @@ impl NodeHandle {
 
     pub async fn subscribed_scopes(&self) -> Vec<String> {
         self.scopes.read().await.iter().cloned().collect()
+    }
+
+    pub fn relay_peer_id(&self) -> String {
+        self.relay_identity.peer_id()
+    }
+
+    pub fn relay_keypair_age_secs(&self) -> u64 {
+        self.relay_identity.age_secs()
+    }
+
+    pub async fn bulletin_subscriptions(&self) -> Vec<String> {
+        self.bulletin_subscriptions.read().await.clone()
+    }
+
+    pub async fn subscribe_bulletin_scope(&self, scope: String) -> anyhow::Result<()> {
+        self.send(NodeCommand::SubscribeBulletinScope(scope)).await
+    }
+
+    pub async fn unsubscribe_bulletin_scope(&self, scope: String) -> anyhow::Result<()> {
+        self.send(NodeCommand::UnsubscribeBulletinScope(scope))
+            .await
+    }
+
+    pub async fn is_bulletin_enabled(&self) -> bool {
+        !self.bulletin_subscriptions.read().await.is_empty()
     }
 
     pub fn local_enc_pubkey_hex(&self) -> String {
@@ -269,6 +361,8 @@ pub struct NodeRunner {
     listen_addrs: Arc<RwLock<Vec<String>>>,
     rendezvous_enabled: Arc<AtomicBool>,
     db_path: String,
+    relay_identity: RelayIdentity,
+    bulletin_subscriptions: Arc<RwLock<Vec<String>>>,
 }
 
 impl NodeRunner {
@@ -293,6 +387,7 @@ impl NodeRunner {
             bootstrap_peers,
             config.connectivity_rx.clone(),
             config.storage_key,
+            config.max_peers,
         )?;
         Self::new_with_transport(config, Box::new(transport))
     }
@@ -318,6 +413,8 @@ impl NodeRunner {
             SYSTEM_SCOPES.iter().map(|s| (*s).to_string()).collect();
         initial_scopes.insert("mycelium/group/*".to_string());
         let scopes = Arc::new(RwLock::new(initial_scopes));
+        let bulletin_subscriptions = Arc::new(RwLock::new(config.bulletin_subscriptions.clone()));
+        let relay_identity = RelayIdentity::new();
         let (incoming_tx, _) = broadcast::channel(512);
         let (tx, cmd_rx) = mpsc::channel(64);
         let rendezvous_enabled = Arc::new(AtomicBool::new(config.rendezvous_enabled));
@@ -350,6 +447,8 @@ impl NodeRunner {
                 listen_addrs: listen_addrs.clone(),
                 rendezvous_enabled: rendezvous_enabled.clone(),
                 db_path: config.db_path.clone(),
+                relay_identity: relay_identity.clone(),
+                bulletin_subscriptions: bulletin_subscriptions.clone(),
             },
             NodeHandle {
                 tx,
@@ -358,6 +457,8 @@ impl NodeRunner {
                 peers,
                 reputations,
                 scopes,
+                bulletin_subscriptions,
+                relay_identity,
                 enc_pubkey_hex,
                 peer_x25519,
                 listen_addrs,
@@ -369,12 +470,63 @@ impl NodeRunner {
         &self.local_peer_id
     }
 
+    pub fn relay_peer_id(&self) -> String {
+        self.relay_identity.peer_id()
+    }
+
+    fn maybe_rotate_relay_keypair(&self) {
+        self.relay_identity.maybe_rotate();
+    }
+
+    /// Test helper: backdate relay key creation.
+    #[doc(hidden)]
+    pub fn set_relay_keypair_age_for_test(&self, age_secs: u64) {
+        let created = Instant::now() - Duration::from_secs(age_secs);
+        *self
+            .relay_identity
+            .created_at
+            .lock()
+            .expect("relay created_at lock") = created;
+    }
+
+    /// Rotate the relay keypair when it is older than 24 hours.
+    #[doc(hidden)]
+    pub fn rotate_relay_keypair_if_due(&self) {
+        self.relay_identity.maybe_rotate();
+    }
+
+    fn apply_relay_forward_mask(&self, message: &mut DirectMessage) {
+        let relay_id = self.relay_identity.peer_id();
+        if message.envelope.author_peer.is_none() {
+            message.envelope.author_peer = Some(message.envelope.from_peer.clone());
+        }
+        message.envelope.from_peer = relay_id;
+    }
+
+    fn update_transport_metrics(&self, metrics: &mut NodeMetrics) {
+        metrics.connected_peers = self.transport.connected_peer_count();
+        metrics.max_peers = self.transport.max_direct_peers();
+        metrics.peer_cap_rejections = self.transport.peer_cap_rejections();
+    }
+
+    async fn find_peer_via_kad(&mut self, target_peer_id: &str) {
+        self.transport.kad_find_peer(target_peer_id);
+    }
+
     pub async fn run(mut self) -> anyhow::Result<()> {
         info!("node started with peer_id={}", self.local_peer_id);
         for scope in SYSTEM_SCOPES {
             if let Err(e) = self.transport.subscribe_scope(scope.to_string()).await {
                 warn!("failed to subscribe to {scope}: {e}");
             }
+        }
+        for scope in self.bulletin_subscriptions.read().await.clone() {
+            if let Err(e) = self.transport.subscribe_scope(scope.clone()).await {
+                warn!("failed to subscribe to bulletin scope {scope}: {e}");
+            } else {
+                info!("bulletin subscribed: {scope}");
+            }
+            self.subscribed_scopes.write().await.insert(scope);
         }
         let mut forward_tick =
             interval(Duration::from_millis(self.config_forwarding_interval_ms()));
@@ -535,6 +687,38 @@ impl NodeRunner {
                 if !scope.contains('*') {
                     if let Err(e) = self.transport.unsubscribe_scope(scope).await {
                         warn!("failed to unsubscribe from gossip topic: {e}");
+                    }
+                }
+            }
+            NodeCommand::SubscribeBulletinScope(scope) => {
+                let scope = scope.trim().to_string();
+                if scope.is_empty() {
+                    return Ok(());
+                }
+                {
+                    let mut subs = self.bulletin_subscriptions.write().await;
+                    if !subs.iter().any(|s| s == &scope) {
+                        subs.push(scope.clone());
+                    }
+                }
+                self.subscribed_scopes.write().await.insert(scope.clone());
+                if !scope.contains('*') {
+                    if let Err(e) = self.transport.subscribe_scope(scope.clone()).await {
+                        warn!("failed to subscribe to bulletin scope: {e}");
+                    } else {
+                        info!("bulletin subscribed: {scope}");
+                    }
+                }
+            }
+            NodeCommand::UnsubscribeBulletinScope(scope) => {
+                self.bulletin_subscriptions
+                    .write()
+                    .await
+                    .retain(|s| s != &scope);
+                self.subscribed_scopes.write().await.remove(&scope);
+                if !scope.contains('*') {
+                    if let Err(e) = self.transport.unsubscribe_scope(scope).await {
+                        warn!("failed to unsubscribe from bulletin scope: {e}");
                     }
                 }
             }
@@ -772,6 +956,47 @@ impl NodeRunner {
                     }
                     return Ok(());
                 }
+                if scope == "mycelium/proximity/v1" {
+                    let envelope = mycelium_core::data::Envelope::new_unsigned(
+                        from_peer.clone(),
+                        None,
+                        payload,
+                    );
+                    let stored = DirectMessage {
+                        envelope,
+                        body: "[proximity]".into(),
+                    };
+                    let should_process = self
+                        .ingest
+                        .ingest(&mut self.seen_cache, &stored, false)
+                        .await?;
+                    if should_process {
+                        let _ = self.incoming_tx.send(stored);
+                    }
+                    return Ok(());
+                }
+                let scope_subscribed = scopes.iter().any(|pattern| scope_obj.matches(pattern));
+                if scope_subscribed
+                    && (payload.starts_with(b"enc1:") || std::str::from_utf8(&payload).is_err())
+                {
+                    let envelope = mycelium_core::data::Envelope::new_unsigned(
+                        from_peer.clone(),
+                        None,
+                        payload,
+                    );
+                    let stored = DirectMessage {
+                        envelope,
+                        body: format!("[bulletin:{scope}]"),
+                    };
+                    let should_process = self
+                        .ingest
+                        .ingest(&mut self.seen_cache, &stored, false)
+                        .await?;
+                    if should_process {
+                        let _ = self.incoming_tx.send(stored);
+                    }
+                    return Ok(());
+                }
                 if let Ok(body) = String::from_utf8(payload.clone()) {
                     let mut envelope =
                         mycelium_core::data::Envelope::new(from_peer.clone(), None, payload);
@@ -822,7 +1047,7 @@ impl NodeRunner {
             }
         }
         match message {
-            WireMessage::Data(mut message) => {
+            WireMessage::Data(message) => {
                 match security::validate_data_message_signature(&message, now_ms()) {
                     Err(Sd030DropReason::NoSignature) => {
                         warn!(
@@ -904,10 +1129,14 @@ impl NodeRunner {
                 peers.retain(|peer| peer != &from_peer);
                 if let Some(target) = message.envelope.to_peer.clone() {
                     if peers.iter().any(|p| p == &target) {
-                        message.envelope.hop_count = message.envelope.hop_count.saturating_add(1);
-                        self.enqueue(target, message).await?;
+                        let mut forwarded = message.clone();
+                        forwarded.envelope.hop_count =
+                            forwarded.envelope.hop_count.saturating_add(1);
+                        self.apply_relay_forward_mask(&mut forwarded);
+                        self.enqueue(target, forwarded).await?;
                         return Ok(());
                     }
+                    self.find_peer_via_kad(&target).await;
                 }
                 let decision = self.forwarding_policy.decide(
                     &message,
@@ -925,6 +1154,7 @@ impl NodeRunner {
                             let mut forwarded = message.clone();
                             forwarded.envelope.hop_count =
                                 forwarded.envelope.hop_count.saturating_add(1);
+                            self.apply_relay_forward_mask(&mut forwarded);
                             self.enqueue(target, forwarded).await?;
                         }
                     }
@@ -1077,10 +1307,9 @@ impl NodeRunner {
                         hop_count: hop_count.saturating_add(1),
                         max_hops,
                     };
-                    if let Some(keypair) = &self.keypair {
-                        let _ =
-                            mycelium_core::transport::sign_encrypted_direct(&mut forward, keypair);
-                    }
+                    let relay_kp = self.relay_identity.signing_keypair();
+                    let _ =
+                        mycelium_core::transport::sign_encrypted_direct(&mut forward, &relay_kp);
                     self.forward_wire_to_others(&from_peer, &forward).await?;
                 } else {
                     let mut metrics = self.metrics.write().await;
@@ -1111,6 +1340,7 @@ impl NodeRunner {
     }
 
     async fn forward_once(&mut self) -> anyhow::Result<()> {
+        self.maybe_rotate_relay_keypair();
         self.evict_expired();
         let budget = match self.node_state {
             NodeState::Active => 10,
@@ -1147,6 +1377,7 @@ impl NodeRunner {
         let mut metrics = self.metrics.write().await;
         metrics.pending_queue_size = self.pending.len();
         metrics.seen_cache_size = self.seen_cache.len();
+        self.update_transport_metrics(&mut metrics);
         Ok(())
     }
 

@@ -131,6 +131,21 @@ Treat as **preview only**:
 - **Cannot delete** messages on other users’ phones.
 - **Cannot recover** forgotten keys / wiped data.
 - **Relay outage** degrades Internet path; LAN may continue.
+- **Mini-app direct messaging** requires the recipient to have **accepted** the sender as a contact; there is no anonymous DM bridge bypass.
+
+---
+
+## Intentionally deferred (not bugs)
+
+These gaps were reviewed and left out of scope because mini-apps or settings already cover the use case, or because shipping them needs product decisions:
+
+| Item | Rationale |
+|------|-----------|
+| Native Android/desktop proximity UI | The **Proximity** mini-app (`proximity.mxa`) is the supported UX; FFI exists for future native screens. |
+| Desktop Settings for scope keys | Encrypted channels are managed in **Android Settings** today; desktop users install mini-apps that declare bulletin scopes. |
+| Curated signed store listings in-repo | Bundles (`meshaid.mxa`, `meshmarket.mxa`, `proximity.mxa`) ship for sideload; gossip store curation needs operator keys and policy. |
+| `MiniAppRunnerScreen` (legacy WebView) | Superseded by `MiniAppProcessActivity` (isolated process). Legacy path retained for reference only. |
+| Full mesh multi-node CI for proximity DM | Unit/integration tests cover bulletin relay, presence ingest, and mutual-match gating; live two-node mesh tests remain in `mycelium-sim` scenarios. |
 
 ---
 

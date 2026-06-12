@@ -19,6 +19,10 @@ typealias ContactStatus = uniffi.mycelium.ContactStatus
 typealias MiniAppInfo = uniffi.mycelium.MiniAppInfo
 typealias AppStoreListing = uniffi.mycelium.AppStoreListing
 typealias MiniAppInstallPreview = uniffi.mycelium.MiniAppInstallPreview
+typealias PresenceProfileData = uniffi.mycelium.PresenceProfileData
+typealias NearbyProfile = uniffi.mycelium.NearbyProfile
+typealias ProximityMessageData = uniffi.mycelium.ProximityMessageData
+typealias ScopeKeyInfo = uniffi.mycelium.ScopeKeyInfo
 
 object mycelium {
     fun initNode(config: NodeConfig) = uniffi.mycelium.initNode(config)
@@ -26,6 +30,30 @@ object mycelium {
     fun localPeerId(): String = uniffi.mycelium.localPeerId()
     fun knownPeers(): List<String> = uniffi.mycelium.knownPeers()
     fun metrics(): NodeMetrics = uniffi.mycelium.metrics()
+    fun relayPeerId(): String = uniffi.mycelium.relayPeerId()
+    fun relayKeypairAgeSecs(): ULong = uniffi.mycelium.relayKeypairAgeSecs()
+    fun getBulletinSubscriptions(): List<String> = uniffi.mycelium.getBulletinSubscriptions()
+    fun subscribeBulletinScope(scope: String) = uniffi.mycelium.subscribeBulletinScope(scope)
+    fun unsubscribeBulletinScope(scope: String) = uniffi.mycelium.unsubscribeBulletinScope(scope)
+    fun isBulletinEnabled(): Boolean = uniffi.mycelium.isBulletinEnabled()
+    fun listScopeKeys(): List<ScopeKeyInfo> = uniffi.mycelium.listScopeKeys()
+    fun addScopeKey(inviteJson: String) = uniffi.mycelium.addScopeKey(inviteJson)
+    fun createScopeKey(scope: String, displayName: String) =
+        uniffi.mycelium.createScopeKey(scope, displayName)
+    fun exportScopeKey(scope: String): String = uniffi.mycelium.exportScopeKey(scope)
+    fun deleteScopeKey(scope: String) = uniffi.mycelium.deleteScopeKey(scope)
+    fun scopeIsEncrypted(scope: String): Boolean = uniffi.mycelium.scopeIsEncrypted(scope)
+    fun startProximity(profile: PresenceProfileData, ttlSecs: UInt) =
+        uniffi.mycelium.startProximity(profile, ttlSecs)
+    fun stopProximity() = uniffi.mycelium.stopProximity()
+    fun nearbyProfiles(): List<NearbyProfile> = uniffi.mycelium.nearbyProfiles()
+    fun isProximityActive(): Boolean = uniffi.mycelium.isProximityActive()
+    fun expressProximityInterest(encPubkeyHex: String): Boolean =
+        uniffi.mycelium.expressProximityInterest(encPubkeyHex)
+    fun proximityMessages(sinceMs: ULong = 0u): List<ProximityMessageData> =
+        uniffi.mycelium.proximityMessages(sinceMs)
+    fun sendProximityMessage(encPubkeyHex: String, message: String) =
+        uniffi.mycelium.sendProximityMessage(encPubkeyHex, message)
     fun sendChatDirect(toPeer: String, body: String) = uniffi.mycelium.sendChatDirect(toPeer, body)
     fun sendChatEncrypted(toPeer: String, body: String) = uniffi.mycelium.sendChatEncrypted(toPeer, body)
     fun localEncPubkey(): String = uniffi.mycelium.localEncPubkey()

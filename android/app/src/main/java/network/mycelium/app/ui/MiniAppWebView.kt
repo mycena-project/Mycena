@@ -124,6 +124,35 @@ class MiniappJsBridge(
         val notice = ctx.getString(R.string.miniapp_hosted_dialog_notice)
         return "$notice\n\n$body"
     }
+
+    private fun capabilityPermissionFor(method: String): String? =
+        when (method) {
+            "identity.get" -> MiniAppGrants.IDENTITY
+            "messaging.send" -> "Messaging"
+            "messaging.broadcast" -> MiniAppGrants.MESSAGING_BROADCAST
+            "payment.request", "payment.create_qr", "payment.get_balance" -> MiniAppGrants.PAYMENTS
+            "util.scan_qr" -> MiniAppGrants.CAMERA
+            "bulletin.post" -> "BulletinWrite"
+            "peers.nearby" -> "PeerDiscovery"
+            "proximity.start" -> "PeerDiscovery"
+            "proximity.nearby" -> "PeerDiscovery"
+            "proximity.connect" -> "PeerDiscovery"
+            "proximity.messages" -> "Messaging"
+            "proximity.send_message" -> "Messaging"
+            else -> null
+        }
+
+    private fun withCapability(method: String, args: JSONObject): JSONObject {
+        val perm = capabilityPermissionFor(method) ?: return args
+        val session = args.optString("_session", null) ?: return args
+        return try {
+            val cap = mycelium.miniappIssueCapability(appId, perm, session)
+            JSONObject(args.toString()).apply { put("_cap", cap) }
+        } catch (_: Exception) {
+            args
+        }
+    }
+
     @JavascriptInterface
     fun onNativeCall(json: String) {
         handler.post {
@@ -207,7 +236,8 @@ class MiniappJsBridge(
         }
 
         try {
-            val resultJson = mycelium.miniappBridgeCall(appId, method, args.toString())
+            val bridgedArgs = withCapability(method, args)
+            val resultJson = mycelium.miniappBridgeCall(appId, method, bridgedArgs.toString())
             val result = JSONObject(resultJson)
             if (result.has("error")) {
                 throw Exception(result.getString("error"))

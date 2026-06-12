@@ -21,6 +21,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -125,6 +126,7 @@ fun PeersScreen(navController: NavController, vm: PeersViewModel = viewModel()) 
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
     val networkPeers by vm.networkPeers.collectAsState()
+    val metrics by vm.metrics.collectAsState()
     val localPeerId = mycelium.localPeerId()
     val invitePayload = remember(localPeerId) { PeerInvite.encode(localPeerId) }
     val qrBitmap = remember(invitePayload) { generateQrCode(invitePayload, 640) }
@@ -244,6 +246,24 @@ fun PeersScreen(navController: NavController, vm: PeersViewModel = viewModel()) 
                             style = MaterialTheme.typography.labelLarge,
                             modifier = Modifier.padding(top = 12.dp),
                         )
+                        if (metrics.maxPeers > 0uL) {
+                            val utilization =
+                                (metrics.connectedPeers.toFloat() / metrics.maxPeers.toFloat() * 100f)
+                                    .toInt()
+                            LinearProgressIndicator(
+                                progress = {
+                                    metrics.connectedPeers.toFloat() / metrics.maxPeers.toFloat()
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 12.dp),
+                            )
+                            Text(
+                                "${metrics.connectedPeers}/${metrics.maxPeers} peers ($utilization%)",
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(top = 4.dp),
+                            )
+                        }
                     }
                 }
             }

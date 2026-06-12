@@ -40,6 +40,9 @@ pub struct Envelope {
     pub hop_count: u8,
     #[serde(default = "default_max_hops")]
     pub max_hops: u8,
+    /// Original author when `from_peer` was replaced by a relay hop identity.
+    #[serde(default)]
+    pub author_peer: Option<String>,
 }
 
 impl Envelope {
@@ -60,6 +63,7 @@ impl Envelope {
             sig_version: 1,
             hop_count: 0,
             max_hops: default_max_hops(),
+            author_peer: None,
         }
     }
 
@@ -101,6 +105,11 @@ impl Envelope {
     }
 
     /// Verify signature; during the 7-day transition after v1 launch, accept failures with a warning.
+    /// Peer ID whose key signed this envelope (author, not relay hop).
+    pub fn signature_author_peer(&self) -> &str {
+        self.author_peer.as_deref().unwrap_or(&self.from_peer)
+    }
+
     pub fn verify_or_transition(&self, from_peer_id: &libp2p::PeerId) -> bool {
         if self.verify(from_peer_id) {
             return true;

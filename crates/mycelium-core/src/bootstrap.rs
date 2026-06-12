@@ -17,7 +17,26 @@ pub fn is_relay_peer(peer_id: &str) -> bool {
 pub const BOOTSTRAP_PEERS: &[&str] = &[
     "/dns4/mycelium-relay.fly.dev/tcp/4001/p2p/12D3KooWGv6goWd2fHwcigDjqQm5Dfw28UijwEjnMcYwTpPRPZy6",
     "/dns4/mycelium-relay.fly.dev/udp/4001/quic-v1/p2p/12D3KooWGv6goWd2fHwcigDjqQm5Dfw28UijwEjnMcYwTpPRPZy6",
+    // Second regional relay (after deploy, e.g. fly regions add ams):
+    // "/dns4/mycelium-relay-ams.fly.dev/tcp/4001/p2p/12D3KooW...",
 ];
+
+/// Extract the `/p2p/<PeerId>` component from a libp2p multiaddr.
+pub fn peer_id_from_multiaddr(addr: &str) -> Option<String> {
+    let parsed: libp2p::Multiaddr = addr.parse().ok()?;
+    peer_id_from_parsed_multiaddr(&parsed).map(|p| p.to_string())
+}
+
+pub fn peer_id_from_parsed_multiaddr(addr: &libp2p::Multiaddr) -> Option<libp2p::PeerId> {
+    use libp2p::multiaddr::Protocol;
+    addr.iter().find_map(|proto| {
+        if let Protocol::P2p(peer_id) = proto {
+            Some(peer_id)
+        } else {
+            None
+        }
+    })
+}
 
 /// libp2p circuit address to reach `remote_peer_id` via the public relay (NAT traversal).
 pub fn relay_circuit_multiaddr(remote_peer_id: &str) -> Option<String> {
@@ -169,6 +188,13 @@ pub fn save_custom_bootstrap_peers(db_path: &str, peers: &[String]) -> std::io::
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn peer_id_from_multiaddr_extracts_embedded_id() {
+        let addr = BOOTSTRAP_PEERS[0];
+        let peer_id = peer_id_from_multiaddr(addr).expect("peer id");
+        assert_eq!(peer_id, RELAY_PEER_ID);
+    }
 
     #[test]
     fn relay_circuit_addr_uses_embedded_relay() {

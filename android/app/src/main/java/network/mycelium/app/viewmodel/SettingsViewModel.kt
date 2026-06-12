@@ -3,9 +3,13 @@ package network.mycelium.app.viewmodel
 import android.app.Application
 import android.content.Intent
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 import network.mycelium.app.MeshService
+import network.mycelium.bindings.mycelium
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -16,6 +20,56 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     )
     val bleBootstrapEnabled: StateFlow<Boolean> = _bleBootstrapEnabled
 
+    private val _relayKeyAgeSecs = MutableStateFlow(0L)
+    val relayKeyAgeSecs: StateFlow<Long> = _relayKeyAgeSecs
+
+    private val _bulletinSubscriptions = MutableStateFlow(loadBulletinSubscriptions())
+    val bulletinSubscriptions: StateFlow<List<String>> = _bulletinSubscriptions
+
+    private val _scopeKeys = MutableStateFlow(mycelium.listScopeKeys())
+    val scopeKeys: StateFlow<List<network.mycelium.bindings.ScopeKeyInfo>> = _scopeKeys
+
+    init {
+        viewModelScope.launch {
+            while (true) {
+                _relayKeyAgeSecs.value = mycelium.relayKeypairAgeSecs().toLong()
+                _bulletinSubscriptions.value = mycelium.getBulletinSubscriptions()
+                _scopeKeys.value = mycelium.listScopeKeys()
+                delay(5_000)
+            }
+        }
+    }
+
+    fun refreshScopeKeys() {
+        _scopeKeys.value = mycelium.listScopeKeys()
+    }
+
+    fun addScopeKeyFromInvite(inviteJson: String) {
+        mycelium.addScopeKey(inviteJson)
+        refreshScopeKeys()
+        val updated = mycelium.getBulletinSubscriptions()
+        _bulletinSubscriptions.value = updated
+        persistBulletinSubscriptions(updated)
+    }
+
+    fun createScopeKey(scope: String, displayName: String) {
+        mycelium.createScopeKey(scope, displayName)
+        refreshScopeKeys()
+        val updated = mycelium.getBulletinSubscriptions()
+        _bulletinSubscriptions.value = updated
+        persistBulletinSubscriptions(updated)
+    }
+
+    fun deleteScopeKey(scope: String) {
+        mycelium.deleteScopeKey(scope)
+        refreshScopeKeys()
+        val updated = mycelium.getBulletinSubscriptions()
+        _bulletinSubscriptions.value = updated
+        persistBulletinSubscriptions(updated)
+    }
+
+    fun exportScopeKey(scope: String): String = mycelium.exportScopeKey(scope)
+
     fun setBleBootstrap(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_BLE_BOOTSTRAP, enabled).apply()
         _bleBootstrapEnabled.value = enabled
@@ -25,8 +79,32 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         )
     }
 
+    fun subscribeBulletin(scope: String) {
+        val normalized = scope.trim().lowercase().replace(" ", "/")
+        if (normalized.isBlank()) return
+        mycelium.subscribeBulletinScope(normalized)
+        val updated = mycelium.getBulletinSubscriptions()
+        _bulletinSubscriptions.value = updated
+        persistBulletinSubscriptions(updated)
+    }
+
+    fun unsubscribeBulletin(scope: String) {
+        mycelium.unsubscribeBulletinScope(scope)
+        val updated = mycelium.getBulletinSubscriptions()
+        _bulletinSubscriptions.value = updated
+        persistBulletinSubscriptions(updated)
+    }
+
+    private fun loadBulletinSubscriptions(): List<String> =
+        prefs.getStringSet(KEY_BULLETIN_SUBSCRIPTIONS, emptySet())?.toList().orEmpty()
+
+    private fun persistBulletinSubscriptions(scopes: List<String>) {
+        prefs.edit().putStringSet(KEY_BULLETIN_SUBSCRIPTIONS, scopes.toSet()).apply()
+    }
+
     companion object {
         const val PREFS_NAME = "settings"
         const val KEY_BLE_BOOTSTRAP = "ble_bootstrap_enabled"
+        const val KEY_BULLETIN_SUBSCRIPTIONS = "bulletin_subscriptions"
     }
 }

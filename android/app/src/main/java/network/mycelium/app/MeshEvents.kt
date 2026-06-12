@@ -10,4 +10,6 @@ object MeshEvents {
     const val CONNECTIVITY = "mycelium.CONNECTIVITY"
     const val CONTACTS = "mycelium.CONTACTS_UPDATED"
     const val EXTRA_INTERNET = "internet"
+    const val EXTRA_FROM_PEER = "from_peer"
+    const val EXTRA_BODY = "body"
 }

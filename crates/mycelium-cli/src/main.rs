@@ -167,6 +167,8 @@ async fn cmd_app_publish_live(
         storage_key: None,
         max_relay_fanout: 3,
         rendezvous_enabled: true,
+        bulletin_subscriptions: Vec::new(),
+        max_peers: 50,
     };
     let (runner, handle) = NodeRunner::new(config)?;
     let publisher_peer = runner.local_peer_id().to_string();
@@ -180,6 +182,7 @@ async fn cmd_app_publish_live(
     let app_store = Arc::new(mycelium_app::miniapp::AppStore::open(&format!(
         "{db}/miniapp"
     ))?);
+    let enc_keypair = mycelium_node::secrets::load_or_create_enc_keypair(db, None)?;
     let (app_node, _inbox) = AppNode::new(
         handle.clone(),
         publisher_peer,
@@ -188,6 +191,7 @@ async fn cmd_app_publish_live(
         Arc::new(NoopNotifier),
         None,
         Some(app_store),
+        enc_keypair,
     );
     let app_node = Arc::new(app_node);
     app_node.clone().start_incoming_task();
@@ -215,6 +219,8 @@ async fn run_interactive_server(cli: RunArgs) -> anyhow::Result<()> {
         storage_key: None,
         max_relay_fanout: 3,
         rendezvous_enabled: true,
+        bulletin_subscriptions: Vec::new(),
+        max_peers: 50,
     };
     let (runner, handle) = NodeRunner::new(config)?;
     let local_peer_id = runner.local_peer_id().to_string();
@@ -237,6 +243,7 @@ async fn run_interactive_server(cli: RunArgs) -> anyhow::Result<()> {
         "{}/miniapp",
         cli.db
     ))?);
+    let enc_keypair = mycelium_node::secrets::load_or_create_enc_keypair(&cli.db, None)?;
     let (app_node, _inbox) = AppNode::new(
         handle.clone(),
         local_peer_id.clone(),
@@ -245,6 +252,7 @@ async fn run_interactive_server(cli: RunArgs) -> anyhow::Result<()> {
         Arc::new(NoopNotifier),
         None,
         Some(app_store),
+        enc_keypair,
     );
     let app_node = Arc::new(app_node);
     app_node.clone().start_incoming_task();

@@ -24,6 +24,7 @@ import network.mycelium.bindings.AppStoreListing
 import network.mycelium.bindings.BulletinPost
 import network.mycelium.bindings.ChatMessage
 import network.mycelium.bindings.ConnectivityMode
+import network.mycelium.app.viewmodel.SettingsViewModel
 import network.mycelium.bindings.EnergyState
 import network.mycelium.bindings.MailMessage
 import network.mycelium.bindings.NodeConfig
@@ -63,6 +64,10 @@ class MeshService : Service() {
         val storageKeyHex = StorageKeyHelper.getOrCreateStorageKeyHex(this)
         wifiMulticastLock = WifiMulticastLock(this).also { it.acquire() }
         val rendezvousEnabled = prefs.getBoolean("rendezvous_enabled", true)
+        val bulletinSubscriptions =
+            prefs.getStringSet(SettingsViewModel.KEY_BULLETIN_SUBSCRIPTIONS, emptySet())
+                ?.toList()
+                .orEmpty()
         mycelium.initNode(
             NodeConfig(
                 dbPath = dbPath,
@@ -71,6 +76,7 @@ class MeshService : Service() {
                 bootstrapPeers = bootstrapPeers,
                 storageKeyHex = storageKeyHex,
                 rendezvousEnabled = rendezvousEnabled,
+                bulletinSubscriptions = bulletinSubscriptions,
             ),
         )
         mycelium.setDisplayName(displayName)
@@ -92,7 +98,11 @@ class MeshService : Service() {
 
                 override fun onChatReceived(message: ChatMessage) {
                     showChatNotification(message)
-                    sendBroadcast(Intent(MeshEvents.CHAT))
+                    sendBroadcast(
+                        Intent(MeshEvents.CHAT)
+                            .putExtra(MeshEvents.EXTRA_FROM_PEER, message.fromPeer)
+                            .putExtra(MeshEvents.EXTRA_BODY, message.body),
+                    )
                 }
 
                 override fun onMailReceived(message: MailMessage) {

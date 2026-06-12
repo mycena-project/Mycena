@@ -15,13 +15,31 @@ import network.mycelium.bindings.mycelium
 class BulletinViewModel(app: Application) : AndroidViewModel(app) {
     private val appContext = getApplication<Application>()
 
-    val posts: StateFlow<List<BulletinPost>> =
+    val isEnabled: StateFlow<Boolean> =
         flow {
-            emit(mycelium.bulletinsForScope("mycelium/global"))
+            emit(mycelium.isBulletinEnabled())
             appContext.meshEvents().collect {
                 if (it == MeshEvent.Bulletin) {
-                    emit(mycelium.bulletinsForScope("mycelium/global"))
+                    emit(mycelium.isBulletinEnabled())
+                }
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    val posts: StateFlow<List<BulletinPost>> =
+        flow {
+            emit(loadPosts())
+            appContext.meshEvents().collect {
+                if (it == MeshEvent.Bulletin) {
+                    emit(loadPosts())
                 }
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    private fun loadPosts(): List<BulletinPost> {
+        if (!mycelium.isBulletinEnabled()) return emptyList()
+        return mycelium.getBulletinSubscriptions()
+            .flatMap { scope -> mycelium.bulletinsForScope(scope) }
+            .distinctBy { it.id }
+            .sortedByDescending { it.timestampMs }
+    }
 }

@@ -2,9 +2,11 @@ package network.mycelium.app.miniapp
 
 import android.annotation.SuppressLint
 import android.app.AlertDialog
+import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.ServiceConnection
 import android.net.Uri
 import android.os.Bundle
@@ -50,6 +52,7 @@ import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import java.io.ByteArrayInputStream
 import java.util.UUID
+import network.mycelium.app.MeshEvents
 import network.mycelium.app.R
 import org.json.JSONObject
 
@@ -151,9 +154,34 @@ private fun MiniAppProcessContent(
                     .setPrompt("Scan QR"),
             )
         }
+        val bulletinReceiver =
+            object : BroadcastReceiver() {
+                override fun onReceive(context: Context?, intent: Intent?) {
+                    MiniAppBridgeCoordinator.onBulletinRefresh?.invoke()
+                }
+            }
+        val chatReceiver =
+            object : BroadcastReceiver() {
+                override fun onReceive(context: Context?, intent: Intent?) {
+                    val fromPeer = intent?.getStringExtra(MeshEvents.EXTRA_FROM_PEER) ?: return
+                    val body = intent.getStringExtra(MeshEvents.EXTRA_BODY) ?: return
+                    val prefix = "[app/$appId] "
+                    if (!body.startsWith(prefix)) return
+                    MiniAppBridgeCoordinator.onAppMessage?.invoke(
+                        fromPeer,
+                        body.removePrefix(prefix),
+                    )
+                }
+            }
+        ctx.registerReceiver(bulletinReceiver, IntentFilter(MeshEvents.BULLETIN), Context.RECEIVER_NOT_EXPORTED)
+        ctx.registerReceiver(chatReceiver, IntentFilter(MeshEvents.CHAT), Context.RECEIVER_NOT_EXPORTED)
         onDispose {
             MiniAppBridgeCoordinator.requestQrScan = null
             MiniAppBridgeCoordinator.pendingScanCallback = null
+            MiniAppBridgeCoordinator.onBulletinRefresh = null
+            MiniAppBridgeCoordinator.onAppMessage = null
+            ctx.unregisterReceiver(bulletinReceiver)
+            ctx.unregisterReceiver(chatReceiver)
         }
     }
 
@@ -258,6 +286,28 @@ private fun createIsolatedMiniAppWebView(
                 }
             }
         loadDataWithBaseURL(MINIAPP_BASE, html, "text/html", "UTF-8", null)
+        val handler = Handler(Looper.getMainLooper())
+        MiniAppBridgeCoordinator.onBulletinRefresh = {
+            handler.post {
+                evaluateJavascript(
+                    "if(window.__mycelium_on_bulletin_refresh){window.__mycelium_on_bulletin_refresh();}",
+                    null,
+                )
+            }
+        }
+        MiniAppBridgeCoordinator.onAppMessage = { fromPeer, payload ->
+            handler.post {
+                val msgJson =
+                    JSONObject()
+                        .put("from_peer", fromPeer)
+                        .put("payload", payload)
+                        .toString()
+                evaluateJavascript(
+                    "if(window.__mycelium_dispatch_message){window.__mycelium_dispatch_message(${JSONObject.quote(msgJson)});}",
+                    null,
+                )
+            }
+        }
     }
 }
 
@@ -341,6 +391,11 @@ private class IsolatedMiniappJsBridge(
             "util.scan_qr" -> MiniAppGrants.CAMERA
             "bulletin.post" -> "BulletinWrite"
             "peers.nearby" -> "PeerDiscovery"
+            "proximity.start" -> "PeerDiscovery"
+            "proximity.nearby" -> "PeerDiscovery"
+            "proximity.connect" -> "PeerDiscovery"
+            "proximity.messages" -> "Messaging"
+            "proximity.send_message" -> "Messaging"
             else -> null
         }
 

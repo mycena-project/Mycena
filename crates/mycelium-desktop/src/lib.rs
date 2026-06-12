@@ -175,6 +175,8 @@ async fn start_node(
         storage_key: None,
         max_relay_fanout: 3,
         rendezvous_enabled: ui_settings.rendezvous_enabled,
+        bulletin_subscriptions: Vec::new(),
+        max_peers: 50,
     };
     let (runner, handle) = NodeRunner::new(config).map_err(|e| e.to_string())?;
     let local_peer_id = runner.local_peer_id().to_string();
@@ -205,6 +207,9 @@ async fn start_node(
         identity_path,
     ));
 
+    let enc_keypair = mycelium_node::secrets::load_or_create_enc_keypair(&db_path, None)
+        .map_err(|e| e.to_string())?;
+
     let (app_node, inbox) = AppNode::new(
         handle.clone(),
         local_peer_id.clone(),
@@ -213,6 +218,7 @@ async fn start_node(
         Arc::new(DesktopNotifier { app: app.clone() }),
         Some(coin_node.clone()),
         Some(app_store.clone()),
+        enc_keypair,
     );
     let app_node = Arc::new(app_node);
     app_node.clone().start_incoming_task();
@@ -1236,7 +1242,16 @@ fn setup_inbox_emitter(app: AppHandle, mut inbox: AppInbox) {
             tokio::select! {
                 result = inbox.chat_rx.recv() => {
                     match result {
-                        Ok(_) | Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {
+                        Ok(chat) => {
+                            let _ = app.emit(
+                                "chat-updated",
+                                serde_json::json!({
+                                    "from_peer": chat.from_peer,
+                                    "body": chat.message.body,
+                                }),
+                            );
+                        }
+                        Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {
                             let _ = app.emit("chat-updated", ());
                         }
                         Err(tokio::sync::broadcast::error::RecvError::Closed) => break,

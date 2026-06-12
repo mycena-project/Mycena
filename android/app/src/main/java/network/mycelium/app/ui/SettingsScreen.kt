@@ -14,8 +14,21 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.QrCode
+import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.ui.graphics.asImageBitmap
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -26,6 +39,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -157,6 +172,14 @@ fun SettingsScreen(navController: NavController) {
                 )
             }
 
+            Spacer(Modifier.height(20.dp))
+            PrivacySettingsSection()
+            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(12.dp))
+            BulletinSettingsSection()
+            Spacer(Modifier.height(12.dp))
+            EncryptedChannelsSection()
+
             Spacer(Modifier.height(16.dp))
             Button(
                 onClick = {
@@ -225,6 +248,329 @@ fun SettingsScreen(navController: NavController) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 24.dp, bottom = 8.dp),
             )
+        }
+    }
+}
+
+@Composable
+fun PrivacySettingsSection(vm: SettingsViewModel = viewModel()) {
+    val relayKeyAge by vm.relayKeyAgeSecs.collectAsState()
+    val hoursUntilRotation = ((86400 - relayKeyAge) / 3600).coerceAtLeast(0)
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                stringResource(R.string.settings_privacy_title),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                stringResource(
+                    R.string.settings_relay_key_rotation,
+                    hoursUntilRotation,
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                stringResource(R.string.settings_relay_key_explanation),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+            )
+        }
+    }
+}
+
+@Composable
+fun BulletinSettingsSection(vm: SettingsViewModel = viewModel()) {
+    val subscriptions by vm.bulletinSubscriptions.collectAsState()
+    var newScope by remember { mutableStateOf("") }
+    val bulletinEnabled = subscriptions.isNotEmpty()
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        stringResource(R.string.settings_bulletin_title),
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(
+                        if (bulletinEnabled) {
+                            stringResource(
+                                R.string.settings_bulletin_subscribed,
+                                subscriptions.size,
+                            )
+                        } else {
+                            stringResource(R.string.settings_bulletin_disabled)
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    )
+                }
+            }
+
+            if (!bulletinEnabled) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    stringResource(R.string.settings_bulletin_explanation),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                )
+            }
+
+            subscriptions.forEach { scope ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        scope,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                    )
+                    IconButton(
+                        onClick = { vm.unsubscribeBulletin(scope) },
+                        modifier = Modifier.size(32.dp),
+                    ) {
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = "Unsubscribe",
+                            modifier = Modifier.size(16.dp),
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                OutlinedTextField(
+                    value = newScope,
+                    onValueChange = { newScope = it.lowercase().replace(" ", "/") },
+                    label = { Text(stringResource(R.string.settings_bulletin_add_scope)) },
+                    placeholder = { Text("city/berlin") },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                )
+                IconButton(
+                    onClick = {
+                        if (newScope.isNotBlank()) {
+                            vm.subscribeBulletin(newScope)
+                            newScope = ""
+                        }
+                    },
+                    enabled = newScope.isNotBlank(),
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Subscribe")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun EncryptedChannelsSection(vm: SettingsViewModel = viewModel()) {
+    val scopeKeys by vm.scopeKeys.collectAsState()
+    var exportInvite by remember { mutableStateOf<String?>(null) }
+    var scanError by remember { mutableStateOf<String?>(null) }
+    var showCreateDialog by remember { mutableStateOf(false) }
+    var newScope by remember { mutableStateOf("") }
+    var newDisplayName by remember { mutableStateOf("") }
+
+    val scanLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
+        val raw = result.contents?.trim()
+        if (raw.isNullOrBlank()) return@rememberLauncherForActivityResult
+        try {
+            vm.addScopeKeyFromInvite(raw)
+        } catch (e: Exception) {
+            scanError = e.message ?: "Invalid invite"
+        }
+    }
+
+    if (exportInvite != null) {
+        val qr = remember(exportInvite) { generateQrCode(exportInvite!!, 400) }
+        AlertDialog(
+            onDismissRequest = { exportInvite = null },
+            title = { Text(stringResource(R.string.settings_scope_key_export_title)) },
+            text = {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Image(
+                        qr.asImageBitmap(),
+                        contentDescription = null,
+                        modifier = Modifier.size(240.dp),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        exportInvite!!,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { exportInvite = null }) {
+                    Text(stringResource(android.R.string.ok))
+                }
+            },
+        )
+    }
+
+    scanError?.let { msg ->
+        AlertDialog(
+            onDismissRequest = { scanError = null },
+            title = { Text(stringResource(R.string.settings_encrypted_channels)) },
+            text = { Text(msg) },
+            confirmButton = {
+                TextButton(onClick = { scanError = null }) {
+                    Text(stringResource(android.R.string.ok))
+                }
+            },
+        )
+    }
+
+    if (showCreateDialog) {
+        AlertDialog(
+            onDismissRequest = { showCreateDialog = false },
+            title = { Text(stringResource(R.string.settings_create_scope_key)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = newDisplayName,
+                        onValueChange = { newDisplayName = it },
+                        label = { Text("Display name") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    OutlinedTextField(
+                        value = newScope,
+                        onValueChange = { newScope = it.lowercase().replace(" ", "/") },
+                        label = { Text("Scope") },
+                        placeholder = { Text("mycelium/rescue/team-alpha") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (newScope.isNotBlank() && newDisplayName.isNotBlank()) {
+                            vm.createScopeKey(newScope.trim(), newDisplayName.trim())
+                            newScope = ""
+                            newDisplayName = ""
+                            showCreateDialog = false
+                        }
+                    },
+                ) {
+                    Text(stringResource(android.R.string.ok))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCreateDialog = false }) {
+                    Text(stringResource(android.R.string.cancel))
+                }
+            },
+        )
+    }
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                stringResource(R.string.settings_encrypted_channels),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                stringResource(R.string.settings_encrypted_channels_desc),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            )
+            Spacer(Modifier.height(12.dp))
+
+            scopeKeys.forEach { key ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(key.displayName, style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            key.scope,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                        )
+                    }
+                    Row {
+                        IconButton(onClick = {
+                            try {
+                                exportInvite = vm.exportScopeKey(key.scope)
+                            } catch (e: Exception) {
+                                scanError = e.message
+                            }
+                        }) {
+                            Icon(
+                                Icons.Default.QrCode,
+                                contentDescription = "Export",
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
+                        IconButton(onClick = { vm.deleteScopeKey(key.scope) }) {
+                            Icon(
+                                Icons.Default.Delete,
+                                contentDescription = "Delete",
+                                modifier = Modifier.size(18.dp),
+                                tint = MaterialTheme.colorScheme.error,
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = { showCreateDialog = true },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(stringResource(R.string.settings_create_scope_key))
+            }
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = {
+                    scanLauncher.launch(
+                        ScanOptions()
+                            .setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+                            .setBeepEnabled(false)
+                            .setPrompt("Scan channel invite"),
+                    )
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Icon(
+                    Icons.Default.QrCodeScanner,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(stringResource(R.string.settings_scan_scope_key))
+            }
         }
     }
 }

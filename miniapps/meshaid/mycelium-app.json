@@ -1,0 +1,13 @@
+{
+  "id": "network.mycelium.meshaid",
+  "name": "MeshAid",
+  "description": "Coordinate help in emergencies. Works without internet.",
+  "version": "0.1.0",
+  "developer": "Mycelium",
+  "entry": "index.html",
+  "permissions": ["Messaging", "BulletinRead", "BulletinWrite", "Storage"],
+  "min_mycelium_version": "0.1.0",
+  "accepts_payments": false,
+  "categories": ["Emergency", "Community"],
+  "bulletin_scopes": ["mycelium/meshaid/v1"]
+}

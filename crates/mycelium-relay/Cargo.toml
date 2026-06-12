@@ -23,6 +23,7 @@ libp2p = { version = "0.54", features = [
   "identify",
   "ping",
   "macros",
+  "kad",
 ] }
 mycelium-node = { path = "../mycelium-node" }
 serde = { workspace = true, features = ["derive"] }

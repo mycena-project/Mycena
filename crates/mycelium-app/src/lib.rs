@@ -6,6 +6,8 @@ pub mod miniapp;
 mod miniapp_storage_enc;
 pub mod node;
 pub mod notify;
+pub mod proximity;
+pub mod scope_key;
 pub mod storage;
 
 #[cfg(test)]

@@ -5,9 +5,10 @@ use axum::{
     Json, Router,
 };
 use clap::Parser;
+use libp2p::kad::store::MemoryStore;
 use libp2p::{
     futures::StreamExt,
-    identify, noise, ping, relay,
+    identify, kad, noise, ping, relay,
     swarm::{NetworkBehaviour, SwarmEvent},
     tcp, yamux, Multiaddr, SwarmBuilder,
 };
@@ -36,6 +37,7 @@ struct RelayBehaviour {
     relay: relay::Behaviour,
     identify: identify::Behaviour,
     ping: ping::Behaviour,
+    kad: kad::Behaviour<MemoryStore>,
 }
 
 #[derive(Clone)]
@@ -193,6 +195,19 @@ async fn main() -> anyhow::Result<()> {
                 ),
                 identify,
                 ping: ping::Behaviour::new(ping::Config::new()),
+                kad: {
+                    let local_peer_id = key.public().to_peer_id();
+                    let mut config =
+                        kad::Config::new(libp2p::StreamProtocol::new("/mycelium/kad/1.0.0"));
+                    config.set_query_timeout(Duration::from_secs(60));
+                    let mut behaviour = kad::Behaviour::with_config(
+                        local_peer_id,
+                        MemoryStore::new(local_peer_id),
+                        config,
+                    );
+                    behaviour.set_mode(Some(kad::Mode::Server));
+                    behaviour
+                },
             })
         })?
         .build();
@@ -243,6 +258,13 @@ async fn main() -> anyhow::Result<()> {
                 }
                 _ => {}
             },
+            SwarmEvent::Behaviour(RelayBehaviourEvent::Kad(kad::Event::RoutingUpdated {
+                peer,
+                ..
+            })) => {
+                info!("kad routing table: {peer}");
+            }
+            SwarmEvent::Behaviour(RelayBehaviourEvent::Kad(_)) => {}
             SwarmEvent::Behaviour(_) => {}
             _ => {}
         }

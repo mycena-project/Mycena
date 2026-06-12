@@ -1,0 +1,14 @@
+{
+  "id": "network.mycelium.proximity",
+  "name": "Nearby",
+  "description": "Meet people around you. No server. No tracking.",
+  "version": "0.2.0",
+  "developer": "Mycelium",
+  "developer_peer_id": null,
+  "entry": "index.html",
+  "permissions": ["Messaging", "PeerDiscovery"],
+  "min_mycelium_version": "0.1.0",
+  "accepts_payments": false,
+  "payment_address": null,
+  "categories": ["Social", "Local"]
+}
