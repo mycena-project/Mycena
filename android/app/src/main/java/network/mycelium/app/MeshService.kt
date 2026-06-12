@@ -24,7 +24,6 @@ import network.mycelium.bindings.AppStoreListing
 import network.mycelium.bindings.BulletinPost
 import network.mycelium.bindings.ChatMessage
 import network.mycelium.bindings.ConnectivityMode
-import network.mycelium.app.viewmodel.SettingsViewModel
 import network.mycelium.bindings.EnergyState
 import network.mycelium.bindings.MailMessage
 import network.mycelium.bindings.NodeConfig

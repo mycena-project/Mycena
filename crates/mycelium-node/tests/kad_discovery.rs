@@ -15,8 +15,8 @@ fn peer_id_from_multiaddr_parses_bootstrap() {
     }
 }
 
-#[test]
-fn mesh_behaviour_includes_kad() {
+#[tokio::test]
+async fn mesh_behaviour_includes_kad() {
     let key = identity::Keypair::generate_ed25519();
     let (_relay_transport, relay_behaviour) = client::new(key.public().to_peer_id());
     let _behaviour = MeshBehaviour::new(&key, relay_behaviour);
