@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Mycelium Project
 //! Rendezvous HTTP API against the public relay (opt-in discovery).
 
 use serde::{Deserialize, Serialize};

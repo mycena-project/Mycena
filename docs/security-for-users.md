@@ -75,4 +75,4 @@ For developers and threat models, see:
 - [`ARCHITECTURE_RISKS.md`](ARCHITECTURE_RISKS.md) — systemic risks & trust boundaries
 - [`SECURITY_ROADMAP.md`](SECURITY_ROADMAP.md) · [`PRIVACY_ROADMAP.md`](PRIVACY_ROADMAP.md)
 - [`ABUSE_RESPONSE_PLAYBOOK.md`](ABUSE_RESPONSE_PLAYBOOK.md)
-- [`network-hardening.md`](network-hardening.md) · [`AGENT_CONTINUATION.md`](AGENT_CONTINUATION.md)
+- [`network-hardening.md`](network-hardening.md) · [`KNOWN_LIMITATIONS.md`](KNOWN_LIMITATIONS.md)

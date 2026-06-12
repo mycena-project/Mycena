@@ -147,7 +147,7 @@
 
 | Event | Action |
 |-------|--------|
-| Policy rejection | Legal review + feature change; update `android-store-listing.md` |
+| Policy rejection | Legal review + feature change; update Play Store listing copy |
 | Malware flag | Supply SBOM + source link; point to reproducible build |
 | Government takedown | Geographic build variant counsel |
 

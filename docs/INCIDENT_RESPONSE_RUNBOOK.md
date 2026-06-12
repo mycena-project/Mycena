@@ -3,7 +3,7 @@
 **Audience:** Maintainers, relay operators, release managers  
 **Assumption:** No central user database; incidents are **distributed**, **client-side**, and **infrastructure** events.
 
-**Related:** [ABUSE_RESPONSE_PLAYBOOK.md](./ABUSE_RESPONSE_PLAYBOOK.md) · [BETA_BLOCKERS.md](./BETA_BLOCKERS.md)
+**Related:** [ABUSE_RESPONSE_PLAYBOOK.md](./ABUSE_RESPONSE_PLAYBOOK.md) · [SECURITY_DEBT_REGISTER.md](./SECURITY_DEBT_REGISTER.md)
 
 ---
 
@@ -189,7 +189,7 @@ There is no 24/7 SOC unless the project establishes one.
 - [ ] Update [SECURITY_DEBT_REGISTER.md](./SECURITY_DEBT_REGISTER.md)
 - [ ] Add regression test
 - [ ] Entry in incident log (private)
-- [ ] Review [RELEASE_GATING_CHECKLIST.md](./RELEASE_GATING_CHECKLIST.md)
+- [ ] Review [SECURITY_DEBT_REGISTER.md](./SECURITY_DEBT_REGISTER.md) for open items
 
 ---
 

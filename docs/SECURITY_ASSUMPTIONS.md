@@ -123,7 +123,7 @@ We **do not** assume:
 
 Before trusting this release, verify:
 
-1. [BETA_BLOCKERS.md](./BETA_BLOCKERS.md) — open items and waivers.
+1. [SECURITY_DEBT_REGISTER.md](./SECURITY_DEBT_REGISTER.md) — open items and waivers.
 2. [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md) — NOT SAFE AGAINST.
 3. Build hash / Play signing certificate fingerprint.
 

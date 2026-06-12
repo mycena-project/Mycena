@@ -7,7 +7,7 @@
 
 This register records **known** security, privacy, abuse, and legal debt. It is not a certification, audit, or guarantee. Items marked **beta-blocker: yes** must be resolved or explicitly accepted with written risk sign-off before a public Play Store / wide beta.
 
-**Related:** [ARCHITECTURE_RISKS.md](./ARCHITECTURE_RISKS.md) · [SECURITY_ROADMAP.md](./SECURITY_ROADMAP.md) · [PRIVACY_ROADMAP.md](./PRIVACY_ROADMAP.md) · [ABUSE_RESPONSE_PLAYBOOK.md](./ABUSE_RESPONSE_PLAYBOOK.md) · **[BETA_BLOCKERS.md](./BETA_BLOCKERS.md)** · [BETA_SECURITY_ASSESSMENT.md](./BETA_SECURITY_ASSESSMENT.md)
+**Related:** [ARCHITECTURE_RISKS.md](./ARCHITECTURE_RISKS.md) · [SECURITY_ROADMAP.md](./SECURITY_ROADMAP.md) · [PRIVACY_ROADMAP.md](./PRIVACY_ROADMAP.md) · [ABUSE_RESPONSE_PLAYBOOK.md](./ABUSE_RESPONSE_PLAYBOOK.md) · [BETA_SECURITY_ASSESSMENT.md](./BETA_SECURITY_ASSESSMENT.md)
 
 ---
 
@@ -149,7 +149,7 @@ This register records **known** security, privacy, abuse, and legal debt. It is 
 | **Impact** | Cost exhaustion, reputation damage to project |
 | **Current mitigations** | Circuit limits in relay `main.rs` |
 | **Missing mitigations** | Allowlist protocols; Mycelium-only relay behaviour |
-| **Proposed architecture changes** | “Relay repo parity” — app-aware policy (see AGENT_CONTINUATION) |
+| **Proposed architecture changes** | “Relay repo parity” — app-aware policy in companion relay repo |
 | **Implementation complexity** | M |
 | **Beta-blocker** | **no** |
 

@@ -14,7 +14,7 @@
 # are bind-mounted at run time. The Dockerfile uses `rust:*-slim-bookworm` (not
 # the full bookworm image) to keep the base layer download small.
 #
-# See also: docs/AGENT_CONTINUATION.md
+# See README.md for Docker usage.
 
 services:
   rust-tests:

@@ -161,6 +161,6 @@ These gaps were reviewed and left out of scope because mini-apps or settings alr
 ## See also
 
 - [SECURITY_ASSUMPTIONS.md](./SECURITY_ASSUMPTIONS.md)
-- [BETA_BLOCKERS.md](./BETA_BLOCKERS.md)
-- [RELEASE_GATING_CHECKLIST.md](./RELEASE_GATING_CHECKLIST.md)
+- [SECURITY_DEBT_REGISTER.md](./SECURITY_DEBT_REGISTER.md)
+- [BETA_SECURITY_ASSESSMENT.md](./BETA_SECURITY_ASSESSMENT.md)
 - [security-for-users.md](./security-for-users.md)

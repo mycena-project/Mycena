@@ -1,7 +1,7 @@
 # Mycelium — Security Remediation Roadmap (Post-Review)
 
 **Derived from:** Pre–public beta closure review (May 2026)  
-**Companion:** [BETA_BLOCKERS.md](./BETA_BLOCKERS.md) · [SECURITY_ROADMAP.md](./SECURITY_ROADMAP.md)
+**Companion:** [SECURITY_DEBT_REGISTER.md](./SECURITY_DEBT_REGISTER.md) · [SECURITY_ROADMAP.md](./SECURITY_ROADMAP.md)
 
 ---
 

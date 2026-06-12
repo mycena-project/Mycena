@@ -27,10 +27,18 @@ Thumbs.db
 *.swo
 *~
 
-# Logs / env
+# Logs / env / secrets
 *.log
 .env
 .env.*
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+secrets/
+credentials.json
+service-account*.json
 
 # Node (desktop UI)
 node_modules/

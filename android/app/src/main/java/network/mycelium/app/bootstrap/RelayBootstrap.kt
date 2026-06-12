@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Mycelium Project
 package network.mycelium.app.bootstrap
 
 /** Must match `mycelium_core::bootstrap::RELAY_PEER_ID`. */

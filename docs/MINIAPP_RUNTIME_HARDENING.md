@@ -3,7 +3,7 @@
 > **Status May 2026**: Items §1 (CSP), §3 (bridge sessions), §4 (process isolation),
 > §8 (rate limits), §9 (capability tokens) are implemented.
 > Open items: §2 (sideload without sig, partially), §5 (WASM runtime, future).
-> See [BETA_BLOCKERS.md](./BETA_BLOCKERS.md) for current P0 list.
+> See [SECURITY_DEBT_REGISTER.md](./SECURITY_DEBT_REGISTER.md) for open items.
 
 **Last updated:** May 2026  
 **Scope:** Code review of current mini-app stack vs zero-trust target ([MINIAPP_SECURITY_ARCHITECTURE.md](./MINIAPP_SECURITY_ARCHITECTURE.md))
