@@ -149,7 +149,7 @@ impl Libp2pTransport {
             )?
             .with_quic()
             .with_relay_client(noise::Config::new, yamux::Config::default)?
-            .without_bandwidth_logging()
+            .without_bandwidth_metrics()
             .with_behaviour(|kp, relay_behaviour| Ok(MeshBehaviour::new(kp, relay_behaviour)))?
             .build();
 
@@ -393,14 +393,16 @@ impl MeshTransport for Libp2pTransport {
 
     async fn subscribe_scope(&mut self, scope: ScopeId) -> anyhow::Result<()> {
         let topic = gossipsub::IdentTopic::new(scope.clone());
-        self.swarm.behaviour_mut().gossip.subscribe(&topic)?;
+        if !self.swarm.behaviour_mut().gossip.subscribe(&topic)? {
+            anyhow::bail!("failed to subscribe to gossip topic: {scope}");
+        }
         tracing::info!("subscribed to gossip topic: {scope}");
         Ok(())
     }
 
     async fn unsubscribe_scope(&mut self, scope: ScopeId) -> anyhow::Result<()> {
         let topic = gossipsub::IdentTopic::new(scope.clone());
-        self.swarm.behaviour_mut().gossip.unsubscribe(&topic)?;
+        let _ = self.swarm.behaviour_mut().gossip.unsubscribe(&topic);
         tracing::info!("unsubscribed from gossip topic: {scope}");
         Ok(())
     }
