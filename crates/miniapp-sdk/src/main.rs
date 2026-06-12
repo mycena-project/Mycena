@@ -95,7 +95,7 @@ fn main() -> anyhow::Result<()> {
             path,
             identity,
             output,
-        } => sign_bundle(&path, &identity, output.as_ref()),
+        } => sign_bundle(&path, &identity, output.as_deref()),
         Command::PackSign {
             dir,
             output,
@@ -112,7 +112,7 @@ fn main() -> anyhow::Result<()> {
             path,
             identity,
             output,
-        } => emit_listing(&path, &identity, output.as_ref()),
+        } => emit_listing(&path, &identity, output.as_deref()),
         Command::Listings {
             dir,
             identity,
@@ -128,7 +128,7 @@ fn read_bundle(path: &Path) -> anyhow::Result<(Vec<u8>, MiniAppBundle)> {
     Ok((bytes, bundle))
 }
 
-fn lint_bundle(path: &PathBuf) -> anyhow::Result<()> {
+fn lint_bundle(path: &Path) -> anyhow::Result<()> {
     let (bytes, bundle) = read_bundle(path)?;
     if bundle.total_size() > 10 * 1024 * 1024 {
         anyhow::bail!("bundle exceeds 10 MB limit");
@@ -221,11 +221,7 @@ fn pack_dir(dir: &Path, output: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn emit_listing(
-    bundle_path: &Path,
-    identity: &Path,
-    output: Option<&PathBuf>,
-) -> anyhow::Result<()> {
+fn emit_listing(bundle_path: &Path, identity: &Path, output: Option<&Path>) -> anyhow::Result<()> {
     let listing = build_listing(bundle_path, identity)?;
     let json = serde_json::to_string_pretty(&listing)?;
     if let Some(out) = output {
@@ -300,7 +296,7 @@ fn load_keypair(path: &Path) -> anyhow::Result<Keypair> {
     Keypair::from_protobuf_encoding(&bytes).context("identity file must be libp2p protobuf Ed25519")
 }
 
-fn sign_bundle(path: &Path, identity: &Path, output: Option<&PathBuf>) -> anyhow::Result<()> {
+fn sign_bundle(path: &Path, identity: &Path, output: Option<&Path>) -> anyhow::Result<()> {
     let keypair = load_keypair(identity)?;
     let peer_id = keypair.public().to_peer_id().to_string();
     let bytes = std::fs::read(path)?;
@@ -358,7 +354,7 @@ fn sign_bundle(path: &Path, identity: &Path, output: Option<&PathBuf>) -> anyhow
         writer.finish()?;
     }
 
-    let dest = output.map(|p| p.as_path()).unwrap_or(path);
+    let dest = output.unwrap_or(path);
     if let Some(parent) = dest.parent() {
         std::fs::create_dir_all(parent)?;
     }
@@ -375,7 +371,7 @@ fn sign_bundle(path: &Path, identity: &Path, output: Option<&PathBuf>) -> anyhow
     Ok(())
 }
 
-fn attest_bundle(path: &PathBuf, recipe: &Path) -> anyhow::Result<()> {
+fn attest_bundle(path: &Path, recipe: &Path) -> anyhow::Result<()> {
     let (bytes, bundle) = read_bundle(path)?;
     let content_hash = content_attestation_hash(&bundle)?;
     let archive_hash = bundle_hash_hex(&bytes);
@@ -394,7 +390,7 @@ fn attest_bundle(path: &PathBuf, recipe: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn hash_bundle(path: &PathBuf) -> anyhow::Result<()> {
+fn hash_bundle(path: &Path) -> anyhow::Result<()> {
     let bytes = std::fs::read(path).with_context(|| format!("read {}", path.display()))?;
     println!("{}", bundle_hash_hex(&bytes));
     Ok(())
