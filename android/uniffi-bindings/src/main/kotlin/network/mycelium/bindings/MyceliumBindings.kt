@@ -119,6 +119,8 @@ object mycelium {
         allowSideload: Boolean,
         allowDowngrade: Boolean = false,
     ): MiniAppInfo = uniffi.mycelium.installApp(bundleData, listingAppId, allowSideload, allowDowngrade)
+    fun installOfficialBundle(appId: String): MiniAppInfo =
+        uniffi.mycelium.installOfficialBundle(appId)
     fun uninstallApp(appId: String) = uniffi.mycelium.uninstallApp(appId)
     fun getAppFile(appId: String, path: String): ByteArray? = uniffi.mycelium.getAppFile(appId, path)
     fun browseAppStore(): List<AppStoreListing> = uniffi.mycelium.browseAppStore()

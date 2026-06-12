@@ -925,7 +925,7 @@ impl NodeRunner {
                     self.ingest_guard
                         .check_gossip_payload(&from_peer, payload.len(), now)
                 {
-                    self.record_ingest_reject(reason).await;
+                    self.record_ingest_reject(reason);
                     return Ok(());
                 }
                 if scope.starts_with("mycelium/group/")
@@ -944,7 +944,7 @@ impl NodeRunner {
                         envelope.created_at_ms,
                         now,
                     ) {
-                        self.record_ingest_reject(reason).await;
+                        self.record_ingest_reject(reason);
                         return Ok(());
                     }
                     let stored = DirectMessage {
@@ -974,7 +974,7 @@ impl NodeRunner {
                         envelope.created_at_ms,
                         now,
                     ) {
-                        self.record_ingest_reject(reason).await;
+                        self.record_ingest_reject(reason);
                         return Ok(());
                     }
                     let stored = DirectMessage {
@@ -1002,7 +1002,7 @@ impl NodeRunner {
                         envelope.created_at_ms,
                         now,
                     ) {
-                        self.record_ingest_reject(reason).await;
+                        self.record_ingest_reject(reason);
                         return Ok(());
                     }
                     let stored = DirectMessage {
@@ -1033,7 +1033,7 @@ impl NodeRunner {
                         envelope.created_at_ms,
                         now,
                     ) {
-                        self.record_ingest_reject(reason).await;
+                        self.record_ingest_reject(reason);
                         return Ok(());
                     }
                     let stored = DirectMessage {
@@ -1061,7 +1061,7 @@ impl NodeRunner {
                         envelope.created_at_ms,
                         now,
                     ) {
-                        self.record_ingest_reject(reason).await;
+                        self.record_ingest_reject(reason);
                         return Ok(());
                     }
                     let stored = DirectMessage {
@@ -1156,7 +1156,7 @@ impl NodeRunner {
                 let author = message.envelope.signature_author_peer();
                 let now = now_ms();
                 if let Err(reason) = self.ingest_guard.allow_direct(author, &message, now) {
-                    self.record_ingest_reject(reason).await;
+                    self.record_ingest_reject(reason);
                     if matches!(reason, IngestReject::RateLimit | IngestReject::Replay) {
                         self.register_strike(&from_peer);
                     }
@@ -1610,15 +1610,16 @@ impl NodeRunner {
         false
     }
 
-    async fn record_ingest_reject(&self, reason: IngestReject) {
-        let mut metrics = self.metrics.write().await;
-        match reason {
-            IngestReject::RateLimit => metrics.messages_dropped_rate_limit += 1,
-            IngestReject::Replay | IngestReject::Stale => {
-                metrics.messages_dropped_replay += 1
+    fn record_ingest_reject(&self, reason: IngestReject) {
+        let metrics = self.metrics.clone();
+        tokio::spawn(async move {
+            let mut m = metrics.write().await;
+            match reason {
+                IngestReject::RateLimit => m.messages_dropped_rate_limit += 1,
+                IngestReject::Replay | IngestReject::Stale => m.messages_dropped_replay += 1,
+                IngestReject::Oversize => m.messages_dropped_oversize += 1,
             }
-            IngestReject::Oversize => metrics.messages_dropped_oversize += 1,
-        }
+        });
     }
 
     fn register_strike(&self, peer: &str) {

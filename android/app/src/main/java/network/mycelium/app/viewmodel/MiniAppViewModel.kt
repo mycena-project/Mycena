@@ -172,4 +172,25 @@ class MiniAppViewModel(app: Application) : AndroidViewModel(app) {
     fun clearToast() {
         _toast.value = null
     }
+
+    fun installOfficialListing(appId: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val info = mycelium.installOfficialBundle(appId)
+                MiniAppGrants.recordInstallTrust(appContext, info.id, "verified_listing")
+                withContext(Dispatchers.Main) {
+                    _toast.value = "Installed ${info.name}"
+                    refresh()
+                }
+            } catch (e: MyceliumException) {
+                withContext(Dispatchers.Main) {
+                    _toast.value = installErrorMessage(e)
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    _toast.value = e.message ?: "Install failed"
+                }
+            }
+        }
+    }
 }

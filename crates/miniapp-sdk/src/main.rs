@@ -9,6 +9,7 @@ use anyhow::Context;
 use clap::{Parser, Subcommand};
 use libp2p::identity::Keypair;
 use mycelium_app::miniapp::bundle_signature::{self, BundleSignatureFile, BUNDLE_SIG_FILE};
+use mycelium_app::miniapp::store::{AppSource, AppStoreListing};
 use mycelium_app::miniapp::manifest::MiniAppManifest;
 use mycelium_app::miniapp::reproducible_build::{content_attestation_hash, digest_file_hex};
 use mycelium_app::miniapp::{scan_bundle, MiniAppBundle, ReproducibleBuild};
@@ -57,6 +58,22 @@ enum Command {
         /// Output directory (writes official.ed25519 + official.peer-id).
         dir: PathBuf,
     },
+    /// Emit signed store listing JSON for a .mxa bundle.
+    Listing {
+        path: PathBuf,
+        #[arg(long)]
+        identity: PathBuf,
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+    },
+    /// Write bundled_listings.json from signed .mxa files in a directory.
+    Listings {
+        dir: PathBuf,
+        #[arg(long)]
+        identity: PathBuf,
+        #[arg(short, long)]
+        output: PathBuf,
+    },
     /// Emit reproducible-build fields for `mycelium-app.json` (H23).
     Attest {
         path: PathBuf,
@@ -88,6 +105,16 @@ fn main() -> anyhow::Result<()> {
             Ok(())
         }
         Command::Keygen { dir } => keygen(&dir),
+        Command::Listing {
+            path,
+            identity,
+            output,
+        } => emit_listing(&path, &identity, output.as_ref()),
+        Command::Listings {
+            dir,
+            identity,
+            output,
+        } => emit_listings_dir(&dir, &identity, &output),
         Command::Attest { path, recipe } => attest_bundle(&path, &recipe),
     }
 }
@@ -189,6 +216,65 @@ fn pack_dir(dir: &Path, output: &Path) -> anyhow::Result<()> {
         zip_buf.len()
     );
     Ok(())
+}
+
+fn emit_listing(
+    bundle_path: &Path,
+    identity: &Path,
+    output: Option<&PathBuf>,
+) -> anyhow::Result<()> {
+    let listing = build_listing(bundle_path, identity)?;
+    let json = serde_json::to_string_pretty(&listing)?;
+    if let Some(out) = output {
+        if let Some(parent) = out.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::write(out, &json)?;
+        println!("wrote listing → {}", out.display());
+    } else {
+        println!("{json}");
+    }
+    Ok(())
+}
+
+fn emit_listings_dir(dir: &Path, identity: &Path, output: &Path) -> anyhow::Result<()> {
+    let mut listings = Vec::new();
+    for entry in std::fs::read_dir(dir)? {
+        let path = entry?.path();
+        if path.extension().and_then(|e| e.to_str()) != Some("mxa") {
+            continue;
+        }
+        listings.push(build_listing(&path, identity)?);
+    }
+    listings.sort_by(|a, b| a.manifest.id.cmp(&b.manifest.id));
+    let file = serde_json::json!({ "listings": listings });
+    if let Some(parent) = output.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::write(output, serde_json::to_string_pretty(&file)?)?;
+    println!(
+        "wrote {} listing(s) → {}",
+        listings.len(),
+        output.display()
+    );
+    Ok(())
+}
+
+fn build_listing(bundle_path: &Path, identity: &Path) -> anyhow::Result<AppStoreListing> {
+    let keypair = load_keypair(identity)?;
+    let peer_id = keypair.public().to_peer_id().to_string();
+    let bundle_bytes = std::fs::read(bundle_path)?;
+    let bundle = MiniAppBundle::load_from_bytes(&bundle_bytes)?;
+    let mut manifest = bundle.manifest.clone();
+    if manifest.developer_peer_id.is_none() {
+        manifest.developer_peer_id = Some(peer_id.clone());
+    }
+    AppStoreListing::new_signed(
+        manifest,
+        &bundle_bytes,
+        vec![AppSource::Peer(peer_id)],
+        &keypair,
+    )
 }
 
 fn keygen(dir: &Path) -> anyhow::Result<()> {

@@ -1553,6 +1553,17 @@ pub fn install_app(
     })
 }
 
+pub fn install_official_bundle(app_id: String) -> Result<MiniAppInfo, MyceliumException> {
+    with_state(|s| {
+        let m = s.app_store.install_official_bundle(&app_id).map_err(|e| {
+            MyceliumException::InstallError {
+                detail: e.to_string(),
+            }
+        })?;
+        Ok(mini_app_manifest_to_info(m))
+    })
+}
+
 pub fn uninstall_app(app_id: String) {
     mycelium_app::miniapp::revoke_session(&app_id);
     with_state(|s| {

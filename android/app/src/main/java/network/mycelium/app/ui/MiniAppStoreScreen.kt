@@ -194,6 +194,15 @@ fun MiniAppStoreScreen(navController: NavController, vm: MiniAppViewModel = view
                                     color = MaterialTheme.colorScheme.primary,
                                 )
                             }
+                            val alreadyInstalled = installed.any { it.id == row.manifest.id }
+                            if (!alreadyInstalled) {
+                                Button(
+                                    onClick = { vm.installOfficialListing(row.manifest.id) },
+                                    modifier = Modifier.padding(top = 8.dp),
+                                ) {
+                                    Text(stringResource(R.string.miniapp_install_confirm))
+                                }
+                            }
                         }
                     }
                 }

@@ -9,26 +9,26 @@
 
 | # | Item | Debt | Effort | Owner |
 |---|------|------|--------|-------|
-| 1 | Reject `WireMessage::Data` without valid envelope signature | SD-030, SD-140 | S | `mycelium-node` |
-| 2 | Remove broadcast-to-all-peers on unknown `to_peer` | SD-031 | M | `mycelium-node` |
-| 3 | Stop gossip re-sign; forward opaque signed blob | SD-080 | M | `mycelium-node` |
-| 4 | Fail-closed chat when enc key missing | SD-081, SD-141 | S | `mycelium-app` |
-| 5 | `android:allowBackup="false"` + backup rules | SD-171 | S | Android |
-| 6 | Desktop: refuse weak vault OR require keyring | SD-131 | S | desktop + `at_rest` |
+| 1 | Reject `WireMessage::Data` without valid envelope signature | SD-030, SD-140 | S | **Done** |
+| 2 | Remove broadcast-to-all-peers on unknown `to_peer` | SD-031 | M | **Done** |
+| 3 | Stop gossip re-sign; forward opaque signed blob | SD-080 | M | **Done** |
+| 4 | Fail-closed chat when enc key missing | SD-081, SD-141 | S | **Done** |
+| 5 | `android:allowBackup="false"` + backup rules | SD-171 | S | **Done** |
+| 6 | Desktop: refuse weak vault OR require keyring | SD-131 | S | **Done** |
 
 **P0 product (no code):**
 
 | # | Item | Action |
 |---|------|--------|
-| 7 | MeshCoin positioning | Store copy + in-app banner = preview only (SD-011 waiver) |
-| 8 | Privacy policy | Live URL, not template |
+| 7 | MeshCoin positioning | Store copy + in-app banner = preview only (SD-011 waiver) | **Done** (wallet banner) |
+| 8 | Privacy policy | Live URL, not template | **Done** — in-app `privacy_policy.html` + Settings link |
 
 **P0 verification:**
 
 | # | Item |
 |---|------|
-| 9 | Red-team `MINIAPP_ATTACK_SCENARIOS.md` script + written results |
-| 10 | Regression tests for SD-030, SD-031 |
+| 9 | Red-team `MINIAPP_ATTACK_SCENARIOS.md` script + written results | **Done** — [MINIAPP_REDTEAM_RESULTS.md](./MINIAPP_REDTEAM_RESULTS.md) |
+| 10 | Regression tests for SD-030, SD-031 | **Done** — `mycelium-node/tests/sd030_unsigned_drop.rs` |
 
 ---
 

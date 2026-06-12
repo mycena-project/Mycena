@@ -17,8 +17,8 @@
 | **Steps** | 1. Victim installs `evil.mxa` from protest bulletin link. 2. Manifest requests `Payments` + `Messaging`. 3. App runs immediately. |
 | **Impact** | Full bridge abuse; balance read; spam |
 | **Target mitigation** | Install requires signature + hash match; provenance UI |
-| **Today** | Path traversal blocked; size cap; **no sig verify on install** (SD-041) |
-| **Status** | **VULNERABLE** |
+| **Today** | Path traversal blocked; size cap; sideload requires bundle signature + provenance UI |
+| **Status** | **MITIGATED** (SD-041) |
 
 ---
 
@@ -32,8 +32,8 @@
 | **Steps** | 1. Listing sig verifies (manifest + hash H). 2. User downloads bundle with hash H'≠H. 3. Install doesn't check. |
 | **Impact** | Trusted name, malicious code |
 | **Target mitigation** | `install(bundle)` requires `blake3(bundle)==listing.bundle_hash` |
-| **Today** | Gossip listing sig verified; install **does not** check hash |
-| **Status** | **VULNERABLE** |
+| **Today** | Gossip listing sig verified; install checks hash via `install_verified` |
+| **Status** | **MITIGATED** |
 
 ---
 
@@ -45,8 +45,8 @@
 | **Attacker** | Bundles older vulnerable version |
 | **Steps** | Install `v0.9` over `v1.2` with known XSS |
 | **Target mitigation** | Monotonic version compare |
-| **Today** | Overwrites manifest in sled; no version check |
-| **Status** | **VULNERABLE** |
+| **Today** | Downgrade blocked in preview unless user opts in |
+| **Status** | **MITIGATED** |
 
 ---
 
@@ -60,8 +60,8 @@
 | **Steps** | 1. Inject script via bulletin-rendered HTML or app UI. 2. Call `window.mycelium` freely. |
 | **Impact** | All granted permissions used without user intent |
 | **Target mitigation** | CSP nonces; strict script-src |
-| **Today** | Network blocked; inline script allowed (SD-040) |
-| **Status** | **PARTIAL** |
+| **Today** | Network blocked; strict CSP nonces; inline scripts rejected at install |
+| **Status** | **MITIGATED** (SD-040) |
 
 ---
 
@@ -300,8 +300,8 @@
 | **Steps** | Disinformation during crisis |
 | **Impact** | Mass compromise |
 | **Target mitigation** | AS-01 fix + user education |
-| **Today** | SD-240 |
-| **Status** | **VULNERABLE** |
+| **Today** | Sideload requires developer bundle signature (SD-041/240) |
+| **Status** | **MITIGATED** |
 
 ---
 

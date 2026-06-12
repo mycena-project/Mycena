@@ -177,6 +177,8 @@ fun SettingsScreen(navController: NavController) {
             Spacer(Modifier.height(20.dp))
             PrivacySettingsSection()
             Spacer(Modifier.height(12.dp))
+            LegalSettingsSection()
+            Spacer(Modifier.height(12.dp))
             Spacer(Modifier.height(12.dp))
             BulletinSettingsSection()
             Spacer(Modifier.height(12.dp))
@@ -250,6 +252,29 @@ fun SettingsScreen(navController: NavController) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 24.dp, bottom = 8.dp),
             )
+        }
+    }
+}
+
+@Composable
+fun LegalSettingsSection() {
+    val context = LocalContext.current
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                stringResource(R.string.settings_legal_title),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Spacer(Modifier.height(8.dp))
+            TextButton(
+                onClick = {
+                    context.startActivity(
+                        android.content.Intent(context, network.mycelium.app.LegalDocumentActivity::class.java),
+                    )
+                },
+            ) {
+                Text(stringResource(R.string.settings_privacy_policy))
+            }
         }
     }
 }

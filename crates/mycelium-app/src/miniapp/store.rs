@@ -106,6 +106,9 @@ impl AppStore {
         if let Err(e) = super::revocation::merge_bundled_defaults(&store.db) {
             tracing::warn!("bundled miniapp revocations merge failed: {e}");
         }
+        if let Err(e) = super::bundled_listings::merge_bundled_listings(&store) {
+            tracing::warn!("bundled miniapp listings merge failed: {e}");
+        }
         Ok(store)
     }
 

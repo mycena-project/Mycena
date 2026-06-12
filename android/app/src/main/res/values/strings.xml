@@ -204,6 +204,8 @@
     <string name="settings_rendezvous_sub">When on and both devices use the relay: auto-meet after ~45s. Same Wi‑Fi works without this.</string>
     <string name="settings_rendezvous_title">Relay discovery (remote)</string>
     <string name="settings_privacy_title">Network privacy</string>
+    <string name="settings_legal_title">Legal</string>
+    <string name="settings_privacy_policy">Privacy policy</string>
     <string name="settings_relay_key_rotation">Relay identity rotates in %1$d hours</string>
     <string name="settings_relay_key_explanation">When your device relays messages for others, it uses a temporary identity that changes every 24 hours. Your personal identity is separate and never revealed during relaying.</string>
     <string name="settings_bulletin_title">Bulletin Board</string>

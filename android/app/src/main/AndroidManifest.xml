@@ -34,6 +34,11 @@
             android:exported="false" />
 
         <activity
+            android:name=".LegalDocumentActivity"
+            android:exported="false"
+            android:label="@string/settings_privacy_policy" />
+
+        <activity
             android:name=".MainActivity"
             android:exported="true">
             <intent-filter>
