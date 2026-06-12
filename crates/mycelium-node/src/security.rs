@@ -6,8 +6,7 @@ use libp2p::PeerId;
 use mycelium_core::transport::DirectMessage;
 use std::collections::HashMap;
 
-/// Unsigned `WireMessage::Data` are rejected when `now_ms >=` this value.
-/// Set to `0` — no grace period (public beta gate SD-030).
+/// Unsigned `WireMessage::Data` grace deadline (ms). `0` = disabled — unsigned messages are always rejected (SD-030).
 pub const UNSIGNED_GRACE_PERIOD_UNTIL_MS: u64 = 0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -26,19 +25,13 @@ pub fn is_gossip_relay_body(body: &str) -> bool {
 /// Returns `Ok(())` when the message may be processed; `Err` when it must be dropped.
 pub fn validate_data_message_signature(
     message: &DirectMessage,
-    now_ms: u64,
+    _now_ms: u64,
 ) -> Result<(), Sd030DropReason> {
     if is_gossip_relay_body(&message.body) {
         return Ok(());
     }
     match &message.envelope.signature {
-        None => {
-            if now_ms >= UNSIGNED_GRACE_PERIOD_UNTIL_MS {
-                Err(Sd030DropReason::NoSignature)
-            } else {
-                Ok(())
-            }
-        }
+        None => Err(Sd030DropReason::NoSignature),
         Some(_) => {
             let author = message.envelope.signature_author_peer();
             let Ok(author_id) = author.parse::<PeerId>() else {
