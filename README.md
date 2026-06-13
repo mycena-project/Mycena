@@ -11,6 +11,8 @@
 - Beta website: [mycelium-beta.vercel.app](https://mycelium-beta.vercel.app)
 - Public relay source: [mycelium-relay](https://github.com/mycena-project/mycelium-relay)
 
+**the maintainer family:** [docs/ECOSYSTEM.md](docs/ECOSYSTEM.md) (Mycelium + relay + web).
+
 ## Requirements
 
 ### Android (primary beta target)
@@ -77,7 +79,7 @@ Deeper design: [docs/architecture.md](docs/architecture.md) · [docs/CONNECT.md]
 
 We welcome bug reports, docs fixes, and focused PRs. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
-**Security:** report vulnerabilities to **security@[domain]** — not via public issues. See [SECURITY.md](SECURITY.md).
+**Security:** report vulnerabilities to **security@example.invalid** — not via public issues. See [SECURITY.md](SECURITY.md).
 
 ## License
 

@@ -4,7 +4,7 @@
 
 **Do not** open public GitHub issues for security vulnerabilities.
 
-Report them privately to **security@[domain]** with:
+Report them privately to **security@example.invalid** with:
 
 - affected component (app, relay, mini-app runtime) and version or commit hash
 - clear reproduction steps or proof-of-concept
@@ -14,7 +14,7 @@ We aim to acknowledge receipt within **72 hours**, triage severity, and coordina
 
 Preferred channels (in order):
 
-1. Email: **security@[domain]**
+1. Email: **security@example.invalid**
 2. GitHub Security Advisories: **Security → Report a vulnerability** on this repository
 
 ## Scope

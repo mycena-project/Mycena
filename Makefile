@@ -1,5 +1,16 @@
 SHELL := /bin/zsh
 
+.PHONY: help desktop-dev desktop-check-relay android-apk android-apk-ci android-apk-local android-install android-deploy clean test test-fast test-unit test-sim check clippy ci fmt docker-android-ci docker-compose-android gradle-wrapper
+
+help:
+	@echo "Mycelium — the maintainer mesh client (no server stack)"
+	@echo ""
+	@echo "  make desktop-dev     Run desktop UI (Tauri) — local dev"
+	@echo "  make android-apk     Build Android debug APK"
+	@echo "  make clean           Clean build artifacts (not a running mesh)"
+	@echo ""
+	@echo "See docs/ECOSYSTEM.md · Android: ./android/build.sh"
+
 .PHONY: test test-fast test-unit test-sim check clippy ci fmt docker-android-ci docker-compose-android gradle-wrapper desktop-dev desktop-check-relay android-apk android-apk-ci android-apk-local android-install android-deploy clean
 
 # One-shot: add Gradle wrapper under android/ using Docker (no local Gradle needed).

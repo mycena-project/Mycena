@@ -6,7 +6,7 @@ Thank you for helping improve Mycelium. This project is in **early public beta**
 
 - Read [README.md](README.md) for scope and architecture
 - Read [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) before proposing security-critical changes
-- **Security vulnerabilities:** do **not** file a public issue — email **security@[domain]** (see [SECURITY.md](SECURITY.md))
+- **Security vulnerabilities:** do **not** file a public issue — email **security@example.invalid** (see [SECURITY.md](SECURITY.md))
 
 ## Reporting Issues
 
@@ -71,4 +71,4 @@ The public bootstrap relay is maintained in [mycelium-relay](https://github.com/
 
 ## Questions
 
-Non-security questions: open a GitHub Discussion or Issue. Security: **security@[domain]** only.
+Non-security questions: open a GitHub Discussion or Issue. Security: **security@example.invalid** only.
