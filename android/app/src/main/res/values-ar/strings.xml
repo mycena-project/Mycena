@@ -163,7 +163,7 @@
     <string name="settings_ble_advertise">اكتشاف البلوتوث</string>
     <string name="settings_ble_advertise_sub">مرئية للماسحات الضوئية BLE القريبة</string>
     <string name="settings_bootstrap_help">واحد لكل سطر. اتركه فارغًا لاستخدام المرحل الافتراضي.</string>
-    <string name="settings_bootstrap_hint">/dns4/mycelium-relay.fly.dev/tcp/4001/p2p/12D3KooW…</string>
+    <string name="settings_bootstrap_hint">/ip4/149.248.194.198/tcp/4001/p2p/12D3KooWSk…</string>
     <string name="settings_bootstrap_peers">أقران التمهيد المخصص</string>
     <string name="settings_clear_store">مسح الرسائل القديمة</string>
     <string name="settings_danger_zone">منطقة الخطر</string>

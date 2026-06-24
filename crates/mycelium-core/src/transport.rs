@@ -243,12 +243,17 @@ pub trait MeshTransport: Send {
     async fn remember_and_dial(&mut self, multiaddr: String) -> anyhow::Result<()>;
     /// Re-attempt all remembered bootstrap / invite dial targets.
     fn redial_stored_targets(&mut self);
+    /// Dial queued `/p2p-circuit` targets once relay reservation setup is ready.
+    fn try_deferred_circuit_dials(&mut self) {}
     async fn send_direct(&mut self, to_peer: String, message: WireMessage) -> anyhow::Result<()>;
     async fn publish_scoped(&mut self, scope: ScopeId, payload: Vec<u8>) -> anyhow::Result<()>;
     /// Join a gossipsub topic so scoped messages for `scope` are received.
     async fn subscribe_scope(&mut self, scope: ScopeId) -> anyhow::Result<()>;
     /// Leave a gossipsub topic.
     async fn unsubscribe_scope(&mut self, scope: ScopeId) -> anyhow::Result<()>;
+    fn is_peer_connected(&self, peer_id: &str) -> bool {
+        self.known_peers().iter().any(|p| p == peer_id)
+    }
     async fn next_event(&mut self) -> anyhow::Result<TransportEvent>;
     fn connected_peer_count(&self) -> usize {
         self.known_peers().len()

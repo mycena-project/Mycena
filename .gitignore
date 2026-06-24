@@ -29,6 +29,7 @@ Thumbs.db
 
 # Logs / env / secrets
 *.log
+.debug-logs/
 .env
 .env.*
 *.pem
@@ -43,6 +44,8 @@ service-account*.json
 # Node (desktop UI)
 node_modules/
 **/node_modules/
+crates/mycelium-desktop/ui/dist/
+crates/mycelium-desktop/ui/.svelte-kit/
 
 # Accidental APK extraction at repo root
 /AndroidManifest.xml

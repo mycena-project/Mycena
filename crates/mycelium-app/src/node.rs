@@ -122,6 +122,71 @@ impl AppNode {
         });
     }
 
+    /// When a remote peer connects (e.g. after they scanned our QR), add them as a contact
+    /// and remember their relay circuit for reconnect.
+    pub fn start_peer_contact_sync(self: Arc<Self>) {
+        let relay = mycelium_core::bootstrap::RELAY_PEER_ID.to_string();
+        tokio::spawn(async move {
+            let mut seen = std::collections::HashSet::<String>::new();
+            let mut tick = tokio::time::interval(std::time::Duration::from_secs(2));
+            tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+            loop {
+                tick.tick().await;
+                let peers = self.handle.known_peers().await;
+                let live: std::collections::HashSet<String> = peers.into_iter().collect();
+                for peer in live.difference(&seen) {
+                    if peer == &relay || !mycelium_core::bootstrap::is_mesh_peer_id(peer) {
+                        continue;
+                    }
+                    let label = peer.chars().take(16).collect::<String>();
+                    match self.add_contact(peer, &label, true) {
+                        Ok(c) => {
+                            self.notifier.on_contact_added(peer, &c.display_name);
+                        }
+                        Err(e) => warn!("auto-add contact {peer}: {e}"),
+                    }
+                    if let Some(addr) = mycelium_core::bootstrap::relay_circuit_multiaddr(peer) {
+                        if let Err(e) = self
+                            .handle
+                            .send(NodeCommand::AddBootstrapPeer { multiaddr: addr })
+                            .await
+                        {
+                            warn!("auto-dial {peer}: {e}");
+                        }
+                    }
+                }
+                seen = live;
+            }
+        });
+    }
+
+    fn ensure_inbound_chat_contact(&self, peer: &str, display_name: &str) -> bool {
+        match self.storage.contact_by_id(peer) {
+            Ok(Some(c)) if c.status == ContactStatus::Accepted => true,
+            Ok(Some(_)) | Ok(None) => {
+                let name = if display_name.is_empty() {
+                    peer.chars().take(12).collect::<String>()
+                } else {
+                    display_name.to_string()
+                };
+                match self.add_contact(peer, &name, true) {
+                    Ok(c) => {
+                        self.notifier.on_contact_added(peer, &c.display_name);
+                        true
+                    }
+                    Err(e) => {
+                        warn!("inbound chat auto-accept {peer}: {e}");
+                        false
+                    }
+                }
+            }
+            Err(e) => {
+                warn!("contact lookup failed for {peer}: {e}");
+                false
+            }
+        }
+    }
+
     pub async fn dispatch_incoming(&self, msg: &DirectMessage) {
         if msg.body == "[mycelium:group]" {
             if let Ok(WireMessage::EncryptedGroup {
@@ -198,38 +263,7 @@ impl AppNode {
                     if peer == self.local_peer_id {
                         return;
                     }
-                    let accepted = match self.storage.contact_by_id(&peer) {
-                        Ok(Some(c)) if c.status == ContactStatus::Accepted => true,
-                        Ok(Some(Contact {
-                            status: ContactStatus::Pending,
-                            display_name,
-                            ..
-                        })) => {
-                            self.notifier
-                                .on_contact_request(&peer, display_name.as_str());
-                            false
-                        }
-                        Ok(None) => {
-                            let name = if m.from_display_name.is_empty() {
-                                peer.chars().take(12).collect::<String>()
-                            } else {
-                                m.from_display_name.clone()
-                            };
-                            if let Err(e) =
-                                self.storage
-                                    .upsert_contact(&peer, &name, ContactStatus::Pending)
-                            {
-                                warn!("failed to save pending contact: {e}");
-                            }
-                            self.notifier.on_contact_request(&peer, &name);
-                            false
-                        }
-                        Err(e) => {
-                            warn!("contact lookup failed: {e}");
-                            false
-                        }
-                        Ok(Some(_)) => false,
-                    };
+                    let accepted = self.ensure_inbound_chat_contact(&peer, &m.from_display_name);
                     if let Err(err) = self.storage.save_chat(&peer, &m) {
                         warn!("failed to save chat: {err}");
                     }
@@ -399,6 +433,12 @@ impl AppNode {
         body: String,
     ) -> anyhow::Result<EncryptionResult> {
         self.ensure_contact_accepted_for_send(&to_peer, "")?;
+        if !self
+            .wait_peer_connected(&to_peer, 10, std::time::Duration::from_millis(500))
+            .await
+        {
+            anyhow::bail!("peer_not_connected");
+        }
         let display_name = self.display_name.read().await.clone();
         let chat = ChatMessage {
             id: uuid::Uuid::new_v4(),
@@ -430,6 +470,7 @@ impl AppNode {
                 })
                 .await?;
             self.storage.save_chat(&to_peer, &chat)?;
+            tracing::info!("sent encrypted chat to {to_peer} ({} bytes)", body.len());
             return Ok(EncryptionResult::Encrypted);
         }
         Err(enc_key_not_yet_exchanged_err())
@@ -935,6 +976,23 @@ impl AppNode {
         Ok(())
     }
 
+    async fn wait_peer_connected(
+        &self,
+        peer_id: &str,
+        attempts: u32,
+        delay: std::time::Duration,
+    ) -> bool {
+        for i in 0..attempts {
+            if self.handle.is_peer_connected(peer_id).await {
+                return true;
+            }
+            if i + 1 < attempts {
+                tokio::time::sleep(delay).await;
+            }
+        }
+        false
+    }
+
     pub fn list_contacts(&self) -> anyhow::Result<Vec<Contact>> {
         self.storage.all_contacts()
     }
@@ -945,6 +1003,34 @@ impl AppNode {
 
     pub fn list_pending_contacts(&self) -> anyhow::Result<Vec<Contact>> {
         self.storage.contacts_with_status(ContactStatus::Pending)
+    }
+
+    /// Parse QR/deep-link invite: seed E2E key (v2), add contact, dial direct + relay.
+    pub async fn connect_from_invite(&self, raw: &str) -> anyhow::Result<()> {
+        let target = mycelium_core::invite::parse_invite(raw.trim())
+            .ok_or_else(|| anyhow::anyhow!("invalid invite"))?;
+        match target {
+            mycelium_core::invite::InviteTarget::Peer(info) => {
+                let label = info.peer_id.chars().take(16).collect::<String>();
+                let contact = self.add_contact(&info.peer_id, &label, true)?;
+                self.notifier
+                    .on_contact_added(&info.peer_id, &contact.display_name);
+                if let Some(enc) = &info.enc_pubkey_hex {
+                    self.handle.seed_peer_enc_key(&info.peer_id, enc).await?;
+                }
+                for addr in info.dial_multiaddrs() {
+                    self.handle
+                        .send(NodeCommand::AddBootstrapPeer { multiaddr: addr })
+                        .await?;
+                }
+            }
+            mycelium_core::invite::InviteTarget::Multiaddr(addr) => {
+                self.handle
+                    .send(NodeCommand::AddBootstrapPeer { multiaddr: addr })
+                    .await?;
+            }
+        }
+        Ok(())
     }
 
     pub fn add_contact(

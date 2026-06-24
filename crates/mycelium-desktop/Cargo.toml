@@ -28,7 +28,7 @@ mycelium-app = { path = "../mycelium-app" }
 mycelium-coin = { path = "../mycelium-coin" }
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
-tauri = { version = "2", features = ["tray-icon", "image-png"] }
+tauri = { version = "2", features = ["tray-icon", "image-png", "custom-protocol"] }
 tauri-plugin-notification = "2"
 tauri-plugin-shell = "2"
 tauri-plugin-dialog = "2"

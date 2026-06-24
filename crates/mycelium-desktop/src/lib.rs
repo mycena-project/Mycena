@@ -74,13 +74,25 @@ struct DesktopNotifier {
 }
 
 impl NotificationSink for DesktopNotifier {
-    fn on_chat_received(&self, _from: &str, _preview: &str) {}
+    fn on_chat_received(&self, from: &str, preview: &str) {
+        let _ = self.app.emit(
+            "chat-updated",
+            json!({ "from_peer": from, "body": preview }),
+        );
+    }
 
     fn on_mail_received(&self, _from: &str, _subject: &str) {}
 
     fn on_bulletin_posted(&self, _scope: &str, _title: &str) {}
 
     fn on_contact_request(&self, peer_id: &str, display_name: &str) {
+        let _ = self.app.emit(
+            "contacts-updated",
+            json!({ "peer_id": peer_id, "display_name": display_name }),
+        );
+    }
+
+    fn on_contact_added(&self, peer_id: &str, display_name: &str) {
         let _ = self.app.emit(
             "contacts-updated",
             json!({ "peer_id": peer_id, "display_name": display_name }),
@@ -224,6 +236,7 @@ async fn start_node(
     );
     let app_node = Arc::new(app_node);
     app_node.clone().start_incoming_task();
+    app_node.clone().start_peer_contact_sync();
     setup_inbox_emitter(app, inbox);
 
     let cap_mac_key = mycelium_app::miniapp::mac_key_from_db_path(&db_path);
@@ -274,34 +287,21 @@ async fn get_shareable_multiaddrs(state: State<'_, SharedState>) -> Result<Vec<S
     let listen = s.handle.listen_addrs().await;
     Ok(mycelium_core::bootstrap::shareable_dial_multiaddrs(
         &s.local_peer_id,
+        &s.handle.local_enc_pubkey_hex(),
         &listen,
     ))
 }
 
 #[tauri::command]
 async fn connect_peer_id(state: State<'_, SharedState>, peer_id: String) -> Result<(), String> {
-    let input = peer_id.trim();
-    let target = mycelium_core::invite::parse_invite(input)
-        .ok_or_else(|| "invalid invite — use mycelium://invite/v1#… or a peer ID".to_string())?;
-    match target {
-        mycelium_core::invite::InviteTarget::Multiaddr(addr) => add_peer(state, addr).await,
-        mycelium_core::invite::InviteTarget::PeerId(peer_id) => {
-            let label = peer_id.chars().take(16).collect::<String>();
-            {
-                let guard = state.read().await;
-                let s = guard
-                    .as_ref()
-                    .ok_or_else(|| "node not started".to_string())?;
-                let _ = s
-                    .app_node
-                    .add_contact(&peer_id, &label, true)
-                    .map_err(|e| e.to_string())?;
-            }
-            let addr = mycelium_core::bootstrap::relay_circuit_multiaddr(&peer_id)
-                .ok_or_else(|| "invalid peer id".to_string())?;
-            add_peer(state, addr).await
-        }
-    }
+    let guard = state.read().await;
+    let s = guard
+        .as_ref()
+        .ok_or_else(|| "node not started".to_string())?;
+    s.app_node
+        .connect_from_invite(&peer_id)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 fn contact_json(c: Contact) -> serde_json::Value {
@@ -315,6 +315,63 @@ fn contact_json(c: Contact) -> serde_json::Value {
         "added_at_ms": c.added_at_ms,
         "status": status,
     })
+}
+
+/// Chat sidebar: connected peers merged with stored contact names (same source as Connect tab).
+#[tauri::command]
+async fn get_chat_contacts(
+    state: State<'_, SharedState>,
+) -> Result<Vec<serde_json::Value>, String> {
+    let guard = state.read().await;
+    let s = guard
+        .as_ref()
+        .ok_or_else(|| "node not started".to_string())?;
+    let relay = mycelium_core::bootstrap::RELAY_PEER_ID;
+    let stored: std::collections::HashMap<String, Contact> = s
+        .app_node
+        .list_accepted_contacts()
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|c| mycelium_core::bootstrap::is_mesh_peer_id(&c.peer_id))
+        .map(|c| (c.peer_id.clone(), c))
+        .collect();
+    let live: Vec<String> = s
+        .handle
+        .known_peers()
+        .await
+        .into_iter()
+        .filter(|p| p != relay && mycelium_core::bootstrap::is_mesh_peer_id(p))
+        .collect();
+    drop(guard);
+
+    let mut out = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    for peer in live {
+        if !seen.insert(peer.clone()) {
+            continue;
+        }
+        let display_name = stored
+            .get(&peer)
+            .map(|c| c.display_name.clone())
+            .unwrap_or_else(|| peer.chars().take(16).collect());
+        let guard = state.read().await;
+        if let Some(s) = guard.as_ref() {
+            let _ = s.app_node.add_contact(&peer, &display_name, true);
+        }
+        out.push(json!({
+            "peer_id": peer,
+            "display_name": display_name,
+        }));
+    }
+    for (peer, c) in stored {
+        if seen.insert(peer.clone()) {
+            out.push(json!({
+                "peer_id": c.peer_id,
+                "display_name": c.display_name,
+            }));
+        }
+    }
+    Ok(out)
 }
 
 #[tauri::command]
@@ -339,12 +396,28 @@ async fn list_accepted_contacts(
     let s = guard
         .as_ref()
         .ok_or_else(|| "node not started".to_string())?;
-    Ok(s.app_node
+    let mut contacts = s
+        .app_node
         .list_accepted_contacts()
         .map_err(|e| e.to_string())?
         .into_iter()
-        .map(contact_json)
-        .collect())
+        .filter(|c| mycelium_core::bootstrap::is_mesh_peer_id(&c.peer_id))
+        .collect::<Vec<_>>();
+    // Fallback: show connected mesh peers as chat contacts when sync missed the UI event.
+    if contacts.is_empty() {
+        let relay = mycelium_core::bootstrap::RELAY_PEER_ID;
+        for peer in s.handle.known_peers().await {
+            if peer == relay || !mycelium_core::bootstrap::is_mesh_peer_id(&peer) {
+                continue;
+            }
+            let label = peer.chars().take(16).collect::<String>();
+            match s.app_node.add_contact(&peer, &label, true) {
+                Ok(c) => contacts.push(c),
+                Err(e) => tracing::warn!("peer contact fallback {peer}: {e}"),
+            }
+        }
+    }
+    Ok(contacts.into_iter().map(contact_json).collect())
 }
 
 #[tauri::command]
@@ -1294,6 +1367,8 @@ fn setup_inbox_emitter(app: AppHandle, mut inbox: AppInbox) {
 
 fn setup_event_emitter(app_handle: AppHandle, state: SharedState) {
     tauri::async_runtime::spawn(async move {
+        let relay = mycelium_core::bootstrap::RELAY_PEER_ID.to_string();
+        let mut last_peer_count = 0usize;
         loop {
             tokio::time::sleep(std::time::Duration::from_millis(500)).await;
             let guard = state.read().await;
@@ -1301,7 +1376,29 @@ fn setup_event_emitter(app_handle: AppHandle, state: SharedState) {
                 continue;
             };
             let metrics = s.handle.metrics().await;
-            let peers = s.handle.known_peers().await.len();
+            let live_peers: Vec<String> = s
+                .handle
+                .known_peers()
+                .await
+                .into_iter()
+                .filter(|p| p != &relay)
+                .collect();
+            let peers = live_peers.len();
+            if peers != last_peer_count {
+                last_peer_count = peers;
+                for peer in &live_peers {
+                    if !mycelium_core::bootstrap::is_mesh_peer_id(peer) {
+                        continue;
+                    }
+                    let label = peer.chars().take(16).collect::<String>();
+                    if let Ok(c) = s.app_node.add_contact(peer, &label, true) {
+                        let _ = app_handle.emit(
+                            "contacts-updated",
+                            json!({ "peer_id": peer, "display_name": c.display_name }),
+                        );
+                    }
+                }
+            }
             let _ = app_handle.emit(
                 "metrics-updated",
                 json!({
@@ -1314,7 +1411,18 @@ fn setup_event_emitter(app_handle: AppHandle, state: SharedState) {
     });
 }
 
+fn init_tracing() {
+    use tracing_subscriber::EnvFilter;
+    let _ = tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+            EnvFilter::new("mycelium_node=info,mycelium_app=info,libp2p_mdns=info")
+        }))
+        .with_target(true)
+        .try_init();
+}
+
 pub fn run() {
+    init_tracing();
     let shared_state: SharedState = Arc::new(RwLock::new(None));
 
     tauri::Builder::default()
@@ -1334,6 +1442,7 @@ pub fn run() {
             get_relay_status,
             get_shareable_multiaddrs,
             connect_peer_id,
+            get_chat_contacts,
             list_contacts,
             list_accepted_contacts,
             list_pending_contacts,

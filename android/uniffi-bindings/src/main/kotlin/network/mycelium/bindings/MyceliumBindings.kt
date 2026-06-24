@@ -74,6 +74,7 @@ object mycelium {
     fun displayName(): String = uniffi.mycelium.displayName()
     fun setEnergyState(state: EnergyState) = uniffi.mycelium.setEnergyState(state)
     fun addBootstrapPeer(multiaddr: String) = uniffi.mycelium.addBootstrapPeer(multiaddr)
+    fun connectInvite(raw: String) = uniffi.mycelium.connectInvite(raw)
     fun setEventCallback(callback: NodeEventCallback) = uniffi.mycelium.setEventCallback(callback)
     fun walletAddress(): String = uniffi.mycelium.walletAddress()
     fun walletBalance(): WalletBalance = uniffi.mycelium.walletBalance()

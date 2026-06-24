@@ -162,7 +162,7 @@
     <string name="settings_ble_advertise">蓝牙发现</string>
     <string name="settings_ble_advertise_sub">附近 BLE 扫描器可见</string>
     <string name="settings_bootstrap_help">每行一个。留空以使用默认继电器。</string>
-    <string name="settings_bootstrap_hint">/dns4/mycelium-relay.fly.dev/tcp/4001/p2p/12D3KooW…</string>
+    <string name="settings_bootstrap_hint">/ip4/149.248.194.198/tcp/4001/p2p/12D3KooWSk…</string>
     <string name="settings_bootstrap_peers">自定义引导程序对等点</string>
     <string name="settings_clear_store">清除旧消息</string>
     <string name="settings_danger_zone">危险区域</string>

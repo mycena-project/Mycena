@@ -185,6 +185,11 @@ pub enum NodeCommand {
     AddBootstrapPeer {
         multiaddr: String,
     },
+    /// Trust-on-first-use: seed X25519 key from invite v2 QR (no libp2p PeerInfo required).
+    SeedPeerEncKey {
+        peer_id: String,
+        enc_pubkey_hex: String,
+    },
     SubscribeScope(String),
     UnsubscribeScope(String),
     SubscribeBulletinScope(String),
@@ -265,6 +270,10 @@ impl NodeHandle {
             .collect()
     }
 
+    pub async fn is_peer_connected(&self, peer: &str) -> bool {
+        self.known_peers().await.iter().any(|p| p == peer)
+    }
+
     pub async fn listen_addrs(&self) -> Vec<String> {
         self.listen_addrs.read().await.clone()
     }
@@ -312,6 +321,14 @@ impl NodeHandle {
 
     pub async fn has_enc_key_for(&self, peer: &str) -> bool {
         self.peer_x25519.read().await.contains_key(peer)
+    }
+
+    pub async fn seed_peer_enc_key(&self, peer: &str, enc_pubkey_hex: &str) -> anyhow::Result<()> {
+        self.send(NodeCommand::SeedPeerEncKey {
+            peer_id: peer.to_string(),
+            enc_pubkey_hex: enc_pubkey_hex.to_string(),
+        })
+        .await
     }
 
     pub async fn peer_x25519_public(&self, peer: &str) -> Option<crypto::X25519PublicKey> {
@@ -374,6 +391,9 @@ pub struct NodeRunner {
 
 impl NodeRunner {
     pub fn new(config: NodeConfig) -> anyhow::Result<(Self, NodeHandle)> {
+        if let Err(e) = mycelium_core::bootstrap::sanitize_persisted_dial_peers(&config.db_path) {
+            tracing::warn!("could not sanitize dial peers: {e}");
+        }
         let mut bootstrap_peers = if config.bootstrap_peers.is_empty() {
             load_bootstrap_peers(&config.db_path)
         } else {
@@ -383,6 +403,19 @@ impl NodeRunner {
             if !bootstrap_peers.iter().any(|p| p == &extra) {
                 bootstrap_peers.push(extra);
             }
+        }
+        // At most one stored circuit target (latest QR scan).
+        let mut last_circuit: Option<String> = None;
+        bootstrap_peers.retain(|p| {
+            if p.contains("/p2p-circuit/") {
+                last_circuit = Some(p.clone());
+                false
+            } else {
+                true
+            }
+        });
+        if let Some(circuit) = last_circuit {
+            bootstrap_peers.push(circuit);
         }
         let keypair_path = config
             .keypair_path
@@ -572,6 +605,8 @@ impl NodeRunner {
         self.transport.redial_stored_targets();
         let mut dial_tick = interval(Duration::from_secs(15));
         dial_tick.set_missed_tick_behavior(MissedTickBehavior::Skip);
+        let mut circuit_dial_tick = interval(Duration::from_secs(5));
+        circuit_dial_tick.set_missed_tick_behavior(MissedTickBehavior::Skip);
         loop {
             tokio::select! {
                 transport_event = self.transport.next_event() => {
@@ -598,37 +633,23 @@ impl NodeRunner {
                 _ = dial_tick.tick() => {
                     self.transport.redial_stored_targets();
                 }
+                _ = circuit_dial_tick.tick() => {
+                    self.transport.try_deferred_circuit_dials();
+                }
             }
         }
     }
 
     /// Dial peers returned by relay rendezvous (HTTP runs off the transport loop).
+    /// Does not auto-dial every listed peer — stale rendezvous entries caused dial storms.
     async fn dial_rendezvous_list(&mut self, remote_ids: Vec<String>) {
         if remote_ids.is_empty() {
             return;
         }
-        let relay_id = mycelium_core::bootstrap::RELAY_PEER_ID;
-        let known: HashSet<String> = self
-            .peers
-            .read()
-            .await
-            .iter()
-            .cloned()
-            .chain(self.transport.known_peers())
-            .collect();
-        for remote in remote_ids {
-            if remote == self.local_peer_id || remote == relay_id || known.contains(&remote) {
-                continue;
-            }
-            let Some(addr) = mycelium_core::bootstrap::relay_circuit_multiaddr(&remote) else {
-                continue;
-            };
-            if let Err(e) = self.transport.remember_and_dial(addr).await {
-                tracing::debug!("rendezvous dial {remote}: {e}");
-            } else {
-                info!("rendezvous: dialing peer {remote}");
-            }
-        }
+        tracing::debug!(
+            "rendezvous: {} remote peer(s) on relay (dial via QR/contact only)",
+            remote_ids.len()
+        );
     }
 
     async fn handle_command(&mut self, cmd: NodeCommand) -> anyhow::Result<()> {
@@ -659,9 +680,15 @@ impl NodeRunner {
                 to_peer,
                 mut message,
             } => {
+                if !self.transport.is_peer_connected(&to_peer) {
+                    anyhow::bail!("not connected to peer {to_peer}");
+                }
                 if let WireMessage::EncryptedDirect { .. } = &mut message {
-                    if let Some(keypair) = &self.keypair {
-                        mycelium_core::transport::sign_encrypted_direct(&mut message, keypair)?;
+                    match &self.keypair {
+                        Some(keypair) => {
+                            mycelium_core::transport::sign_encrypted_direct(&mut message, keypair)?;
+                        }
+                        None => anyhow::bail!("cannot send EncryptedDirect without local keypair"),
                     }
                 }
                 self.transport.send_direct(to_peer, message).await?;
@@ -681,6 +708,20 @@ impl NodeRunner {
                     warn!("could not persist dial peer: {e}");
                 }
                 self.transport.remember_and_dial(multiaddr).await?;
+            }
+            NodeCommand::SeedPeerEncKey {
+                peer_id,
+                enc_pubkey_hex,
+            } => {
+                if let Ok(pk) = crypto::parse_x25519_public_hex(&enc_pubkey_hex) {
+                    self.peer_x25519
+                        .write()
+                        .await
+                        .insert(peer_id.clone(), *pk.as_bytes());
+                    info!("seeded enc key for {peer_id} from invite");
+                } else {
+                    warn!("invalid enc_pubkey_hex in invite for {peer_id}");
+                }
             }
             NodeCommand::SubscribeScope(scope) => {
                 self.subscribed_scopes.write().await.insert(scope.clone());
@@ -1366,7 +1407,12 @@ impl NodeRunner {
                         envelope,
                         body: "[encrypted]".into(),
                     };
+                    let logical = dm.envelope.from_peer.clone();
                     let _ = self.incoming_tx.send(dm);
+                    info!(
+                        "encrypted direct delivered from {} (logical {})",
+                        from_peer, logical
+                    );
                     let mut metrics = self.metrics.write().await;
                     metrics.messages_delivered_local += 1;
                 } else if hop_count < max_hops {

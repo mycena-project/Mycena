@@ -131,7 +131,7 @@ async fn main() -> anyhow::Result<()> {
     let keypair_path = args
         .keypair_path
         .unwrap_or_else(|| ".mycelium-relay/identity".to_string());
-    let key = mycelium_node::load_or_create_keypair(&keypair_path)?;
+    let key = mycelium_node::load_or_create_keypair_from_env(&keypair_path)?;
     let local_peer_id = key.public().to_peer_id();
 
     info!("Relay Peer ID: {local_peer_id}");

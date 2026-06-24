@@ -1,6 +1,6 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
-// Copyright (C) 2026 Mycelium Project
 <script>
+  // SPDX-License-Identifier: AGPL-3.0-or-later
+  // Copyright (C) 2026 Mycelium Project
   import { invoke } from "@tauri-apps/api/core";
 
   /** @type {{ onstart?: (config: { dbPath: string; displayName: string; bootstrapPeers: string[] }) => void | Promise<void> }} */

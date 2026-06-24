@@ -13,10 +13,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import network.mycelium.app.MeshEvent
+import network.mycelium.app.MeshService
 import network.mycelium.app.meshEvents
 import network.mycelium.bindings.ConnectivityMode
 import network.mycelium.app.bootstrap.RelayBootstrap
 import network.mycelium.bindings.mycelium
+import uniffi.mycelium.InternalException
 
 /** How long to show the animated “searching” banner after start or connectivity change. */
 private const val SEARCHING_BANNER_INITIAL_MS = 25_000L
@@ -40,8 +42,13 @@ class StatusViewModel(app: Application) : AndroidViewModel(app) {
 
     init {
         viewModelScope.launch {
+            while (!MeshService.isNodeReady()) {
+                delay(50)
+            }
             refreshPeerCount()
-            _connectivityMode.value = mycelium.currentConnectivityMode()
+            runCatching { mycelium.currentConnectivityMode() }.getOrNull()?.let {
+                _connectivityMode.value = it
+            }
             pulseSearchingBanner(initial = true)
 
             appContext.meshEvents().collect { event ->
@@ -64,7 +71,12 @@ class StatusViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun refreshPeerCount() {
         _peerCount.value =
-            mycelium.knownPeers().count { it != RelayBootstrap.RELAY_PEER_ID }
+            runCatching {
+                mycelium.knownPeers().count { it != RelayBootstrap.RELAY_PEER_ID }
+            }.getOrElse { e ->
+                if (e is InternalException && e.message?.contains("node not initialized") == true) 0
+                else throw e
+            }
     }
 
     private fun pulseSearchingBanner(initial: Boolean = false) {

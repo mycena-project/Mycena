@@ -145,6 +145,7 @@ class MeshService : Service() {
         )
 
         nodeInitialized = true
+        nodeReady = true
         updateBleBootstrap()
         return START_STICKY
     }
@@ -289,6 +290,7 @@ class MeshService : Service() {
         wifiMulticastLock = null
         serviceScope.cancel()
         mycelium.stopNode()
+        nodeReady = false
         super.onDestroy()
     }
 
@@ -299,5 +301,11 @@ class MeshService : Service() {
         private const val NOTIFICATION_ID = 7761
         private const val DISCOVERY_CHANNEL_ID = "mycelium_discovery"
         private const val DISCOVERY_NOTIFICATION_BASE = 2000
+
+        @Volatile
+        var nodeReady: Boolean = false
+            private set
+
+        fun isNodeReady(): Boolean = nodeReady
     }
 }

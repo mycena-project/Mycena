@@ -4,7 +4,7 @@
 
 1. **Parallel paths, not either/or** — When the internet is available, Mycelium still runs **all** discovery layers: same Wi‑Fi (mDNS), public relay bootstrap, and optional relay rendezvous. Internet does **not** disable local mesh.
 2. **Local first** — On the same Wi‑Fi, devices should connect **without** QR or relay (automatic mDNS dial).
-3. **QR for trust + remote** — One QR scan (or pasted `mycelium://invite/v1#…`) establishes a **relay circuit** and (on peer-ID invites) an **accepted contact** for chat.
+3. **QR for trust + remote** — One QR scan (or pasted invite) establishes a **relay circuit**, optional **E2E key** (v2), and an **accepted contact** for chat.
 4. **Relay discovery is optional** — Rendezvous helps two devices on different networks find each other **when both are online on the relay** and both opted in. It is not a global phone book.
 
 ## What users should do
@@ -14,7 +14,7 @@
 | Same Wi‑Fi (home, office) | Open the app on both; wait ~10–30s. Check **Connect → Connected devices**. |
 | Different networks | **Connect → Scan** the other device’s QR (or paste invite link). |
 | Still no link on different networks | Enable **Settings → Relay discovery (remote)** on **both** devices; wait ~45s. |
-| Chat | After connect, use **Chat** (peer-ID QR also adds an accepted contact). |
+| Chat | After connect, open **Chat** — connected peers appear automatically (same source as Connect). |
 
 ## Infrastructure (developer)
 
@@ -28,16 +28,17 @@
 ## Invite format
 
 ```
-mycelium://invite/v1#<peerId>
+mycelium://invite/v2#<peerId>|<encPubkeyHex>[|<directMultiaddr>]   (preferred QR)
+mycelium://invite/v1#<peerId>                                      (legacy)
 ```
 
-Dial target: `/dns4/mycelium-relay.fly.dev/tcp/4001/p2p/<relay>/p2p-circuit/p2p/<peerId>`
+Dial target (relay): `/dns4/mycelium-relay.fly.dev/tcp/4001/p2p/<relay>/p2p-circuit/p2p/<peerId>`
 
 ## UI map
 
 - **Connect** tab (was “Network” / “Peers”): scan QR, show QR, paste invite, connected list.
 - **Settings**: relay discovery toggle, custom bootstrap (advanced).
-- **Chat**: contacts and messages only.
+- **Chat**: contacts and messages only. Sidebar uses connected peers (`get_chat_contacts`); onboarding does **not** wipe local history — use **Settings → PANIC WIPE** for a fresh device.
 
 ## Known limits
 

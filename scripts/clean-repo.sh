@@ -41,6 +41,9 @@ rm_path() {
 
 echo "Cleaning Mycelium workspace at $ROOT …"
 
+# Local debug captures (LAN test logs)
+rm_path "$ROOT/.debug-logs"
+
 # Rust
 rm_path "$ROOT/target"
 rm_path "$ROOT/target-docker"

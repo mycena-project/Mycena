@@ -62,7 +62,10 @@ impl AppStorage {
         let mut out: Vec<Contact> = Vec::new();
         for item in tree.iter() {
             let (_k, v) = item?;
-            out.push(bincode::deserialize(&v)?);
+            match bincode::deserialize::<Contact>(&v) {
+                Ok(c) => out.push(c),
+                Err(e) => tracing::warn!("skipping corrupt contact entry: {e}"),
+            }
         }
         out.sort_by_key(|c| std::cmp::Reverse(c.added_at_ms));
         Ok(out)

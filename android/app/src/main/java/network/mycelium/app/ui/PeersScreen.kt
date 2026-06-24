@@ -64,7 +64,14 @@ import network.mycelium.app.bootstrap.PeerInvite
 import network.mycelium.app.viewmodel.PeersViewModel
 import network.mycelium.bindings.mycelium
 
-private data class RelayStatus(val online: Boolean, val connections: Long)
+private data class RelayStatus(val online: Boolean, val reachable: Long)
+
+private fun jsonLong(json: String, key: String): Long? =
+    Regex("\"$key\"\\s*:\\s*(\\d+)")
+        .find(json)
+        ?.groupValues
+        ?.get(1)
+        ?.toLongOrNull()
 
 @Composable
 private fun RelayStatusBadge() {
@@ -74,24 +81,45 @@ private fun RelayStatusBadge() {
         withContext(Dispatchers.IO) {
             relayStatus =
                 try {
-                    val url = java.net.URL("https://mycelium-relay.fly.dev/")
-                    val conn = url.openConnection() as java.net.HttpURLConnection
-                    conn.connectTimeout = 3000
-                    conn.readTimeout = 3000
-                    if (conn.responseCode == 200) {
-                        val json = conn.inputStream.bufferedReader().readText()
-                        val connections =
-                            Regex("\"connections\"\\s*:\\s*(\\d+)")
-                                .find(json)
-                                ?.groupValues
-                                ?.get(1)
-                                ?.toLongOrNull() ?: 0L
-                        RelayStatus(online = true, connections = connections)
+                    val statusUrl = java.net.URL("https://mycelium-relay.fly.dev/")
+                    val statusConn = statusUrl.openConnection() as java.net.HttpURLConnection
+                    statusConn.connectTimeout = 3000
+                    statusConn.readTimeout = 3000
+                    if (statusConn.responseCode == 200) {
+                        val statusJson = statusConn.inputStream.bufferedReader().readText()
+                        val rendezvousUrl = java.net.URL("https://mycelium-relay.fly.dev/rendezvous")
+                        val rendezvousConn =
+                            rendezvousUrl.openConnection() as java.net.HttpURLConnection
+                        rendezvousConn.connectTimeout = 3000
+                        rendezvousConn.readTimeout = 3000
+                        val reachable =
+                            if (rendezvousConn.responseCode == 200) {
+                                val rendezvousJson =
+                                    rendezvousConn.inputStream.bufferedReader().readText()
+                                Regex("\"peers\"\\s*:\\s*\\[")
+                                    .find(rendezvousJson)
+                                    ?.let {
+                                        rendezvousJson
+                                            .substringAfter("[")
+                                            .substringBefore("]")
+                                            .split(',')
+                                            .count { it.contains("12D3KooW") }
+                                            .toLong()
+                                    }
+                                    ?: jsonLong(statusJson, "reachable_peers")
+                                    ?: jsonLong(statusJson, "unique_peers")
+                                    ?: 0L
+                            } else {
+                                jsonLong(statusJson, "reachable_peers")
+                                    ?: jsonLong(statusJson, "unique_peers")
+                                    ?: 0L
+                            }
+                        RelayStatus(online = true, reachable = reachable)
                     } else {
-                        RelayStatus(online = false, connections = 0)
+                        RelayStatus(online = false, reachable = 0)
                     }
                 } catch (_: Exception) {
-                    RelayStatus(online = false, connections = 0)
+                    RelayStatus(online = false, reachable = 0)
                 }
         }
     }
@@ -110,7 +138,7 @@ private fun RelayStatusBadge() {
             Text(
                 text =
                     if (status.online) {
-                        stringResource(R.string.peers_relay_online, status.connections)
+                        stringResource(R.string.peers_relay_online, status.reachable)
                     } else {
                         stringResource(R.string.peers_relay_offline)
                     },
@@ -130,7 +158,11 @@ fun PeersScreen(navController: NavController, vm: PeersViewModel = viewModel()) 
     val networkPeers by vm.networkPeers.collectAsState()
     val metrics by vm.metrics.collectAsState()
     val localPeerId = mycelium.localPeerId()
-    val invitePayload = remember(localPeerId) { PeerInvite.encode(localPeerId) }
+    val encPubkey = mycelium.localEncPubkey()
+    val invitePayload =
+        remember(localPeerId, encPubkey) {
+            PeerInvite.encodeV2(localPeerId, encPubkey)
+        }
     val qrBitmap = remember(invitePayload) { generateQrCode(invitePayload, 640) }
     var showMyQr by remember { mutableStateOf(false) }
     var pasteInvite by remember { mutableStateOf("") }

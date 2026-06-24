@@ -21,6 +21,7 @@
     <string name="chat_new_conversation">Neues Gespräch</string>
     <string name="chat_no_conversations">Keine Gespräche.\nQR-Code scannen zum Verbinden.</string>
     <string name="chat_not_encrypted">Schlüsselaustausch ausstehend…</string>
+    <string name="chat_peer_not_connected">Noch nicht verbunden — warte kurz nach dem QR-Scan und versuche es erneut.</string>
     <string name="chat_offline">Offline</string>
     <string name="chat_online">Online</string>
     <string name="chat_peer_subtitle_offline">%1$s</string>
@@ -155,7 +156,7 @@
     <string name="peers_offline_title">Keine Peers verbunden</string>
     <string name="peers_queue">Warteschlange</string>
     <string name="peers_relay_offline">Relay: offline</string>
-    <string name="peers_relay_online">Relay: %1$d Peers</string>
+    <string name="peers_relay_online">Relay online · %1$d erreichbar</string>
     <string name="peers_scan">QR scannen</string>
     <string name="peers_scan_qr_prompt">Peer-QR scannen</string>
     <string name="peers_share">Teilen Sie meine ID</string>
@@ -163,7 +164,7 @@
     <string name="settings_ble_advertise">Bluetooth-Erkennung</string>
     <string name="settings_ble_advertise_sub">Für BLE-Scanner in der Nähe sichtbar</string>
     <string name="settings_bootstrap_help">Eine pro Zeile. Lassen Sie das Feld leer, um das Standardrelais zu verwenden.</string>
-    <string name="settings_bootstrap_hint">/dns4/mycelium-relay.fly.dev/tcp/4001/p2p/12D3KooW…</string>
+    <string name="settings_bootstrap_hint">/ip4/149.248.194.198/tcp/4001/p2p/12D3KooWSk…</string>
     <string name="settings_bootstrap_peers">Benutzerdefinierte Bootstrap-Peers</string>
     <string name="settings_clear_store">Alte Nachrichten löschen</string>
     <string name="settings_danger_zone">Gefahrenzone</string>

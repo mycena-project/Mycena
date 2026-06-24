@@ -378,6 +378,12 @@ impl NotificationSink for FfiNotifier {
             cb.on_contact_request(peer_id.to_string(), display_name.to_string());
         }
     }
+
+    fn on_contact_added(&self, peer_id: &str, display_name: &str) {
+        if let Some(cb) = CALLBACK.lock().expect("callback lock").clone() {
+            cb.on_contact_request(peer_id.to_string(), display_name.to_string());
+        }
+    }
 }
 
 static RUNTIME: OnceCell<Runtime> = OnceCell::new();
@@ -565,6 +571,7 @@ pub fn init_node(config: NodeConfig) {
         );
         let app_node = Arc::new(app_node);
         app_node.clone().start_incoming_task();
+        app_node.clone().start_peer_contact_sync();
 
         let peer_handle = handle.clone();
         let peer_watch_task = tokio::spawn(async move {
@@ -1241,6 +1248,20 @@ pub fn add_bootstrap_peer(multiaddr: String) {
             .send(NodeCommand::AddBootstrapPeer { multiaddr })
             .await;
     });
+}
+
+pub fn connect_invite(raw: String) -> Result<(), MyceliumException> {
+    let state = state_arc();
+    runtime().block_on(async {
+        let state = state.read().await;
+        state
+            .app_node
+            .connect_from_invite(&raw)
+            .await
+            .map_err(|e| MyceliumException::ChatError {
+                detail: e.to_string(),
+            })
+    })
 }
 
 pub fn set_event_callback(callback: Box<dyn NodeEventCallback>) {

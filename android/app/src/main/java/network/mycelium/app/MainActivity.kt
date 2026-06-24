@@ -10,7 +10,18 @@ import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
+import kotlinx.coroutines.delay
 import network.mycelium.app.ui.MainShell
 
 class MainActivity : AppCompatActivity() {
@@ -19,7 +30,7 @@ class MainActivity : AppCompatActivity() {
 
     private val notificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { _ ->
-            startMeshServiceIfNeeded()
+            // Mesh node already running; permission only affects chat/mail notifications.
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -30,23 +41,38 @@ class MainActivity : AppCompatActivity() {
             finish()
             return
         }
-        ensureNotificationPermissionThenStartService()
+        // Start the mesh node before UI — ViewModels call Rust FFI immediately.
+        startMeshServiceIfNeeded()
+        requestNotificationPermissionIfNeeded()
         setContent {
-            MainShell()
+            var nodeReady by remember { mutableStateOf(MeshService.isNodeReady()) }
+            LaunchedEffect(Unit) {
+                while (!nodeReady) {
+                    if (MeshService.isNodeReady()) {
+                        nodeReady = true
+                    } else {
+                        delay(50)
+                    }
+                }
+            }
+            if (nodeReady) {
+                MainShell()
+            } else {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            }
         }
     }
 
-    private fun ensureNotificationPermissionThenStartService() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            when {
-                ContextCompat.checkSelfPermission(
-                    this,
-                    Manifest.permission.POST_NOTIFICATIONS,
-                ) == PackageManager.PERMISSION_GRANTED -> startMeshServiceIfNeeded()
-                else -> notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-            }
-        } else {
-            startMeshServiceIfNeeded()
+    private fun requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.POST_NOTIFICATIONS,
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
     }
 

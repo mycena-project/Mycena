@@ -6,6 +6,8 @@ pub trait NotificationSink: Send + Sync {
     fn on_bulletin_posted(&self, scope: &str, title: &str);
     /// New message from a peer who is not yet an accepted contact.
     fn on_contact_request(&self, _peer_id: &str, _display_name: &str) {}
+    /// Contact added or auto-accepted (e.g. after QR scan / inbound peer).
+    fn on_contact_added(&self, _peer_id: &str, _display_name: &str) {}
 }
 
 #[derive(Debug, Default)]

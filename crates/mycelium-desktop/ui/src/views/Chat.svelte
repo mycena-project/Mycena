@@ -1,8 +1,9 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
-// Copyright (C) 2026 Mycelium Project
 <script>
+  // SPDX-License-Identifier: AGPL-3.0-or-later
+  // Copyright (C) 2026 Mycelium Project
   import { invoke } from "@tauri-apps/api/core";
   import { listen } from "@tauri-apps/api/event";
+  import { onMount } from "svelte";
 
   let { peerId } = $props();
   let selectedPeer = $state("");
@@ -39,9 +40,43 @@
     return { lat, lon };
   }
 
+  function contactPeerId(c) {
+    return c?.peer_id ?? c?.peerId ?? "";
+  }
+
+  function contactDisplayName(c) {
+    const id = contactPeerId(c);
+    const name = c?.display_name ?? c?.displayName ?? "";
+    return name || (id ? id.slice(0, 16) + "…" : "?");
+  }
+
   async function refreshContacts() {
-    acceptedContacts = await invoke("list_accepted_contacts");
-    pendingContacts = await invoke("list_pending_contacts");
+    errorMsg = "";
+    try {
+      acceptedContacts = await invoke("get_chat_contacts");
+      if (!Array.isArray(acceptedContacts)) {
+        acceptedContacts = [];
+      }
+    } catch (e) {
+      try {
+        const peers = await invoke("get_peers");
+        acceptedContacts = (Array.isArray(peers) ? peers : []).map((peer_id) => ({
+          peer_id,
+          display_name: peer_id.slice(0, 16) + "…",
+        }));
+      } catch (e2) {
+        errorMsg = String(e2);
+        acceptedContacts = [];
+      }
+    }
+    try {
+      pendingContacts = await invoke("list_pending_contacts");
+    } catch {
+      pendingContacts = [];
+    }
+    if (!selectedPeer && acceptedContacts.length > 0) {
+      selectedPeer = contactPeerId(acceptedContacts[0]);
+    }
   }
 
   async function refresh() {
@@ -77,6 +112,9 @@
       if (msg.includes("enc_key_not_yet_exchanged")) {
         errorMsg =
           "Key exchange pending — message not sent. Try again shortly.";
+      } else if (msg.includes("peer_not_connected")) {
+        errorMsg =
+          "Not connected yet — wait a moment after scanning QR, then try again.";
       } else {
         errorMsg = msg;
       }
@@ -136,7 +174,7 @@
     window.open(url, "_blank");
   }
 
-  $effect(() => {
+  onMount(() => {
     refresh();
     const unsubs = [];
     (async () => {
@@ -173,12 +211,12 @@
       <p class="section-label">Contact requests</p>
       {#each pendingContacts as c}
         <div class="pending-row">
-          <span class="pending-name">{c.display_name || c.peer_id.slice(0, 16)}</span>
+          <span class="pending-name">{contactDisplayName(c)}</span>
           <div class="pending-actions">
-            <button type="button" class="small" onclick={() => acceptContact(c.peer_id)}>
+            <button type="button" class="small" onclick={() => acceptContact(contactPeerId(c))}>
               Accept
             </button>
-            <button type="button" class="small secondary" onclick={() => rejectContact(c.peer_id)}>
+            <button type="button" class="small secondary" onclick={() => rejectContact(contactPeerId(c))}>
               Decline
             </button>
           </div>
@@ -189,12 +227,12 @@
     {#if acceptedContacts.length === 0}
       <p class="empty-hint">No contacts yet. Connect a device on the Connect tab (scan QR or paste invite).</p>
     {/if}
-    {#each acceptedContacts as c}
+    {#each acceptedContacts as c (contactPeerId(c))}
       <button
-        onclick={() => ((selectedPeer = c.peer_id), refresh())}
-        class:active={selectedPeer === c.peer_id}
+        onclick={() => ((selectedPeer = contactPeerId(c)), refresh())}
+        class:active={selectedPeer === contactPeerId(c)}
       >
-        {c.display_name || c.peer_id.slice(0, 16) + "…"}
+        {contactDisplayName(c)}
       </button>
     {/each}
   </div>

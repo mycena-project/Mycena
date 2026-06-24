@@ -162,7 +162,7 @@
     <string name="settings_ble_advertise">Обнаружение по Bluetooth</string>
     <string name="settings_ble_advertise_sub">Видно BLE-сканерам поблизости</string>
     <string name="settings_bootstrap_help">По одному на строку. Оставьте пустым, чтобы использовать реле по умолчанию.</string>
-    <string name="settings_bootstrap_hint">/dns4/mycelium-relay.fly.dev/tcp/4001/p2p/12D3KooW…</string>
+    <string name="settings_bootstrap_hint">/ip4/149.248.194.198/tcp/4001/p2p/12D3KooWSk…</string>
     <string name="settings_bootstrap_peers">Пользовательские узлы начальной загрузки</string>
     <string name="settings_clear_store">Очистить старые сообщения</string>
     <string name="settings_danger_zone">Опасная зона</string>

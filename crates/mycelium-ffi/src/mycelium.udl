@@ -74,6 +74,8 @@ namespace mycelium {
   void set_energy_state(EnergyState state);
   void set_rendezvous_enabled(boolean enabled);
   void add_bootstrap_peer(string multiaddr);
+  [Throws=MyceliumException]
+  void connect_invite(string raw);
   void set_event_callback(NodeEventCallback callback);
 
   string wallet_address();

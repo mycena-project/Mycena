@@ -17,7 +17,7 @@ use mycelium_core::transport::{
 };
 use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use tokio::sync::watch;
 use tracing::warn;
 
@@ -126,7 +126,19 @@ pub struct Libp2pTransport {
     peer_cap: DirectPeerCap,
     connectivity_rx: Option<watch::Receiver<ConnectivityMode>>,
     bootstrap_peers: Vec<Multiaddr>,
+    /// Set after `/p2p-circuit` listen is registered (must not race bootstrap dial).
+    relay_inbound_enabled: bool,
+    /// When inbound listen was enabled; circuit dials wait for a short grace after this.
+    relay_inbound_since: Option<Instant>,
+    /// Outbound circuit dials require an accepted relay reservation (not just listen_on).
+    relay_reservation_confirmed: bool,
+    last_circuit_dial_attempt: Option<Instant>,
 }
+
+/// Delay circuit dials until the relay client has finished reservation setup.
+const RELAY_CIRCUIT_GRACE: Duration = Duration::from_millis(800);
+/// Minimum gap between circuit dial batches (avoids relay client oneshot races).
+const CIRCUIT_DIAL_COOLDOWN: Duration = Duration::from_secs(5);
 
 impl Libp2pTransport {
     pub fn new(
@@ -140,7 +152,9 @@ impl Libp2pTransport {
         let keypair_path = keypair_path.unwrap_or_else(|| ".mycelium-node/identity".to_string());
         let key = crate::secrets::load_or_create_keypair(&keypair_path, storage_key)?;
         let local_peer_id = key.public().to_peer_id();
-        let mut swarm = SwarmBuilder::with_existing_identity(key.clone())
+        // DNS transport required for /dns4/ bootstrap + relay-circuit multiaddrs.
+        // Use hickory defaults (Android has no /etc/resolv.conf for system resolver).
+        let swarm_builder = SwarmBuilder::with_existing_identity(key.clone())
             .with_tokio()
             .with_tcp(
                 tcp::Config::default().nodelay(true),
@@ -148,6 +162,11 @@ impl Libp2pTransport {
                 yamux::Config::default,
             )?
             .with_quic()
+            .with_dns_config(
+                libp2p::dns::ResolverConfig::default(),
+                libp2p::dns::ResolverOpts::default(),
+            );
+        let mut swarm = swarm_builder
             .with_relay_client(noise::Config::new, yamux::Config::default)?
             .without_bandwidth_metrics()
             .with_behaviour(|kp, relay_behaviour| Ok(MeshBehaviour::new(kp, relay_behaviour)))?
@@ -174,9 +193,12 @@ impl Libp2pTransport {
             peer_cap: DirectPeerCap::new(max_peers),
             connectivity_rx,
             bootstrap_peers,
+            relay_inbound_enabled: false,
+            relay_inbound_since: None,
+            relay_reservation_confirmed: false,
+            last_circuit_dial_attempt: None,
         };
         transport.dial_all_bootstraps();
-        transport.enable_relay_inbound_listen();
         transport.setup_kad();
         Ok(transport)
     }
@@ -250,30 +272,113 @@ impl Libp2pTransport {
         }
     }
 
-    /// Listen on the public relay so other peers can reach us via `/p2p-circuit` (NAT traversal).
-    fn enable_relay_inbound_listen(&mut self) {
+    fn is_circuit_dial(addr: &Multiaddr) -> bool {
+        addr.iter().any(|p| matches!(p, Protocol::P2pCircuit))
+    }
+
+    fn relay_peer_id(&self) -> Option<PeerId> {
+        PeerId::from_str(mycelium_core::bootstrap::RELAY_PEER_ID).ok()
+    }
+
+    fn relay_connected(&self) -> bool {
+        self.relay_peer_id()
+            .is_some_and(|id| self.swarm.is_connected(&id))
+    }
+
+    /// Relay TCP/QUIC up, reservation accepted, `/p2p-circuit` listen registered, grace elapsed.
+    fn relay_ready(&self) -> bool {
+        self.relay_inbound_enabled
+            && self.relay_connected()
+            && self.relay_reservation_confirmed
+            && self
+                .relay_inbound_since
+                .is_some_and(|t| t.elapsed() >= RELAY_CIRCUIT_GRACE)
+    }
+
+    fn note_relay_disconnected(&mut self) {
+        if !self.relay_connected() {
+            self.relay_inbound_enabled = false;
+            self.relay_inbound_since = None;
+            self.relay_reservation_confirmed = false;
+        }
+    }
+
+    fn relay_circuit_listen_addr(&self) -> Option<Multiaddr> {
         for addr in &self.bootstrap_peers {
             let addr_str = addr.to_string();
-            if !addr_str.contains("/tcp/") {
+            if Self::is_circuit_dial(addr) || !addr_str.contains("/tcp/") {
                 continue;
             }
-            let listen_str = format!("{addr_str}/p2p-circuit");
-            match listen_str.parse::<Multiaddr>() {
-                Ok(listen_addr) => {
-                    if let Err(e) = self.swarm.listen_on(listen_addr.clone()) {
-                        tracing::warn!("relay inbound listen on {listen_addr}: {e}");
-                    } else {
-                        tracing::info!("relay inbound listen enabled on {listen_addr}");
-                    }
-                }
-                Err(e) => tracing::warn!("invalid relay listen multiaddr {listen_str}: {e}"),
+            if peer_id_from_parsed_multiaddr(addr)
+                .is_some_and(|pid| is_relay_peer(&pid.to_string()))
+            {
+                return format!("{addr_str}/p2p-circuit").parse().ok();
             }
+        }
+        mycelium_core::bootstrap::BOOTSTRAP_PEERS
+            .iter()
+            .find(|addr| addr.contains("/tcp/"))
+            .and_then(|addr| format!("{addr}/p2p-circuit").parse().ok())
+    }
+
+    /// Listen on the public relay so other peers can reach us via `/p2p-circuit` (NAT traversal).
+    /// Must run only after a direct connection to the relay exists; calling this alongside
+    /// `dial(bootstrap)` races on the relay TCP port and yields EADDRINUSE / failed handshakes.
+    fn enable_relay_inbound_listen(&mut self) {
+        if self.relay_inbound_enabled {
+            return;
+        }
+        let Some(listen_addr) = self.relay_circuit_listen_addr() else {
+            tracing::warn!("relay inbound listen: no relay bootstrap tcp addr configured");
+            return;
+        };
+        if let Err(e) = self.swarm.listen_on(listen_addr.clone()) {
+            tracing::warn!("relay inbound listen on {listen_addr}: {e}");
+            return;
+        }
+        self.relay_inbound_enabled = true;
+        self.relay_inbound_since = Some(Instant::now());
+        tracing::info!("relay inbound listen enabled on {listen_addr}");
+    }
+
+    fn dial_deferred_circuit_targets(&mut self) {
+        if !self.relay_ready() {
+            tracing::debug!("deferring circuit dials — relay not ready");
+            return;
+        }
+        for addr in self.bootstrap_peers.clone() {
+            if !Self::is_circuit_dial(&addr) {
+                continue;
+            }
+            let Some(peer_id) = peer_id_from_parsed_multiaddr(&addr) else {
+                continue;
+            };
+            if peer_id == self.local_peer_id || is_relay_peer(&peer_id.to_string()) {
+                continue;
+            }
+            if self.swarm.is_connected(&peer_id) {
+                continue;
+            }
+            if let Err(e) = self.swarm.dial(addr.clone()) {
+                tracing::warn!("dial {addr}: {e}");
+            } else {
+                tracing::info!("dialing deferred circuit target {addr}");
+            }
+            // One circuit dial per batch — parallel dials race the relay client.
             break;
         }
     }
 
     fn dial_all_bootstraps(&mut self) {
         for addr in self.bootstrap_peers.clone() {
+            if Self::is_circuit_dial(&addr) {
+                continue;
+            }
+            if let Some(peer_id) = peer_id_from_parsed_multiaddr(&addr) {
+                if self.swarm.is_connected(&peer_id) {
+                    continue;
+                }
+            }
             if let Err(e) = self.swarm.dial(addr.clone()) {
                 tracing::warn!("dial {addr}: {e}");
             } else {
@@ -311,9 +416,21 @@ impl Libp2pTransport {
 
     fn queue_dial_target(&mut self, multiaddr: String) -> anyhow::Result<()> {
         let addr: Multiaddr = multiaddr.parse()?;
+        if Self::is_circuit_dial(&addr) {
+            self.bootstrap_peers
+                .retain(|existing| !Self::is_circuit_dial(existing));
+        }
         if !self.bootstrap_peers.contains(&addr) {
             self.bootstrap_peers.push(addr.clone());
             tracing::info!("queued dial target: {addr}");
+        }
+        if Self::is_circuit_dial(&addr) {
+            if !self.relay_ready() {
+                tracing::debug!("queued circuit dial (relay not ready yet): {addr}");
+                return Ok(());
+            }
+            self.try_deferred_circuit_dials();
+            return Ok(());
         }
         self.swarm.dial(addr)?;
         Ok(())
@@ -348,6 +465,12 @@ impl MeshTransport for Libp2pTransport {
         Some(self.keypair.clone())
     }
 
+    fn is_peer_connected(&self, peer_id: &str) -> bool {
+        PeerId::from_str(peer_id)
+            .ok()
+            .is_some_and(|id| self.swarm.is_connected(&id))
+    }
+
     fn connected_peer_count(&self) -> usize {
         self.peer_cap.len()
     }
@@ -361,9 +484,7 @@ impl MeshTransport for Libp2pTransport {
     }
 
     async fn dial_peer(&mut self, multiaddr: String) -> anyhow::Result<()> {
-        let addr: Multiaddr = multiaddr.parse()?;
-        self.swarm.dial(addr)?;
-        Ok(())
+        self.queue_dial_target(multiaddr)
     }
 
     async fn remember_and_dial(&mut self, multiaddr: String) -> anyhow::Result<()> {
@@ -371,7 +492,23 @@ impl MeshTransport for Libp2pTransport {
     }
 
     fn redial_stored_targets(&mut self) {
+        self.try_deferred_circuit_dials();
         self.dial_all_bootstraps();
+        self.try_deferred_circuit_dials();
+    }
+
+    fn try_deferred_circuit_dials(&mut self) {
+        if !self.relay_ready() {
+            return;
+        }
+        if self
+            .last_circuit_dial_attempt
+            .is_some_and(|t| t.elapsed() < CIRCUIT_DIAL_COOLDOWN)
+        {
+            return;
+        }
+        self.last_circuit_dial_attempt = Some(Instant::now());
+        self.dial_deferred_circuit_targets();
     }
 
     async fn send_direct(&mut self, to_peer: String, message: WireMessage) -> anyhow::Result<()> {
@@ -498,6 +635,12 @@ impl Libp2pTransport {
                 tracing::warn!("outgoing connection error peer={peer_id:?}: {error}");
             }
             SwarmEvent::ConnectionEstablished { peer_id, .. }
+                if is_relay_peer(&peer_id.to_string()) =>
+            {
+                tracing::info!("connected to relay {peer_id}");
+                self.enable_relay_inbound_listen();
+            }
+            SwarmEvent::ConnectionEstablished { peer_id, .. }
                 if self.handle_connection_established(peer_id) =>
             {
                 self.swarm
@@ -507,6 +650,9 @@ impl Libp2pTransport {
                 return Ok(Some(TransportEvent::PeerUp {
                     peer_id: peer_id.to_string(),
                 }));
+            }
+            SwarmEvent::ConnectionClosed { peer_id, .. } if is_relay_peer(&peer_id.to_string()) => {
+                self.note_relay_disconnected();
             }
             SwarmEvent::ConnectionClosed { peer_id, .. }
                 if !is_relay_peer(&peer_id.to_string()) && self.peer_cap.contains(&peer_id) =>
@@ -594,6 +740,13 @@ impl Libp2pTransport {
             }
             SwarmEvent::Behaviour(MeshEvent::Kad(kad_event)) => {
                 self.handle_kad_event(kad_event);
+            }
+            SwarmEvent::Behaviour(MeshEvent::Relay(
+                libp2p::relay::client::Event::ReservationReqAccepted { relay_peer_id, .. },
+            )) if self.relay_peer_id().is_some_and(|id| id == relay_peer_id) => {
+                self.relay_reservation_confirmed = true;
+                tracing::info!("relay reservation accepted via {relay_peer_id}");
+                self.try_deferred_circuit_dials();
             }
             SwarmEvent::Behaviour(MeshEvent::Relay(ev)) => {
                 tracing::debug!("relay client event: {ev:?}");

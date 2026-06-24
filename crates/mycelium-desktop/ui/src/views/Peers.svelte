@@ -1,6 +1,6 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
-// Copyright (C) 2026 Mycelium Project
 <script>
+  // SPDX-License-Identifier: AGPL-3.0-or-later
+  // Copyright (C) 2026 Mycelium Project
   import { invoke } from "@tauri-apps/api/core";
   import { listen } from "@tauri-apps/api/event";
   import QRCode from "qrcode";
@@ -91,7 +91,7 @@
     <div class="relay-status" class:online={relayStatus.online}>
       <span class="dot"></span>
       {relayStatus.online
-        ? `Public relay online · ${relayStatus.connections ?? 0} devices connected`
+        ? `Public relay online · ${relayStatus.reachable_peers ?? relayStatus.unique_peers ?? 0} reachable`
         : "Public relay unreachable — same Wi‑Fi still works"}
     </div>
   {/if}
