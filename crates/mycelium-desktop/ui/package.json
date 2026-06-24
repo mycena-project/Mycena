@@ -8,7 +8,7 @@
     "build": "vite build"
   },
   "devDependencies": {
-    "@sveltejs/vite-plugin-svelte": "^5",
+    "@sveltejs/vite-plugin-svelte": "^7",
     "svelte": "^5",
     "vite": "^6.4.3"
   },
