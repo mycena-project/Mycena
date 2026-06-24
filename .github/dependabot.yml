@@ -95,3 +95,5 @@ updates:
     ignore:
       - dependency-name: "vite"
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: "@sveltejs/vite-plugin-svelte"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
