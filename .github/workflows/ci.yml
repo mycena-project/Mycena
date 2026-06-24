@@ -33,6 +33,15 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: crates/mycelium-desktop/ui/package-lock.json
+      - name: Build desktop UI
+        working-directory: crates/mycelium-desktop/ui
+        run: npm ci && npm run build
       - name: Format
         run: cargo fmt --all -- --check
       - name: Clippy
