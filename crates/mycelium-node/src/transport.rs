@@ -12,6 +12,8 @@ use libp2p::{
     tcp, yamux, Multiaddr, PeerId, SwarmBuilder,
 };
 use mycelium_core::bootstrap::{is_relay_peer, peer_id_from_parsed_multiaddr};
+use mycelium_core::mesh_profile::MeshProfile;
+use mycelium_core::relay_pool::RelayPool;
 use mycelium_core::transport::{
     ConnectivityMode, MeshTransport, MessageAck, ScopeId, TransportEvent, WireMessage,
 };
@@ -25,6 +27,10 @@ type MeshEvent = <MeshBehaviour as libp2p::swarm::NetworkBehaviour>::ToSwarm;
 
 /// Maximale Anzahl direkter Peer-Verbindungen.
 const MAX_DIRECT_PEERS_DEFAULT: usize = 50;
+/// Crowd mode caps LAN/mDNS fan-out (Phase D3).
+const CROWD_MAX_DIRECT_PEERS: usize = 20;
+const CROWD_MDNS_DIAL_CAP: u32 = 3;
+const CROWD_MDNS_DIAL_WINDOW: Duration = Duration::from_secs(60);
 
 /// Result of attempting to admit a peer under the direct-peer cap.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -133,6 +139,11 @@ pub struct Libp2pTransport {
     /// Outbound circuit dials require an accepted relay reservation (not just listen_on).
     relay_reservation_confirmed: bool,
     last_circuit_dial_attempt: Option<Instant>,
+    crowd_mode: bool,
+    relay_pool: RelayPool,
+    active_relay_index: usize,
+    mdns_dials_in_window: u32,
+    mdns_window_start: Option<Instant>,
 }
 
 /// Delay circuit dials until the relay client has finished reservation setup.
@@ -148,12 +159,21 @@ impl Libp2pTransport {
         connectivity_rx: Option<watch::Receiver<ConnectivityMode>>,
         storage_key: crate::secrets::StorageKey,
         max_peers: usize,
+        crowd_mode: bool,
     ) -> anyhow::Result<Self> {
         let keypair_path = keypair_path.unwrap_or_else(|| ".mycelium-node/identity".to_string());
         let key = crate::secrets::load_or_create_keypair(&keypair_path, storage_key)?;
         let local_peer_id = key.public().to_peer_id();
+        let mesh_profile = if crowd_mode {
+            MeshProfile::Dense
+        } else {
+            MeshProfile::from_env()
+        };
+        let relay_pool = RelayPool::from_bootstrap_peers(&bootstrap_peers);
+        let active_relay_index = relay_pool.select_index_for(&local_peer_id.to_string());
         // DNS transport required for /dns4/ bootstrap + relay-circuit multiaddrs.
         // Use hickory defaults (Android has no /etc/resolv.conf for system resolver).
+        let mesh_profile_for_behaviour = mesh_profile;
         let swarm_builder = SwarmBuilder::with_existing_identity(key.clone())
             .with_tokio()
             .with_tcp(
@@ -169,7 +189,13 @@ impl Libp2pTransport {
         let mut swarm = swarm_builder
             .with_relay_client(noise::Config::new, yamux::Config::default)?
             .without_bandwidth_metrics()
-            .with_behaviour(|kp, relay_behaviour| Ok(MeshBehaviour::new(kp, relay_behaviour)))?
+            .with_behaviour(move |kp, relay_behaviour| {
+                Ok(MeshBehaviour::new(
+                    kp,
+                    relay_behaviour,
+                    mesh_profile_for_behaviour,
+                ))
+            })?
             .build();
 
         swarm.listen_on(listen_addr)?;
@@ -180,7 +206,13 @@ impl Libp2pTransport {
             .filter_map(|s| s.parse().ok())
             .collect();
 
-        let max_peers = if max_peers == 0 {
+        let max_peers = if crowd_mode {
+            if max_peers == 0 {
+                CROWD_MAX_DIRECT_PEERS
+            } else {
+                max_peers.min(CROWD_MAX_DIRECT_PEERS)
+            }
+        } else if max_peers == 0 {
             MAX_DIRECT_PEERS_DEFAULT
         } else {
             max_peers
@@ -197,10 +229,73 @@ impl Libp2pTransport {
             relay_inbound_since: None,
             relay_reservation_confirmed: false,
             last_circuit_dial_attempt: None,
+            crowd_mode,
+            relay_pool,
+            active_relay_index,
+            mdns_dials_in_window: 0,
+            mdns_window_start: None,
         };
         transport.dial_all_bootstraps();
         transport.setup_kad();
+        if crowd_mode {
+            tracing::info!(
+                "crowd mode: max_peers={} mdns_dial_cap={}/min mesh=dense",
+                transport.peer_cap.max_peers(),
+                CROWD_MDNS_DIAL_CAP
+            );
+        } else if mesh_profile == MeshProfile::Dense {
+            tracing::info!("gossip mesh profile: dense (MYCELIUM_MESH_PROFILE)");
+        }
         Ok(transport)
+    }
+
+    fn crowd_mdns_dial_allowed(&mut self) -> bool {
+        if !self.crowd_mode {
+            return true;
+        }
+        let now = Instant::now();
+        if self
+            .mdns_window_start
+            .is_none_or(|t| now.duration_since(t) >= CROWD_MDNS_DIAL_WINDOW)
+        {
+            self.mdns_window_start = Some(now);
+            self.mdns_dials_in_window = 0;
+        }
+        if self.mdns_dials_in_window >= CROWD_MDNS_DIAL_CAP {
+            tracing::debug!("crowd mode: mDNS dial cap reached");
+            return false;
+        }
+        self.mdns_dials_in_window += 1;
+        true
+    }
+
+    fn failover_relay(&mut self) {
+        if self.relay_pool.len() <= 1 {
+            return;
+        }
+        let prev = self.active_relay_index;
+        self.active_relay_index = self.relay_pool.rotate_index(prev);
+        self.relay_inbound_enabled = false;
+        self.relay_inbound_since = None;
+        self.relay_reservation_confirmed = false;
+        tracing::warn!(
+            "relay failover: rotating pool index {prev} -> {}",
+            self.active_relay_index
+        );
+        if let Some(entry) = self.relay_pool.entry(self.active_relay_index) {
+            if let Ok(addr) = entry.tcp_multiaddr.parse::<Multiaddr>() {
+                if !self
+                    .swarm
+                    .is_connected(&PeerId::from_str(&entry.peer_id).unwrap_or(self.local_peer_id))
+                {
+                    if let Err(e) = self.swarm.dial(addr.clone()) {
+                        tracing::warn!("relay failover dial {}: {e}", entry.tcp_multiaddr);
+                    } else {
+                        tracing::info!("relay failover dialing {}", entry.tcp_multiaddr);
+                    }
+                }
+            }
+        }
     }
 
     fn setup_kad(&mut self) {
@@ -304,6 +399,9 @@ impl Libp2pTransport {
     }
 
     fn relay_circuit_listen_addr(&self) -> Option<Multiaddr> {
+        if let Some(entry) = self.relay_pool.entry(self.active_relay_index) {
+            return format!("{}/p2p-circuit", entry.tcp_multiaddr).parse().ok();
+        }
         for addr in &self.bootstrap_peers {
             let addr_str = addr.to_string();
             if Self::is_circuit_dial(addr) || !addr_str.contains("/tcp/") {
@@ -370,11 +468,28 @@ impl Libp2pTransport {
     }
 
     fn dial_all_bootstraps(&mut self) {
+        for entry in self.relay_pool.entries() {
+            if let Ok(addr) = entry.tcp_multiaddr.parse::<Multiaddr>() {
+                if let Ok(peer_id) = PeerId::from_str(&entry.peer_id) {
+                    if self.swarm.is_connected(&peer_id) {
+                        continue;
+                    }
+                }
+                if let Err(e) = self.swarm.dial(addr.clone()) {
+                    tracing::warn!("dial relay {}: {e}", entry.tcp_multiaddr);
+                } else {
+                    tracing::info!("dialing relay {}", entry.tcp_multiaddr);
+                }
+            }
+        }
         for addr in self.bootstrap_peers.clone() {
             if Self::is_circuit_dial(&addr) {
                 continue;
             }
             if let Some(peer_id) = peer_id_from_parsed_multiaddr(&addr) {
+                if is_relay_peer(&peer_id.to_string()) {
+                    continue;
+                }
                 if self.swarm.is_connected(&peer_id) {
                     continue;
                 }
@@ -650,11 +765,16 @@ impl Libp2pTransport {
                     if !self.bootstrap_peers.contains(&dial_addr) {
                         self.bootstrap_peers.push(dial_addr.clone());
                     }
+                    if !self.crowd_mdns_dial_allowed() {
+                        tracing::debug!(
+                            "mDNS discovered {peer} at {addr} (dial deferred — crowd cap)"
+                        );
+                        continue;
+                    }
                     tracing::info!("mDNS discovered {peer} at {addr}, dialing {dial_addr}");
                     if let Err(e) = self.swarm.dial(dial_addr.clone()) {
                         tracing::debug!("mDNS dial to {peer}: {e}");
-                    }
-                    if !self.swarm.is_connected(&peer) {
+                    } else if !self.swarm.is_connected(&peer) {
                         if let Err(e) = self.swarm.dial(dial_addr) {
                             tracing::debug!("mDNS redial to {peer}: {e}");
                         }
@@ -698,6 +818,7 @@ impl Libp2pTransport {
             }
             SwarmEvent::ConnectionClosed { peer_id, .. } if is_relay_peer(&peer_id.to_string()) => {
                 self.note_relay_disconnected();
+                self.failover_relay();
             }
             SwarmEvent::ConnectionClosed { peer_id, .. }
                 if !is_relay_peer(&peer_id.to_string()) && self.peer_cap.contains(&peer_id) =>

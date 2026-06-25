@@ -5,6 +5,7 @@
 use libp2p::identity;
 use libp2p::relay::client;
 use mycelium_core::bootstrap::{peer_id_from_multiaddr, BOOTSTRAP_PEERS, RELAY_PEER_ID};
+use mycelium_core::mesh_profile::MeshProfile;
 use mycelium_core::transport::ConnectivityMode;
 use mycelium_node::behaviour::MeshBehaviour;
 use mycelium_node::connectivity::{kad_action_for_mode, KadConnectivityAction};
@@ -21,7 +22,7 @@ fn peer_id_from_multiaddr_parses_bootstrap() {
 async fn mesh_behaviour_includes_kad() {
     let key = identity::Keypair::generate_ed25519();
     let (_relay_transport, relay_behaviour) = client::new(key.public().to_peer_id());
-    let _behaviour = MeshBehaviour::new(&key, relay_behaviour);
+    let _behaviour = MeshBehaviour::new(&key, relay_behaviour, MeshProfile::Default);
 }
 
 #[test]

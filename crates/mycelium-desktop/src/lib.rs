@@ -50,6 +50,8 @@ struct UiSettings {
     display_name: Option<String>,
     #[serde(default)]
     listen_sos: bool,
+    #[serde(default)]
+    crowd_mode: bool,
 }
 
 fn default_rendezvous_enabled() -> bool {
@@ -62,6 +64,7 @@ impl Default for UiSettings {
             rendezvous_enabled: true,
             display_name: None,
             listen_sos: false,
+            crowd_mode: false,
         }
     }
 }
@@ -239,6 +242,7 @@ async fn start_node(
         rendezvous_enabled: ui_settings.rendezvous_enabled,
         bulletin_subscriptions: Vec::new(),
         max_peers: 50,
+        crowd_mode: ui_settings.crowd_mode,
     };
     let (runner, handle) = NodeRunner::new(config).map_err(|e| e.to_string())?;
     let local_peer_id = runner.local_peer_id().to_string();
@@ -1386,6 +1390,7 @@ async fn get_settings(state: State<'_, SharedState>) -> Result<serde_json::Value
         "transport_epoch": s.handle.transport_epoch(),
         "rendezvous_enabled": s.rendezvous_enabled,
         "listen_sos": ui.listen_sos,
+        "crowd_mode": ui.crowd_mode,
         "connectivity_mode": connectivity_label(connectivity),
     }))
 }
@@ -1406,6 +1411,22 @@ async fn set_rendezvous_enabled(
     s.rendezvous_enabled = enabled;
     let mut ui = load_ui_settings(&s.db_path);
     ui.rendezvous_enabled = enabled;
+    save_ui_settings(&s.db_path, &ui)?;
+    Ok(())
+}
+
+#[tauri::command]
+async fn set_crowd_mode(state: State<'_, SharedState>, enabled: bool) -> Result<(), String> {
+    let mut guard = state.write().await;
+    let s = guard
+        .as_mut()
+        .ok_or_else(|| "node not started".to_string())?;
+    s.handle
+        .send(NodeCommand::SetCrowdMode(enabled))
+        .await
+        .map_err(|e| e.to_string())?;
+    let mut ui = load_ui_settings(&s.db_path);
+    ui.crowd_mode = enabled;
     save_ui_settings(&s.db_path, &ui)?;
     Ok(())
 }
@@ -1701,6 +1722,7 @@ pub fn run() {
             set_display_name,
             set_energy_state,
             set_rendezvous_enabled,
+            set_crowd_mode,
             get_store_stats,
             run_gc,
             get_custom_bootstrap_peers,

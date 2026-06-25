@@ -1,0 +1,75 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Mycelium Project
+//! Gossipsub mesh tuning profiles for sparse vs dense clusters (Phase D1).
+
+/// Tunable gossipsub mesh parameters (applied in `mycelium-node` behaviour).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MeshProfileParams {
+    pub mesh_n: usize,
+    pub mesh_n_low: usize,
+    pub mesh_n_high: usize,
+    pub mesh_outbound_min: usize,
+    pub heartbeat_interval_secs: u64,
+    pub history_length: usize,
+    pub history_gossip: usize,
+}
+
+/// Mesh density profile — `Dense` is used automatically in crowd mode.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum MeshProfile {
+    #[default]
+    Default,
+    Dense,
+}
+
+impl MeshProfile {
+    /// Read from `MYCELIUM_MESH_PROFILE` (`default` | `dense`).
+    pub fn from_env() -> Self {
+        match std::env::var("MYCELIUM_MESH_PROFILE")
+            .ok()
+            .as_deref()
+            .map(str::trim)
+            .map(str::to_ascii_lowercase)
+            .as_deref()
+        {
+            Some("dense") => Self::Dense,
+            _ => Self::Default,
+        }
+    }
+
+    pub fn params(self) -> MeshProfileParams {
+        match self {
+            Self::Default => MeshProfileParams {
+                mesh_n: 6,
+                mesh_n_low: 5,
+                mesh_n_high: 12,
+                mesh_outbound_min: 2,
+                heartbeat_interval_secs: 1,
+                history_length: 5,
+                history_gossip: 3,
+            },
+            Self::Dense => MeshProfileParams {
+                mesh_n: 8,
+                mesh_n_low: 6,
+                mesh_n_high: 14,
+                mesh_outbound_min: 2,
+                heartbeat_interval_secs: 2,
+                history_length: 8,
+                history_gossip: 4,
+            },
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn dense_profile_has_wider_mesh() {
+        let dense = MeshProfile::Dense.params();
+        let default = MeshProfile::Default.params();
+        assert!(dense.mesh_n >= default.mesh_n);
+        assert!(dense.history_length >= default.history_length);
+    }
+}

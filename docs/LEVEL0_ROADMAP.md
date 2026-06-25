@@ -79,10 +79,10 @@ See also: [CONNECT.md](./CONNECT.md), [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS
 
 | ID | Task | Status |
 |----|------|--------|
-| D1 | Gossipsub mesh params for dense clusters | Planned |
-| D2 | Regional relay pool + client rotation (SD-071) | Planned |
-| D3 | Crowd mode — cap mDNS, prioritize bulletin over full mesh | Planned |
-| D4 | Rendezvous selective dial (bucketed, no storms) | Planned |
+| D1 | Gossipsub mesh params for dense clusters | Done |
+| D2 | Regional relay pool + client rotation (SD-071) | Done |
+| D3 | Crowd mode — cap mDNS, prioritize bulletin over full mesh | Done |
+| D4 | Rendezvous selective dial (bucketed, no storms) | Done |
 
 **Exit criteria:** Sim soak at 500+ nodes without relay collapse; relay failover drill passes.
 

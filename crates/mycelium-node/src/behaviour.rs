@@ -9,6 +9,7 @@ use libp2p::{
     StreamProtocol,
 };
 use mycelium_core::data::now_ms;
+use mycelium_core::mesh_profile::MeshProfile;
 use mycelium_core::transport::WireMessage;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
@@ -37,11 +38,26 @@ pub struct MeshBehaviour {
 }
 
 impl MeshBehaviour {
-    pub fn new(local_key: &libp2p::identity::Keypair, relay: relay::client::Behaviour) -> Self {
+    pub fn new(
+        local_key: &libp2p::identity::Keypair,
+        relay: relay::client::Behaviour,
+        mesh_profile: MeshProfile,
+    ) -> Self {
         let local_peer_id = local_key.public().to_peer_id();
+        let params = mesh_profile.params();
+        let gossip_config = gossipsub::ConfigBuilder::default()
+            .mesh_n(params.mesh_n)
+            .mesh_n_low(params.mesh_n_low)
+            .mesh_n_high(params.mesh_n_high)
+            .mesh_outbound_min(params.mesh_outbound_min)
+            .heartbeat_interval(Duration::from_secs(params.heartbeat_interval_secs))
+            .history_length(params.history_length)
+            .history_gossip(params.history_gossip)
+            .build()
+            .expect("gossipsub config");
         let gossip = gossipsub::Behaviour::new(
             MessageAuthenticity::Signed(local_key.clone()),
-            gossipsub::Config::default(),
+            gossip_config,
         )
         .expect("gossipsub init");
 

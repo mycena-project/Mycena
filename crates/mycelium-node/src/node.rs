@@ -66,6 +66,8 @@ pub struct NodeConfig {
     pub bulletin_subscriptions: Vec<String>,
     /// Max direkte Peer-Verbindungen. Default 50.
     pub max_peers: usize,
+    /// Festival / dense LAN: cap mDNS, dense gossip, lower peer cap (Phase D3).
+    pub crowd_mode: bool,
 }
 
 fn default_max_relay_fanout() -> usize {
@@ -90,6 +92,7 @@ impl Default for NodeConfig {
             rendezvous_enabled: true,
             bulletin_subscriptions: Vec::new(),
             max_peers: default_max_peers(),
+            crowd_mode: false,
         }
     }
 }
@@ -114,6 +117,7 @@ impl NodeConfig {
             rendezvous_enabled: true,
             bulletin_subscriptions: Vec::new(),
             max_peers: default_max_peers(),
+            crowd_mode: false,
         }
     }
 }
@@ -208,6 +212,7 @@ pub enum NodeCommand {
     ListPeers,
     SetEnergyState(NodeState),
     SetRendezvousEnabled(bool),
+    SetCrowdMode(bool),
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
@@ -406,6 +411,8 @@ pub struct NodeRunner {
     account_id: String,
     transport_epoch: u64,
     pending_identity_rotation: Option<mycelium_core::identity_rotation::IdentityRotationGossip>,
+    crowd_mode: Arc<AtomicBool>,
+    rendezvous_dial_bucket: u32,
 }
 
 async fn persist_peer_enc_key(
@@ -464,6 +471,7 @@ impl NodeRunner {
             config.connectivity_rx.clone(),
             config.storage_key,
             config.max_peers,
+            config.crowd_mode,
         )?;
         Self::new_with_transport(config, Box::new(transport), identity)
     }
@@ -505,6 +513,7 @@ impl NodeRunner {
         let (incoming_tx, _) = broadcast::channel(512);
         let (tx, cmd_rx) = mpsc::channel(64);
         let rendezvous_enabled = Arc::new(AtomicBool::new(config.rendezvous_enabled));
+        let crowd_mode = Arc::new(AtomicBool::new(config.crowd_mode));
         let account_id = identity.account_id.clone();
         let transport_epoch = identity.transport_meta.epoch.max(1);
         let pending_identity_rotation = identity.pending_rotation;
@@ -544,6 +553,8 @@ impl NodeRunner {
                 account_id: account_id.clone(),
                 transport_epoch,
                 pending_identity_rotation,
+                crowd_mode: crowd_mode.clone(),
+                rendezvous_dial_bucket: 0,
             },
             NodeHandle {
                 tx,
@@ -612,18 +623,31 @@ impl NodeRunner {
 
     pub async fn run(mut self) -> anyhow::Result<()> {
         info!("node started with peer_id={}", self.local_peer_id);
+        let crowd = self.crowd_mode.load(Ordering::Relaxed);
+        if crowd {
+            for scope in self.bulletin_subscriptions.read().await.clone() {
+                if let Err(e) = self.transport.subscribe_scope(scope.clone()).await {
+                    warn!("failed to subscribe to bulletin scope {scope}: {e}");
+                } else {
+                    info!("bulletin subscribed (crowd priority): {scope}");
+                }
+                self.subscribed_scopes.write().await.insert(scope);
+            }
+        }
         for scope in SYSTEM_SCOPES {
             if let Err(e) = self.transport.subscribe_scope(scope.to_string()).await {
                 warn!("failed to subscribe to {scope}: {e}");
             }
         }
-        for scope in self.bulletin_subscriptions.read().await.clone() {
-            if let Err(e) = self.transport.subscribe_scope(scope.clone()).await {
-                warn!("failed to subscribe to bulletin scope {scope}: {e}");
-            } else {
-                info!("bulletin subscribed: {scope}");
+        if !crowd {
+            for scope in self.bulletin_subscriptions.read().await.clone() {
+                if let Err(e) = self.transport.subscribe_scope(scope.clone()).await {
+                    warn!("failed to subscribe to bulletin scope {scope}: {e}");
+                } else {
+                    info!("bulletin subscribed: {scope}");
+                }
+                self.subscribed_scopes.write().await.insert(scope);
             }
-            self.subscribed_scopes.write().await.insert(scope);
         }
         let mut forward_tick =
             interval(Duration::from_millis(self.config_forwarding_interval_ms()));
@@ -702,15 +726,49 @@ impl NodeRunner {
     }
 
     /// Dial peers returned by relay rendezvous (HTTP runs off the transport loop).
-    /// Does not auto-dial every listed peer — stale rendezvous entries caused dial storms.
+    /// Bucketed selective dial — contacts/QR first, then hash bucket (Phase D4).
     async fn dial_rendezvous_list(&mut self, remote_ids: Vec<String>) {
         if remote_ids.is_empty() {
             return;
         }
-        tracing::debug!(
-            "rendezvous: {} remote peer(s) on relay (dial via QR/contact only)",
+        let priority: Vec<String> =
+            mycelium_core::bootstrap::load_persisted_dial_peers(&self.db_path)
+                .iter()
+                .filter_map(|addr| mycelium_core::bootstrap::peer_id_from_multiaddr(addr))
+                .collect();
+        let connected = self.transport.known_peers();
+        let plan = mycelium_core::rendezvous_dial::default_rendezvous_plan(
+            &self.local_peer_id,
+            &remote_ids,
+            &priority,
+            &connected,
+            self.rendezvous_dial_bucket,
+        );
+        self.rendezvous_dial_bucket = self.rendezvous_dial_bucket.wrapping_add(1);
+        if plan.to_dial.is_empty() {
+            tracing::debug!(
+                "rendezvous bucket {}/{}: {} listed, no dials this tick",
+                plan.bucket,
+                plan.num_buckets,
+                remote_ids.len()
+            );
+            return;
+        }
+        tracing::info!(
+            "rendezvous bucket {}/{}: dialing {} of {} listed peer(s)",
+            plan.bucket,
+            plan.num_buckets,
+            plan.to_dial.len(),
             remote_ids.len()
         );
+        for peer in plan.to_dial {
+            let Some(circuit) = mycelium_core::bootstrap::relay_circuit_multiaddr(&peer) else {
+                continue;
+            };
+            if let Err(e) = self.transport.remember_and_dial(circuit).await {
+                tracing::debug!("rendezvous dial {peer}: {e}");
+            }
+        }
     }
 
     async fn handle_command(&mut self, cmd: NodeCommand) -> anyhow::Result<()> {
@@ -870,6 +928,13 @@ impl NodeRunner {
                 });
                 info!(
                     "rendezvous discovery {}",
+                    if enabled { "enabled" } else { "disabled" }
+                );
+            }
+            NodeCommand::SetCrowdMode(enabled) => {
+                self.crowd_mode.store(enabled, Ordering::Relaxed);
+                info!(
+                    "crowd mode {}",
                     if enabled { "enabled" } else { "disabled" }
                 );
             }
@@ -1334,7 +1399,10 @@ impl NodeRunner {
                         self.enqueue(target, forwarded).await?;
                         return Ok(());
                     }
-                    self.find_peer_via_kad(&target).await;
+                    let crowd = self.crowd_mode.load(Ordering::Relaxed);
+                    if !crowd || message.body.starts_with("[bulletin:") {
+                        self.find_peer_via_kad(&target).await;
+                    }
                 }
                 let decision = self.forwarding_policy.decide(
                     &message,

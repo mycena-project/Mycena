@@ -15,6 +15,7 @@
   let accountId = $state("");
   let transportEpoch = $state(0);
   let listenSos = $state(false);
+  let crowdMode = $state(false);
   let sosGeohash = $state("");
   let sosMessage = $state("");
   let sosPosts = $state([]);
@@ -34,6 +35,7 @@
     accountId = settings.account_id ?? "";
     transportEpoch = settings.transport_epoch ?? 0;
     listenSos = settings.listen_sos ?? false;
+    crowdMode = settings.crowd_mode ?? false;
     storeStats = await invoke('get_store_stats');
     const custom = await invoke('get_custom_bootstrap_peers');
     bootstrapPeers = custom.join('\n');
@@ -44,6 +46,7 @@
     await invoke('set_energy_state', { energyState });
     await invoke('set_rendezvous_enabled', { enabled: rendezvousEnabled });
     await invoke('set_listen_sos', { enabled: listenSos });
+    await invoke('set_crowd_mode', { enabled: crowdMode });
     await invoke('set_custom_bootstrap_peers', {
       peers: bootstrapPeers
         .split('\n')
@@ -149,6 +152,14 @@
       ></textarea>
       <small>One per line. Leave empty to use default relay.</small>
     </label>
+    <label class="checkbox-row">
+      <input type="checkbox" bind:checked={crowdMode} />
+      Crowd mode (festivals / dense events)
+    </label>
+    <small class="hint">
+      Caps mDNS dials, uses dense gossip tuning, and prioritizes bulletin scopes.
+      Full transport limits apply on next app start; Kademlia lookup policy updates when saved.
+    </small>
     <label class="checkbox-row">
       <input type="checkbox" bind:checked={rendezvousEnabled} />
       Relay discovery (opt-in)

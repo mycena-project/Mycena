@@ -171,6 +171,7 @@ async fn cmd_app_publish_live(
         rendezvous_enabled: true,
         bulletin_subscriptions: Vec::new(),
         max_peers: 50,
+        crowd_mode: false,
     };
     let (runner, handle) = NodeRunner::new(config)?;
     let publisher_peer = runner.local_peer_id().to_string();
@@ -223,6 +224,7 @@ async fn run_interactive_server(cli: RunArgs) -> anyhow::Result<()> {
         rendezvous_enabled: true,
         bulletin_subscriptions: Vec::new(),
         max_peers: 50,
+        crowd_mode: false,
     };
     let (runner, handle) = NodeRunner::new(config)?;
     let local_peer_id = runner.local_peer_id().to_string();

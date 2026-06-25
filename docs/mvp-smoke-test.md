@@ -275,3 +275,18 @@ Manual spot-check (automated in `cargo test`):
 | 4 | SOS (opt-in) | Settings → listen off by default; post SOS with geohash; rate limit under spam |
 | 5 | Identity rotation | After 24h (or `MYCELIUM_TRANSPORT_ROTATION_SECS=0` test), restart → new PeerId, contact book keeps account mapping |
 
+---
+
+## Phase D — Scale & resilience
+
+| # | Scenario | Pass criteria |
+|---|----------|---------------|
+| 1 | Dense gossip | `MYCELIUM_MESH_PROFILE=dense` or crowd mode → node logs dense mesh; `cargo test -p mycelium-core mesh_profile` green |
+| 2 | Relay pool | Multiple TCP bootstrap relays in `bootstrap.txt` → client dials each; circuit uses hash-rotated relay |
+| 3 | Relay failover | Kill primary relay TCP session → logs `relay failover`; circuit still works via next pool entry |
+| 4 | Crowd mode | Settings → crowd mode on, restart → mDNS dial cap (3/min), max ~20 direct peers, bulletin scopes subscribed first |
+| 5 | Rendezvous dial | Both opt in → logs `rendezvous bucket X/Y: dialing N` (≤3 peers/tick), not full-list storm |
+| 6 | Sim soak | `cargo test -p mycelium-sim festival_relay_soak` — 500 virtual nodes, no single relay >45% load |
+
+Automated: `cargo test --workspace` including `mycelium-core::relay_pool` and `mycelium-sim::scenarios`.
+

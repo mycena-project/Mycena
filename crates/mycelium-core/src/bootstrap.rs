@@ -14,7 +14,11 @@ pub const RELAY_PEER_ID: &str = "12D3KooWSkVL5ThExB7paWskDKc2pUobKrV9yWVabMpUdw8
 
 /// Public relay / bootstrap infra — not a user device in Connect UI.
 pub fn is_relay_peer(peer_id: &str) -> bool {
-    peer_id.trim() == RELAY_PEER_ID
+    let p = peer_id.trim();
+    if p == RELAY_PEER_ID {
+        return true;
+    }
+    crate::relay_pool::RelayPool::from_bootstrap_peers(BOOTSTRAP_PEERS).is_relay_peer(p)
 }
 
 /// True for a libp2p PeerId string (not a multiaddr or truncated garbage).
@@ -49,12 +53,17 @@ pub fn peer_id_from_parsed_multiaddr(addr: &libp2p::Multiaddr) -> Option<libp2p:
 
 /// libp2p circuit address to reach `remote_peer_id` via the public relay (NAT traversal).
 pub fn relay_circuit_multiaddr(remote_peer_id: &str) -> Option<String> {
-    let remote = remote_peer_id.trim();
-    if remote.is_empty() {
-        return None;
-    }
-    let base = BOOTSTRAP_PEERS.iter().find(|addr| addr.contains("/tcp/"))?;
-    Some(format!("{base}/p2p-circuit/p2p/{remote}"))
+    relay_circuit_multiaddr_with_relay(remote_peer_id, None)
+}
+
+/// Circuit address via a specific relay pool entry (`relay_index` rotates on failover).
+pub fn relay_circuit_multiaddr_with_relay(
+    remote_peer_id: &str,
+    relay_index: Option<usize>,
+) -> Option<String> {
+    let pool = crate::relay_pool::RelayPool::from_bootstrap_peers(BOOTSTRAP_PEERS);
+    let idx = relay_index.unwrap_or_else(|| pool.select_index_for(remote_peer_id));
+    pool.circuit_multiaddr(remote_peer_id, idx)
 }
 
 /// Shareable dial info: signed v3 invite when provided, else v1, then LAN + relay.

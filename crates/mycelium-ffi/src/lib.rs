@@ -493,6 +493,7 @@ pub fn init_node(config: NodeConfig) {
             rendezvous_enabled: config.rendezvous_enabled,
             bulletin_subscriptions: config.bulletin_subscriptions.clone(),
             max_peers: 50,
+            crowd_mode: false,
         };
 
         let (runner, handle) =

@@ -22,7 +22,8 @@
 |-------|---------|------|
 | Bootstrap relay | On | Always dials `mycelium-relay.fly.dev`; NAT traversal via `/p2p-circuit`. |
 | mDNS | On (LAN) | Discovers peers on LAN; **dials** discovered multiaddrs. |
-| Rendezvous | **On** for new installs | Register on relay + dial other opted-in peers (~45s tick). Turn off in Settings for privacy. |
+| Rendezvous | **On** for new installs | Register on relay + **bucketed** selective dial of opted-in peers (~45s tick, ≤3/tick). Turn off in Settings for privacy. |
+| Crowd mode | Off | Festivals / dense LAN: cap mDNS dials, dense gossip, lower peer cap (~20). Enable in Settings; restart for full transport limits. |
 | BLE | Off | Proximity notification only — does **not** auto-connect peers today. |
 
 ## Invite format
@@ -43,7 +44,7 @@ Dial target (relay): `/ip4/<relay-ip>/tcp/4001/p2p/<relay>/p2p-circuit/p2p/<peer
 ## UI map
 
 - **Connect** tab (was “Network” / “Peers”): scan QR, show QR, paste invite, connected list.
-- **Settings**: relay discovery toggle, custom bootstrap (advanced).
+- **Settings**: relay discovery toggle, **crowd mode** (festivals), custom bootstrap (advanced).
 - **Chat**: contacts and messages only. Sidebar uses connected peers (`get_chat_contacts`); onboarding does **not** wipe local history — use **Settings → PANIC WIPE** for a fresh device.
 
 ## Known limits
@@ -54,6 +55,8 @@ Dial target (relay): `/ip4/<relay-ip>/tcp/4001/p2p/<relay>/p2p-circuit/p2p/<peer
 - Desktop has no camera; phone scans Mac’s QR or Mac pastes phone’s invite.
 - **Bluetooth** advertises the app only — it does not establish mesh links yet (Phase B3 stretch).
 - E2E keys learned from peers are **persisted on disk** after connect; chat works across app restarts without re-scanning (Phase B2).
+- **Multi-relay pool** (Phase D): clients hash-pick a bootstrap relay for circuits and rotate on disconnect; add regional relays via `bootstrap.txt` or `MYCELIUM_BOOTSTRAP_PEERS`.
+- **Festival scale** is not 100k-ready; crowd mode + dense gossip + rendezvous bucketing reduce dial/gossip storms in dense clusters.
 
 ## After code changes
 
