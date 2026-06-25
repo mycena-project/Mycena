@@ -57,6 +57,17 @@
     }
   }
 
+  async function setupAgain() {
+    const confirmed = await confirm(
+      'This deletes all local chats, contacts, and keys on this Mac, then shows onboarding again.\n\nContinue?',
+      { title: 'Start fresh', kind: 'warning' }
+    );
+    if (confirmed) {
+      await invoke('reset_local_data', { dbPath: null });
+      window.location.reload();
+    }
+  }
+
   $effect(() => {
     load();
     getVersion().then((v) => (appVersion = v));
@@ -132,6 +143,11 @@
   <section class="danger-zone">
     <h4>⚠ Danger zone</h4>
     <p>
+      <strong>Start fresh</strong> — clear all local data and return to onboarding (same as checking
+      “Start fresh” on setup).
+    </p>
+    <button onclick={setupAgain} class="secondary danger-outline">Start fresh / onboarding</button>
+    <p>
       <strong>Panic wipe</strong> — immediately deletes all local messages,
       keys, and stored data. Use if you need to quickly clear sensitive data.
     </p>
@@ -140,7 +156,7 @@
 </div>
 
 <style>
-  .settings { padding: 16px; max-width: 600px; display: flex; flex-direction: column; gap: 16px; }
+  .settings { padding: 16px; max-width: 600px; display: flex; flex-direction: column; gap: 16px; color: var(--text); }
   section { display: flex; flex-direction: column; gap: 10px; padding: 16px;
             border: 1px solid var(--border); border-radius: 8px; }
   h3 { font-size: 18px; font-weight: 600; margin: 0; }
@@ -149,7 +165,7 @@
   .field-label { margin: 0; }
   input, select, textarea {
     padding: 7px 10px; border-radius: 6px; border: 1px solid var(--border);
-    background: none; color: inherit; font-size: 13px; font-family: inherit;
+    background: var(--surface); color: var(--text); font-size: 13px; font-family: inherit;
   }
   textarea { resize: vertical; font-family: ui-monospace, monospace; font-size: 12px; }
   code.peer-id { font-family: ui-monospace, monospace; font-size: 11px;
@@ -159,7 +175,8 @@
   button { padding: 8px 16px; border-radius: 6px; border: none;
            cursor: pointer; font-size: 13px; font-weight: 500; }
   button.primary { background: var(--accent); color: white; }
-  button.secondary { background: var(--border); color: var(--text-secondary); }
+  button.secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+  button.danger-outline { border-color: var(--danger); color: var(--danger); margin-bottom: 8px; }
   button.danger { background: #dc2626; color: white; }
   .success { color: var(--accent); font-size: 12px; }
   .danger-zone { border-color: #dc2626; }

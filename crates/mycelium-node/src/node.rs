@@ -713,14 +713,23 @@ impl NodeRunner {
                 peer_id,
                 enc_pubkey_hex,
             } => {
-                if let Ok(pk) = crypto::parse_x25519_public_hex(&enc_pubkey_hex) {
-                    self.peer_x25519
-                        .write()
-                        .await
-                        .insert(peer_id.clone(), *pk.as_bytes());
-                    info!("seeded enc key for {peer_id} from invite");
-                } else {
-                    warn!("invalid enc_pubkey_hex in invite for {peer_id}");
+                let existing = self
+                    .peer_x25519
+                    .read()
+                    .await
+                    .get(&peer_id)
+                    .copied();
+                match crypto::verify_enc_pubkey_update(existing.as_ref(), &enc_pubkey_hex) {
+                    Ok(bytes) => {
+                        self.peer_x25519
+                            .write()
+                            .await
+                            .insert(peer_id.clone(), bytes);
+                        info!("seeded enc key for {peer_id} from invite");
+                    }
+                    Err(e) => {
+                        warn!("invalid enc_pubkey_hex in invite for {peer_id}: {e}");
+                    }
                 }
             }
             NodeCommand::SubscribeScope(scope) => {
@@ -1357,11 +1366,25 @@ impl NodeRunner {
                 supported_scopes,
                 ..
             } => {
-                if let Ok(pk) = crypto::parse_x25519_public_hex(&enc_pubkey_hex) {
-                    self.peer_x25519
-                        .write()
-                        .await
-                        .insert(from_peer.clone(), *pk.as_bytes());
+                let existing = self
+                    .peer_x25519
+                    .read()
+                    .await
+                    .get(&from_peer)
+                    .copied();
+                match crypto::verify_enc_pubkey_update(existing.as_ref(), &enc_pubkey_hex) {
+                    Ok(bytes) => {
+                        self.peer_x25519
+                            .write()
+                            .await
+                            .insert(from_peer.clone(), bytes);
+                    }
+                    Err(e) => {
+                        warn!(
+                            "rejecting PeerInfo enc key for {from_peer}: {e} (invite/TOFU conflict)"
+                        );
+                        return Ok(());
+                    }
                 }
                 let validated: HashSet<String> = supported_scopes
                     .into_iter()

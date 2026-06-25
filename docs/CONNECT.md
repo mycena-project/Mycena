@@ -4,7 +4,7 @@
 
 1. **Parallel paths, not either/or** — When the internet is available, Mycelium still runs **all** discovery layers: same Wi‑Fi (mDNS), public relay bootstrap, and optional relay rendezvous. Internet does **not** disable local mesh.
 2. **Local first** — On the same Wi‑Fi, devices should connect **without** QR or relay (automatic mDNS dial).
-3. **QR for trust + remote** — One QR scan (or pasted invite) establishes a **relay circuit**, optional **E2E key** (v2), and an **accepted contact** for chat.
+3. **QR for trust + remote** — One QR scan (or pasted invite) establishes a **relay circuit** and an **accepted contact** for chat. E2E keys arrive via authenticated `PeerInfo` after connect (invite v1); v2 optionally embeds the key in the QR.
 4. **Relay discovery is optional** — Rendezvous helps two devices on different networks find each other **when both are online on the relay** and both opted in. It is not a global phone book.
 
 ## What users should do
@@ -28,11 +28,13 @@
 ## Invite format
 
 ```
-mycelium://invite/v2#<peerId>|<encPubkeyHex>[|<directMultiaddr>]   (preferred QR)
-mycelium://invite/v1#<peerId>                                      (legacy)
+mycelium://invite/v1#<peerId>                                      (default QR)
+mycelium://invite/v2#<peerId>|<encPubkeyHex>[|<directMultiaddr>]   (optional; still parsed)
 ```
 
-Dial target (relay): `/dns4/mycelium-relay.fly.dev/tcp/4001/p2p/<relay>/p2p-circuit/p2p/<peerId>`
+E2E encryption uses the peer’s X25519 key from **`PeerInfo`** on connect (v1). v2 seeds the key immediately from the QR (trust-on-first-use).
+
+Dial target (relay): `/ip4/<relay-ip>/tcp/4001/p2p/<relay>/p2p-circuit/p2p/<peerId>` (see `bootstrap.rs`)
 
 ## UI map
 

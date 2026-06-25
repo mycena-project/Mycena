@@ -247,17 +247,21 @@
     {/if}
     <div class="messages">
       {#each messages as msg}
-        <div class="msg" class:own={msg.from_peer === peerId}>
-          <span class="name">{msg.from_display_name}</span>
-          <span class="body">{msg.body}</span>
-          {#if msg.body.startsWith("📍")}
-            {@const coords = extractCoordinates(msg.body)}
-            {#if coords}
-              <button type="button" class="maps-link" onclick={() => openMaps(msg.body)}>
-                Open in Maps
-              </button>
+        <div class="msg-row" class:own={msg.is_mine}>
+          <div class="msg">
+            {#if !msg.is_mine}
+              <span class="name">{msg.from_display_name}</span>
             {/if}
-          {/if}
+            <span class="body">{msg.body}</span>
+            {#if msg.body.startsWith("📍")}
+              {@const coords = extractCoordinates(msg.body)}
+              {#if coords}
+                <button type="button" class="maps-link" onclick={() => openMaps(msg.body)}>
+                  Open in Maps
+                </button>
+              {/if}
+            {/if}
+          </div>
         </div>
       {/each}
     </div>
@@ -292,6 +296,8 @@
     border-right: 1px solid var(--border);
     overflow-y: auto;
     padding: 8px;
+    background: var(--sidebar-bg);
+    color: var(--text);
   }
   .section-label {
     font-size: 11px;
@@ -315,6 +321,7 @@
     display: block;
     font-size: 13px;
     margin-bottom: 4px;
+    color: var(--text);
   }
   .pending-actions {
     display: flex;
@@ -330,23 +337,31 @@
     background: none;
     cursor: pointer;
     font-size: 13px;
+    color: var(--text);
+  }
+  .sidebar button:hover {
+    background: var(--surface);
   }
   .sidebar button.active {
     background: var(--accent-subtle);
+    color: var(--accent);
+    font-weight: 500;
   }
   button.small {
     padding: 4px 8px;
     font-size: 12px;
   }
   button.secondary {
-    background: none;
-    color: inherit;
+    background: var(--surface);
+    color: var(--text);
     border: 1px solid var(--border);
   }
   .conversation {
     flex: 1;
     display: flex;
     flex-direction: column;
+    background: var(--bg);
+    min-width: 0;
   }
   .enc-badge {
     font-size: 12px;
@@ -372,23 +387,40 @@
     padding: 16px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
+  }
+  .msg-row {
+    display: flex;
+    justify-content: flex-start;
+  }
+  .msg-row.own {
+    justify-content: flex-end;
   }
   .msg {
-    max-width: 70%;
-    padding: 8px 12px;
-    border-radius: 10px;
-    background: var(--border);
+    max-width: min(75%, 420px);
+    padding: 10px 14px;
+    border-radius: 16px;
+    background: var(--msg-in);
+    color: var(--text);
   }
-  .msg.own {
-    align-self: flex-end;
-    background: var(--accent-subtle);
+  .msg-row.own .msg {
+    background: var(--msg-out);
+    border-bottom-right-radius: 4px;
+  }
+  .msg-row:not(.own) .msg {
+    border-bottom-left-radius: 4px;
   }
   .name {
     font-size: 11px;
     color: var(--text-muted);
     display: block;
-    margin-bottom: 2px;
+    margin-bottom: 4px;
+  }
+  .body {
+    font-size: 14px;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    word-break: break-word;
   }
   .maps-link {
     margin-top: 4px;
@@ -411,7 +443,8 @@
     padding: 8px 10px;
     border: 1px solid var(--border);
     border-radius: 6px;
-    background: none;
+    background: var(--surface);
+    color: var(--text);
     cursor: pointer;
     font-size: 16px;
   }
@@ -424,14 +457,14 @@
     padding: 8px 12px;
     border-radius: 6px;
     border: 1px solid var(--border);
-    background: none;
-    color: inherit;
+    background: var(--surface);
+    color: var(--text);
     font-size: 14px;
   }
   button {
     padding: 8px 16px;
     background: var(--accent);
-    color: white;
+    color: #fff;
     border: none;
     border-radius: 6px;
     cursor: pointer;
@@ -451,12 +484,13 @@
     z-index: 100;
   }
   .modal {
-    background: var(--sidebar-bg);
+    background: var(--surface-elevated);
     border: 1px solid var(--border);
     border-radius: 12px;
     padding: 20px;
     max-width: 400px;
     margin: 16px;
+    color: var(--text);
   }
   .modal h3 {
     margin: 0 0 8px;
@@ -474,8 +508,8 @@
     justify-content: flex-end;
   }
   .modal-actions .secondary {
-    background: none;
-    color: inherit;
+    background: var(--surface);
+    color: var(--text);
     border: 1px solid var(--border);
   }
 </style>

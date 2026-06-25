@@ -16,6 +16,7 @@
   import MiniAppStore from "./views/MiniAppStore.svelte";
   import ConnectionStatus from "./components/ConnectionStatus.svelte";
 
+  let booting = $state(true);
   let nodeStarted = $state(false);
   let peerId = $state("");
   let activeView = $state("chat");
@@ -44,6 +45,22 @@
   }
 
   onMount(async () => {
+    try {
+      const profile = await invoke("get_saved_profile");
+      if (profile?.can_auto_start && profile.display_name) {
+        peerId = await invoke("start_node", {
+          dbPath: profile.db_path,
+          displayName: profile.display_name,
+          bootstrapPeers: [],
+        });
+        nodeStarted = true;
+      }
+    } catch {
+      /* first launch or corrupt profile — show setup */
+    } finally {
+      booting = false;
+    }
+
     const unlisten = await listen("metrics-updated", (event) => {
       peers = event.payload.peers ?? 0;
       forwarded = event.payload.forwarded ?? 0;
@@ -53,7 +70,9 @@
   });
 </script>
 
-{#if !nodeStarted}
+{#if booting}
+  <div class="boot">Loading…</div>
+{:else if !nodeStarted}
   <Setup onstart={startNode} />
 {:else}
   <div class="app">
@@ -107,21 +126,84 @@
 {/if}
 
 <style>
-  .app { display: flex; height: 100vh; font-family: system-ui, sans-serif; }
-  nav { width: 180px; min-width: 180px; display: flex; flex-direction: column; gap: 2px; padding: 16px 8px; border-right: 1px solid var(--border); background: var(--sidebar-bg); }
-  .logo { font-weight: 600; font-size: 18px; padding: 8px; margin-bottom: 12px; }
-  .status { font-size: 12px; color: var(--text-muted); padding: 4px 8px; display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
-  .dot.green { background: #1d9e75; }
-  nav button { text-align: left; padding: 8px 12px; border-radius: 6px; border: none; background: none; cursor: pointer; font-size: 14px; color: var(--text-secondary); text-transform: capitalize; }
-  nav button.active { background: var(--accent-subtle); color: var(--accent); font-weight: 500; }
-  .metrics-mini { margin-top: auto; font-size: 11px; color: var(--text-muted); padding: 4px 8px; display: flex; justify-content: space-between; }
+  .boot {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    color: var(--text-muted);
+    font-size: 14px;
+  }
+  .app {
+    display: flex;
+    height: 100vh;
+  }
+  nav {
+    width: 180px;
+    min-width: 180px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 16px 8px;
+    border-right: 1px solid var(--border);
+    background: var(--sidebar-bg);
+  }
+  .logo {
+    font-weight: 600;
+    font-size: 18px;
+    padding: 8px;
+    margin-bottom: 12px;
+    color: var(--text);
+  }
+  .status {
+    font-size: 12px;
+    color: var(--text-muted);
+    padding: 4px 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--muted);
+  }
+  .dot.green {
+    background: var(--accent);
+  }
+  nav button {
+    text-align: left;
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--text-secondary);
+    text-transform: capitalize;
+  }
+  nav button.active {
+    background: var(--accent-subtle);
+    color: var(--accent);
+    font-weight: 500;
+  }
+  .metrics-mini {
+    margin-top: auto;
+    font-size: 11px;
+    color: var(--text-muted);
+    padding: 4px 8px;
+    display: flex;
+    justify-content: space-between;
+  }
   main {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
+    background: var(--bg);
   }
   .miniapp-run {
     display: flex;
@@ -135,20 +217,9 @@
     padding: 6px 10px;
     border: 1px solid var(--border);
     border-radius: 6px;
-    background: var(--sidebar-bg);
+    background: var(--surface-elevated);
+    color: var(--text);
     cursor: pointer;
     font-size: 13px;
-  }
-  :global(html, body, #app) { height: 100%; }
-  :global(body) { overflow: hidden; }
-  :global(*) { box-sizing: border-box; margin: 0; padding: 0; }
-  :global(:root) {
-    --border: #e5e3da;
-    --sidebar-bg: #f8f7f4;
-    --accent: #1d9e75;
-    --accent-subtle: #e1f5ee;
-    --text-secondary: #444;
-    --text-muted: #888;
-    --muted: #ccc;
   }
 </style>

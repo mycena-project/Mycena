@@ -11,16 +11,36 @@
   let error = $state("");
   let starting = $state(false);
   let dbPath = $state("");
+  let startFresh = $state(false);
+  let hasExistingData = $state(false);
 
   const identityLocked =
     $derived(error.includes("decrypt") || error.includes("ed25519_identity"));
+
+  $effect(() => {
+    (async () => {
+      try {
+        const profile = await invoke("get_saved_profile");
+        hasExistingData = profile?.has_local_data ?? false;
+        if (profile?.display_name && !displayName) {
+          displayName = profile.display_name;
+        }
+        dbPath = profile?.db_path ?? "";
+      } catch {
+        hasExistingData = false;
+      }
+    })();
+  });
 
   async function startMycelium() {
     if (!displayName.trim()) return;
     error = "";
     starting = true;
     try {
-      dbPath = await invoke("get_default_db_path");
+      dbPath = dbPath || (await invoke("get_default_db_path"));
+      if (startFresh) {
+        await invoke("reset_local_data", { dbPath });
+      }
       await onstart?.({
         dbPath,
         displayName: displayName.trim(),
@@ -45,6 +65,7 @@
       const path = dbPath || (await invoke("get_default_db_path"));
       await invoke("reset_local_data", { dbPath: path });
       dbPath = path;
+      startFresh = false;
       await onstart?.({
         dbPath: path,
         displayName: displayName.trim(),
@@ -103,6 +124,15 @@
         if (e.key === "Enter") void finish();
       }}
     />
+    {#if hasExistingData}
+      <label class="fresh-row">
+        <input type="checkbox" bind:checked={startFresh} />
+        <span>
+          <strong>Start fresh</strong> — delete existing chats, contacts, and keys on this Mac
+          before starting.
+        </span>
+      </label>
+    {/if}
     {#if error}
       <p class="error" role="alert">{error}</p>
       {#if identityLocked}
@@ -132,6 +162,8 @@
     padding: 40px;
     max-width: 480px;
     margin: 0 auto;
+    color: var(--text);
+    background: var(--bg);
   }
   .icon {
     font-size: 64px;
@@ -140,12 +172,14 @@
     font-size: 28px;
     font-weight: 600;
     margin: 0;
+    color: var(--text);
   }
   h2 {
     font-size: 22px;
     font-weight: 600;
     margin: 0;
     text-align: center;
+    color: var(--text);
   }
   p {
     text-align: center;
@@ -155,8 +189,22 @@
   .muted {
     font-size: 13px;
   }
+  .fresh-row {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    width: 100%;
+    font-size: 13px;
+    color: var(--text-secondary);
+    text-align: left;
+    cursor: pointer;
+  }
+  .fresh-row input {
+    margin-top: 3px;
+    flex-shrink: 0;
+  }
   .error {
-    color: #b42318;
+    color: var(--danger);
     font-size: 13px;
     text-align: center;
     width: 100%;
@@ -166,6 +214,7 @@
     text-align: center;
     width: 100%;
     line-height: 1.4;
+    color: var(--text-muted);
   }
   button.secondary {
     background: transparent;
@@ -190,25 +239,27 @@
   .feature strong {
     display: block;
     margin-bottom: 2px;
+    color: var(--text);
   }
   .feature p {
     text-align: left;
     font-size: 13px;
   }
-  input {
+  input[type="text"],
+  input:not([type="checkbox"]) {
     width: 100%;
     padding: 12px 16px;
     border-radius: 8px;
     border: 1px solid var(--border);
-    background: none;
-    color: inherit;
+    background: var(--surface);
+    color: var(--text);
     font-size: 16px;
   }
   button {
     width: 100%;
     padding: 12px;
     background: var(--accent);
-    color: white;
+    color: #fff;
     border: none;
     border-radius: 8px;
     font-size: 15px;

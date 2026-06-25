@@ -1,5 +1,7 @@
 # Mycelium Roadmap
 
+**Level 0 mesh (discovery, privacy, scale, emergency):** see **[LEVEL0_ROADMAP.md](./LEVEL0_ROADMAP.md)** — phased plan from the Mac/Android chat milestone toward offline mesh, daily ID rotation, and emergency SOS.
+
 ## Phase 1 — Kurzfristig (P0)
 
 | # | Thema | Status |

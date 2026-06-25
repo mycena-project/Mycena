@@ -1,11 +1,14 @@
 # Mycelium MVP Smoke Test
 
 This document gives a copy/paste validation flow for:
-- two local nodes
+- two local nodes (CLI)
 - chat
 - bulletin board
 - mesh mail
 - REST API checks
+- **Phase A:** Mac + Android milestone validation (encrypted chat, QR, LAN)
+
+**Level 0 phased plan:** [LEVEL0_ROADMAP.md](./LEVEL0_ROADMAP.md)
 
 ## Prerequisites
 
@@ -172,3 +175,80 @@ curl -s -X PUT http://127.0.0.1:7760/api/v1/settings/energy \
 - If message not delivered:
   - verify peer ID copied correctly
   - run `/peers` before `/chat` or `/mail`
+
+---
+
+## Phase A — Milestone validation (Mac + Android)
+
+Run after Phase A code changes land. Check off each case on a **Mac desktop build** and **Android debug APK**.
+
+### Prerequisites
+
+```bash
+cd Mycelium
+cargo test --workspace
+make android-install   # or android-deploy
+# Desktop: cd crates/mycelium-desktop/ui && npm ci && npm run build
+# then run desktop app from IDE or `cargo run -p mycelium-desktop`
+```
+
+Relay health (optional):
+
+```bash
+curl -s 'https://mycelium-relay.fly.dev/' | python3 -m json.tool
+```
+
+Expect `"status": "ok"` and `"connections"` ≥ 1 when at least one client is online.
+
+### A1 — Encryption indicators
+
+| Step | Expected |
+|------|----------|
+| Pair devices via QR (Connect tab) | Contact appears |
+| Open Chat with paired contact | Badge shows **End-to-end encrypted** (not “key not yet exchanged”) |
+| Send message both directions | Delivered; Mac log: `sent encrypted chat` / `encrypted direct delivered` |
+| Try send before key ready (fresh install, no scan) | Error / “Schlüsselaustausch ausstehend” — **not** plaintext send |
+
+### A2 — Connection matrix
+
+| # | Scenario | Setup | Pass criteria |
+|---|----------|-------|---------------|
+| 1 | **LAN only** | Same Wi‑Fi; relay reachable or not | Connect tab shows peer; chat works without re-scan |
+| 2 | **Relay only** | Different networks (or disable Wi‑Fi on one device) | QR scan connects via circuit; chat works |
+| 3 | **QR v1** | Default QR (peer ID only) | Scan connects; E2E badge after `PeerInfo` (~few seconds) |
+| 4 | **QR v2** | Paste v2 invite manually if testing legacy codes | Still parses; enc key seeded from QR |
+| 5 | **Reconnect** | Force-quit both apps; reopen | Chat works without re-scan (may need brief wait for dial) |
+| 6 | **Airplane mode** | Wi‑Fi on, cellular off (or full offline LAN) | mDNS path still finds peer on same LAN |
+
+### A3 — Enc key binding
+
+Manual spot-check (automated in `cargo test`):
+
+- Scan valid QR from trusted peer → chat encrypts.
+- If testing with forged v2 (wrong enc key in invite): connection may succeed but decrypt should fail or key mismatch logged — do not treat as trusted.
+
+### A4 — QR default v1
+
+| Platform | Check |
+|----------|-------|
+| Android Connect → Show QR | Payload starts with `mycelium://invite/v1#` |
+| Desktop Connect → QR | Same v1 prefix |
+| Scan still accepts v2 pasted invites | Manual paste of v2 string still connects |
+
+### A5 — Pending inbound contacts
+
+| Step | Expected |
+|------|----------|
+| Device B sends first chat to A **without** A having scanned B | A sees **pending contact request** in Chat tab |
+| A taps Accept | Contact moves to accepted; messages visible |
+| A taps Reject | Contact removed; no further notifications |
+
+**Note:** Contacts you add by scanning **their** QR remain **accepted** immediately (you initiated trust).
+
+### Phase A sign-off
+
+- [ ] All six connection matrix cases pass
+- [ ] E2E badge on paired chat
+- [ ] Pending flow works for unsolicited inbound chat
+- [ ] `cargo test --workspace` and CI green
+

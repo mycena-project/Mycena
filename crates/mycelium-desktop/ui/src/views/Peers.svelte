@@ -162,8 +162,14 @@
   <section class="muted-block">
     <h3>Chat vs Connect</h3>
     <p>
-      <strong>Connect</strong> = network link (this tab). <strong>Chat</strong> = messaging only
-      with accepted contacts. Scanning a peer-ID QR adds an accepted contact automatically.
+      <strong>Connect</strong> = network link (this tab). <strong>Chat</strong> = messaging with
+      accepted contacts. Scanning someone&apos;s QR adds them as <strong>accepted</strong> on your
+      side immediately.
+    </p>
+    <p>
+      To test <strong>unsolicited messages</strong>: on device A, do <em>not</em> scan B&apos;s QR.
+      On B, scan A&apos;s QR (or connect), then send a chat from B → A. A should see a
+      <strong>pending contact request</strong> in Chat before accepting.
     </p>
   </section>
 </div>
@@ -176,6 +182,7 @@
     padding: 16px;
     max-width: 520px;
     margin: 0 auto;
+    color: var(--text);
   }
   .relay-status {
     display: flex;
@@ -202,6 +209,7 @@
   .hero h2 {
     margin: 0 0 8px;
     font-size: 20px;
+    color: var(--text);
   }
   .lede {
     margin: 0 0 12px;
@@ -230,6 +238,7 @@
   h3 {
     margin: 0 0 10px;
     font-size: 14px;
+    color: var(--text);
   }
   .qr-panel {
     text-align: center;
@@ -256,8 +265,8 @@
     padding: 10px;
     font-size: 12px;
     font-family: ui-monospace, monospace;
-    background: none;
-    color: inherit;
+    background: var(--surface);
+    color: var(--text);
     resize: vertical;
     box-sizing: border-box;
   }

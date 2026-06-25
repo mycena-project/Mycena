@@ -14,8 +14,11 @@ object PeerInvite {
         data class Multiaddr(val addr: String) : Target()
     }
 
-    /** Legacy v1 (peer id only). Prefer [encodeV2] for new QR codes. */
+    /** Default v1 QR (peer id only; E2E key via PeerInfo after connect). */
     fun encode(peerId: String): String = "$PREFIX_V1${peerId.trim()}"
+
+    /** Alias for clarity — same as [encode]. */
+    fun encodeV1(peerId: String): String = encode(peerId)
 
     /** v2: peer id + E2E public key (+ optional direct multiaddr on same Wi‑Fi). */
     fun encodeV2(

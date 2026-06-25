@@ -169,13 +169,13 @@ impl AppNode {
                 } else {
                     display_name.to_string()
                 };
-                match self.add_contact(peer, &name, true) {
+                match self.add_contact(peer, &name, false) {
                     Ok(c) => {
                         self.notifier.on_contact_added(peer, &c.display_name);
-                        true
+                        false
                     }
                     Err(e) => {
-                        warn!("inbound chat auto-accept {peer}: {e}");
+                        warn!("inbound chat pending contact {peer}: {e}");
                         false
                     }
                 }
@@ -1410,5 +1410,105 @@ mod dispatch_tests {
         assert!(is_mutual);
         let nearby = app_node.nearby_profiles().await;
         assert!(nearby.iter().any(|e| e.is_mutual));
+    }
+
+    #[tokio::test]
+    async fn encrypted_chat_payload_roundtrip_and_dispatch() {
+        use crate::envelope::ChatMessage;
+        use mycelium_core::crypto::{decrypt_with, encrypt_for};
+        use mycelium_core::e2e_direct_wrap;
+
+        let remote_peer = "12D3KooWRemotePeerIdForTestOnly12";
+        let remote_enc = EncryptionKeypair::generate();
+        let (app_node, storage, local_enc, _dir) = spawn_test_app_node().await;
+
+        let chat = ChatMessage {
+            id: uuid::Uuid::new_v4(),
+            from_display_name: "Remote".into(),
+            body: "encrypted hello".into(),
+            timestamp_ms: mycelium_core::data::now_ms(),
+            reply_to: None,
+        };
+        let app_msg = AppMessage {
+            app_id: AppId::Chat,
+            payload: AppPayload::Chat(chat.clone()),
+        };
+        let plaintext = app_msg.encode().expect("encode");
+        let wrapped = e2e_direct_wrap::wrap_inner(remote_peer, &plaintext);
+        let encrypted = encrypt_for(&wrapped, &local_enc.public).expect("encrypt");
+        let plain = decrypt_with(&encrypted, &local_enc).expect("decrypt");
+        let (logical_from, app_bytes) = e2e_direct_wrap::unwrap_inner(&plain, "relay-hop");
+        assert_eq!(logical_from, remote_peer);
+
+        app_node
+            .dispatch_incoming(&DirectMessage {
+                envelope: Envelope::new(logical_from, None, app_bytes),
+                body: "[encrypted]".into(),
+            })
+            .await;
+
+        let pending = app_node.list_pending_contacts().expect("pending");
+        assert_eq!(pending.len(), 1);
+        assert_eq!(pending[0].peer_id, remote_peer);
+
+        let history = storage.chat_history(remote_peer, 10).expect("history");
+        assert_eq!(history.len(), 1);
+        assert_eq!(history[0].body, "encrypted hello");
+
+        app_node.accept_contact(remote_peer).expect("accept");
+        assert_eq!(
+            app_node.list_accepted_contacts().expect("accepted").len(),
+            1
+        );
+    }
+
+    #[tokio::test]
+    async fn inbound_chat_from_unknown_peer_is_pending() {
+        use crate::envelope::ChatMessage;
+
+        let (app_node, _, _, _dir) = spawn_test_app_node().await;
+        let remote = "12D3KooWUnknownSenderForTestOnly1";
+        let chat = ChatMessage {
+            id: uuid::Uuid::new_v4(),
+            from_display_name: "Stranger".into(),
+            body: "hi there".into(),
+            timestamp_ms: mycelium_core::data::now_ms(),
+            reply_to: None,
+        };
+        let app_msg = AppMessage {
+            app_id: AppId::Chat,
+            payload: AppPayload::Chat(chat),
+        };
+        app_node
+            .dispatch_incoming(&DirectMessage {
+                envelope: Envelope::new(remote.into(), None, app_msg.encode().unwrap()),
+                body: "hi".into(),
+            })
+            .await;
+
+        assert_eq!(
+            app_node.list_pending_contacts().expect("pending").len(),
+            1
+        );
+        assert!(
+            app_node
+                .list_accepted_contacts()
+                .expect("accepted")
+                .is_empty()
+        );
+    }
+
+    #[tokio::test]
+    async fn send_chat_encrypted_requires_peer_key() {
+        let (app_node, _, _, _dir) = spawn_test_app_node().await;
+        let remote = "12D3KooWRemoteNeedsKeyForTest1";
+        app_node
+            .add_contact(remote, "Remote", true)
+            .expect("contact");
+        let err = app_node
+            .send_chat(Some(remote.into()), "test".into())
+            .await
+            .expect_err("must fail without enc key");
+        assert!(err.to_string().contains("enc_key_not_yet_exchanged"));
     }
 }

@@ -157,6 +157,22 @@ fn derive_chacha_key(shared_secret: &[u8], info: &[u8]) -> anyhow::Result<Key> {
     Ok(*Key::from_slice(&raw))
 }
 
+/// Apply a peer X25519 public key from `PeerInfo` or invite seed.
+/// Returns `Err` when a different key is already stored (invite / TOFU conflict).
+pub fn verify_enc_pubkey_update(
+    stored: Option<&[u8; 32]>,
+    incoming_hex: &str,
+) -> anyhow::Result<[u8; 32]> {
+    let pk = parse_x25519_public_hex(incoming_hex)?;
+    let bytes = *pk.as_bytes();
+    if let Some(existing) = stored {
+        if existing != &bytes {
+            anyhow::bail!("enc_key_mismatch");
+        }
+    }
+    Ok(bytes)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -216,5 +232,21 @@ mod tests {
         let kp1 = EncryptionKeypair::generate();
         let kp2 = kp1.clone();
         assert_eq!(kp1.public.as_bytes(), kp2.public.as_bytes());
+    }
+
+    #[test]
+    fn enc_pubkey_update_rejects_mismatch() {
+        let a = EncryptionKeypair::generate();
+        let b = EncryptionKeypair::generate();
+        let stored = *a.public.as_bytes();
+        assert!(verify_enc_pubkey_update(Some(&stored), &a.public_hex()).is_ok());
+        assert!(verify_enc_pubkey_update(Some(&stored), &b.public_hex()).is_err());
+    }
+
+    #[test]
+    fn enc_pubkey_update_accepts_first_key() {
+        let a = EncryptionKeypair::generate();
+        let bytes = verify_enc_pubkey_update(None, &a.public_hex()).unwrap();
+        assert_eq!(bytes, *a.public.as_bytes());
     }
 }

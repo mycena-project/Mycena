@@ -33,10 +33,12 @@ pub struct AppState {
 
 type SharedState = Arc<RwLock<Option<AppState>>>;
 
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 struct UiSettings {
     #[serde(default = "default_rendezvous_enabled")]
     rendezvous_enabled: bool,
+    #[serde(default)]
+    display_name: Option<String>,
 }
 
 fn default_rendezvous_enabled() -> bool {
@@ -47,6 +49,7 @@ impl Default for UiSettings {
     fn default() -> Self {
         Self {
             rendezvous_enabled: true,
+            display_name: None,
         }
     }
 }
@@ -135,6 +138,24 @@ impl CoinTransport for DesktopCoinTransport {
 }
 
 #[tauri::command]
+fn get_saved_profile() -> serde_json::Value {
+    let path = default_db_path();
+    let ui = load_ui_settings(&path);
+    let has_data = std::path::Path::new(&path).exists();
+    let can_auto_start = has_data
+        && ui
+            .display_name
+            .as_ref()
+            .is_some_and(|n| !n.trim().is_empty());
+    json!({
+        "display_name": ui.display_name,
+        "has_local_data": has_data,
+        "can_auto_start": can_auto_start,
+        "db_path": path,
+    })
+}
+
+#[tauri::command]
 fn get_default_db_path() -> String {
     default_db_path()
 }
@@ -175,6 +196,9 @@ async fn start_node(
     }
 
     let ui_settings = load_ui_settings(&db_path);
+    let mut ui_to_save = ui_settings.clone();
+    ui_to_save.display_name = Some(display_name.clone());
+    save_ui_settings(&db_path, &ui_to_save)?;
     let connectivity = mycelium_node::ConnectivityMonitor::new();
     mycelium_node::ConnectivityMonitor::spawn_monitor(connectivity.mode_tx.clone());
     let config = NodeConfig {
@@ -564,6 +588,7 @@ async fn chat_history(
     let Some(s) = guard.as_ref() else {
         return Ok(vec![]);
     };
+    let my_name = s.app_node.display_name().await;
     Ok(s.app_storage
         .chat_history(&peer_id, limit as usize)
         .unwrap_or_default()
@@ -574,6 +599,7 @@ async fn chat_history(
                 "from_display_name": m.from_display_name,
                 "body": m.body,
                 "timestamp_ms": m.timestamp_ms,
+                "is_mine": m.from_display_name == my_name,
             })
         })
         .collect())
@@ -1214,7 +1240,10 @@ async fn set_display_name(state: State<'_, SharedState>, name: String) -> Result
     let s = guard
         .as_ref()
         .ok_or_else(|| "node not started".to_string())?;
-    s.app_node.set_display_name(name).await;
+    s.app_node.set_display_name(name.clone()).await;
+    let mut ui = load_ui_settings(&s.db_path);
+    ui.display_name = Some(name);
+    save_ui_settings(&s.db_path, &ui)?;
     Ok(())
 }
 
@@ -1436,6 +1465,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             get_default_db_path,
+            get_saved_profile,
             reset_local_data,
             start_node,
             get_peers,
