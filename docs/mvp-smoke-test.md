@@ -263,3 +263,15 @@ Manual spot-check (automated in `cargo test`):
 | 3 | Relay unreachable | Status shows **Local mesh**; LAN peers still connect |
 | 4 | Guest/isolated Wi‑Fi | Document failure; QR still works |
 
+---
+
+## Phase C — Privacy & trust
+
+| # | Scenario | Pass criteria |
+|---|----------|---------------|
+| 1 | Desktop QR | Shows **v3 signed** invite (`mycelium://invite/v3#…`); tampered paste rejected |
+| 2 | Block contact | Block in Chat → inbound messages ignored; unblock restores |
+| 3 | Reputation | Chat shows strike count from mesh ingest |
+| 4 | SOS (opt-in) | Settings → listen off by default; post SOS with geohash; rate limit under spam |
+| 5 | Identity rotation | After 24h (or `MYCELIUM_TRANSPORT_ROTATION_SECS=0` test), restart → new PeerId, contact book keeps account mapping |
+

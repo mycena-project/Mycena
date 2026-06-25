@@ -161,8 +161,12 @@ impl AppNode {
     }
 
     fn ensure_inbound_chat_contact(&self, peer: &str, display_name: &str) -> bool {
+        if self.storage.is_peer_blocked(peer).unwrap_or(false) {
+            return false;
+        }
         match self.storage.contact_by_id(peer) {
             Ok(Some(c)) if c.status == ContactStatus::Accepted => true,
+            Ok(Some(c)) if c.status == ContactStatus::Blocked => false,
             Ok(Some(_)) | Ok(None) => {
                 let name = if display_name.is_empty() {
                     peer.chars().take(12).collect::<String>()
@@ -233,6 +237,27 @@ impl AppNode {
         }
         if msg.body == "[proximity]" {
             self.handle_proximity_payload(&msg.envelope.payload).await;
+            return;
+        }
+        if msg.body.starts_with("[identity:") {
+            match mycelium_core::identity_rotation::IdentityRotationGossip::decode(
+                &msg.envelope.payload,
+            ) {
+                Ok(rot) if rot.verify() => {
+                    match self
+                        .storage
+                        .remap_contact_peer(&rot.account_id, &rot.new_peer_id)
+                    {
+                        Ok(Some(c)) => {
+                            self.notifier.on_contact_added(&c.peer_id, &c.display_name);
+                        }
+                        Ok(None) => {}
+                        Err(e) => warn!("identity rotation remap failed: {e}"),
+                    }
+                }
+                Ok(_) => warn!("rejected identity rotation with invalid signature"),
+                Err(e) => warn!("identity rotation decode failed: {e}"),
+            }
             return;
         }
         if let Some(scope) = msg
@@ -1012,7 +1037,12 @@ impl AppNode {
         match target {
             mycelium_core::invite::InviteTarget::Peer(info) => {
                 let label = info.peer_id.chars().take(16).collect::<String>();
-                let contact = self.add_contact(&info.peer_id, &label, true)?;
+                let contact = self.storage.upsert_contact_with_account(
+                    &info.peer_id,
+                    &label,
+                    ContactStatus::Accepted,
+                    info.account_id.as_deref(),
+                )?;
                 self.notifier
                     .on_contact_added(&info.peer_id, &contact.display_name);
                 if let Some(enc) = &info.enc_pubkey_hex {
@@ -1063,6 +1093,92 @@ impl AppNode {
 
     pub fn reject_contact(&self, peer_id: &str) -> anyhow::Result<()> {
         self.storage.delete_contact(peer_id)
+    }
+
+    pub fn block_contact(&self, peer_id: &str) -> anyhow::Result<Contact> {
+        let existing = self.storage.contact_by_id(peer_id)?;
+        let name = existing
+            .as_ref()
+            .map(|c| c.display_name.clone())
+            .unwrap_or_else(|| peer_id.to_string());
+        let account_id = existing.and_then(|c| c.account_id);
+        self.storage.upsert_contact_with_account(
+            peer_id,
+            &name,
+            ContactStatus::Blocked,
+            account_id.as_deref(),
+        )
+    }
+
+    pub fn unblock_contact(&self, peer_id: &str) -> anyhow::Result<Contact> {
+        let existing = self.storage.contact_by_id(peer_id)?;
+        let name = existing
+            .as_ref()
+            .map(|c| c.display_name.clone())
+            .unwrap_or_else(|| peer_id.to_string());
+        let account_id = existing.and_then(|c| c.account_id);
+        self.storage.upsert_contact_with_account(
+            peer_id,
+            &name,
+            ContactStatus::Accepted,
+            account_id.as_deref(),
+        )
+    }
+
+    pub fn list_blocked_contacts(&self) -> anyhow::Result<Vec<Contact>> {
+        self.storage.contacts_with_status(ContactStatus::Blocked)
+    }
+
+    pub async fn post_sos(
+        &self,
+        geohash: &str,
+        message: &str,
+        ttl_secs: u64,
+    ) -> anyhow::Result<()> {
+        use crate::sos::{SosPayload, SOS_SCOPE};
+        let payload = SosPayload {
+            geohash: geohash.trim().to_string(),
+            message: message.trim().to_string(),
+            created_at_ms: mycelium_core::data::now_ms(),
+        };
+        payload.validate()?;
+        let body = payload.encode_json()?;
+        self.post_bulletin(
+            SOS_SCOPE.to_string(),
+            format!("SOS {}", payload.geohash),
+            body,
+            ttl_secs,
+        )
+        .await
+    }
+
+    pub fn list_sos_posts(&self) -> anyhow::Result<Vec<crate::sos::SosPayload>> {
+        use crate::sos::{SosPayload, SOS_SCOPE};
+        let posts = self.storage.bulletins_for_scope(SOS_SCOPE)?;
+        let mut out = Vec::new();
+        for post in posts {
+            if let Ok(p) = SosPayload::decode_json(&post.body) {
+                out.push(p);
+            }
+        }
+        Ok(out)
+    }
+
+    pub async fn set_listen_sos(&self, enabled: bool) -> anyhow::Result<()> {
+        if enabled {
+            self.handle
+                .send(NodeCommand::SubscribeBulletinScope(
+                    crate::sos::SOS_SCOPE.into(),
+                ))
+                .await?;
+        } else {
+            self.handle
+                .send(NodeCommand::UnsubscribeBulletinScope(
+                    crate::sos::SOS_SCOPE.into(),
+                ))
+                .await?;
+        }
+        Ok(())
     }
 
     pub fn remove_contact(&self, peer_id: &str) -> anyhow::Result<()> {
@@ -1486,16 +1602,11 @@ mod dispatch_tests {
             })
             .await;
 
-        assert_eq!(
-            app_node.list_pending_contacts().expect("pending").len(),
-            1
-        );
-        assert!(
-            app_node
-                .list_accepted_contacts()
-                .expect("accepted")
-                .is_empty()
-        );
+        assert_eq!(app_node.list_pending_contacts().expect("pending").len(), 1);
+        assert!(app_node
+            .list_accepted_contacts()
+            .expect("accepted")
+            .is_empty());
     }
 
     #[tokio::test]

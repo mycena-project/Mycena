@@ -10,6 +10,7 @@ pub mod secrets;
 pub mod security;
 mod storage;
 mod transport;
+mod transport_meta;
 
 pub use transport::{DirectPeerCap, PeerAdmitAction};
 
@@ -20,7 +21,10 @@ pub use node::{
     NodeCommand, NodeConfig, NodeHandle, NodeMetrics, NodeRunner, PeerReputationSnapshot,
     SYSTEM_SCOPES,
 };
-pub use secrets::{load_or_create_enc_keypair, StorageKey};
+pub use secrets::{
+    bootstrap_identities, encode_signed_invite_v3, load_or_create_enc_keypair, IdentityBootstrap,
+    StorageKey,
+};
 
 /// Load or create the libp2p identity using OS keyring / encrypted storage (no explicit storage key).
 pub fn load_or_create_keypair(path: &str) -> anyhow::Result<libp2p::identity::Keypair> {

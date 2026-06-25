@@ -10,6 +10,7 @@ pub mod node;
 pub mod notify;
 pub mod proximity;
 pub mod scope_key;
+pub mod sos;
 pub mod storage;
 
 #[cfg(test)]

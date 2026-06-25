@@ -4,7 +4,7 @@ use crate::clock::{DeterministicClock, VirtualClock};
 use crate::scheduler::{EventScheduler, LinkProfile};
 use crate::transport::{SimAction, SimTransport};
 use mycelium_core::transport::{TransportEvent, WireMessage};
-use mycelium_node::{NodeConfig, NodeHandle, NodeRunner};
+use mycelium_node::{IdentityBootstrap, NodeConfig, NodeHandle, NodeRunner};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -360,7 +360,11 @@ impl SimulationRunner {
             bulletin_subscriptions: Vec::new(),
             max_peers: 50,
         };
-        let (node_runner, handle) = NodeRunner::new_with_transport(config, Box::new(transport))?;
+        let (node_runner, handle) = NodeRunner::new_with_transport(
+            config,
+            Box::new(transport),
+            IdentityBootstrap::ephemeral(),
+        )?;
         let runner_task = tokio::spawn(async move { node_runner.run().await });
         Ok(SimNode {
             peer_id,

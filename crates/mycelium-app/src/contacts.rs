@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 pub enum ContactStatus {
     Pending,
     Accepted,
+    Blocked,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -15,6 +16,9 @@ pub struct Contact {
     pub display_name: String,
     pub added_at_ms: u64,
     pub status: ContactStatus,
+    /// Stable account id from signed invite / identity rotation (SD-190).
+    #[serde(default)]
+    pub account_id: Option<String>,
 }
 
 impl Contact {
@@ -24,6 +28,7 @@ impl Contact {
             display_name,
             added_at_ms: mycelium_core::data::now_ms(),
             status,
+            account_id: None,
         }
     }
 }

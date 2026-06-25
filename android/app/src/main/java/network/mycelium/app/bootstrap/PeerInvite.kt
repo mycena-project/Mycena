@@ -8,6 +8,7 @@ package network.mycelium.app.bootstrap
 object PeerInvite {
     private const val PREFIX_V1 = "mycelium://invite/v1#"
     private const val PREFIX_V2 = "mycelium://invite/v2#"
+    private const val PREFIX_V3 = "mycelium://invite/v3#"
 
     sealed class Target {
         data class PeerId(val id: String) : Target()
@@ -39,6 +40,14 @@ object PeerInvite {
     fun parse(raw: String): Target? {
         val input = raw.trim()
         if (input.isEmpty()) return null
+        if (input.startsWith(PREFIX_V3)) {
+            val rest = input.removePrefix(PREFIX_V3)
+            val parts = rest.split('|', limit = 6)
+            if (parts.size >= 2 && parts[1].isNotBlank()) {
+                return Target.PeerId(parts[1].trim())
+            }
+            return null
+        }
         if (input.startsWith(PREFIX_V2)) {
             val rest = input.removePrefix(PREFIX_V2)
             val parts = rest.split('|', limit = 3)

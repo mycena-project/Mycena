@@ -56,6 +56,11 @@ pub enum WireMessage {
         enc_pubkey_hex: String,
         display_name: Option<String>,
         supported_scopes: Vec<String>,
+        /// Stable account id (SD-190); survives transport PeerId rotation.
+        #[serde(default)]
+        account_id: Option<String>,
+        #[serde(default)]
+        transport_epoch: u64,
     },
 }
 

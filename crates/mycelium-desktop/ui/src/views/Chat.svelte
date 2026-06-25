@@ -14,6 +14,7 @@
   let isEncrypted = $state(false);
   let errorMsg = $state("");
   let locationLoading = $state(false);
+  let peerReputation = $state(null);
   let showLocationPrivacy = $state(false);
   let locationPrivacyAck = $state(
     typeof localStorage !== "undefined" &&
@@ -84,8 +85,14 @@
     if (selectedPeer) {
       messages = await invoke("chat_history", { peerId: selectedPeer, limit: 100 });
       isEncrypted = await invoke("peer_has_enc_key", { peerId: selectedPeer });
+      try {
+        peerReputation = await invoke("get_peer_reputation", { peerId: selectedPeer });
+      } catch {
+        peerReputation = null;
+      }
     } else {
       isEncrypted = false;
+      peerReputation = null;
     }
   }
 
@@ -98,6 +105,13 @@
   async function rejectContact(peerId) {
     await invoke("reject_contact", { peerId });
     if (selectedPeer === peerId) selectedPeer = "";
+    await refresh();
+  }
+
+  async function blockPeer() {
+    if (!selectedPeer) return;
+    await invoke("block_contact", { peerId: selectedPeer });
+    selectedPeer = "";
     await refresh();
   }
 
@@ -242,6 +256,12 @@
         ? "🔒 End-to-end encrypted"
         : "⚠ Not encrypted – peer key not yet exchanged"}
     </div>
+    {#if selectedPeer && peerReputation}
+      <div class="reputation-bar">
+        <span>Mesh reputation: {peerReputation.strikes} strike{peerReputation.strikes === 1 ? "" : "s"}</span>
+        <button type="button" class="small secondary" onclick={blockPeer}>Block contact</button>
+      </div>
+    {/if}
     {#if errorMsg}
       <div class="error-banner">{errorMsg}</div>
     {/if}
@@ -373,6 +393,16 @@
   .enc-badge.encrypted {
     background: var(--accent-subtle);
     color: var(--text);
+  }
+  .reputation-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 12px;
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-muted);
   }
   .error-banner {
     font-size: 12px;

@@ -105,6 +105,56 @@ impl AppStorage {
         Ok(contact)
     }
 
+    pub fn upsert_contact_with_account(
+        &self,
+        peer_id: &str,
+        display_name: &str,
+        status: ContactStatus,
+        account_id: Option<&str>,
+    ) -> anyhow::Result<Contact> {
+        let mut contact = self.upsert_contact(peer_id, display_name, status)?;
+        if let Some(aid) = account_id.filter(|s| !s.is_empty()) {
+            contact.account_id = Some(aid.to_string());
+            self.save_contact(&contact)?;
+            let idx = self.db.open_tree("contacts:accounts")?;
+            idx.insert(aid.as_bytes(), peer_id.as_bytes())?;
+        }
+        Ok(contact)
+    }
+
+    pub fn is_peer_blocked(&self, peer_id: &str) -> anyhow::Result<bool> {
+        Ok(self
+            .contact_by_id(peer_id)?
+            .map(|c| c.status == ContactStatus::Blocked)
+            .unwrap_or(false))
+    }
+
+    /// Update stored peer id when a contact rotates transport identity (SD-190).
+    pub fn remap_contact_peer(
+        &self,
+        account_id: &str,
+        new_peer_id: &str,
+    ) -> anyhow::Result<Option<Contact>> {
+        let idx = self.db.open_tree("contacts:accounts")?;
+        let old_peer_id = match idx.get(account_id.as_bytes())? {
+            Some(v) => String::from_utf8_lossy(&v).to_string(),
+            None => return Ok(None),
+        };
+        if old_peer_id == new_peer_id {
+            return self.contact_by_id(new_peer_id);
+        }
+        let Some(mut contact) = self.contact_by_id(&old_peer_id)? else {
+            return Ok(None);
+        };
+        let tree = self.db.open_tree("contacts:data")?;
+        tree.remove(old_peer_id.as_bytes())?;
+        contact.peer_id = new_peer_id.to_string();
+        contact.account_id = Some(account_id.to_string());
+        tree.insert(new_peer_id.as_bytes(), bincode::serialize(&contact)?)?;
+        idx.insert(account_id.as_bytes(), new_peer_id.as_bytes())?;
+        Ok(Some(contact))
+    }
+
     pub fn save_bulletin(&self, post: &BulletinPost) -> anyhow::Result<()> {
         let tree = self.db.open_tree(format!("bulletin:{}", post.scope))?;
         let key = format!("{:020}:{}", post.expires_at_ms, post.id);

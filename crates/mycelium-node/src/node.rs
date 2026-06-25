@@ -28,7 +28,12 @@ use tokio::time::{interval, MissedTickBehavior};
 use tracing::{debug, info, warn};
 
 /// Scopes subscribed on the libp2p gossip layer at node startup.
-pub const SYSTEM_SCOPES: &[&str] = &["mycelium/chat", "mycelium/coin/v1", "mycelium/appstore/v1"];
+pub const SYSTEM_SCOPES: &[&str] = &[
+    "mycelium/chat",
+    "mycelium/coin/v1",
+    "mycelium/appstore/v1",
+    "mycelium/identity/v1",
+];
 
 const RELAY_KEY_ROTATION_SECS: u64 = 86_400;
 
@@ -244,6 +249,8 @@ pub struct NodeHandle {
     enc_pubkey_hex: String,
     peer_x25519: Arc<RwLock<HashMap<String, [u8; 32]>>>,
     listen_addrs: Arc<RwLock<Vec<String>>>,
+    account_id: String,
+    transport_epoch: u64,
 }
 
 impl NodeHandle {
@@ -276,6 +283,14 @@ impl NodeHandle {
 
     pub async fn listen_addrs(&self) -> Vec<String> {
         self.listen_addrs.read().await.clone()
+    }
+
+    pub fn account_id(&self) -> &str {
+        &self.account_id
+    }
+
+    pub fn transport_epoch(&self) -> u64 {
+        self.transport_epoch
     }
 
     pub async fn peer_reputation(&self, peer_id: &str) -> Option<PeerReputationSnapshot> {
@@ -388,6 +403,9 @@ pub struct NodeRunner {
     bulletin_subscriptions: Arc<RwLock<Vec<String>>>,
     ingest_guard: IngestGuard,
     peer_enc_store: Arc<crate::peer_enc_keys::PeerEncKeyStore>,
+    account_id: String,
+    transport_epoch: u64,
+    pending_identity_rotation: Option<mycelium_core::identity_rotation::IdentityRotationGossip>,
 }
 
 async fn persist_peer_enc_key(
@@ -434,6 +452,11 @@ impl NodeRunner {
             .keypair_path
             .clone()
             .or_else(|| Some(format!("{}/identity", config.db_path)));
+        let identity = crate::secrets::bootstrap_identities(
+            &config.db_path,
+            keypair_path.as_deref().unwrap_or("identity"),
+            config.storage_key,
+        )?;
         let transport = Libp2pTransport::new(
             config.listen_addr.clone(),
             keypair_path,
@@ -442,19 +465,22 @@ impl NodeRunner {
             config.storage_key,
             config.max_peers,
         )?;
-        Self::new_with_transport(config, Box::new(transport))
+        Self::new_with_transport(config, Box::new(transport), identity)
     }
 
     pub fn new_with_transport(
         config: NodeConfig,
         transport: Box<dyn MeshTransport>,
+        identity: crate::secrets::IdentityBootstrap,
     ) -> anyhow::Result<(Self, NodeHandle)> {
         let keypair = transport.local_keypair();
         let local_peer_id = transport.local_peer_id();
         let enc_keypair =
             crate::secrets::load_or_create_enc_keypair(&config.db_path, config.storage_key)?;
         let enc_pubkey_hex = enc_keypair.public_hex();
-        let peer_enc_store = Arc::new(crate::peer_enc_keys::PeerEncKeyStore::open(&config.db_path)?);
+        let peer_enc_store = Arc::new(crate::peer_enc_keys::PeerEncKeyStore::open(
+            &config.db_path,
+        )?);
         let initial_enc = peer_enc_store.load_all().unwrap_or_else(|e| {
             warn!("could not load persisted peer enc keys: {e}");
             HashMap::new()
@@ -479,6 +505,9 @@ impl NodeRunner {
         let (incoming_tx, _) = broadcast::channel(512);
         let (tx, cmd_rx) = mpsc::channel(64);
         let rendezvous_enabled = Arc::new(AtomicBool::new(config.rendezvous_enabled));
+        let account_id = identity.account_id.clone();
+        let transport_epoch = identity.transport_meta.epoch.max(1);
+        let pending_identity_rotation = identity.pending_rotation;
         Ok((
             Self {
                 local_peer_id,
@@ -512,6 +541,9 @@ impl NodeRunner {
                 bulletin_subscriptions: bulletin_subscriptions.clone(),
                 ingest_guard: IngestGuard::new(),
                 peer_enc_store,
+                account_id: account_id.clone(),
+                transport_epoch,
+                pending_identity_rotation,
             },
             NodeHandle {
                 tx,
@@ -525,6 +557,8 @@ impl NodeRunner {
                 enc_pubkey_hex,
                 peer_x25519,
                 listen_addrs,
+                account_id,
+                transport_epoch,
             },
         ))
     }
@@ -625,6 +659,11 @@ impl NodeRunner {
         });
 
         self.transport.redial_stored_targets();
+        if let Some(rot) = self.pending_identity_rotation.take() {
+            if let Err(e) = self.publish_identity_rotation(rot).await {
+                warn!("failed to publish identity rotation: {e}");
+            }
+        }
         let mut dial_tick = interval(Duration::from_secs(15));
         dial_tick.set_missed_tick_behavior(MissedTickBehavior::Skip);
         let mut circuit_dial_tick = interval(Duration::from_secs(5));
@@ -735,12 +774,7 @@ impl NodeRunner {
                 peer_id,
                 enc_pubkey_hex,
             } => {
-                let existing = self
-                    .peer_x25519
-                    .read()
-                    .await
-                    .get(&peer_id)
-                    .copied();
+                let existing = self.peer_x25519.read().await.get(&peer_id).copied();
                 match crypto::verify_enc_pubkey_update(existing.as_ref(), &enc_pubkey_hex) {
                     Ok(bytes) => {
                         persist_peer_enc_key(
@@ -902,6 +936,19 @@ impl NodeRunner {
         Ok(())
     }
 
+    async fn publish_identity_rotation(
+        &mut self,
+        rot: mycelium_core::identity_rotation::IdentityRotationGossip,
+    ) -> anyhow::Result<()> {
+        let payload = rot.encode()?;
+        self.broadcast_scoped(
+            "mycelium/identity/v1".into(),
+            format!("[identity:{}]", rot.account_id),
+            payload,
+        )
+        .await
+    }
+
     async fn broadcast_scoped(
         &mut self,
         scope: String,
@@ -995,6 +1042,12 @@ impl NodeRunner {
                     return Ok(());
                 }
                 let now = now_ms();
+                if crate::ingest_guard::is_sos_scope(&scope) {
+                    if let Err(reason) = self.ingest_guard.check_sos_gossip(&from_peer, now) {
+                        self.record_ingest_reject(reason);
+                        return Ok(());
+                    }
+                }
                 if let Err(reason) =
                     self.ingest_guard
                         .check_gossip_payload(&from_peer, payload.len(), now)
@@ -1390,12 +1443,7 @@ impl NodeRunner {
                 supported_scopes,
                 ..
             } => {
-                let existing = self
-                    .peer_x25519
-                    .read()
-                    .await
-                    .get(&from_peer)
-                    .copied();
+                let existing = self.peer_x25519.read().await.get(&from_peer).copied();
                 match crypto::verify_enc_pubkey_update(existing.as_ref(), &enc_pubkey_hex) {
                     Ok(bytes) => {
                         persist_peer_enc_key(
@@ -1605,6 +1653,8 @@ impl NodeRunner {
             enc_pubkey_hex: self.enc_keypair.public_hex(),
             display_name: self.display_name.clone(),
             supported_scopes,
+            account_id: Some(self.account_id.clone()),
+            transport_epoch: self.transport_epoch,
         };
         self.transport.send_direct(peer_id, info).await
     }

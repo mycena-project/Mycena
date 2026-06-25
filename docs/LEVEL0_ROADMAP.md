@@ -64,10 +64,10 @@ See also: [CONNECT.md](./CONNECT.md), [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS
 
 | ID | Task | Status |
 |----|------|--------|
-| C1 | SD-190 spike — rotatable transport sub-identity | Planned |
-| C2 | Signed invite `(peer_id, enc_pubkey, epoch)` | Planned |
-| C3 | Emergency scope + rate limits in main app | Planned |
-| C4 | Block list + reputation in UI | Planned |
+| C1 | SD-190 spike — rotatable transport sub-identity | Done |
+| C2 | Signed invite `(peer_id, enc_pubkey, epoch)` | Done |
+| C3 | Emergency scope + rate limits in main app | Done |
+| C4 | Block list + reputation in UI | Done |
 
 **Exit criteria:** New public ID daily without losing contact book mapping; malformed QR rejected.
 
@@ -109,7 +109,7 @@ See also: [CONNECT.md](./CONNECT.md), [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS
 |-------------|-------|--------------|
 | Auto-discovery without QR (LAN) | Partial (mDNS) | B |
 | Auto-discovery without QR (remote) | QR required; rendezvous no auto-dial | D |
-| Daily ID rotation | Stable PeerId | C |
+| Daily ID rotation | Stable PeerId | C (spike: account id + daily transport rotate) |
 | Safe mesh participation | Partial (E2E send; auto-accept was weak) | A, C |
 | Fast connect/disconnect | Moderate | B, D |
 | Festival 100k | Not supported | D |

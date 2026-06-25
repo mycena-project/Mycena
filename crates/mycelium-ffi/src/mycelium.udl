@@ -27,6 +27,9 @@ namespace mycelium {
   ContactInfo add_contact(string peer_id, string display_name, boolean accepted);
   ContactInfo accept_contact(string peer_id);
   void reject_contact(string peer_id);
+  ContactInfo block_contact(string peer_id);
+  ContactInfo unblock_contact(string peer_id);
+  PeerReputationData? peer_reputation(string peer_id);
   void remove_contact(string peer_id);
 
   sequence<GroupInfo> list_groups();
@@ -221,6 +224,13 @@ dictionary GroupInfo {
 enum ContactStatus {
   "Pending",
   "Accepted",
+  "Blocked",
+};
+
+dictionary PeerReputationData {
+  u8 strikes;
+  u64 last_strike_ms;
+  u64 throttled_until_ms;
 };
 
 dictionary ContactInfo {
@@ -228,6 +238,7 @@ dictionary ContactInfo {
   string display_name;
   u64 added_at_ms;
   ContactStatus status;
+  string? account_id;
 };
 
 dictionary MiniAppInfo {

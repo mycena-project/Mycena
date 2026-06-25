@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Mycelium Project
+pub mod account_identity;
 pub mod at_rest;
 pub mod bootstrap;
 pub mod crypto;
@@ -7,6 +8,7 @@ pub mod data;
 pub mod e2e_direct_wrap;
 pub mod energy;
 pub mod identity;
+pub mod identity_rotation;
 pub mod invite;
 pub mod relay_status;
 pub mod rendezvous;

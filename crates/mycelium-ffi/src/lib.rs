@@ -118,6 +118,14 @@ pub struct GroupInfo {
 pub enum ContactStatus {
     Pending,
     Accepted,
+    Blocked,
+}
+
+#[derive(Debug, Clone)]
+pub struct PeerReputationData {
+    pub strikes: u8,
+    pub last_strike_ms: u64,
+    pub throttled_until_ms: u64,
 }
 
 #[derive(Debug, Clone)]
@@ -126,18 +134,21 @@ pub struct ContactInfo {
     pub display_name: String,
     pub added_at_ms: u64,
     pub status: ContactStatus,
+    pub account_id: Option<String>,
 }
 
 fn contact_to_info(c: Contact) -> ContactInfo {
     let status = match c.status {
         AppContactStatus::Pending => ContactStatus::Pending,
         AppContactStatus::Accepted => ContactStatus::Accepted,
+        AppContactStatus::Blocked => ContactStatus::Blocked,
     };
     ContactInfo {
         peer_id: c.peer_id,
         display_name: c.display_name,
         added_at_ms: c.added_at_ms,
         status,
+        account_id: c.account_id,
     }
 }
 
@@ -818,6 +829,45 @@ pub fn accept_contact(peer_id: String) -> ContactInfo {
 pub fn reject_contact(peer_id: String) {
     with_state(|state| {
         let _ = state.app_node.reject_contact(&peer_id);
+    })
+}
+
+pub fn block_contact(peer_id: String) -> ContactInfo {
+    with_state(|state| {
+        contact_to_info(
+            state
+                .app_node
+                .block_contact(&peer_id)
+                .expect("block contact"),
+        )
+    })
+}
+
+pub fn unblock_contact(peer_id: String) -> ContactInfo {
+    with_state(|state| {
+        contact_to_info(
+            state
+                .app_node
+                .unblock_contact(&peer_id)
+                .expect("unblock contact"),
+        )
+    })
+}
+
+pub fn peer_reputation(peer_id: String) -> Option<PeerReputationData> {
+    runtime().block_on(async {
+        let state = state_arc();
+        let guard = state.read().await;
+        let rep = guard
+            .app_node
+            .node_handle()
+            .peer_reputation(&peer_id)
+            .await?;
+        Some(PeerReputationData {
+            strikes: rep.strikes,
+            last_strike_ms: rep.last_strike_ms,
+            throttled_until_ms: rep.throttled_until_ms,
+        })
     })
 }
 

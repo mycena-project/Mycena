@@ -10,6 +10,136 @@ use std::path::Path;
 const IDENTITY_SECRET: &str = "ed25519_identity";
 const ENC_SECRET: &str = "enc_x25519";
 
+use mycelium_core::account_identity::{self, ACCOUNT_SECRET};
+use mycelium_core::identity_rotation::IdentityRotationGossip;
+
+use crate::transport_meta::{TransportMeta, TransportMetaStore};
+
+/// Result of loading account + transport keys, optionally rotating transport PeerId.
+pub struct IdentityBootstrap {
+    pub account_keypair: identity::Keypair,
+    pub account_id: String,
+    pub transport_meta: TransportMeta,
+    pub pending_rotation: Option<IdentityRotationGossip>,
+}
+
+impl IdentityBootstrap {
+    /// Test/sim helper when transport meta store is not used.
+    pub fn ephemeral() -> Self {
+        let account_keypair = identity::Keypair::generate_ed25519();
+        let account_id = account_identity::account_id_from_keypair(&account_keypair);
+        Self {
+            account_keypair,
+            account_id,
+            transport_meta: TransportMeta {
+                epoch: 1,
+                rotated_at_ms: mycelium_core::data::now_ms(),
+                previous_peer_ids: Vec::new(),
+            },
+            pending_rotation: None,
+        }
+    }
+}
+
+pub fn bootstrap_identities(
+    db_path: &str,
+    keypair_path: &str,
+    storage_key: StorageKey,
+) -> anyhow::Result<IdentityBootstrap> {
+    let account_keypair = load_or_create_account_keypair(db_path, storage_key)?;
+    let account_id = account_identity::account_id_from_keypair(&account_keypair);
+    let meta_store = TransportMetaStore::open(db_path)?;
+    let mut meta = meta_store.load()?;
+    meta_store.mark_initial(&mut meta)?;
+
+    let mut pending_rotation = None;
+    if meta_store.should_rotate(&meta) {
+        let old_kp = load_or_create_keypair(keypair_path, storage_key)?;
+        let old_peer_id = old_kp.public().to_peer_id().to_string();
+        regenerate_transport_keypair(keypair_path, storage_key)?;
+        meta.epoch = meta.epoch.saturating_add(1);
+        meta.rotated_at_ms = mycelium_core::data::now_ms();
+        if !meta.previous_peer_ids.contains(&old_peer_id) {
+            meta.previous_peer_ids.push(old_peer_id);
+        }
+        meta_store.save(&meta)?;
+        let new_kp = load_or_create_keypair(keypair_path, storage_key)?;
+        let new_peer_id = new_kp.public().to_peer_id().to_string();
+        pending_rotation = Some(IdentityRotationGossip::sign(
+            &account_id,
+            &new_peer_id,
+            meta.epoch,
+            &account_keypair,
+        )?);
+        tracing::info!(
+            "transport identity rotated epoch={} peer_id={new_peer_id}",
+            meta.epoch
+        );
+    }
+
+    Ok(IdentityBootstrap {
+        account_keypair,
+        account_id,
+        transport_meta: meta,
+        pending_rotation,
+    })
+}
+
+pub fn load_or_create_account_keypair(
+    db_path: &str,
+    storage_key: StorageKey,
+) -> anyhow::Result<identity::Keypair> {
+    let vault = open_vault(db_path, storage_key)?;
+    match vault.read_secret(ACCOUNT_SECRET) {
+        Ok(Some(bytes)) => return keypair_from_ed25519_secret(&bytes),
+        Ok(None) => {}
+        Err(e) => {
+            tracing::warn!("unreadable account identity: {e}; regenerating");
+            let _ = vault.delete_secret(ACCOUNT_SECRET);
+        }
+    }
+    let keypair = identity::Keypair::generate_ed25519();
+    let secret = ed25519_secret_bytes(&keypair)?;
+    vault.write_secret(ACCOUNT_SECRET, &secret)?;
+    tracing::info!("generated stable account identity (SD-190 spike)");
+    Ok(keypair)
+}
+
+pub fn regenerate_transport_keypair(
+    path: &str,
+    storage_key: StorageKey,
+) -> anyhow::Result<identity::Keypair> {
+    let db_path = Path::new(path)
+        .parent()
+        .and_then(|p| p.to_str())
+        .unwrap_or(path);
+    let vault = open_vault(db_path, storage_key)?;
+    vault.delete_secret(IDENTITY_SECRET)?;
+    load_or_create_keypair(path, storage_key)
+}
+
+/// Build a signed v3 invite QR string for sharing.
+pub fn encode_signed_invite_v3(
+    db_path: &str,
+    storage_key: StorageKey,
+    peer_id: &str,
+    enc_pubkey_hex: &str,
+    direct_multiaddr: Option<&str>,
+) -> anyhow::Result<String> {
+    let account_keypair = load_or_create_account_keypair(db_path, storage_key)?;
+    let account_id = account_identity::account_id_from_keypair(&account_keypair);
+    let meta = TransportMetaStore::open(db_path)?.load()?;
+    let epoch = meta.epoch.max(1);
+    mycelium_core::invite::encode_signed_invite_v3(
+        &account_id,
+        peer_id,
+        enc_pubkey_hex,
+        epoch,
+        &account_keypair,
+        direct_multiaddr,
+    )
+}
+
 /// Optional 32-byte master key (Android); when `None`, OS keyring or fallback is used.
 pub type StorageKey = Option<[u8; 32]>;
 

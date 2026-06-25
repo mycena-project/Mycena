@@ -57,11 +57,12 @@ pub fn relay_circuit_multiaddr(remote_peer_id: &str) -> Option<String> {
     Some(format!("{base}/p2p-circuit/p2p/{remote}"))
 }
 
-/// Shareable dial info: v1 invite first (QR: peer id only; E2E key via PeerInfo), then LAN + relay.
+/// Shareable dial info: signed v3 invite when provided, else v1, then LAN + relay.
 pub fn shareable_dial_multiaddrs(
     local_peer_id: &str,
     _enc_pubkey_hex: &str,
     listen_addrs: &[String],
+    signed_invite: Option<&str>,
 ) -> Vec<String> {
     let best_direct = listen_addrs.iter().find_map(|a| {
         let trimmed = a.trim();
@@ -79,7 +80,11 @@ pub fn shareable_dial_multiaddrs(
         })
     });
     let mut out = Vec::new();
-    out.push(crate::invite::encode_invite(local_peer_id));
+    if let Some(v3) = signed_invite.filter(|s| !s.is_empty()) {
+        out.push(v3.to_string());
+    } else {
+        out.push(crate::invite::encode_invite(local_peer_id));
+    }
     if let Some(ref direct) = best_direct {
         out.push(direct.clone());
     }

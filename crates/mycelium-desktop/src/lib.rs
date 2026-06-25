@@ -48,6 +48,8 @@ struct UiSettings {
     rendezvous_enabled: bool,
     #[serde(default)]
     display_name: Option<String>,
+    #[serde(default)]
+    listen_sos: bool,
 }
 
 fn default_rendezvous_enabled() -> bool {
@@ -59,6 +61,7 @@ impl Default for UiSettings {
         Self {
             rendezvous_enabled: true,
             display_name: None,
+            listen_sos: false,
         }
     }
 }
@@ -282,6 +285,9 @@ async fn start_node(
     let app_node = Arc::new(app_node);
     app_node.clone().start_incoming_task();
     app_node.clone().start_peer_contact_sync();
+    if ui_settings.listen_sos {
+        let _ = app_node.set_listen_sos(true).await;
+    }
     setup_inbox_emitter(app, inbox);
 
     let cap_mac_key = mycelium_app::miniapp::mac_key_from_db_path(&db_path);
@@ -331,10 +337,27 @@ async fn get_shareable_multiaddrs(state: State<'_, SharedState>) -> Result<Vec<S
         .as_ref()
         .ok_or_else(|| "node not started".to_string())?;
     let listen = s.handle.listen_addrs().await;
+    let direct = listen.iter().find_map(|a| {
+        let t = a.trim();
+        if t.contains("/ip4/") && !t.contains("127.0.0.1") && !t.contains("/p2p-circuit") {
+            Some(t.to_string())
+        } else {
+            None
+        }
+    });
+    let signed_invite = mycelium_node::encode_signed_invite_v3(
+        &s.db_path,
+        None,
+        &s.local_peer_id,
+        &s.handle.local_enc_pubkey_hex(),
+        direct.as_deref(),
+    )
+    .ok();
     Ok(mycelium_core::bootstrap::shareable_dial_multiaddrs(
         &s.local_peer_id,
         &s.handle.local_enc_pubkey_hex(),
         &listen,
+        signed_invite.as_deref(),
     ))
 }
 
@@ -354,12 +377,14 @@ fn contact_json(c: Contact) -> serde_json::Value {
     let status = match c.status {
         ContactStatus::Pending => "pending",
         ContactStatus::Accepted => "accepted",
+        ContactStatus::Blocked => "blocked",
     };
     json!({
         "peer_id": c.peer_id,
         "display_name": c.display_name,
         "added_at_ms": c.added_at_ms,
         "status": status,
+        "account_id": c.account_id,
     })
 }
 
@@ -534,6 +559,119 @@ async fn reject_contact(
         .reject_contact(&peer_id)
         .map_err(|e| e.to_string())?;
     let _ = app.emit("contacts-updated", ());
+    Ok(())
+}
+
+#[tauri::command]
+async fn block_contact(
+    app: AppHandle,
+    state: State<'_, SharedState>,
+    peer_id: String,
+) -> Result<serde_json::Value, String> {
+    let guard = state.read().await;
+    let s = guard
+        .as_ref()
+        .ok_or_else(|| "node not started".to_string())?;
+    let c = s
+        .app_node
+        .block_contact(&peer_id)
+        .map_err(|e| e.to_string())?;
+    let _ = app.emit("contacts-updated", ());
+    Ok(contact_json(c))
+}
+
+#[tauri::command]
+async fn unblock_contact(
+    app: AppHandle,
+    state: State<'_, SharedState>,
+    peer_id: String,
+) -> Result<serde_json::Value, String> {
+    let guard = state.read().await;
+    let s = guard
+        .as_ref()
+        .ok_or_else(|| "node not started".to_string())?;
+    let c = s
+        .app_node
+        .unblock_contact(&peer_id)
+        .map_err(|e| e.to_string())?;
+    let _ = app.emit("contacts-updated", ());
+    Ok(contact_json(c))
+}
+
+#[tauri::command]
+async fn get_peer_reputation(
+    state: State<'_, SharedState>,
+    peer_id: String,
+) -> Result<serde_json::Value, String> {
+    let guard = state.read().await;
+    let s = guard
+        .as_ref()
+        .ok_or_else(|| "node not started".to_string())?;
+    let rep = s.handle.peer_reputation(&peer_id).await;
+    Ok(match rep {
+        Some(r) => json!({
+            "strikes": r.strikes,
+            "last_strike_ms": r.last_strike_ms,
+            "throttled_until_ms": r.throttled_until_ms,
+        }),
+        None => json!({
+            "strikes": 0,
+            "last_strike_ms": 0,
+            "throttled_until_ms": 0,
+        }),
+    })
+}
+
+#[tauri::command]
+async fn post_sos(
+    state: State<'_, SharedState>,
+    geohash: String,
+    message: String,
+    ttl_secs: u64,
+) -> Result<(), String> {
+    let guard = state.read().await;
+    let s = guard
+        .as_ref()
+        .ok_or_else(|| "node not started".to_string())?;
+    s.app_node
+        .post_sos(&geohash, &message, ttl_secs)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn list_sos_posts(state: State<'_, SharedState>) -> Result<Vec<serde_json::Value>, String> {
+    let guard = state.read().await;
+    let s = guard
+        .as_ref()
+        .ok_or_else(|| "node not started".to_string())?;
+    Ok(s.app_node
+        .list_sos_posts()
+        .map_err(|e| e.to_string())?
+        .into_iter()
+        .map(|p| {
+            json!({
+                "geohash": p.geohash,
+                "message": p.message,
+                "created_at_ms": p.created_at_ms,
+            })
+        })
+        .collect())
+}
+
+#[tauri::command]
+async fn set_listen_sos(state: State<'_, SharedState>, enabled: bool) -> Result<(), String> {
+    let guard = state.read().await;
+    let s = guard
+        .as_ref()
+        .ok_or_else(|| "node not started".to_string())?;
+    s.app_node
+        .set_listen_sos(enabled)
+        .await
+        .map_err(|e| e.to_string())?;
+    let mut ui = load_ui_settings(&s.db_path);
+    ui.listen_sos = enabled;
+    save_ui_settings(&s.db_path, &ui)?;
     Ok(())
 }
 
@@ -1239,11 +1377,15 @@ async fn get_settings(state: State<'_, SharedState>) -> Result<serde_json::Value
     };
     let display_name = s.app_node.display_name().await;
     let connectivity = *s.connectivity_mode.read().await;
+    let ui = load_ui_settings(&s.db_path);
     Ok(json!({
         "display_name": display_name,
         "energy_state": node_state_label(s.energy_state),
         "local_peer_id": s.local_peer_id,
+        "account_id": s.handle.account_id(),
+        "transport_epoch": s.handle.transport_epoch(),
         "rendezvous_enabled": s.rendezvous_enabled,
+        "listen_sos": ui.listen_sos,
         "connectivity_mode": connectivity_label(connectivity),
     }))
 }
@@ -1515,6 +1657,12 @@ pub fn run() {
             add_contact,
             accept_contact,
             reject_contact,
+            block_contact,
+            unblock_contact,
+            get_peer_reputation,
+            post_sos,
+            list_sos_posts,
+            set_listen_sos,
             get_metrics,
             send_chat,
             peer_has_enc_key,
