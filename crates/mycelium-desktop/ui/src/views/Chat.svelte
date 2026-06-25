@@ -3,7 +3,7 @@
   // Copyright (C) 2026 Mycelium Project
   import { invoke } from "@tauri-apps/api/core";
   import { listen } from "@tauri-apps/api/event";
-  import { onMount } from "svelte";
+  import { onMount, tick } from "svelte";
 
   let { peerId } = $props();
   let selectedPeer = $state("");
@@ -80,6 +80,25 @@
     }
   }
 
+  function formatTime(timestampMs) {
+    if (!timestampMs) return "";
+    return new Date(timestampMs).toLocaleString(undefined, {
+      hour: "2-digit",
+      minute: "2-digit",
+      month: "short",
+      day: "numeric",
+    });
+  }
+
+  let messagesEl = $state(null);
+
+  async function scrollMessagesToBottom() {
+    await tick();
+    if (messagesEl) {
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+  }
+
   async function refresh() {
     await refreshContacts();
     if (selectedPeer) {
@@ -90,6 +109,7 @@
       } catch {
         peerReputation = null;
       }
+      await scrollMessagesToBottom();
     } else {
       isEncrypted = false;
       peerReputation = null;
@@ -265,7 +285,7 @@
     {#if errorMsg}
       <div class="error-banner">{errorMsg}</div>
     {/if}
-    <div class="messages">
+    <div class="messages" bind:this={messagesEl}>
       {#each messages as msg}
         <div class="msg-row" class:own={msg.is_mine}>
           <div class="msg">
@@ -273,6 +293,7 @@
               <span class="name">{msg.from_display_name}</span>
             {/if}
             <span class="body">{msg.body}</span>
+            <span class="time">{formatTime(msg.timestamp_ms)}</span>
             {#if msg.body.startsWith("📍")}
               {@const coords = extractCoordinates(msg.body)}
               {#if coords}
@@ -451,6 +472,13 @@
     line-height: 1.45;
     white-space: pre-wrap;
     word-break: break-word;
+  }
+  .time {
+    display: block;
+    margin-top: 4px;
+    font-size: 10px;
+    color: var(--text-muted);
+    text-align: right;
   }
   .maps-link {
     margin-top: 4px;

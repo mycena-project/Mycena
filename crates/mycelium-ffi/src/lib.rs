@@ -1011,13 +1011,22 @@ pub fn chat_history(peer_id: String, limit: u32) -> Vec<ChatMessage> {
     let state = state_arc();
     runtime().block_on(async {
         let state = state.read().await;
+        let my_name = state.app_node.display_name().await;
+        let local_peer_id = state.local_peer_id.clone();
         state
             .app_node
             .chat_history(&peer_id, limit as usize)
             .await
             .unwrap_or_default()
             .into_iter()
-            .map(|m| to_chat_message(m, peer_id.clone()))
+            .map(|m| {
+                let from_peer = if m.from_display_name == my_name {
+                    local_peer_id.clone()
+                } else {
+                    peer_id.clone()
+                };
+                to_chat_message(m, from_peer)
+            })
             .collect()
     })
 }

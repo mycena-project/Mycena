@@ -199,15 +199,37 @@ fn default_db_path() -> String {
 }
 
 /// Delete local Mycelium data (identity, messages, keys). Safe before first successful start.
-#[tauri::command]
-fn reset_local_data(db_path: Option<String>) -> Result<(), String> {
-    let path = db_path.unwrap_or_else(default_db_path);
-    mycelium_core::at_rest::clear_keyring_master(&path);
-    if std::path::Path::new(&path).exists() {
-        std::fs::remove_dir_all(&path).map_err(|e| format!("failed to reset local data: {e}"))?;
+fn wipe_local_data_at(path: &str) -> Result<(), String> {
+    mycelium_core::at_rest::clear_keyring_master(path);
+    if std::path::Path::new(path).exists() {
+        std::fs::remove_dir_all(path).map_err(|e| format!("failed to reset local data: {e}"))?;
         tracing::info!("reset local data at {path}");
     }
     Ok(())
+}
+
+#[tauri::command]
+fn reset_local_data(db_path: Option<String>) -> Result<(), String> {
+    let path = db_path.unwrap_or_else(default_db_path);
+    wipe_local_data_at(&path)
+}
+
+/// Stop the node, wipe local data, and restart into onboarding.
+#[tauri::command]
+async fn return_to_onboarding(app: AppHandle, state: State<'_, SharedState>) -> Result<(), String> {
+    let path = {
+        let guard = state.read().await;
+        guard
+            .as_ref()
+            .map(|s| s.db_path.clone())
+            .unwrap_or_else(default_db_path)
+    };
+    {
+        let mut guard = state.write().await;
+        *guard = None;
+    }
+    wipe_local_data_at(&path)?;
+    app.restart();
 }
 
 #[tauri::command]
@@ -1549,10 +1571,9 @@ async fn panic_wipe(app: AppHandle, state: State<'_, SharedState>) -> Result<(),
     }
 
     if let Some(path) = db_path {
-        if std::path::Path::new(&path).exists() {
-            std::fs::remove_dir_all(&path).map_err(|e| format!("failed to wipe data: {e}"))?;
-            tracing::info!("PANIC WIPE: deleted {path}");
-        }
+        wipe_local_data_at(&path)?;
+    } else {
+        wipe_local_data_at(&default_db_path())?;
     }
 
     app.restart();
@@ -1691,6 +1712,7 @@ pub fn run() {
             get_default_db_path,
             get_saved_profile,
             reset_local_data,
+            return_to_onboarding,
             start_node,
             get_peers,
             get_relay_status,

@@ -3,7 +3,7 @@
   // Copyright (C) 2026 Mycelium Project
   import { invoke } from '@tauri-apps/api/core';
   import { getVersion } from '@tauri-apps/api/app';
-  import { confirm } from '@tauri-apps/plugin-dialog';
+  import { onMount } from 'svelte';
 
   let { peerId } = $props();
 
@@ -19,6 +19,7 @@
   let gcResult = $state(null);
   let saved = $state(false);
   let appVersion = $state('');
+  let dangerError = $state('');
 
   const energyOptions = ['Active', 'Intermittent', 'Passive'];
 
@@ -56,28 +57,33 @@
   }
 
   async function panicWipe() {
-    const confirmed = await confirm(
+    dangerError = '';
+    const confirmed = window.confirm(
       'This will immediately delete ALL local messages, keys, and data. ' +
-      'The app will restart. This cannot be undone.\n\nAre you sure?',
-      { title: 'PANIC WIPE', kind: 'warning' }
+      'The app will restart. This cannot be undone.\n\nAre you sure?'
     );
-    if (confirmed) {
+    if (!confirmed) return;
+    try {
       await invoke('panic_wipe');
+    } catch (e) {
+      dangerError = e instanceof Error ? e.message : String(e);
     }
   }
 
   async function setupAgain() {
-    const confirmed = await confirm(
-      'This deletes all local chats, contacts, and keys on this Mac, then shows onboarding again.\n\nContinue?',
-      { title: 'Start fresh', kind: 'warning' }
+    dangerError = '';
+    const confirmed = window.confirm(
+      'This deletes all local chats, contacts, and keys on this Mac, then shows onboarding again.\n\nContinue?'
     );
-    if (confirmed) {
-      await invoke('reset_local_data', { dbPath: null });
-      window.location.reload();
+    if (!confirmed) return;
+    try {
+      await invoke('return_to_onboarding');
+    } catch (e) {
+      dangerError = e instanceof Error ? e.message : String(e);
     }
   }
 
-  $effect(() => {
+  onMount(() => {
     load();
     getVersion().then((v) => (appVersion = v));
   });
@@ -150,7 +156,7 @@
     {#if storeStats.oldest_ms > 0}
       <p>Oldest: <strong>{new Date(storeStats.oldest_ms).toLocaleDateString()}</strong></p>
     {/if}
-    <button onclick={runGc} class="secondary">
+    <button type="button" onclick={runGc} class="secondary">
       Clean up expired messages
     </button>
     {#if gcResult !== null}
@@ -158,7 +164,7 @@
     {/if}
   </section>
 
-  <button onclick={save} class="primary">
+  <button type="button" onclick={save} class="primary">
     {saved ? '✓ Saved' : 'Save settings'}
   </button>
 
@@ -172,40 +178,88 @@
       <strong>Start fresh</strong> — clear all local data and return to onboarding (same as checking
       “Start fresh” on setup).
     </p>
-    <button onclick={setupAgain} class="secondary danger-outline">Start fresh / onboarding</button>
+    <button type="button" onclick={setupAgain} class="secondary danger-outline">
+      Start fresh / onboarding
+    </button>
     <p>
       <strong>Panic wipe</strong> — immediately deletes all local messages,
       keys, and stored data. Use if you need to quickly clear sensitive data.
     </p>
-    <button onclick={panicWipe} class="danger">Panic wipe</button>
+    <button type="button" onclick={panicWipe} class="danger">Panic wipe</button>
+    {#if dangerError}
+      <p class="danger-error" role="alert">{dangerError}</p>
+    {/if}
   </section>
 </div>
 
 <style>
-  .settings { padding: 16px; max-width: 600px; display: flex; flex-direction: column; gap: 16px; color: var(--text); }
-  section { display: flex; flex-direction: column; gap: 10px; padding: 16px;
-            border: 1px solid var(--border); border-radius: 8px; }
+  .settings {
+    padding: 16px 16px 48px;
+    max-width: 600px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    color: var(--text);
+  }
+  section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 16px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
   h3 { font-size: 18px; font-weight: 600; margin: 0; }
-  h4 { font-size: 14px; font-weight: 600; margin: 0; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; }
+  h4 {
+    font-size: 14px;
+    font-weight: 600;
+    margin: 0;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
   label, .field-label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
   .field-label { margin: 0; }
+  .hint, .connectivity-note { font-size: 12px; color: var(--text-muted); margin: 0; }
   input, select, textarea {
-    padding: 7px 10px; border-radius: 6px; border: 1px solid var(--border);
-    background: var(--surface); color: var(--text); font-size: 13px; font-family: inherit;
+    padding: 7px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 13px;
+    font-family: inherit;
   }
   textarea { resize: vertical; font-family: ui-monospace, monospace; font-size: 12px; }
-  code.peer-id { font-family: ui-monospace, monospace; font-size: 11px;
-                 background: var(--border); padding: 4px 6px; border-radius: 4px;
-                 word-break: break-all; }
+  code.peer-id {
+    font-family: ui-monospace, monospace;
+    font-size: 11px;
+    background: var(--border);
+    padding: 4px 6px;
+    border-radius: 4px;
+    word-break: break-all;
+  }
   small { color: var(--text-muted); font-size: 11px; }
-  button { padding: 8px 16px; border-radius: 6px; border: none;
-           cursor: pointer; font-size: 13px; font-weight: 500; }
+  button {
+    padding: 8px 16px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+  }
   button.primary { background: var(--accent); color: white; }
   button.secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
-  button.danger-outline { border-color: var(--danger); color: var(--danger); margin-bottom: 8px; }
+  button.danger-outline { border-color: var(--danger, #dc2626); color: var(--danger, #dc2626); margin-bottom: 8px; }
   button.danger { background: #dc2626; color: white; }
   .success { color: var(--accent); font-size: 12px; }
   .danger-zone { border-color: #dc2626; }
   .danger-zone h4 { color: #dc2626; }
+  .danger-error { color: #dc2626; font-size: 12px; margin: 8px 0 0; }
   .version { font-size: 12px; color: var(--text-muted); margin: 0; }
+  .checkbox-row {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+  }
 </style>

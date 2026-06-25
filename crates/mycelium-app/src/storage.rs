@@ -40,6 +40,7 @@ impl AppStorage {
             let (_k, v) = item?;
             out.push(bincode::deserialize(&v)?);
         }
+        out.reverse();
         Ok(out)
     }
 
@@ -306,6 +307,7 @@ impl AppStorage {
             let (_k, v) = item?;
             out.push(bincode::deserialize(&v)?);
         }
+        out.reverse();
         Ok(out)
     }
 

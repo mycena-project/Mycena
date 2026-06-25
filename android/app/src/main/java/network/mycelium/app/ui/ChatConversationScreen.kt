@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
@@ -82,6 +83,13 @@ fun ChatConversationScreen(peerId: String, vm: ChatViewModel = viewModel()) {
     val peerReputation by vm.peerReputation(peerId).collectAsState(null)
     val localPeerId = vm.localPeerId
     val snackbarHostState = remember { SnackbarHostState() }
+    val listState = rememberLazyListState()
+
+    LaunchedEffect(messages.size, messages.lastOrNull()?.id) {
+        if (messages.isNotEmpty()) {
+            listState.animateScrollToItem(messages.lastIndex)
+        }
+    }
 
     LaunchedEffect(vm) {
         vm.uiEvent.collect { event ->
@@ -127,20 +135,11 @@ fun ChatConversationScreen(peerId: String, vm: ChatViewModel = viewModel()) {
             }
             LazyColumn(
                 modifier = Modifier.weight(1f, fill = true),
-                reverseLayout = false,
+                state = listState,
             ) {
                 items(messages, key = { it.id }) { msg ->
                     val isOwn = msg.fromPeer == localPeerId
-                    Row(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 4.dp),
-                        horizontalArrangement =
-                            if (isOwn) Arrangement.End else Arrangement.Start,
-                    ) {
-                        ChatMessageBubble(message = msg, isOwn = isOwn)
-                    }
+                    ChatMessageBubble(message = msg, isOwn = isOwn)
                 }
             }
             ChatInputRow(
