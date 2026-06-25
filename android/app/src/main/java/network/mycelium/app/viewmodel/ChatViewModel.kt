@@ -17,11 +17,10 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import network.mycelium.app.MeshEvent
 import network.mycelium.app.MeshService
+import network.mycelium.app.MeshUiState
 import network.mycelium.app.R
 import network.mycelium.app.bootstrap.RelayBootstrap
-import network.mycelium.app.meshEvents
 import network.mycelium.app.util.shareCurrentLocation
 import network.mycelium.bindings.ChatMessage
 import network.mycelium.bindings.PeerReputationData
@@ -81,58 +80,32 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             awaitNodeReady()
             val (accepted, _) = refreshContacts()
             emit(accepted)
-            appContext.meshEvents().collect {
-                when (it) {
-                    MeshEvent.Chat,
-                    MeshEvent.Contacts,
-                    MeshEvent.PeerUp,
-                    MeshEvent.PeerDown,
-                    -> {
-                        val (a, _) = refreshContacts()
-                        emit(a)
-                    }
-                    else -> Unit
-                }
+            MeshUiState.chatRevision.collect {
+                val (a, _) = refreshContacts()
+                emit(a)
             }
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+        }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     val pendingContacts: StateFlow<List<ChatListEntry>> =
         flow {
             awaitNodeReady()
             val (_, pending) = refreshContacts()
             emit(pending)
-            appContext.meshEvents().collect {
-                when (it) {
-                    MeshEvent.Chat,
-                    MeshEvent.Contacts,
-                    MeshEvent.PeerUp,
-                    MeshEvent.PeerDown,
-                    -> {
-                        val (_, p) = refreshContacts()
-                        emit(p)
-                    }
-                    else -> Unit
-                }
+            MeshUiState.chatRevision.collect {
+                val (_, p) = refreshContacts()
+                emit(p)
             }
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+        }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     /** @deprecated use [acceptedContacts] — kept for any legacy callers */
     val peers: StateFlow<List<String>> =
         flow {
             awaitNodeReady()
             emit(mycelium.listAcceptedContacts().map { it.peerId })
-            appContext.meshEvents().collect {
-                when (it) {
-                    MeshEvent.Chat,
-                    MeshEvent.Contacts,
-                    MeshEvent.PeerUp,
-                    MeshEvent.PeerDown,
-                    ->
-                        emit(mycelium.listAcceptedContacts().map { it.peerId })
-                    else -> Unit
-                }
+            MeshUiState.chatRevision.collect {
+                emit(mycelium.listAcceptedContacts().map { it.peerId })
             }
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+        }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     fun acceptContact(peerId: String) {
         viewModelScope.launch(Dispatchers.IO) {
@@ -155,36 +128,26 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     fun peerReputation(peerId: String): StateFlow<PeerReputationData?> =
         flow {
             emit(mycelium.peerReputation(peerId))
-            appContext.meshEvents().collect {
-                when (it) {
-                    MeshEvent.Chat, MeshEvent.Contacts, MeshEvent.PeerUp -> {
-                        emit(mycelium.peerReputation(peerId))
-                    }
-                    else -> Unit
-                }
+            MeshUiState.chatRevision.collect {
+                emit(mycelium.peerReputation(peerId))
             }
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+        }.stateIn(viewModelScope, SharingStarted.Lazily, null)
 
     fun chatHistory(peerId: String): Flow<List<ChatMessage>> =
         flow {
             emit(mycelium.chatHistory(peerId, 100u))
-            appContext.meshEvents().collect {
-                if (it == MeshEvent.Chat) {
-                    emit(mycelium.chatHistory(peerId, 100u))
-                }
+            MeshUiState.chatRevision.collect {
+                emit(mycelium.chatHistory(peerId, 100u))
             }
         }
 
     fun peerHasEncKey(peerId: String): StateFlow<Boolean> =
         flow {
             emit(mycelium.hasEncKeyFor(peerId))
-            appContext.meshEvents().collect {
-                when (it) {
-                    MeshEvent.Chat, MeshEvent.PeerUp -> emit(mycelium.hasEncKeyFor(peerId))
-                    else -> Unit
-                }
+            MeshUiState.chatRevision.collect {
+                emit(mycelium.hasEncKeyFor(peerId))
             }
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+        }.stateIn(viewModelScope, SharingStarted.Lazily, false)
 
     fun sendChat(toPeer: String, body: String, onSuccess: () -> Unit = {}) {
         viewModelScope.launch(Dispatchers.IO) {

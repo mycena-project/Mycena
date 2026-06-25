@@ -457,8 +457,6 @@ struct NodeState {
     coin_node: Arc<CoinNode>,
     coin_identity_path: String,
     cap_mac_key: [u8; 32],
-    db_path: String,
-    storage_key: mycelium_node::secrets::StorageKey,
     local_peer_id: String,
     crowd_mode: Arc<AtomicBool>,
     display_name: Arc<RwLock<String>>,
@@ -666,8 +664,6 @@ pub fn init_node(config: NodeConfig) {
             coin_node,
             coin_identity_path,
             cap_mac_key,
-            db_path: config.db_path.clone(),
-            storage_key,
             local_peer_id,
             crowd_mode,
             display_name: Arc::new(RwLock::new(config.display_name)),
@@ -1378,26 +1374,15 @@ pub fn get_shareable_multiaddrs() -> Vec<String> {
         let state = state_arc();
         let guard = state.read().await;
         let listen = guard.handle.listen_addrs().await;
-        let direct = listen.iter().find_map(|a| {
-            let trimmed = a.trim();
-            if trimmed.is_empty()
-                || !trimmed.contains("/ip4/")
-                || trimmed.contains("127.0.0.1")
-                || trimmed.contains("/p2p-circuit")
-            {
-                return None;
-            }
-            Some(trimmed.to_string())
-        });
         let enc = guard.handle.local_enc_pubkey_hex();
-        let signed_invite = mycelium_node::encode_signed_invite_v3(
-            &guard.db_path,
-            guard.storage_key,
-            &guard.local_peer_id,
-            &enc,
-            direct.as_deref(),
-        )
-        .ok();
+        let direct = guard
+            .handle
+            .stable_direct_multiaddr(&guard.local_peer_id)
+            .await;
+        let signed_invite = guard
+            .handle
+            .encode_signed_invite_v3(&guard.local_peer_id, direct.as_deref())
+            .ok();
         mycelium_core::bootstrap::shareable_dial_multiaddrs(
             &guard.local_peer_id,
             &enc,

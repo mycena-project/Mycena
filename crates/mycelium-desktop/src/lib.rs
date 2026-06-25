@@ -208,6 +208,20 @@ fn wipe_local_data_at(path: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// Wipe the active database path and the default data dir (when they differ).
+fn wipe_all_local_data(active_path: Option<&str>) -> Result<(), String> {
+    let default = default_db_path();
+    if let Some(path) = active_path {
+        wipe_local_data_at(path)?;
+        if path != default {
+            wipe_local_data_at(&default)?;
+        }
+    } else {
+        wipe_local_data_at(&default)?;
+    }
+    Ok(())
+}
+
 #[tauri::command]
 fn reset_local_data(db_path: Option<String>) -> Result<(), String> {
     let path = db_path.unwrap_or_else(default_db_path);
@@ -217,18 +231,15 @@ fn reset_local_data(db_path: Option<String>) -> Result<(), String> {
 /// Stop the node, wipe local data, and restart into onboarding.
 #[tauri::command]
 async fn return_to_onboarding(app: AppHandle, state: State<'_, SharedState>) -> Result<(), String> {
-    let path = {
+    let active_path = {
         let guard = state.read().await;
-        guard
-            .as_ref()
-            .map(|s| s.db_path.clone())
-            .unwrap_or_else(default_db_path)
+        guard.as_ref().map(|s| s.db_path.clone())
     };
     {
         let mut guard = state.write().await;
         *guard = None;
     }
-    wipe_local_data_at(&path)?;
+    wipe_all_local_data(active_path.as_deref())?;
     app.restart();
 }
 
@@ -380,22 +391,14 @@ async fn get_shareable_multiaddrs(state: State<'_, SharedState>) -> Result<Vec<S
         .as_ref()
         .ok_or_else(|| "node not started".to_string())?;
     let listen = s.handle.listen_addrs().await;
-    let direct = listen.iter().find_map(|a| {
-        let t = a.trim();
-        if t.contains("/ip4/") && !t.contains("127.0.0.1") && !t.contains("/p2p-circuit") {
-            Some(t.to_string())
-        } else {
-            None
-        }
-    });
-    let signed_invite = mycelium_node::encode_signed_invite_v3(
-        &s.db_path,
-        None,
-        &s.local_peer_id,
-        &s.handle.local_enc_pubkey_hex(),
-        direct.as_deref(),
-    )
-    .ok();
+    let direct = s
+        .handle
+        .stable_direct_multiaddr(&s.local_peer_id)
+        .await;
+    let signed_invite = s
+        .handle
+        .encode_signed_invite_v3(&s.local_peer_id, direct.as_deref())
+        .ok();
     Ok(mycelium_core::bootstrap::shareable_dial_multiaddrs(
         &s.local_peer_id,
         &s.handle.local_enc_pubkey_hex(),
@@ -1560,7 +1563,7 @@ async fn set_custom_bootstrap_peers(
 /// Immediately deletes all local data and restarts the app.
 #[tauri::command]
 async fn panic_wipe(app: AppHandle, state: State<'_, SharedState>) -> Result<(), String> {
-    let db_path = {
+    let active_path = {
         let guard = state.read().await;
         guard.as_ref().map(|s| s.db_path.clone())
     };
@@ -1570,12 +1573,7 @@ async fn panic_wipe(app: AppHandle, state: State<'_, SharedState>) -> Result<(),
         *guard = None;
     }
 
-    if let Some(path) = db_path {
-        wipe_local_data_at(&path)?;
-    } else {
-        wipe_local_data_at(&default_db_path())?;
-    }
-
+    wipe_all_local_data(active_path.as_deref())?;
     app.restart();
 }
 

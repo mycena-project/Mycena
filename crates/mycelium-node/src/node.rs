@@ -256,6 +256,8 @@ pub struct NodeHandle {
     listen_addrs: Arc<RwLock<Vec<String>>>,
     account_id: String,
     transport_epoch: u64,
+    account_signing_key: Arc<identity::Keypair>,
+    invite_direct_cache: Arc<RwLock<Option<String>>>,
 }
 
 impl NodeHandle {
@@ -337,6 +339,36 @@ impl NodeHandle {
 
     pub fn local_enc_pubkey_hex(&self) -> String {
         self.enc_pubkey_hex.clone()
+    }
+
+    /// Stable signed v3 invite using the account key loaded at node startup.
+    pub fn encode_signed_invite_v3(
+        &self,
+        peer_id: &str,
+        direct_multiaddr: Option<&str>,
+    ) -> anyhow::Result<String> {
+        mycelium_core::invite::encode_signed_invite_v3(
+            &self.account_id,
+            peer_id,
+            &self.enc_pubkey_hex,
+            self.transport_epoch,
+            &self.account_signing_key,
+            direct_multiaddr,
+        )
+    }
+
+    /// First stable LAN multiaddr seen; cached so the signed v3 invite QR does not flip.
+    pub async fn stable_direct_multiaddr(&self, local_peer_id: &str) -> Option<String> {
+        if let Some(cached) = self.invite_direct_cache.read().await.clone() {
+            return Some(cached);
+        }
+        let listen = self.listen_addrs().await;
+        let picked =
+            mycelium_core::bootstrap::pick_stable_lan_multiaddr(&listen, local_peer_id);
+        if let Some(ref addr) = picked {
+            *self.invite_direct_cache.write().await = Some(addr.clone());
+        }
+        picked
     }
 
     pub async fn has_enc_key_for(&self, peer: &str) -> bool {
@@ -517,6 +549,8 @@ impl NodeRunner {
         let account_id = identity.account_id.clone();
         let transport_epoch = identity.transport_meta.epoch.max(1);
         let pending_identity_rotation = identity.pending_rotation;
+        let account_signing_key = Arc::new(identity.account_keypair);
+        let invite_direct_cache = Arc::new(RwLock::new(None));
         Ok((
             Self {
                 local_peer_id,
@@ -570,6 +604,8 @@ impl NodeRunner {
                 listen_addrs,
                 account_id,
                 transport_epoch,
+                account_signing_key,
+                invite_direct_cache,
             },
         ))
     }

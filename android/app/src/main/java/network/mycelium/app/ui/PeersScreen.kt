@@ -55,7 +55,7 @@ import com.google.zxing.qrcode.QRCodeWriter
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import network.mycelium.app.PortraitQrScanActivity
 import network.mycelium.app.R
@@ -160,6 +160,12 @@ fun PeersScreen(navController: NavController, vm: PeersViewModel = viewModel()) 
     val localPeerId = mycelium.localPeerId()
     var invitePayload by remember { mutableStateOf(PeerInvite.encode(localPeerId)) }
     LaunchedEffect(localPeerId) {
+        invitePayload =
+            withContext(Dispatchers.IO) {
+                mycelium.getShareableMultiaddrs().firstOrNull()
+                    ?: PeerInvite.encode(localPeerId)
+            }
+        delay(3_000)
         invitePayload =
             withContext(Dispatchers.IO) {
                 mycelium.getShareableMultiaddrs().firstOrNull()

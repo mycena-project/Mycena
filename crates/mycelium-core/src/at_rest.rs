@@ -43,7 +43,12 @@ impl SecretVault {
         storage_key: Option<[u8; KEY_LEN]>,
     ) -> anyhow::Result<Self> {
         let vault = Self::open(db_path, storage_key)?;
-        for name in ["enc_x25519", "enc_keypair", "ed25519_identity"] {
+        for name in [
+            "account_ed25519",
+            "enc_x25519",
+            "enc_keypair",
+            "ed25519_identity",
+        ] {
             let path = vault.secrets_dir.join(format!("{name}.enc"));
             if !path.exists() {
                 continue;
@@ -191,20 +196,52 @@ fn keyring_account(db_path: &str) -> String {
 fn load_master_from_keyring(db_path: &str) -> anyhow::Result<[u8; KEY_LEN]> {
     let entry = keyring::Entry::new(SERVICE, &keyring_account(db_path))?;
     match entry.get_password() {
-        Ok(hex) => {
-            let bytes = hex::decode(hex.trim())?;
-            bytes
-                .try_into()
-                .map_err(|_| anyhow::anyhow!("invalid keyring master key length"))
-        }
+        Ok(hex) => parse_master_key_hex(&hex),
         Err(keyring::Error::NoEntry) => {
             let mut key = [0u8; KEY_LEN];
             rand::thread_rng().fill_bytes(&mut key);
-            entry.set_password(&hex::encode(key))?;
-            Ok(key)
+            let hex = hex::encode(key);
+            match entry.set_password(&hex) {
+                Ok(()) => {
+                    let _ = persist_file_fallback_key(db_path, &key);
+                    Ok(key)
+                }
+                Err(_) => match entry.get_password() {
+                    Ok(existing) => parse_master_key_hex(&existing),
+                    Err(e) => Err(e.into()),
+                },
+            }
         }
         Err(e) => Err(e.into()),
     }
+}
+
+fn parse_master_key_hex(hex: &str) -> anyhow::Result<[u8; KEY_LEN]> {
+    let bytes = hex::decode(hex.trim())?;
+    bytes
+        .try_into()
+        .map_err(|_| anyhow::anyhow!("invalid keyring master key length"))
+}
+
+fn persist_file_fallback_key(db_path: &str, key: &[u8; KEY_LEN]) -> anyhow::Result<()> {
+    let key_path = Path::new(db_path)
+        .join(".secrets")
+        .join("fallback_master.key");
+    if key_path.exists() {
+        return Ok(());
+    }
+    if let Some(parent) = key_path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let tmp_path = key_path.with_extension("tmp");
+    std::fs::write(&tmp_path, key)?;
+    std::fs::rename(&tmp_path, &key_path)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&key_path, std::fs::Permissions::from_mode(0o600))?;
+    }
+    Ok(())
 }
 
 /// Loads a persisted random key or creates one (per device, survives restarts).

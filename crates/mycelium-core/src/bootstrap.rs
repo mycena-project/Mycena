@@ -66,6 +66,26 @@ pub fn relay_circuit_multiaddr_with_relay(
     pool.circuit_multiaddr(remote_peer_id, idx)
 }
 
+/// Best LAN multiaddr for embedding in a signed v3 invite (stable, not 0.0.0.0 / loopback).
+pub fn pick_stable_lan_multiaddr(listen_addrs: &[String], local_peer_id: &str) -> Option<String> {
+    listen_addrs.iter().find_map(|a| {
+        let trimmed = a.trim();
+        if trimmed.is_empty()
+            || !trimmed.contains("/ip4/")
+            || trimmed.contains("127.0.0.1")
+            || trimmed.contains("0.0.0.0")
+            || trimmed.contains("/p2p-circuit")
+        {
+            return None;
+        }
+        Some(if trimmed.contains("/p2p/") {
+            trimmed.to_string()
+        } else {
+            format!("{trimmed}/p2p/{local_peer_id}")
+        })
+    })
+}
+
 /// Shareable dial info: signed v3 invite when provided, else v1, then LAN + relay.
 pub fn shareable_dial_multiaddrs(
     local_peer_id: &str,

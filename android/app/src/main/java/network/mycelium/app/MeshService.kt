@@ -161,6 +161,7 @@ class MeshService : Service() {
 
         nodeInitialized = true
         nodeReady = true
+        MeshUiState.start(this)
         updateBleBootstrap()
         return START_STICKY
     }

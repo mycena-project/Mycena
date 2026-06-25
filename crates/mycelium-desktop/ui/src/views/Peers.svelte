@@ -3,6 +3,7 @@
   // Copyright (C) 2026 Mycelium Project
   import { invoke } from "@tauri-apps/api/core";
   import { listen } from "@tauri-apps/api/event";
+  import { onMount } from "svelte";
   import QRCode from "qrcode";
 
   let { peerId } = $props();
@@ -15,8 +16,11 @@
   let rendezvousEnabled = $state(false);
   let connectMessage = $state("");
 
-  async function refresh() {
+  async function refreshPeers() {
     peers = await invoke("get_peers");
+  }
+
+  async function refreshInvite() {
     shareAddrs = await invoke("get_shareable_multiaddrs");
     try {
       const settings = await invoke("get_settings");
@@ -24,6 +28,10 @@
     } catch {
       rendezvousEnabled = true;
     }
+  }
+
+  async function refreshAll() {
+    await Promise.all([refreshPeers(), refreshInvite()]);
   }
 
   async function applyInvite() {
@@ -34,7 +42,7 @@
       await invoke("connect_peer_id", { peerId: raw });
       pasteInvite = "";
       connectMessage = "Connecting… watch Connected devices below.";
-      await refresh();
+      await refreshAll();
     } catch (e) {
       connectMessage = e instanceof Error ? e.message : String(e);
     }
@@ -54,20 +62,27 @@
     }
   }
 
-  $effect(() => {
-    refresh();
-    const unsubs = [];
+  onMount(() => {
+    refreshInvite();
+    // Listen addr may appear a few seconds after the node starts.
+    const retryInvite = setTimeout(refreshInvite, 3_000);
+    let unlistenMetrics = () => {};
     (async () => {
-      unsubs.push(await listen("metrics-updated", refresh));
+      unlistenMetrics = await listen("metrics-updated", refreshPeers);
     })();
-    return () => unsubs.forEach((u) => u?.());
+    return () => {
+      clearTimeout(retryInvite);
+      unlistenMetrics();
+    };
   });
 
   $effect(() => {
-    inviteUrl =
+    const nextUrl =
       shareAddrs.find((a) => a.startsWith("mycelium://invite/")) ??
       shareAddrs[0] ??
       "";
+    if (nextUrl === inviteUrl) return;
+    inviteUrl = nextUrl;
     if (!inviteUrl) {
       qr = "";
       return;
