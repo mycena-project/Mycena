@@ -26,6 +26,7 @@ typealias PresenceProfileData = uniffi.mycelium.PresenceProfileData
 typealias NearbyProfile = uniffi.mycelium.NearbyProfile
 typealias ProximityMessageData = uniffi.mycelium.ProximityMessageData
 typealias ScopeKeyInfo = uniffi.mycelium.ScopeKeyInfo
+typealias PeerReputationData = uniffi.mycelium.PeerReputationData
 
 object mycelium {
     fun initNode(config: NodeConfig) = uniffi.mycelium.initNode(config)
@@ -77,6 +78,9 @@ object mycelium {
     fun markMailRead(mailId: String) = uniffi.mycelium.markMailRead(mailId)
     fun setDisplayName(name: String) = uniffi.mycelium.setDisplayName(name)
     fun setRendezvousEnabled(enabled: Boolean) = uniffi.mycelium.setRendezvousEnabled(enabled)
+    fun setCrowdMode(enabled: Boolean) = uniffi.mycelium.setCrowdMode(enabled)
+    fun isCrowdModeEnabled(): Boolean = uniffi.mycelium.isCrowdModeEnabled()
+    fun getShareableMultiaddrs(): List<String> = uniffi.mycelium.getShareableMultiaddrs()
     fun displayName(): String = uniffi.mycelium.displayName()
     fun setEnergyState(state: EnergyState) = uniffi.mycelium.setEnergyState(state)
     fun addBootstrapPeer(multiaddr: String) = uniffi.mycelium.addBootstrapPeer(multiaddr)
@@ -106,6 +110,9 @@ object mycelium {
         uniffi.mycelium.addContact(peerId, displayName, accepted)
     fun acceptContact(peerId: String): ContactInfo = uniffi.mycelium.acceptContact(peerId)
     fun rejectContact(peerId: String) = uniffi.mycelium.rejectContact(peerId)
+    fun blockContact(peerId: String): ContactInfo = uniffi.mycelium.blockContact(peerId)
+    fun unblockContact(peerId: String): ContactInfo = uniffi.mycelium.unblockContact(peerId)
+    fun peerReputation(peerId: String): PeerReputationData? = uniffi.mycelium.peerReputation(peerId)
     fun removeContact(peerId: String) = uniffi.mycelium.removeContact(peerId)
 
     fun listGroups(): List<GroupInfo> = uniffi.mycelium.listGroups()

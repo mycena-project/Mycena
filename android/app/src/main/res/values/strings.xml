@@ -28,6 +28,8 @@
     <string name="chat_peer_subtitle_online">%1$s · online</string>
     <string name="chat_pending_requests">Contact requests</string>
     <string name="chat_reject_contact">Decline</string>
+    <string name="chat_reputation_strikes">Mesh reputation: %1$d strike(s)</string>
+    <string name="chat_block_contact">Block contact</string>
     <string name="chat_send">Send</string>
     <string name="chat_sending_encrypted">🔒 Sending encrypted…</string>
     <string name="chat_share_location">Share my location</string>
@@ -186,7 +188,7 @@
     <string name="connect_show_qr_title">Your invite QR</string>
     <string name="connect_show_qr_hint">Ask the other person to open Connect → Scan on their device.</string>
     <string name="connect_paste_label">Or paste invite link</string>
-    <string name="connect_paste_hint">mycelium://invite/v1#12D3Koo…</string>
+    <string name="connect_paste_hint">mycelium://invite/v3#…</string>
     <string name="connect_paste_button">Connect</string>
     <string name="connect_success">Connecting… check Connected devices below.</string>
     <string name="connect_camera_denied">Camera permission is required to scan QR codes.</string>
@@ -221,6 +223,8 @@
     <string name="settings_panic_description">Panic wipe immediately deletes all local messages, keys, and wallet data. Use if you need to quickly clear sensitive data from this device.</string>
     <string name="settings_rendezvous_sub">When on and both devices use the relay: auto-meet after ~45s. Same Wi‑Fi works without this.</string>
     <string name="settings_rendezvous_title">Relay discovery (remote)</string>
+    <string name="settings_crowd_mode_title">Crowd mode (festivals / dense events)</string>
+    <string name="settings_crowd_mode_sub">Caps mDNS dials and uses dense gossip tuning. Full transport limits apply after app restart.</string>
     <string name="settings_privacy_title">Network privacy</string>
     <string name="settings_legal_title">Legal</string>
     <string name="settings_privacy_policy">Privacy policy</string>

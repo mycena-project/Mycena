@@ -20,7 +20,7 @@ Not a marketing document.
 
 | Threat | Why |
 |--------|-----|
-| **Long-term tracking via PeerId** | PeerId is stable identity |
+| **Long-term tracking via PeerId** | Transport PeerId may rotate daily (SD-190 spike); stable account id remains in contact book — not full anonymity |
 | **Retroactive decrypt (1:1)** | No double ratchet; static X25519 |
 | **Group QR leak** | Single PSK; no epoch rotation on member leave |
 | **Forged unsigned wire messages** | Mitigated (SD-030) — unsigned `Data` dropped; gossip relay bodies exempt |
@@ -96,7 +96,7 @@ Treat as **preview only**:
 
 **If you are an activist or journalist:**
 
-- Assume **PeerId + IP + timing** are exposed to relay and local network observers.
+- Assume **account id + transport PeerId + IP + timing** are exposed to relay and local network observers.
 - Use **encrypted chat only** after verifying enc key exchange — app refuses send without peer enc key.
 - Do not share group invites in public channels.
 - Prefer **LAN-only** mode if Internet bootstrap is untrusted.

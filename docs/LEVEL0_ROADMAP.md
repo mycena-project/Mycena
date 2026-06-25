@@ -16,12 +16,12 @@ See also: [CONNECT.md](./CONNECT.md), [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS
 | Topic | Recommendation |
 |-------|----------------|
 | **E2E chat** | Keep X25519 + ChaCha20-Poly1305; refuse send without peer key (SD-081). |
-| **QR invites** | Default **v1** (peer ID only); key arrives via authenticated `PeerInfo`. v2 optional later with signed binding. |
+| **QR invites** | Default **v3 signed** `(account_id, peer_id, enc_pubkey, epoch)` on desktop and Android; v1/v2 parse retained. |
 | **Inbound chat** | **Pending** contacts until user accepts — do not auto-accept unknown senders. |
 | **Enc key binding** | Reject `PeerInfo` if it conflicts with a key seeded from invite (TOFU). |
-| **Daily ID rotation** | Not shipped — track as Phase C (SD-190). |
-| **Emergency help** | MeshAid + future SOS scope in main app (Phase E). |
-| **Festival scale** | Not supported today — Phase D (gossip tuning, relay pool, crowd mode). |
+| **Daily ID rotation** | **Spike shipped (Phase C)** — stable account id + daily transport PeerId rotation (SD-190). |
+| **Emergency help** | First-class **SOS** tab + MeshAid coordination (Phase E). |
+| **Festival scale** | **Mitigations shipped (Phase D)** — dense gossip, relay pool client, crowd mode; not production 100k scale. |
 
 ---
 
@@ -34,7 +34,7 @@ See also: [CONNECT.md](./CONNECT.md), [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS
 | A1 | Encryption acceptance tests (crypto roundtrip + dispatch; refuse send without key) | Done |
 | A2 | Manual test matrix (LAN, relay, QR v1/v2, reconnect, offline) | Done (doc) — manual sign-off pending |
 | A3 | `PeerInfo` ↔ invite enc-key binding (reject mismatch) | Done |
-| A4 | Default QR to **invite v1** (Android + desktop); v2 parse retained | Done |
+| A4 | Default QR to **signed invite v3** (Android + desktop); v1/v2 parse retained | Done |
 | A5 | Inbound chat → **Pending** until accept (align with DISCOVERY.md) | Done |
 
 **Exit criteria:** `cargo test --workspace` green; manual matrix passed on Mac + Pixel; pending contacts visible in Chat UI.
@@ -107,13 +107,13 @@ See also: [CONNECT.md](./CONNECT.md), [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS
 
 | Requirement | Today | Target phase |
 |-------------|-------|--------------|
-| Auto-discovery without QR (LAN) | Partial (mDNS) | B |
-| Auto-discovery without QR (remote) | QR required; rendezvous no auto-dial | D |
-| Daily ID rotation | Stable PeerId | C (spike: account id + daily transport rotate) |
-| Safe mesh participation | Partial (E2E send; auto-accept was weak) | A, C |
-| Fast connect/disconnect | Moderate | B, D |
-| Festival 100k | Not supported | D |
-| Emergency without QR | SOS scope + MeshAid mini-app | E |
+| Auto-discovery without QR (LAN) | mDNS redial + persisted keys (Phase B) | B ✓ |
+| Auto-discovery without QR (remote) | QR or opt-in rendezvous with bucketed dial (≤3/tick) | D ✓ (partial) |
+| Daily ID rotation | Transport PeerId rotates; stable account id in contact book (spike) | C ✓ (spike) |
+| Safe mesh participation | E2E send; pending contacts; block list + reputation UI | A, C ✓ |
+| Fast connect/disconnect | Moderate; crowd mode caps in dense settings | B, D |
+| Festival 100k | Not supported — D mitigations only (sim soak, not live libp2p) | D (partial) |
+| Emergency without QR | SOS scope + opt-in listen + MeshAid (Phase E) | E ✓ |
 
 ---
 

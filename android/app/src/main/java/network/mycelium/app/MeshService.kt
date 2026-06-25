@@ -73,6 +73,7 @@ class MeshService : Service() {
         val storageKeyHex = StorageKeyHelper.getOrCreateStorageKeyHex(this)
         wifiMulticastLock = WifiMulticastLock(this).also { it.acquire() }
         val rendezvousEnabled = prefs.getBoolean("rendezvous_enabled", true)
+        val crowdModeEnabled = prefs.getBoolean(SettingsViewModel.KEY_CROWD_MODE, false)
         val bulletinSubscriptions =
             prefs.getStringSet(SettingsViewModel.KEY_BULLETIN_SUBSCRIPTIONS, emptySet())
                 ?.toList()
@@ -86,10 +87,14 @@ class MeshService : Service() {
                 storageKeyHex = storageKeyHex,
                 rendezvousEnabled = rendezvousEnabled,
                 bulletinSubscriptions = bulletinSubscriptions,
+                crowdMode = crowdModeEnabled,
             ),
         )
         mycelium.setDisplayName(displayName)
         mycelium.setRendezvousEnabled(rendezvousEnabled)
+        if (crowdModeEnabled) {
+            mycelium.setCrowdMode(true)
+        }
         when (prefs.getString("energy_state", "Active")) {
             "Intermittent" -> mycelium.setEnergyState(EnergyState.INTERMITTENT)
             "Passive" -> mycelium.setEnergyState(EnergyState.PASSIVE)

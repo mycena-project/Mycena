@@ -24,6 +24,7 @@ import network.mycelium.app.bootstrap.RelayBootstrap
 import network.mycelium.app.meshEvents
 import network.mycelium.app.util.shareCurrentLocation
 import network.mycelium.bindings.ChatMessage
+import network.mycelium.bindings.PeerReputationData
 import network.mycelium.bindings.mycelium
 import uniffi.mycelium.ContactStatus
 import uniffi.mycelium.MyceliumException
@@ -144,6 +145,25 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             mycelium.rejectContact(peerId)
         }
     }
+
+    fun blockContact(peerId: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            mycelium.blockContact(peerId)
+        }
+    }
+
+    fun peerReputation(peerId: String): StateFlow<PeerReputationData?> =
+        flow {
+            emit(mycelium.peerReputation(peerId))
+            appContext.meshEvents().collect {
+                when (it) {
+                    MeshEvent.Chat, MeshEvent.Contacts, MeshEvent.PeerUp -> {
+                        emit(mycelium.peerReputation(peerId))
+                    }
+                    else -> Unit
+                }
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     fun chatHistory(peerId: String): Flow<List<ChatMessage>> =
         flow {

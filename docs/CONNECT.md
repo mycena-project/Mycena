@@ -4,7 +4,7 @@
 
 1. **Parallel paths, not either/or** — When the internet is available, Mycelium still runs **all** discovery layers: same Wi‑Fi (mDNS), public relay bootstrap, and optional relay rendezvous. Internet does **not** disable local mesh.
 2. **Local first** — On the same Wi‑Fi, devices should connect **without** QR or relay (automatic mDNS dial).
-3. **QR for trust + remote** — One QR scan (or pasted invite) establishes a **relay circuit** and an **accepted contact** for chat. E2E keys arrive via authenticated `PeerInfo` after connect (invite v1); v2 optionally embeds the key in the QR.
+3. **QR for trust + remote** — One QR scan (or pasted invite) establishes a **relay circuit** and an **accepted contact** for chat. Default QR is **signed v3** (account id + transport peer id + enc key + epoch). v1/v2 still parse for legacy codes.
 4. **Relay discovery is optional** — Rendezvous helps two devices on different networks find each other **when both are online on the relay** and both opted in. It is not a global phone book.
 
 ## What users should do
@@ -23,16 +23,16 @@
 | Bootstrap relay | On | Always dials `mycelium-relay.fly.dev`; NAT traversal via `/p2p-circuit`. |
 | mDNS | On (LAN) | Discovers peers on LAN; **dials** discovered multiaddrs. |
 | Rendezvous | **On** for new installs | Register on relay + **bucketed** selective dial of opted-in peers (~45s tick, ≤3/tick). Turn off in Settings for privacy. |
-| Crowd mode | Off | Festivals / dense LAN: cap mDNS dials, dense gossip, lower peer cap (~20). Enable in Settings; restart for full transport limits. |
+| Crowd mode | Off | Festivals / dense LAN: cap mDNS dials, dense gossip, lower peer cap (~20). Enable in Settings (desktop + Android); restart for full transport limits. |
 | BLE | Off | Proximity notification only — does **not** auto-connect peers today. |
 
 ## Invite format
 
 ```
-mycelium://invite/v1#<peerId>                                      (legacy QR)
-mycelium://invite/v2#<peerId>|<encPubkeyHex>[|<directMultiaddr>]   (optional; still parsed)
 mycelium://invite/v3#<accountId>|<peerId>|<encPubkeyHex>|<epoch>|<sigHex>[|<directMultiaddr>]
-                                                                   (default desktop QR; signed)
+                                                                   (default QR on desktop + Android)
+mycelium://invite/v1#<peerId>                                      (legacy; still parsed)
+mycelium://invite/v2#<peerId>|<encPubkeyHex>[|<directMultiaddr>]   (legacy; still parsed)
 ```
 
 E2E encryption uses the peer’s X25519 key from **`PeerInfo`** on connect (v1). v2 seeds the key immediately from the QR (trust-on-first-use). **v3** binds account id, transport peer id, enc key, and epoch with an Ed25519 signature — malformed or tampered invites are rejected at parse time.

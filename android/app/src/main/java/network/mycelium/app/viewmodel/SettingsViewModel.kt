@@ -108,5 +108,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         const val PREFS_NAME = "settings"
         const val KEY_BLE_BOOTSTRAP = "ble_bootstrap_enabled"
         const val KEY_BULLETIN_SUBSCRIPTIONS = "bulletin_subscriptions"
+        const val KEY_CROWD_MODE = "crowd_mode_enabled"
     }
 }

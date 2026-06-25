@@ -81,6 +81,9 @@ namespace mycelium {
   string display_name();
   void set_energy_state(EnergyState state);
   void set_rendezvous_enabled(boolean enabled);
+  void set_crowd_mode(boolean enabled);
+  boolean is_crowd_mode_enabled();
+  sequence<string> get_shareable_multiaddrs();
   void add_bootstrap_peer(string multiaddr);
   [Throws=MyceliumException]
   void connect_invite(string raw);
@@ -153,6 +156,8 @@ dictionary NodeConfig {
   boolean rendezvous_enabled;
   /// Bulletin scopes subscribed at startup (opt-in).
   sequence<string> bulletin_subscriptions;
+  /// Dense-event tuning: cap mDNS dials, dense gossip (transport limits apply at node start).
+  boolean crowd_mode;
 };
 
 dictionary NodeMetrics {

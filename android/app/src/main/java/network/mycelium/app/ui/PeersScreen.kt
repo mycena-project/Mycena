@@ -158,10 +158,14 @@ fun PeersScreen(navController: NavController, vm: PeersViewModel = viewModel()) 
     val networkPeers by vm.networkPeers.collectAsState()
     val metrics by vm.metrics.collectAsState()
     val localPeerId = mycelium.localPeerId()
-    val invitePayload =
-        remember(localPeerId) {
-            PeerInvite.encode(localPeerId)
-        }
+    var invitePayload by remember { mutableStateOf(PeerInvite.encode(localPeerId)) }
+    LaunchedEffect(localPeerId) {
+        invitePayload =
+            withContext(Dispatchers.IO) {
+                mycelium.getShareableMultiaddrs().firstOrNull()
+                    ?: PeerInvite.encode(localPeerId)
+            }
+    }
     val qrBitmap = remember(invitePayload) { generateQrCode(invitePayload, 640) }
     var showMyQr by remember { mutableStateOf(false) }
     var pasteInvite by remember { mutableStateOf("") }

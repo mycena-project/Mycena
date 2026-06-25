@@ -15,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -78,6 +79,7 @@ fun EncryptionBadge(isEncrypted: Boolean) {
 fun ChatConversationScreen(peerId: String, vm: ChatViewModel = viewModel()) {
     val messages by vm.chatHistory(peerId).collectAsState(emptyList())
     val hasEncKey by vm.peerHasEncKey(peerId).collectAsState(false)
+    val peerReputation by vm.peerReputation(peerId).collectAsState(null)
     val localPeerId = vm.localPeerId
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -101,6 +103,27 @@ fun ChatConversationScreen(peerId: String, vm: ChatViewModel = viewModel()) {
                 horizontalArrangement = Arrangement.Center,
             ) {
                 EncryptionBadge(isEncrypted = hasEncKey)
+            }
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text =
+                        stringResource(
+                            R.string.chat_reputation_strikes,
+                            peerReputation?.strikes?.toInt() ?: 0,
+                        ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedButton(onClick = { vm.blockContact(peerId) }) {
+                    Text(stringResource(R.string.chat_block_contact))
+                }
             }
             LazyColumn(
                 modifier = Modifier.weight(1f, fill = true),

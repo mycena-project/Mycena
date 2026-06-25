@@ -137,7 +137,7 @@
     <h3>Paste from the other device</h3>
     <textarea
       bind:value={pasteInvite}
-      placeholder="mycelium://invite/v1#12D3Koo…"
+      placeholder="mycelium://invite/v3#…"
       rows="3"
     ></textarea>
     <button type="button" onclick={applyInvite} disabled={!pasteInvite.trim()}>Connect</button>

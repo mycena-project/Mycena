@@ -24,6 +24,7 @@ use mycelium_node::{
 };
 use once_cell::sync::{Lazy, OnceCell};
 use std::collections::HashSet;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use tokio::runtime::Runtime;
 use tokio::sync::RwLock;
@@ -59,6 +60,7 @@ pub struct NodeConfig {
     pub storage_key_hex: Option<String>,
     pub rendezvous_enabled: bool,
     pub bulletin_subscriptions: Vec<String>,
+    pub crowd_mode: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -455,7 +457,10 @@ struct NodeState {
     coin_node: Arc<CoinNode>,
     coin_identity_path: String,
     cap_mac_key: [u8; 32],
+    db_path: String,
+    storage_key: mycelium_node::secrets::StorageKey,
     local_peer_id: String,
+    crowd_mode: Arc<AtomicBool>,
     display_name: Arc<RwLock<String>>,
     runner_task: tokio::task::JoinHandle<anyhow::Result<()>>,
     peer_watch_task: tokio::task::JoinHandle<()>,
@@ -507,7 +512,7 @@ pub fn init_node(config: NodeConfig) {
             rendezvous_enabled: config.rendezvous_enabled,
             bulletin_subscriptions: config.bulletin_subscriptions.clone(),
             max_peers: 50,
-            crowd_mode: false,
+            crowd_mode: config.crowd_mode,
         };
 
         let (runner, handle) =
@@ -653,6 +658,7 @@ pub fn init_node(config: NodeConfig) {
         });
 
         let cap_mac_key = mycelium_app::miniapp::mac_key_from_db_path(&config.db_path);
+        let crowd_mode = Arc::new(AtomicBool::new(config.crowd_mode));
         let state = Arc::new(RwLock::new(NodeState {
             handle,
             app_node,
@@ -660,7 +666,10 @@ pub fn init_node(config: NodeConfig) {
             coin_node,
             coin_identity_path,
             cap_mac_key,
+            db_path: config.db_path.clone(),
+            storage_key,
             local_peer_id,
+            crowd_mode,
             display_name: Arc::new(RwLock::new(config.display_name)),
             runner_task,
             peer_watch_task,
@@ -1340,6 +1349,53 @@ pub fn set_rendezvous_enabled(enabled: bool) {
             .send(NodeCommand::SetRendezvousEnabled(enabled))
             .await;
     });
+}
+
+pub fn set_crowd_mode(enabled: bool) {
+    let state = state_arc();
+    runtime().block_on(async {
+        let st = state.read().await;
+        st.crowd_mode.store(enabled, Ordering::Relaxed);
+        let _ = st.handle.send(NodeCommand::SetCrowdMode(enabled)).await;
+    });
+}
+
+pub fn is_crowd_mode_enabled() -> bool {
+    with_state(|state| state.crowd_mode.load(Ordering::Relaxed))
+}
+
+pub fn get_shareable_multiaddrs() -> Vec<String> {
+    runtime().block_on(async {
+        let state = state_arc();
+        let guard = state.read().await;
+        let listen = guard.handle.listen_addrs().await;
+        let direct = listen.iter().find_map(|a| {
+            let trimmed = a.trim();
+            if trimmed.is_empty()
+                || !trimmed.contains("/ip4/")
+                || trimmed.contains("127.0.0.1")
+                || trimmed.contains("/p2p-circuit")
+            {
+                return None;
+            }
+            Some(trimmed.to_string())
+        });
+        let enc = guard.handle.local_enc_pubkey_hex();
+        let signed_invite = mycelium_node::encode_signed_invite_v3(
+            &guard.db_path,
+            guard.storage_key,
+            &guard.local_peer_id,
+            &enc,
+            direct.as_deref(),
+        )
+        .ok();
+        mycelium_core::bootstrap::shareable_dial_multiaddrs(
+            &guard.local_peer_id,
+            &enc,
+            &listen,
+            signed_invite.as_deref(),
+        )
+    })
 }
 
 pub fn add_bootstrap_peer(multiaddr: String) {

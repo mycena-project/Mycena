@@ -77,6 +77,7 @@ private const val PREFS_NAME = "settings"
 private const val KEY_BOOTSTRAP_PEERS = "bootstrap_peers"
 private const val KEY_ENERGY_STATE = "energy_state"
 private const val KEY_RENDEZVOUS = "rendezvous_enabled"
+private const val KEY_CROWD_MODE = SettingsViewModel.KEY_CROWD_MODE
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -96,6 +97,9 @@ fun SettingsScreen(navController: NavController) {
     var saved by remember { mutableStateOf(false) }
     var rendezvousEnabled by remember {
         mutableStateOf(prefs.getBoolean(KEY_RENDEZVOUS, true))
+    }
+    var crowdModeEnabled by remember {
+        mutableStateOf(prefs.getBoolean(KEY_CROWD_MODE, false))
     }
 
     Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.settings_title)) }) }) { padding ->
@@ -170,6 +174,31 @@ fun SettingsScreen(navController: NavController) {
                         rendezvousEnabled = enabled
                         prefs.edit().putBoolean(KEY_RENDEZVOUS, enabled).apply()
                         mycelium.setRendezvousEnabled(enabled)
+                    },
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        stringResource(R.string.settings_crowd_mode_title),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(
+                        stringResource(R.string.settings_crowd_mode_sub),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = crowdModeEnabled,
+                    onCheckedChange = { enabled ->
+                        crowdModeEnabled = enabled
+                        prefs.edit().putBoolean(KEY_CROWD_MODE, enabled).apply()
+                        mycelium.setCrowdMode(enabled)
                     },
                 )
             }

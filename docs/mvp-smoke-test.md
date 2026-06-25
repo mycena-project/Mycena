@@ -215,8 +215,8 @@ Expect `"status": "ok"` and `"connections"` ≥ 1 when at least one client is on
 |---|----------|-------|---------------|
 | 1 | **LAN only** | Same Wi‑Fi; relay reachable or not | Connect tab shows peer; chat works without re-scan |
 | 2 | **Relay only** | Different networks (or disable Wi‑Fi on one device) | QR scan connects via circuit; chat works |
-| 3 | **QR v1** | Default QR (peer ID only) | Scan connects; E2E badge after `PeerInfo` (~few seconds) |
-| 4 | **QR v2** | Paste v2 invite manually if testing legacy codes | Still parses; enc key seeded from QR |
+| 3 | **QR v3** | Default QR shows **v3 signed** invite (`mycelium://invite/v3#…`); E2E badge after connect |
+| 4 | **QR v2 (legacy)** | Paste v2 invite manually if testing legacy codes | Still parses; enc key seeded from QR |
 | 5 | **Reconnect** | Force-quit both apps; reopen | Chat works without re-scan (may need brief wait for dial) |
 | 6 | **Airplane mode** | Wi‑Fi on, cellular off (or full offline LAN) | mDNS path still finds peer on same LAN |
 
@@ -227,13 +227,13 @@ Manual spot-check (automated in `cargo test`):
 - Scan valid QR from trusted peer → chat encrypts.
 - If testing with forged v2 (wrong enc key in invite): connection may succeed but decrypt should fail or key mismatch logged — do not treat as trusted.
 
-### A4 — QR default v1
+### A4 — QR default v3 (signed)
 
 | Platform | Check |
 |----------|-------|
-| Android Connect → Show QR | Payload starts with `mycelium://invite/v1#` |
-| Desktop Connect → QR | Same v1 prefix |
-| Scan still accepts v2 pasted invites | Manual paste of v2 string still connects |
+| Android Connect → Show QR | Payload starts with `mycelium://invite/v3#` |
+| Desktop Connect → QR | Same v3 signed prefix |
+| Scan still accepts v1/v2 pasted invites | Manual paste of legacy strings still connects |
 
 ### A5 — Pending inbound contacts
 
@@ -269,10 +269,10 @@ Manual spot-check (automated in `cargo test`):
 
 | # | Scenario | Pass criteria |
 |---|----------|---------------|
-| 1 | Desktop QR | Shows **v3 signed** invite (`mycelium://invite/v3#…`); tampered paste rejected |
-| 2 | Block contact | Block in Chat → inbound messages ignored; unblock restores |
-| 3 | Reputation | Chat shows strike count from mesh ingest |
-| 4 | SOS (opt-in) | Settings → listen off by default; post SOS with geohash; rate limit under spam |
+| 1 | Desktop + Android QR | Shows **v3 signed** invite (`mycelium://invite/v3#…`); tampered paste rejected |
+| 2 | Block contact | Block in Chat (desktop + Android) → inbound messages ignored |
+| 3 | Reputation | Chat shows strike count from mesh ingest (desktop + Android) |
+| 4 | SOS (opt-in) | **SOS tab** → listen off by default; post SOS with geohash; rate limit under spam |
 | 5 | Identity rotation | After 24h (or `MYCELIUM_TRANSPORT_ROTATION_SECS=0` test), restart → new PeerId, contact book keeps account mapping |
 
 ---
@@ -284,7 +284,7 @@ Manual spot-check (automated in `cargo test`):
 | 1 | Dense gossip | `MYCELIUM_MESH_PROFILE=dense` or crowd mode → node logs dense mesh; `cargo test -p mycelium-core mesh_profile` green |
 | 2 | Relay pool | Multiple TCP bootstrap relays in `bootstrap.txt` → client dials each; circuit uses hash-rotated relay |
 | 3 | Relay failover | Kill primary relay TCP session → logs `relay failover`; circuit still works via next pool entry |
-| 4 | Crowd mode | Settings → crowd mode on, restart → mDNS dial cap (3/min), max ~20 direct peers, bulletin scopes subscribed first |
+| 4 | Crowd mode | Settings → crowd mode on, **restart app** → mDNS dial cap (3/min), max ~20 direct peers, bulletin scopes subscribed first (desktop + Android) |
 | 5 | Rendezvous dial | Both opt in → logs `rendezvous bucket X/Y: dialing N` (≤3 peers/tick), not full-list storm |
 | 6 | Sim soak | `cargo test -p mycelium-sim festival_relay_soak` — 500 virtual nodes, no single relay >45% load |
 
