@@ -5,6 +5,7 @@ pub mod connectivity;
 mod forwarding;
 mod ingest_guard;
 mod node;
+mod peer_enc_keys;
 pub mod secrets;
 pub mod security;
 mod storage;

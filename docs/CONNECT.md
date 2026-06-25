@@ -45,9 +45,11 @@ Dial target (relay): `/ip4/<relay-ip>/tcp/4001/p2p/<relay>/p2p-circuit/p2p/<peer
 ## Known limits
 
 - Rendezvous only lists peers **currently connected** to the relay and opted in.
-- Hotspot / guest Wi‑Fi may block mDNS; use QR.
+- Hotspot / **guest Wi‑Fi** often blocks device-to-device traffic and mDNS — use QR + relay instead.
+- **Local mesh mode** activates automatically when the public relay is unreachable; the app prioritizes LAN (`mDNS`) dials. Same-subnet Wi‑Fi still required for zero-QR discovery.
 - Desktop has no camera; phone scans Mac’s QR or Mac pastes phone’s invite.
-- **Bluetooth** does not pair devices yet (Wi‑Fi / relay / QR only).
+- **Bluetooth** advertises the app only — it does not establish mesh links yet (Phase B3 stretch).
+- E2E keys learned from peers are **persisted on disk** after connect; chat works across app restarts without re-scanning (Phase B2).
 
 ## After code changes
 

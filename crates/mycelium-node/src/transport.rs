@@ -387,6 +387,42 @@ impl Libp2pTransport {
         }
     }
 
+    /// Redial private LAN addresses from bootstrap/mDNS cache (Phase B1).
+    fn dial_lan_bootstrap_peers(&mut self) {
+        for addr in self.bootstrap_peers.clone() {
+            if Self::is_circuit_dial(&addr) || !Self::is_private_lan_multiaddr(&addr) {
+                continue;
+            }
+            let Some(peer_id) = peer_id_from_parsed_multiaddr(&addr) else {
+                continue;
+            };
+            if peer_id == self.local_peer_id || is_relay_peer(&peer_id.to_string()) {
+                continue;
+            }
+            if self.swarm.is_connected(&peer_id) {
+                continue;
+            }
+            match self.swarm.dial(addr.clone()) {
+                Ok(()) => tracing::debug!("LAN redial {addr}"),
+                Err(e) => tracing::debug!("LAN redial {addr}: {e}"),
+            }
+        }
+    }
+
+    fn is_private_lan_multiaddr(addr: &Multiaddr) -> bool {
+        use libp2p::multiaddr::Protocol;
+        for p in addr.iter() {
+            if let Protocol::Ip4(ip) = p {
+                let o = ip.octets();
+                return o[0] == 10
+                    || (o[0] == 172 && (16..=31).contains(&o[1]))
+                    || (o[0] == 192 && o[1] == 168)
+                    || (o[0] == 169 && o[1] == 254);
+            }
+        }
+        false
+    }
+
     fn handle_connection_established(&mut self, peer_id: PeerId) -> bool {
         if peer_id == self.local_peer_id || is_relay_peer(&peer_id.to_string()) {
             return false;
@@ -441,7 +477,9 @@ impl Libp2pTransport {
         self.apply_kad_connectivity(action);
         match mode {
             ConnectivityMode::Internet => {}
-            ConnectivityMode::MeshOnly => {}
+            ConnectivityMode::MeshOnly => {
+                self.dial_lan_bootstrap_peers();
+            }
         }
     }
 }
@@ -492,8 +530,10 @@ impl MeshTransport for Libp2pTransport {
     }
 
     fn redial_stored_targets(&mut self) {
+        self.dial_lan_bootstrap_peers();
         self.try_deferred_circuit_dials();
         self.dial_all_bootstraps();
+        self.dial_lan_bootstrap_peers();
         self.try_deferred_circuit_dials();
     }
 
@@ -611,8 +651,13 @@ impl Libp2pTransport {
                         self.bootstrap_peers.push(dial_addr.clone());
                     }
                     tracing::info!("mDNS discovered {peer} at {addr}, dialing {dial_addr}");
-                    if let Err(e) = self.swarm.dial(dial_addr) {
+                    if let Err(e) = self.swarm.dial(dial_addr.clone()) {
                         tracing::debug!("mDNS dial to {peer}: {e}");
+                    }
+                    if !self.swarm.is_connected(&peer) {
+                        if let Err(e) = self.swarm.dial(dial_addr) {
+                            tracing::debug!("mDNS redial to {peer}: {e}");
+                        }
                     }
                 }
             }

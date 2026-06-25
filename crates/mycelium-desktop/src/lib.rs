@@ -10,6 +10,7 @@ use mycelium_app::storage::AppStorage;
 use mycelium_coin::{address_from_keypair, CoinNode, CoinTransport, LocalLedger};
 use mycelium_core::bootstrap::{load_custom_bootstrap_peers, save_custom_bootstrap_peers};
 use mycelium_core::energy::NodeState;
+use mycelium_core::transport::ConnectivityMode;
 use mycelium_node::{NodeCommand, NodeConfig, NodeHandle, NodeRunner};
 use serde_json::json;
 use std::path::PathBuf;
@@ -29,6 +30,14 @@ pub struct AppState {
     cap_mac_key: [u8; 32],
     energy_state: NodeState,
     rendezvous_enabled: bool,
+    connectivity_mode: Arc<RwLock<ConnectivityMode>>,
+}
+
+fn connectivity_label(mode: ConnectivityMode) -> &'static str {
+    match mode {
+        ConnectivityMode::Internet => "internet",
+        ConnectivityMode::MeshOnly => "mesh_only",
+    }
 }
 
 type SharedState = Arc<RwLock<Option<AppState>>>;
@@ -200,6 +209,18 @@ async fn start_node(
     ui_to_save.display_name = Some(display_name.clone());
     save_ui_settings(&db_path, &ui_to_save)?;
     let connectivity = mycelium_node::ConnectivityMonitor::new();
+    let mut mode_rx = connectivity.mode_rx.clone();
+    let connectivity_mode = Arc::new(RwLock::new(*mode_rx.borrow()));
+    let connectivity_watch = connectivity_mode.clone();
+    tokio::spawn(async move {
+        loop {
+            if mode_rx.changed().await.is_err() {
+                break;
+            }
+            let mode = *mode_rx.borrow();
+            *connectivity_watch.write().await = mode;
+        }
+    });
     mycelium_node::ConnectivityMonitor::spawn_monitor(connectivity.mode_tx.clone());
     let config = NodeConfig {
         listen_addr: "/ip4/0.0.0.0/tcp/0".parse().expect("valid listen addr"),
@@ -276,6 +297,7 @@ async fn start_node(
         cap_mac_key,
         energy_state: NodeState::Active,
         rendezvous_enabled: ui_settings.rendezvous_enabled,
+        connectivity_mode: connectivity_mode.clone(),
     });
 
     Ok(local_peer_id)
@@ -1200,17 +1222,29 @@ fn parse_energy_state(energy_state: &str) -> Result<NodeState, String> {
 }
 
 #[tauri::command]
+async fn get_connectivity_mode(state: State<'_, SharedState>) -> Result<String, String> {
+    let guard = state.read().await;
+    let Some(s) = guard.as_ref() else {
+        return Ok("unknown".into());
+    };
+    let mode = *s.connectivity_mode.read().await;
+    Ok(connectivity_label(mode).to_string())
+}
+
+#[tauri::command]
 async fn get_settings(state: State<'_, SharedState>) -> Result<serde_json::Value, String> {
     let guard = state.read().await;
     let Some(s) = guard.as_ref() else {
         return Ok(json!({}));
     };
     let display_name = s.app_node.display_name().await;
+    let connectivity = *s.connectivity_mode.read().await;
     Ok(json!({
         "display_name": display_name,
         "energy_state": node_state_label(s.energy_state),
         "local_peer_id": s.local_peer_id,
         "rendezvous_enabled": s.rendezvous_enabled,
+        "connectivity_mode": connectivity_label(connectivity),
     }))
 }
 
@@ -1428,12 +1462,14 @@ fn setup_event_emitter(app_handle: AppHandle, state: SharedState) {
                     }
                 }
             }
+            let connectivity = *s.connectivity_mode.read().await;
             let _ = app_handle.emit(
                 "metrics-updated",
                 json!({
                     "forwarded": metrics.messages_forwarded,
                     "queue": metrics.pending_queue_size,
                     "peers": peers,
+                    "connectivity": connectivity_label(connectivity),
                 }),
             );
         }
@@ -1513,6 +1549,7 @@ pub fn run() {
             miniapp_set_safe_mode,
             miniapp_report_app,
             get_settings,
+            get_connectivity_mode,
             set_display_name,
             set_energy_state,
             set_rendezvous_enabled,

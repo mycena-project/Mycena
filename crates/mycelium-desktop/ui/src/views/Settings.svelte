@@ -11,6 +11,7 @@
   let energyState = $state('Active');
   let bootstrapPeers = $state('');
   let rendezvousEnabled = $state(false);
+  let connectivityMode = $state("internet");
   let storeStats = $state({ count: 0, oldest_ms: 0 });
   let gcResult = $state(null);
   let saved = $state(false);
@@ -23,6 +24,7 @@
     displayName = settings.display_name ?? '';
     energyState = settings.energy_state ?? 'Active';
     rendezvousEnabled = settings.rendezvous_enabled ?? true;
+    connectivityMode = settings.connectivity_mode ?? "internet";
     storeStats = await invoke('get_store_stats');
     const custom = await invoke('get_custom_bootstrap_peers');
     bootstrapPeers = custom.join('\n');
@@ -91,6 +93,10 @@
 
   <section>
     <h4>Network</h4>
+    <p class="connectivity-note">
+      Mode: <strong>{connectivityMode === "mesh_only" ? "Local mesh" : "Internet + mesh"}</strong>
+      — switches automatically when the public relay is unreachable.
+    </p>
     <label>
       Energy mode
       <select bind:value={energyState}>

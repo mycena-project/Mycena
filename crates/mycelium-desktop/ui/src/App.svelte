@@ -34,6 +34,7 @@
     { id: "miniapp", label: "Mini apps" },
     { id: "settings", label: "Settings" },
   ];
+  let connectivityMode = $state("internet");
 
   async function startNode(config) {
     peerId = await invoke("start_node", {
@@ -65,6 +66,9 @@
       peers = event.payload.peers ?? 0;
       forwarded = event.payload.forwarded ?? 0;
       queue = event.payload.queue ?? 0;
+      if (event.payload.connectivity) {
+        connectivityMode = event.payload.connectivity;
+      }
     });
     return () => unlisten();
   });
@@ -93,7 +97,7 @@
       </div>
     </nav>
     <main>
-      <ConnectionStatus peerCount={peers} />
+      <ConnectionStatus peerCount={peers} {connectivityMode} />
       {#if activeView === "chat"}
         <Chat {peerId} />
       {:else if activeView === "groups"}

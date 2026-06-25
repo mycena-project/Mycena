@@ -3,12 +3,14 @@
   // Copyright (C) 2026 Mycelium Project
   import { onMount } from "svelte";
 
-  let { peerCount = 0 } = $props();
+  let { peerCount = 0, connectivityMode = "internet" } = $props();
 
   let showConnected = $state(false);
   let showSearching = $state(false);
   let prevPeers = $state(0);
   let searchingTimer;
+
+  const meshOnly = $derived(connectivityMode === "mesh_only");
 
   const SEARCHING_INITIAL_MS = 25_000;
   const SEARCHING_PULSE_MS = 20_000;
@@ -60,10 +62,18 @@
   });
 </script>
 
+<div class="status-bar">
+  <span class="mode-pill" class:mesh={meshOnly}>
+    {meshOnly ? "Local mesh (relay offline)" : "Internet + mesh"}
+  </span>
+</div>
+
 {#if showSearching && peerCount === 0}
   <div class="status-banner searching">
     <span class="spinner"></span>
-    Searching for peers via relay…
+    {meshOnly
+      ? "Searching for peers on your local network…"
+      : "Searching for peers (LAN + relay)…"}
   </div>
 {:else if showConnected}
   <div class="status-banner connected">
@@ -73,6 +83,24 @@
 {/if}
 
 <style>
+  .status-bar {
+    padding: 6px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface-elevated);
+  }
+  .mode-pill {
+    display: inline-block;
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: var(--accent-subtle);
+    color: var(--text-secondary);
+  }
+  .mode-pill.mesh {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
   .status-banner {
     padding: 8px 16px;
     font-size: 12px;

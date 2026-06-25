@@ -387,6 +387,19 @@ pub struct NodeRunner {
     relay_identity: RelayIdentity,
     bulletin_subscriptions: Arc<RwLock<Vec<String>>>,
     ingest_guard: IngestGuard,
+    peer_enc_store: Arc<crate::peer_enc_keys::PeerEncKeyStore>,
+}
+
+async fn persist_peer_enc_key(
+    peer_x25519: Arc<RwLock<HashMap<String, [u8; 32]>>>,
+    peer_enc_store: Arc<crate::peer_enc_keys::PeerEncKeyStore>,
+    peer_id: String,
+    key: [u8; 32],
+) {
+    peer_x25519.write().await.insert(peer_id.clone(), key);
+    if let Err(e) = peer_enc_store.save(&peer_id, &key) {
+        warn!("failed to persist enc key for {peer_id}: {e}");
+    }
 }
 
 impl NodeRunner {
@@ -441,7 +454,15 @@ impl NodeRunner {
         let enc_keypair =
             crate::secrets::load_or_create_enc_keypair(&config.db_path, config.storage_key)?;
         let enc_pubkey_hex = enc_keypair.public_hex();
-        let peer_x25519 = Arc::new(RwLock::new(HashMap::new()));
+        let peer_enc_store = Arc::new(crate::peer_enc_keys::PeerEncKeyStore::open(&config.db_path)?);
+        let initial_enc = peer_enc_store.load_all().unwrap_or_else(|e| {
+            warn!("could not load persisted peer enc keys: {e}");
+            HashMap::new()
+        });
+        if !initial_enc.is_empty() {
+            info!("loaded {} persisted peer enc key(s)", initial_enc.len());
+        }
+        let peer_x25519 = Arc::new(RwLock::new(initial_enc));
         let listen_addrs = Arc::new(RwLock::new(Vec::new()));
         let display_name = config.display_name.clone();
         let store = Arc::new(SledMessageStore::open(&config.db_path)?);
@@ -490,6 +511,7 @@ impl NodeRunner {
                 relay_identity: relay_identity.clone(),
                 bulletin_subscriptions: bulletin_subscriptions.clone(),
                 ingest_guard: IngestGuard::new(),
+                peer_enc_store,
             },
             NodeHandle {
                 tx,
@@ -721,10 +743,13 @@ impl NodeRunner {
                     .copied();
                 match crypto::verify_enc_pubkey_update(existing.as_ref(), &enc_pubkey_hex) {
                     Ok(bytes) => {
-                        self.peer_x25519
-                            .write()
-                            .await
-                            .insert(peer_id.clone(), bytes);
+                        persist_peer_enc_key(
+                            self.peer_x25519.clone(),
+                            self.peer_enc_store.clone(),
+                            peer_id.clone(),
+                            bytes,
+                        )
+                        .await;
                         info!("seeded enc key for {peer_id} from invite");
                     }
                     Err(e) => {
@@ -943,7 +968,6 @@ impl NodeRunner {
                     peers.retain(|p| p != &peer_id);
                 }
                 self.peer_scopes.remove(&peer_id);
-                self.peer_x25519.write().await.remove(&peer_id);
             }
             TransportEvent::DirectReceived { from_peer, message } => {
                 self.handle_incoming_direct(from_peer, message).await?;
@@ -1374,10 +1398,13 @@ impl NodeRunner {
                     .copied();
                 match crypto::verify_enc_pubkey_update(existing.as_ref(), &enc_pubkey_hex) {
                     Ok(bytes) => {
-                        self.peer_x25519
-                            .write()
-                            .await
-                            .insert(from_peer.clone(), bytes);
+                        persist_peer_enc_key(
+                            self.peer_x25519.clone(),
+                            self.peer_enc_store.clone(),
+                            from_peer.clone(),
+                            bytes,
+                        )
+                        .await;
                     }
                     Err(e) => {
                         warn!(
@@ -1410,10 +1437,14 @@ impl NodeRunner {
                         mycelium_core::e2e_direct_wrap::unwrap_inner(&plain, &from_peer);
                     match crypto::parse_x25519_public_hex(&sender_enc_pubkey) {
                         Ok(pk) => {
-                            self.peer_x25519
-                                .write()
-                                .await
-                                .insert(logical_from.clone(), *pk.as_bytes());
+                            let bytes = *pk.as_bytes();
+                            persist_peer_enc_key(
+                                self.peer_x25519.clone(),
+                                self.peer_enc_store.clone(),
+                                logical_from.clone(),
+                                bytes,
+                            )
+                            .await;
                         }
                         Err(e) => {
                             warn!(

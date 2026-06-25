@@ -252,3 +252,14 @@ Manual spot-check (automated in `cargo test`):
 - [ ] Pending flow works for unsolicited inbound chat
 - [ ] `cargo test --workspace` and CI green
 
+---
+
+## Phase B — LAN mesh (no QR on same Wi‑Fi)
+
+| # | Scenario | Pass criteria |
+|---|----------|---------------|
+| 1 | Same Wi‑Fi, both apps fresh | Connect within ~30s without QR; chat works |
+| 2 | Restart both apps | Chat still encrypts without re-scan (keys persisted) |
+| 3 | Relay unreachable | Status shows **Local mesh**; LAN peers still connect |
+| 4 | Guest/isolated Wi‑Fi | Document failure; QR still works |
+
