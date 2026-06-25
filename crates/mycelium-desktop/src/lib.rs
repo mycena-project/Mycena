@@ -103,6 +103,16 @@ impl NotificationSink for DesktopNotifier {
 
     fn on_bulletin_posted(&self, _scope: &str, _title: &str) {}
 
+    fn on_sos_received(&self, payload: &mycelium_core::sos::SosPayload) {
+        let _ = self.app.emit(
+            "sos-updated",
+            json!({
+                "geohash": payload.geohash,
+                "message": payload.message,
+            }),
+        );
+    }
+
     fn on_contact_request(&self, peer_id: &str, display_name: &str) {
         let _ = self.app.emit(
             "contacts-updated",
@@ -1572,8 +1582,16 @@ fn setup_inbox_emitter(app: AppHandle, mut inbox: AppInbox) {
                 }
                 result = inbox.bulletin_rx.recv() => {
                     match result {
-                        Ok(_) | Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {
+                        Ok(post) => {
+                            if post.scope == mycelium_core::sos::SOS_SCOPE {
+                                let _ = app.emit("sos-updated", ());
+                            } else {
+                                let _ = app.emit("bulletin-updated", ());
+                            }
+                        }
+                        Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {
                             let _ = app.emit("bulletin-updated", ());
+                            let _ = app.emit("sos-updated", ());
                         }
                         Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
                     }

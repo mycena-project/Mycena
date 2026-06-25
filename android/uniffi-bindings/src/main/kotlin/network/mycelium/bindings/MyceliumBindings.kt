@@ -5,6 +5,7 @@ package network.mycelium.bindings
 typealias NodeConfig = uniffi.mycelium.NodeConfig
 typealias ChatMessage = uniffi.mycelium.ChatMessage
 typealias BulletinPost = uniffi.mycelium.BulletinPost
+typealias SosPost = uniffi.mycelium.SosPost
 typealias MailMessage = uniffi.mycelium.MailMessage
 typealias NodeMetrics = uniffi.mycelium.NodeMetrics
 typealias WalletBalance = uniffi.mycelium.WalletBalance
@@ -65,6 +66,11 @@ object mycelium {
     fun postBulletin(scope: String, title: String, body: String, ttlSecs: ULong) =
         uniffi.mycelium.postBulletin(scope, title, body, ttlSecs)
     fun bulletinsForScope(scope: String): List<BulletinPost> = uniffi.mycelium.bulletinsForScope(scope)
+    fun postSos(geohash: String, message: String, ttlSecs: ULong) =
+        uniffi.mycelium.postSos(geohash, message, ttlSecs)
+    fun listSosPosts(): List<SosPost> = uniffi.mycelium.listSosPosts()
+    fun setListenSos(enabled: Boolean) = uniffi.mycelium.setListenSos(enabled)
+    fun isListenSosEnabled(): Boolean = uniffi.mycelium.isListenSosEnabled()
     fun sendMail(toPeer: String, subject: String, body: String) = uniffi.mycelium.sendMail(toPeer, subject, body)
     fun mailInbox(limit: UInt): List<MailMessage> = uniffi.mycelium.mailInbox(limit)
     fun mailSent(limit: UInt): List<MailMessage> = uniffi.mycelium.mailSent(limit)

@@ -22,6 +22,7 @@ import network.mycelium.app.bootstrap.BleBootstrapScanner
 import network.mycelium.app.bootstrap.BleBootstrapPermissions
 import network.mycelium.app.bootstrap.WifiMulticastLock
 import network.mycelium.app.viewmodel.SettingsViewModel
+import network.mycelium.app.viewmodel.SosViewModel
 import network.mycelium.bindings.AppStoreListing
 import network.mycelium.bindings.BulletinPost
 import network.mycelium.bindings.ChatMessage
@@ -30,6 +31,7 @@ import network.mycelium.bindings.EnergyState
 import network.mycelium.bindings.MailMessage
 import network.mycelium.bindings.NodeConfig
 import network.mycelium.bindings.NodeEventCallback
+import network.mycelium.bindings.SosPost
 import network.mycelium.bindings.mycelium
 import java.io.File
 
@@ -93,6 +95,9 @@ class MeshService : Service() {
             "Passive" -> mycelium.setEnergyState(EnergyState.PASSIVE)
             else -> mycelium.setEnergyState(EnergyState.ACTIVE)
         }
+        if (prefs.getBoolean(SosViewModel.KEY_LISTEN_SOS, false)) {
+            mycelium.setListenSos(true)
+        }
         mycelium.setEventCallback(
             object : NodeEventCallback {
                 override fun onPeerDiscovered(peerId: String) {
@@ -119,6 +124,11 @@ class MeshService : Service() {
 
                 override fun onBulletinReceived(post: BulletinPost) {
                     sendBroadcast(Intent(MeshEvents.BULLETIN))
+                }
+
+                override fun onSosReceived(post: SosPost) {
+                    showSosNotification(post)
+                    sendBroadcast(Intent(MeshEvents.SOS))
                 }
 
                 override fun onAppStoreListing(listing: AppStoreListing) {
@@ -261,6 +271,25 @@ class MeshService : Service() {
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .build()
         manager.notify(1001, notification)
+    }
+
+    private fun showSosNotification(post: SosPost) {
+        val manager = getSystemService(NotificationManager::class.java)
+        val pendingIntent = PendingIntent.getActivity(
+            this,
+            1002,
+            Intent(this, MainActivity::class.java),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        val notification = NotificationCompat.Builder(this, "mycelium_bg")
+            .setContentTitle(getString(R.string.sos_notification_title, post.geohash))
+            .setContentText(post.message.take(120))
+            .setSmallIcon(android.R.drawable.ic_dialog_alert)
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .build()
+        manager.notify(1002, notification)
     }
 
     private fun showMailNotification(message: MailMessage) {

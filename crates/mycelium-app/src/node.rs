@@ -42,6 +42,7 @@ pub struct AppNode {
     proximity_active: Arc<AtomicBool>,
     my_presence: Arc<RwLock<Option<PresenceSignal>>>,
     my_proximity_profile: Arc<RwLock<PresenceProfile>>,
+    listen_sos: Arc<AtomicBool>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -97,6 +98,7 @@ impl AppNode {
             proximity_active: Arc::new(AtomicBool::new(false)),
             my_presence: Arc::new(RwLock::new(None)),
             my_proximity_profile: Arc::new(RwLock::new(PresenceProfile::default())),
+            listen_sos: Arc::new(AtomicBool::new(false)),
         };
         let inbox = AppInbox {
             chat_rx,
@@ -273,7 +275,15 @@ impl AppNode {
                     if let Err(err) = self.storage.save_bulletin(&post) {
                         warn!("failed to save bulletin: {err}");
                     }
-                    self.notifier.on_bulletin_posted(&post.scope, &post.title);
+                    if post.scope == crate::sos::SOS_SCOPE {
+                        if self.listen_sos.load(Ordering::Relaxed) {
+                            if let Ok(payload) = crate::sos::SosPayload::decode_json(&post.body) {
+                                self.notifier.on_sos_received(&payload);
+                            }
+                        }
+                    } else {
+                        self.notifier.on_bulletin_posted(&post.scope, &post.title);
+                    }
                     let _ = self.bulletin_tx.send(post);
                 }
                 Ok(None) => {}
@@ -1165,6 +1175,7 @@ impl AppNode {
     }
 
     pub async fn set_listen_sos(&self, enabled: bool) -> anyhow::Result<()> {
+        self.listen_sos.store(enabled, Ordering::Relaxed);
         if enabled {
             self.handle
                 .send(NodeCommand::SubscribeBulletinScope(
@@ -1179,6 +1190,10 @@ impl AppNode {
                 .await?;
         }
         Ok(())
+    }
+
+    pub fn is_listen_sos(&self) -> bool {
+        self.listen_sos.load(Ordering::Relaxed)
     }
 
     pub fn remove_contact(&self, peer_id: &str) -> anyhow::Result<()> {

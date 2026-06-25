@@ -14,11 +14,7 @@
   let connectivityMode = $state("internet");
   let accountId = $state("");
   let transportEpoch = $state(0);
-  let listenSos = $state(false);
   let crowdMode = $state(false);
-  let sosGeohash = $state("");
-  let sosMessage = $state("");
-  let sosPosts = $state([]);
   let storeStats = $state({ count: 0, oldest_ms: 0 });
   let gcResult = $state(null);
   let saved = $state(false);
@@ -34,7 +30,6 @@
     connectivityMode = settings.connectivity_mode ?? "internet";
     accountId = settings.account_id ?? "";
     transportEpoch = settings.transport_epoch ?? 0;
-    listenSos = settings.listen_sos ?? false;
     crowdMode = settings.crowd_mode ?? false;
     storeStats = await invoke('get_store_stats');
     const custom = await invoke('get_custom_bootstrap_peers');
@@ -45,7 +40,6 @@
     await invoke('set_display_name', { name: displayName });
     await invoke('set_energy_state', { energyState });
     await invoke('set_rendezvous_enabled', { enabled: rendezvousEnabled });
-    await invoke('set_listen_sos', { enabled: listenSos });
     await invoke('set_crowd_mode', { enabled: crowdMode });
     await invoke('set_custom_bootstrap_peers', {
       peers: bootstrapPeers
@@ -59,25 +53,6 @@
 
   async function runGc() {
     gcResult = await invoke('run_gc');
-  }
-
-  async function refreshSos() {
-    try {
-      sosPosts = await invoke('list_sos_posts');
-    } catch {
-      sosPosts = [];
-    }
-  }
-
-  async function postSos() {
-    if (!sosGeohash.trim() || !sosMessage.trim()) return;
-    await invoke('post_sos', {
-      geohash: sosGeohash.trim(),
-      message: sosMessage.trim(),
-      ttlSecs: 3600,
-    });
-    sosMessage = "";
-    await refreshSos();
   }
 
   async function panicWipe() {
@@ -104,7 +79,6 @@
 
   $effect(() => {
     load();
-    refreshSos();
     getVersion().then((v) => (appVersion = v));
   });
 </script>
@@ -168,29 +142,6 @@
       When enabled, your device appears on the public relay rendezvous list and
       auto-dials other opted-in peers. Chat still requires accepted contacts.
     </small>
-  </section>
-
-  <section>
-    <h4>Emergency SOS (experimental)</h4>
-    <label class="checkbox-row">
-      <input type="checkbox" bind:checked={listenSos} />
-      Listen for nearby SOS posts (opt-in, default off)
-    </label>
-    <p class="hint">
-      Posts on scope <code>mycelium/sos/v1</code> with rate limits. Not a replacement for emergency services.
-    </p>
-    <label for="sos-geohash">Geohash (approximate area)</label>
-    <input id="sos-geohash" bind:value={sosGeohash} placeholder="u4pru" maxlength="12" />
-    <label for="sos-message">Short message</label>
-    <input id="sos-message" bind:value={sosMessage} placeholder="Need help nearby" maxlength="280" />
-    <button type="button" class="secondary" onclick={postSos}>Post SOS (1h TTL)</button>
-    {#if sosPosts.length > 0}
-      <ul class="sos-list">
-        {#each sosPosts as p}
-          <li><strong>{p.geohash}</strong> — {p.message}</li>
-        {/each}
-      </ul>
-    {/if}
   </section>
 
   <section>

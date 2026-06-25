@@ -20,8 +20,11 @@ pub const DIRECT_RATE_PER_MINUTE: u32 = 120;
 /// Scoped gossip publishes per relay peer per minute (SD-032).
 pub const GOSSIP_RATE_PER_MINUTE: u32 = 60;
 
-/// Emergency SOS posts per author per minute (Phase C3).
+/// Emergency SOS posts per author per minute (Phase C3 / E3).
 pub const SOS_RATE_PER_MINUTE: u32 = 6;
+
+/// Aggregate SOS posts per geohash cell per minute (Phase E3 anti-spam).
+pub const SOS_GEOHASH_RATE_PER_MINUTE: u32 = 24;
 
 pub fn is_sos_scope(scope: &str) -> bool {
     scope == "mycelium/sos/v1"
@@ -112,6 +115,7 @@ pub struct IngestGuard {
     rate_direct: FixedWindowRateLimiter,
     rate_gossip: FixedWindowRateLimiter,
     rate_sos: FixedWindowRateLimiter,
+    rate_sos_geohash: FixedWindowRateLimiter,
     replay: AuthorReplayWindow,
 }
 
@@ -121,6 +125,10 @@ impl IngestGuard {
             rate_direct: FixedWindowRateLimiter::new(DIRECT_RATE_PER_MINUTE, RATE_WINDOW_MS),
             rate_gossip: FixedWindowRateLimiter::new(GOSSIP_RATE_PER_MINUTE, RATE_WINDOW_MS),
             rate_sos: FixedWindowRateLimiter::new(SOS_RATE_PER_MINUTE, RATE_WINDOW_MS),
+            rate_sos_geohash: FixedWindowRateLimiter::new(
+                SOS_GEOHASH_RATE_PER_MINUTE,
+                RATE_WINDOW_MS,
+            ),
             replay: AuthorReplayWindow::new(AUTHOR_ID_WINDOW),
         }
     }
@@ -159,10 +167,21 @@ impl IngestGuard {
         Ok(())
     }
 
-    /// Stricter rate limit for emergency SOS scope (Phase C3).
-    pub fn check_sos_gossip(&mut self, from_peer: &str, now_ms: u64) -> Result<(), IngestReject> {
+    /// Stricter rate limit for emergency SOS scope (Phase C3 / E3).
+    pub fn check_sos_gossip(
+        &mut self,
+        from_peer: &str,
+        geohash: Option<&str>,
+        now_ms: u64,
+    ) -> Result<(), IngestReject> {
         if !self.rate_sos.allow(from_peer, now_ms) {
             return Err(IngestReject::RateLimit);
+        }
+        if let Some(gh) = geohash.map(str::trim).filter(|s| !s.is_empty()) {
+            let key = format!("geo:{gh}");
+            if !self.rate_sos_geohash.allow(&key, now_ms) {
+                return Err(IngestReject::RateLimit);
+            }
         }
         Ok(())
     }
@@ -254,6 +273,45 @@ mod tests {
         assert_eq!(
             guard.allow_gossip("peer", MAX_GOSSIP_PAYLOAD_BYTES + 1, "id1", now, now),
             Err(IngestReject::Oversize)
+        );
+    }
+
+    #[test]
+    fn sos_geohash_rate_limit_trips() {
+        let mut guard = IngestGuard::new();
+        let now = 5_000_000u64;
+        for i in 0..SOS_GEOHASH_RATE_PER_MINUTE {
+            assert!(
+                guard
+                    .check_sos_gossip(&format!("peer-{i}"), Some("u4pru"), now)
+                    .is_ok(),
+                "i={i}"
+            );
+        }
+        assert_eq!(
+            guard.check_sos_gossip("peer-extra", Some("u4pru"), now),
+            Err(IngestReject::RateLimit)
+        );
+        assert!(guard
+            .check_sos_gossip("peer-other", Some("u4pruyd"), now)
+            .is_ok());
+    }
+
+    #[test]
+    fn sos_spam_soak_one_author_blocked() {
+        let mut guard = IngestGuard::new();
+        let now = 5_000_000u64;
+        for i in 0..SOS_RATE_PER_MINUTE {
+            assert!(
+                guard
+                    .check_sos_gossip("peer-spam", Some("u4pru"), now)
+                    .is_ok(),
+                "i={i}"
+            );
+        }
+        assert_eq!(
+            guard.check_sos_gossip("peer-spam", Some("u4pru"), now),
+            Err(IngestReject::RateLimit)
         );
     }
 

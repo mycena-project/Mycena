@@ -1108,7 +1108,11 @@ impl NodeRunner {
                 }
                 let now = now_ms();
                 if crate::ingest_guard::is_sos_scope(&scope) {
-                    if let Err(reason) = self.ingest_guard.check_sos_gossip(&from_peer, now) {
+                    let geohash = mycelium_core::sos::geohash_from_payload_bytes(&payload);
+                    if let Err(reason) =
+                        self.ingest_guard
+                            .check_sos_gossip(&from_peer, geohash.as_deref(), now)
+                    {
                         self.record_ingest_reject(reason);
                         return Ok(());
                     }

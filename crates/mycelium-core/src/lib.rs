@@ -15,5 +15,6 @@ pub mod relay_pool;
 pub mod relay_status;
 pub mod rendezvous;
 pub mod rendezvous_dial;
+pub mod sos;
 pub mod sync;
 pub mod transport;

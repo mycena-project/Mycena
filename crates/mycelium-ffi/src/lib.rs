@@ -95,6 +95,13 @@ pub struct BulletinPost {
 }
 
 #[derive(Debug, Clone)]
+pub struct SosPost {
+    pub geohash: String,
+    pub message: String,
+    pub created_at_ms: u64,
+}
+
+#[derive(Debug, Clone)]
 pub struct MailMessage {
     pub id: String,
     pub from_peer: String,
@@ -370,6 +377,7 @@ pub trait NodeEventCallback: Send + Sync {
     fn on_chat_received(&self, _message: ChatMessage) {}
     fn on_mail_received(&self, _message: MailMessage) {}
     fn on_bulletin_received(&self, _post: BulletinPost) {}
+    fn on_sos_received(&self, _post: SosPost) {}
     fn on_app_store_listing(&self, _listing: AppStoreListing) {}
     fn on_connectivity_changed(&self, _mode: ConnectivityMode) {}
     fn on_contact_request(&self, _peer_id: String, _display_name: String) {}
@@ -383,6 +391,12 @@ impl NotificationSink for FfiNotifier {
     fn on_mail_received(&self, _from: &str, _subject: &str) {}
 
     fn on_bulletin_posted(&self, _scope: &str, _title: &str) {}
+
+    fn on_sos_received(&self, payload: &mycelium_core::sos::SosPayload) {
+        if let Some(cb) = CALLBACK.lock().expect("callback lock").clone() {
+            cb.on_sos_received(to_sos_post(payload));
+        }
+    }
 
     fn on_contact_request(&self, peer_id: &str, display_name: &str) {
         if let Some(cb) = CALLBACK.lock().expect("callback lock").clone() {
@@ -620,7 +634,13 @@ pub fn init_node(config: NodeConfig) {
                     }
                     Ok(post) = inbox.bulletin_rx.recv() => {
                         if let Some(cb) = CALLBACK.lock().expect("callback lock").clone() {
-                            cb.on_bulletin_received(to_bulletin(post));
+                            if post.scope == mycelium_core::sos::SOS_SCOPE {
+                                if let Ok(payload) = mycelium_core::sos::SosPayload::decode_json(&post.body) {
+                                    cb.on_sos_received(to_sos_post(&payload));
+                                }
+                            } else {
+                                cb.on_bulletin_received(to_bulletin(post));
+                            }
                         }
                     }
                     Ok(listing) = inbox.appstore_rx.recv() => {
@@ -1046,6 +1066,38 @@ pub fn is_bulletin_enabled() -> bool {
         let state = state.read().await;
         state.handle.is_bulletin_enabled().await
     })
+}
+
+pub fn post_sos(geohash: String, message: String, ttl_secs: u64) {
+    let state = state_arc();
+    runtime().block_on(async {
+        let state = state.read().await;
+        let _ = state.app_node.post_sos(&geohash, &message, ttl_secs).await;
+    });
+}
+
+pub fn list_sos_posts() -> Vec<SosPost> {
+    with_state(|state| {
+        state
+            .app_node
+            .list_sos_posts()
+            .unwrap_or_default()
+            .into_iter()
+            .map(|p| to_sos_post(&p))
+            .collect()
+    })
+}
+
+pub fn set_listen_sos(enabled: bool) {
+    let state = state_arc();
+    runtime().block_on(async {
+        let state = state.read().await;
+        let _ = state.app_node.set_listen_sos(enabled).await;
+    });
+}
+
+pub fn is_listen_sos_enabled() -> bool {
+    with_state(|state| state.app_node.is_listen_sos())
 }
 
 pub fn list_scope_keys() -> Vec<ScopeKeyInfo> {
@@ -1801,6 +1853,14 @@ fn to_bulletin(p: AppBulletinPost) -> BulletinPost {
         scope: p.scope,
         timestamp_ms: p.timestamp_ms,
         expires_at_ms: p.expires_at_ms,
+    }
+}
+
+fn to_sos_post(p: &mycelium_core::sos::SosPayload) -> SosPost {
+    SosPost {
+        geohash: p.geohash.clone(),
+        message: p.message.clone(),
+        created_at_ms: p.created_at_ms,
     }
 }
 

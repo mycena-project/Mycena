@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -40,6 +41,7 @@ private val topLevelTabs = listOf(
     TopLevelTab("peers", R.string.nav_peers, Icons.Default.People),
     TopLevelTab("mail", R.string.nav_mail, Icons.Default.Email),
     TopLevelTab("bulletin", R.string.nav_bulletin, Icons.Default.Forum),
+    TopLevelTab("sos", R.string.nav_sos, Icons.Default.Warning),
     TopLevelTab("settings", R.string.nav_settings, Icons.Default.Settings),
 )
 
@@ -51,6 +53,7 @@ private fun tabForRoute(route: String?): String? {
         route == "peers" -> "peers"
         route == "mail" -> "mail"
         route == "bulletin" -> "bulletin"
+        route == "sos" -> "sos"
         route == "settings" || route == "miniapp_store" ||
             route == "wallet" || route == "share_app" || route.startsWith("miniapp/run/") -> "settings"
         else -> null
@@ -100,6 +103,7 @@ fun MainShell() {
             composable("peers") { PeersScreen(nav) }
             composable("mail") { MailScreen(nav) }
             composable("bulletin") { BulletinScreen(nav) }
+            composable("sos") { SosScreen(nav) }
             composable("settings") { SettingsScreen(nav) }
             composable("miniapp_store") { MiniAppStoreScreen(nav) }
             composable("miniapp/run/{appId}") { backStack ->

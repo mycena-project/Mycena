@@ -8,6 +8,7 @@
   import Groups from "./views/Groups.svelte";
   import Mail from "./views/Mail.svelte";
   import Bulletin from "./views/Bulletin.svelte";
+  import Sos from "./views/Sos.svelte";
   import Peers from "./views/Peers.svelte";
   import Wallet from "./views/Wallet.svelte";
   import Settings from "./views/Settings.svelte";
@@ -29,6 +30,7 @@
     { id: "groups", label: "Groups" },
     { id: "mail", label: "Mail" },
     { id: "bulletin", label: "Bulletin" },
+    { id: "sos", label: "SOS" },
     { id: "peers", label: "Connect" },
     { id: "wallet", label: "Wallet" },
     { id: "miniapp", label: "Mini apps" },
@@ -70,7 +72,15 @@
         connectivityMode = event.payload.connectivity;
       }
     });
-    return () => unlisten();
+    const onOpenMiniApp = (e) => {
+      selectedMiniAppId = e.detail?.appId ?? "";
+      if (selectedMiniAppId) activeView = "miniapp_run";
+    };
+    window.addEventListener("mycelium-open-miniapp", onOpenMiniApp);
+    return () => {
+      unlisten();
+      window.removeEventListener("mycelium-open-miniapp", onOpenMiniApp);
+    };
   });
 </script>
 
@@ -106,6 +116,8 @@
         <Mail />
       {:else if activeView === "bulletin"}
         <Bulletin />
+      {:else if activeView === "sos"}
+        <Sos />
       {:else if activeView === "peers"}
         <Peers {peerId} />
       {:else if activeView === "wallet"}

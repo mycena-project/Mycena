@@ -290,3 +290,18 @@ Manual spot-check (automated in `cargo test`):
 
 Automated: `cargo test --workspace` including `mycelium-core::relay_pool` and `mycelium-sim::scenarios`.
 
+---
+
+## Phase E — Emergency product path
+
+| # | Scenario | Pass criteria |
+|---|----------|---------------|
+| 1 | SOS tab | Desktop **SOS** nav + Android **SOS** tab — post geohash + message |
+| 2 | Listen opt-in | Default off; enable listen → subscribe to `mycelium/sos/v1`; disable → unsubscribe |
+| 3 | Receive SOS | Two devices: A posts, B listening → B sees post + notification (Android) / `sos-updated` (desktop) |
+| 4 | Rate limits | Spam >6/min from one peer or >24/min same geohash → dropped at ingest (`ingest_guard` tests) |
+| 5 | MeshAid | SOS screen → **Open MeshAid** launches `network.mycelium.meshaid` mini-app |
+| 6 | Not 911 | UI disclaimer visible on SOS screens |
+
+Automated: `cargo test -p mycelium-node ingest_guard::tests::sos_*` and `cargo test -p mycelium-core sos`.
+

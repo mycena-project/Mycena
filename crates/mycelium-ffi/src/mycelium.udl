@@ -47,6 +47,11 @@ namespace mycelium {
   void unsubscribe_bulletin_scope(string scope);
   boolean is_bulletin_enabled();
 
+  void post_sos(string geohash, string message, u64 ttl_secs);
+  sequence<SosPost> list_sos_posts();
+  void set_listen_sos(boolean enabled);
+  boolean is_listen_sos_enabled();
+
   sequence<ScopeKeyInfo> list_scope_keys();
   [Throws=MyceliumException]
   void add_scope_key(string invite_json);
@@ -203,6 +208,12 @@ dictionary BulletinPost {
   u64 expires_at_ms;
 };
 
+dictionary SosPost {
+  string geohash;
+  string message;
+  u64 created_at_ms;
+};
+
 dictionary MailMessage {
   string id;
   string from_peer;
@@ -340,6 +351,7 @@ callback interface NodeEventCallback {
   void on_chat_received(ChatMessage message);
   void on_mail_received(MailMessage message);
   void on_bulletin_received(BulletinPost post);
+  void on_sos_received(SosPost post);
   void on_app_store_listing(AppStoreListing listing);
   void on_connectivity_changed(ConnectivityMode mode);
   void on_contact_request(string peer_id, string display_name);

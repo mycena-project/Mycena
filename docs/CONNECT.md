@@ -44,6 +44,7 @@ Dial target (relay): `/ip4/<relay-ip>/tcp/4001/p2p/<relay>/p2p-circuit/p2p/<peer
 ## UI map
 
 - **Connect** tab (was “Network” / “Peers”): scan QR, show QR, paste invite, connected list.
+- **SOS** tab: post/list emergency geohash messages; opt-in listen (default off). MeshAid linked for coordination threads.
 - **Settings**: relay discovery toggle, **crowd mode** (festivals), custom bootstrap (advanced).
 - **Chat**: contacts and messages only. Sidebar uses connected peers (`get_chat_contacts`); onboarding does **not** wipe local history — use **Settings → PANIC WIPE** for a fresh device.
 

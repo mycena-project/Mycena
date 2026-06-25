@@ -94,10 +94,10 @@ See also: [CONNECT.md](./CONNECT.md), [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS
 
 | ID | Task | Status |
 |----|------|--------|
-| E1 | First-class SOS in main app (geohash + short message) | Planned |
-| E2 | Opt-in “listen for nearby SOS” (default off) | Planned |
-| E3 | Per-scope rate limits + anti-spam for SOS | Planned |
-| E4 | MeshAid remains for coordination threads | Planned |
+| E1 | First-class SOS in main app (geohash + short message) | Done |
+| E2 | Opt-in “listen for nearby SOS” (default off) | Done |
+| E3 | Per-scope rate limits + anti-spam for SOS | Done |
+| E4 | MeshAid remains for coordination threads | Done |
 
 **Exit criteria:** Field drill: SOS visible to opt-in peers within range; spam soak test passes.
 
@@ -113,7 +113,7 @@ See also: [CONNECT.md](./CONNECT.md), [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS
 | Safe mesh participation | Partial (E2E send; auto-accept was weak) | A, C |
 | Fast connect/disconnect | Moderate | B, D |
 | Festival 100k | Not supported | D |
-| Emergency without QR | MeshAid mini-app only | E |
+| Emergency without QR | SOS scope + MeshAid mini-app | E |
 
 ---
 
