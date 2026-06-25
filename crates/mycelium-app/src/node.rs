@@ -1535,7 +1535,6 @@ mod dispatch_tests {
         use mycelium_core::e2e_direct_wrap;
 
         let remote_peer = "12D3KooWRemotePeerIdForTestOnly12";
-        let remote_enc = EncryptionKeypair::generate();
         let (app_node, storage, local_enc, _dir) = spawn_test_app_node().await;
 
         let chat = ChatMessage {
