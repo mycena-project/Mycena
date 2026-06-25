@@ -363,8 +363,7 @@ impl NodeHandle {
             return Some(cached);
         }
         let listen = self.listen_addrs().await;
-        let picked =
-            mycelium_core::bootstrap::pick_stable_lan_multiaddr(&listen, local_peer_id);
+        let picked = mycelium_core::bootstrap::pick_stable_lan_multiaddr(&listen, local_peer_id);
         if let Some(ref addr) = picked {
             *self.invite_direct_cache.write().await = Some(addr.clone());
         }

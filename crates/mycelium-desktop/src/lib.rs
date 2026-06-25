@@ -391,10 +391,7 @@ async fn get_shareable_multiaddrs(state: State<'_, SharedState>) -> Result<Vec<S
         .as_ref()
         .ok_or_else(|| "node not started".to_string())?;
     let listen = s.handle.listen_addrs().await;
-    let direct = s
-        .handle
-        .stable_direct_multiaddr(&s.local_peer_id)
-        .await;
+    let direct = s.handle.stable_direct_multiaddr(&s.local_peer_id).await;
     let signed_invite = s
         .handle
         .encode_signed_invite_v3(&s.local_peer_id, direct.as_deref())
