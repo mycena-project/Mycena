@@ -7,6 +7,7 @@ use std::collections::HashMap;
 use std::path::Path;
 
 pub struct PeerEncKeyStore {
+    _db: sled::Db,
     tree: sled::Tree,
 }
 
@@ -19,7 +20,7 @@ impl PeerEncKeyStore {
             .open()
             .context("opening peer_enc_keys db")?;
         let tree = db.open_tree("keys")?;
-        Ok(Self { tree })
+        Ok(Self { _db: db, tree })
     }
 
     pub fn load_all(&self) -> anyhow::Result<HashMap<String, [u8; 32]>> {
