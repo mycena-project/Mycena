@@ -81,7 +81,12 @@ fn load_ui_settings(db_path: &str) -> UiSettings {
         .unwrap_or_default()
 }
 
+fn ensure_db_dir(db_path: &str) -> Result<(), String> {
+    std::fs::create_dir_all(db_path).map_err(|e| e.to_string())
+}
+
 fn save_ui_settings(db_path: &str, settings: &UiSettings) -> Result<(), String> {
+    ensure_db_dir(db_path)?;
     let path = ui_settings_path(db_path);
     let json = serde_json::to_string_pretty(settings).map_err(|e| e.to_string())?;
     std::fs::write(path, json).map_err(|e| e.to_string())
@@ -219,6 +224,8 @@ async fn start_node(
             return Ok(existing.local_peer_id.clone());
         }
     }
+
+    ensure_db_dir(&db_path)?;
 
     let ui_settings = load_ui_settings(&db_path);
     let mut ui_to_save = ui_settings.clone();
