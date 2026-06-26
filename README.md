@@ -31,12 +31,16 @@ macOS or Linux with Rust toolchain. Experimental — same mesh stack via FFI.
 
 ## Install (simplest path)
 
-**Android:** download the latest debug APK from [GitHub Actions → Android CI](https://github.com/mycena-project/Mycelium/actions/workflows/android-ci.yml) artifacts, or build locally:
+**Android:** download the latest APK from **[GitHub Releases](https://github.com/mycena-project/Mycelium/releases)** (tag `v*.*.*`), or build locally:
 
 ```bash
 ./android/build.sh
 adb install -r android/app/build/outputs/apk/debug/app-debug.apk
 ```
+
+**Desktop (experimental):** Tauri bundles (`.AppImage`, `.deb`, `.dmg`, `.msi`) are attached to the same GitHub Release.
+
+> **License (AGPL-3.0-or-later):** Mycelium is free software. If you modify and run it (or a [bootstrap relay](https://github.com/mycena-project/mycelium-relay)) as a **network service**, you must offer corresponding source to users. See [LICENSE](LICENSE) and [RELEASING.md](RELEASING.md).
 
 **CLI (developers):**
 
@@ -98,7 +102,7 @@ Licensed under [GNU Affero General Public License v3.0 or later](LICENSE) (AGPL-
 
 ## CI
 
-Rust: [`.github/workflows/ci.yml`](.github/workflows/ci.yml) · Android: [`.github/workflows/android-ci.yml`](.github/workflows/android-ci.yml)
+Rust: [`.github/workflows/ci.yml`](.github/workflows/ci.yml) · Android: [`.github/workflows/android-ci.yml`](.github/workflows/android-ci.yml) · **Release (tag `v*.*.*`):** [`.github/workflows/release.yml`](.github/workflows/release.yml) — APK + desktop + SHA256SUMS. See [RELEASING.md](RELEASING.md).
 
 ## Docker (tests without local Android SDK)
 

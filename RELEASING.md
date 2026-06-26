@@ -1,0 +1,30 @@
+# Releasing
+
+Semantic Versioning (`MAJOR.MINOR.PATCH`).
+
+## Release process
+
+1. Ensure CI is green on `main` (Rust + Android).
+2. Update `CHANGELOG.md` if user-visible changes shipped.
+3. Annotated tag: `git tag -a vX.Y.Z -m "vX.Y.Z"` && `git push origin vX.Y.Z`
+4. GitHub Actions **Release** (`.github/workflows/release.yml`) builds:
+   - Android debug APK (sideload)
+   - Tauri desktop bundles (Linux / macOS / Windows)
+   - `SHA256SUMS.txt` for all artifacts
+5. Verify the GitHub Release page and install smoke-test on one platform.
+
+## License reminder (AGPL-3.0-or-later)
+
+Release notes include AGPL obligations. Operators who host a **modified relay** must comply — see [mycelium-relay](https://github.com/mycena-project/mycelium-relay).
+
+## Related repos (separate tags)
+
+| Repo | Deploy on tag |
+|------|----------------|
+| [mycelium-relay](https://github.com/mycena-project/mycelium-relay) | Fly.io |
+| [mycelium-web](https://github.com/mycena-project/mycelium-web) | Vercel |
+
+## Not in this workflow
+
+- Play Store upload (`android-release-play.yml` — separate)
+- Docker / server compose — client-only releases
