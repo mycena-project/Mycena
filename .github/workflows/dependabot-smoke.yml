@@ -24,5 +24,14 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev libssl-dev \
             libayatana-appindicator3-dev librsvg2-dev
       - uses: dtolnay/rust-toolchain@stable
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: crates/mycelium-desktop/ui/package-lock.json
+      - name: Build desktop UI
+        working-directory: crates/mycelium-desktop/ui
+        run: npm ci && npm run build
       - name: Cargo smoke
         run: cargo check --workspace --all-targets
