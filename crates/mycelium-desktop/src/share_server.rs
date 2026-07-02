@@ -145,7 +145,9 @@ async fn handle_connection(
     let path = request_line.split_whitespace().nth(1).unwrap_or("/");
 
     match path {
-        p if p.starts_with("/mycelium.apk") => serve_apk(&mut socket, apk_path, &transfer_count).await,
+        p if p.starts_with("/mycelium.apk") => {
+            serve_apk(&mut socket, apk_path, &transfer_count).await
+        }
         "/android" => write_html(&mut socket, &android_install_html(apk_path.is_file())).await,
         "/ios" => write_html(&mut socket, &ios_install_html()).await,
         _ => write_html(&mut socket, &hub_html(apk_path.is_file())).await,
@@ -188,10 +190,7 @@ async fn serve_apk(
         .write_all(header.as_bytes())
         .await
         .map_err(|e| e.to_string())?;
-    socket
-        .write_all(&bytes)
-        .await
-        .map_err(|e| e.to_string())?;
+    socket.write_all(&bytes).await.map_err(|e| e.to_string())?;
     socket.flush().await.map_err(|e| e.to_string())?;
     transfer_count.fetch_add(1, Ordering::SeqCst);
     Ok(())

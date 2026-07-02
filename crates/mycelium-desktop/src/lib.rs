@@ -1631,24 +1631,33 @@ async fn set_custom_bootstrap_peers(
 }
 
 #[tauri::command]
-async fn get_share_status(share: State<'_, ShareServerState>) -> Result<share_server::ShareServerStatus, String> {
+async fn get_share_status(
+    share: State<'_, ShareServerState>,
+) -> Result<share_server::ShareServerStatus, String> {
     Ok(share.status().await)
 }
 
 #[tauri::command]
-async fn start_share_server(share: State<'_, ShareServerState>) -> Result<share_server::ShareServerStatus, String> {
+async fn start_share_server(
+    share: State<'_, ShareServerState>,
+) -> Result<share_server::ShareServerStatus, String> {
     share.start().await?;
     Ok(share.status().await)
 }
 
 #[tauri::command]
-async fn stop_share_server(share: State<'_, ShareServerState>) -> Result<share_server::ShareServerStatus, String> {
+async fn stop_share_server(
+    share: State<'_, ShareServerState>,
+) -> Result<share_server::ShareServerStatus, String> {
     share.stop().await;
     Ok(share.status().await)
 }
 
 #[tauri::command]
-async fn choose_share_apk(app: AppHandle, share: State<'_, ShareServerState>) -> Result<share_server::ShareServerStatus, String> {
+async fn choose_share_apk(
+    app: AppHandle,
+    share: State<'_, ShareServerState>,
+) -> Result<share_server::ShareServerStatus, String> {
     use tauri_plugin_dialog::DialogExt;
 
     let picked = app
@@ -1661,9 +1670,7 @@ async fn choose_share_apk(app: AppHandle, share: State<'_, ShareServerState>) ->
         return Ok(share.status().await);
     };
 
-    let source = file_path
-        .into_path()
-        .map_err(|e| e.to_string())?;
+    let source = file_path.into_path().map_err(|e| e.to_string())?;
     ensure_share_dir()?;
     let dest = default_share_apk_path();
     std::fs::copy(&source, &dest).map_err(|e| format!("Could not copy APK: {e}"))?;
