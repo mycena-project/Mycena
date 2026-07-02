@@ -4,7 +4,6 @@ package network.mycelium.app.ui
 
 import android.content.Context
 import android.content.Intent
-import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -60,18 +59,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import network.mycelium.app.BuildConfig
 import network.mycelium.app.R
-import network.mycelium.app.StorageKeyHelper
+import network.mycelium.app.performFreshIdentity
+import network.mycelium.app.performPanicWipe
 import network.mycelium.app.bootstrap.BleBootstrapPermissions
 import network.mycelium.app.viewmodel.SettingsViewModel
 import network.mycelium.bindings.EnergyState
 import network.mycelium.bindings.mycelium
-import java.io.File
 
 private const val PREFS_NAME = "settings"
 private const val KEY_BOOTSTRAP_PEERS = "bootstrap_peers"
@@ -102,7 +102,14 @@ fun SettingsScreen(navController: NavController) {
         mutableStateOf(prefs.getBoolean(KEY_CROWD_MODE, false))
     }
 
-    Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.settings_title)) }) }) { padding ->
+    Scaffold(
+        topBar = {
+            MyceliumBackTopBar(
+                title = stringResource(R.string.settings_title),
+                onBack = { navController.popBackStack() },
+            )
+        },
+    ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -124,6 +131,7 @@ fun SettingsScreen(navController: NavController) {
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
             )
+            IdentityIdsSection(modifier = Modifier.padding(top = 12.dp))
 
             Spacer(Modifier.height(20.dp))
             Text(
@@ -241,18 +249,10 @@ fun SettingsScreen(navController: NavController) {
             }
 
             Spacer(Modifier.height(16.dp))
-            Button(
-                onClick = { navController.navigate("miniapp_store") },
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(stringResource(R.string.settings_mini_apps))
-            }
-            Button(
-                onClick = { navController.navigate("wallet") },
-                modifier = Modifier.padding(top = 8.dp).fillMaxWidth(),
-            ) {
-                Text(stringResource(R.string.settings_open_wallet))
-            }
+            FreshIdentitySection(
+                modifier = Modifier.padding(top = 24.dp),
+                onFreshIdentity = { performFreshIdentity(context) },
+            )
 
             DistributionSettings(modifier = Modifier.padding(top = 24.dp))
 
@@ -753,6 +753,113 @@ private fun EnergyModeSelector(
 }
 
 @Composable
+private fun IdentityIdsSection(modifier: Modifier = Modifier) {
+    val accountId =
+        remember {
+            runCatching { mycelium.localAccountId() }.getOrDefault("")
+        }
+    val transportId =
+        remember {
+            runCatching { mycelium.localPeerId() }.getOrDefault("")
+        }
+
+    Column(modifier = modifier.fillMaxWidth()) {
+        Text(
+            stringResource(R.string.settings_account_id_label),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = accountId.ifBlank { "—" },
+            style = MaterialTheme.typography.bodySmall,
+            fontFamily = FontFamily.Monospace,
+            modifier = Modifier.padding(top = 4.dp),
+        )
+        Text(
+            stringResource(R.string.settings_account_id_help),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 4.dp),
+        )
+        Spacer(Modifier.height(12.dp))
+        Text(
+            stringResource(R.string.settings_transport_id_label),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = transportId.ifBlank { "—" },
+            style = MaterialTheme.typography.bodySmall,
+            fontFamily = FontFamily.Monospace,
+            modifier = Modifier.padding(top = 4.dp),
+        )
+        Text(
+            stringResource(R.string.settings_transport_id_help),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 4.dp),
+        )
+    }
+}
+
+@Composable
+fun FreshIdentitySection(
+    modifier: Modifier = Modifier,
+    onFreshIdentity: () -> Unit,
+) {
+    var showConfirmDialog by remember { mutableStateOf(false) }
+
+    Card(modifier = modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                stringResource(R.string.settings_fresh_identity_title),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                stringResource(R.string.settings_fresh_identity_description),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(12.dp))
+            OutlinedButton(
+                onClick = { showConfirmDialog = true },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(stringResource(R.string.settings_fresh_identity_button))
+            }
+        }
+    }
+
+    if (showConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showConfirmDialog = false },
+            title = { Text(stringResource(R.string.fresh_identity_confirm_title)) },
+            text = { Text(stringResource(R.string.fresh_identity_confirm_body)) },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showConfirmDialog = false
+                        onFreshIdentity()
+                    },
+                    colors =
+                        ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error,
+                        ),
+                ) {
+                    Text(stringResource(R.string.fresh_identity_confirm_yes))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirmDialog = false }) {
+                    Text(stringResource(R.string.fresh_identity_confirm_no))
+                }
+            },
+        )
+    }
+}
+
+@Composable
 fun PanicWipeSection(
     modifier: Modifier = Modifier,
     onPanicWipe: () -> Unit,
@@ -815,20 +922,6 @@ fun PanicWipeSection(
         )
     }
 }
-
-fun performPanicWipe(context: Context) {
-    mycelium.stopNode()
-    val dbPath = context.filesDir.absolutePath + "/mycelium"
-    File(dbPath).deleteRecursively()
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().clear().apply()
-    StorageKeyHelper.clear(context)
-    val activity = context as? AppCompatActivity
-    val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)
-    intent?.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
-    activity?.finishAffinity()
-    context.startActivity(intent)
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LanguageSelector(modifier: Modifier = Modifier) {

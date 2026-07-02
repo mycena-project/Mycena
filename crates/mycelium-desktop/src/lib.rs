@@ -31,6 +31,7 @@ pub struct AppState {
     energy_state: NodeState,
     rendezvous_enabled: bool,
     connectivity_mode: Arc<RwLock<ConnectivityMode>>,
+    runner_task: tauri::async_runtime::JoinHandle<()>,
 }
 
 fn connectivity_label(mode: ConnectivityMode) -> &'static str {
@@ -171,7 +172,7 @@ impl CoinTransport for DesktopCoinTransport {
 fn get_saved_profile() -> serde_json::Value {
     let path = default_db_path();
     let ui = load_ui_settings(&path);
-    let has_data = std::path::Path::new(&path).exists();
+    let has_data = identity_data_present(&path);
     let can_auto_start = has_data
         && ui
             .display_name
@@ -183,6 +184,21 @@ fn get_saved_profile() -> serde_json::Value {
         "can_auto_start": can_auto_start,
         "db_path": path,
     })
+}
+
+/// True when prior mesh identity or app database exists (not just an empty folder).
+fn identity_data_present(path: &str) -> bool {
+    let base = std::path::Path::new(path);
+    if base.join(".secrets").join("account_ed25519.enc").exists() {
+        return true;
+    }
+    if base.join("app").exists() {
+        return true;
+    }
+    if base.join("identity").exists() {
+        return true;
+    }
+    false
 }
 
 #[tauri::command]
@@ -201,11 +217,30 @@ fn default_db_path() -> String {
 /// Delete local Mycelium data (identity, messages, keys). Safe before first successful start.
 fn wipe_local_data_at(path: &str) -> Result<(), String> {
     mycelium_core::at_rest::clear_keyring_master(path);
-    if std::path::Path::new(path).exists() {
-        std::fs::remove_dir_all(path).map_err(|e| format!("failed to reset local data: {e}"))?;
-        tracing::info!("reset local data at {path}");
+    let p = std::path::Path::new(path);
+    if !p.exists() {
+        return Ok(());
     }
-    Ok(())
+    let mut last_err: Option<String> = None;
+    for attempt in 0..5 {
+        match std::fs::remove_dir_all(p) {
+            Ok(()) => {
+                tracing::info!("destroyed local data at {path}");
+                mycelium_core::at_rest::clear_keyring_master(path);
+                return Ok(());
+            }
+            Err(e) => {
+                last_err = Some(format!("{e}"));
+                if attempt < 4 {
+                    std::thread::sleep(std::time::Duration::from_millis(400));
+                }
+            }
+        }
+    }
+    Err(format!(
+        "failed to destroy local data at {path}: {}",
+        last_err.unwrap_or_else(|| "unknown error".into())
+    ))
 }
 
 /// Wipe the active database path and the default data dir (when they differ).
@@ -222,10 +257,43 @@ fn wipe_all_local_data(active_path: Option<&str>) -> Result<(), String> {
     Ok(())
 }
 
+async fn shutdown_active_node(state: &SharedState) {
+    let mut guard = state.write().await;
+    if let Some(s) = guard.take() {
+        s.runner_task.abort();
+        drop(s);
+        tokio::time::sleep(std::time::Duration::from_millis(1200)).await;
+    }
+}
+
 #[tauri::command]
-fn reset_local_data(db_path: Option<String>) -> Result<(), String> {
+async fn reset_local_data(
+    state: State<'_, SharedState>,
+    db_path: Option<String>,
+) -> Result<(), String> {
+    let active_path = {
+        let guard = state.read().await;
+        guard.as_ref().map(|s| s.db_path.clone())
+    };
+    shutdown_active_node(&state).await;
     let path = db_path.unwrap_or_else(default_db_path);
-    wipe_local_data_at(&path)
+    wipe_local_data_at(&path)?;
+    if path != default_db_path() {
+        wipe_local_data_at(&default_db_path())?;
+    }
+    if let Some(active) = active_path {
+        if active != path && active != default_db_path() {
+            wipe_local_data_at(&active)?;
+        }
+    }
+    for check in [path.as_str(), default_db_path().as_str()] {
+        if std::path::Path::new(check).exists() {
+            return Err(format!(
+                "local data still present at {check} after wipe — close Mycelium completely and retry"
+            ));
+        }
+    }
+    Ok(())
 }
 
 /// Stop the node, wipe local data, and restart into onboarding.
@@ -235,11 +303,14 @@ async fn return_to_onboarding(app: AppHandle, state: State<'_, SharedState>) -> 
         let guard = state.read().await;
         guard.as_ref().map(|s| s.db_path.clone())
     };
-    {
-        let mut guard = state.write().await;
-        *guard = None;
-    }
+    shutdown_active_node(&state).await;
     wipe_all_local_data(active_path.as_deref())?;
+    let default = default_db_path();
+    if std::path::Path::new(&default).exists() {
+        return Err(format!(
+            "local data still present at {default} after wipe — close Mycelium completely and retry"
+        ));
+    }
     app.restart();
 }
 
@@ -296,7 +367,7 @@ async fn start_node(
     };
     let (runner, handle) = NodeRunner::new(config).map_err(|e| e.to_string())?;
     let local_peer_id = runner.local_peer_id().to_string();
-    tauri::async_runtime::spawn(async move {
+    let runner_task = tauri::async_runtime::spawn(async move {
         let _ = runner.run().await;
     });
 
@@ -358,6 +429,7 @@ async fn start_node(
         energy_state: NodeState::Active,
         rendezvous_enabled: ui_settings.rendezvous_enabled,
         connectivity_mode: connectivity_mode.clone(),
+        runner_task,
     });
 
     Ok(local_peer_id)
@@ -405,15 +477,22 @@ async fn get_shareable_multiaddrs(state: State<'_, SharedState>) -> Result<Vec<S
 }
 
 #[tauri::command]
-async fn connect_peer_id(state: State<'_, SharedState>, peer_id: String) -> Result<(), String> {
+async fn connect_peer_id(
+    app: AppHandle,
+    state: State<'_, SharedState>,
+    peer_id: String,
+) -> Result<(), String> {
     let guard = state.read().await;
     let s = guard
         .as_ref()
         .ok_or_else(|| "node not started".to_string())?;
     s.app_node
+        .clone()
         .connect_from_invite(&peer_id)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+    let _ = app.emit("contacts-updated", ());
+    Ok(())
 }
 
 fn contact_json(c: Contact) -> serde_json::Value {
@@ -431,61 +510,12 @@ fn contact_json(c: Contact) -> serde_json::Value {
     })
 }
 
-/// Chat sidebar: connected peers merged with stored contact names (same source as Connect tab).
+/// Chat sidebar: accepted contacts only (never connected peers — use Connect tab for those).
 #[tauri::command]
 async fn get_chat_contacts(
     state: State<'_, SharedState>,
 ) -> Result<Vec<serde_json::Value>, String> {
-    let guard = state.read().await;
-    let s = guard
-        .as_ref()
-        .ok_or_else(|| "node not started".to_string())?;
-    let relay = mycelium_core::bootstrap::RELAY_PEER_ID;
-    let stored: std::collections::HashMap<String, Contact> = s
-        .app_node
-        .list_accepted_contacts()
-        .unwrap_or_default()
-        .into_iter()
-        .filter(|c| mycelium_core::bootstrap::is_mesh_peer_id(&c.peer_id))
-        .map(|c| (c.peer_id.clone(), c))
-        .collect();
-    let live: Vec<String> = s
-        .handle
-        .known_peers()
-        .await
-        .into_iter()
-        .filter(|p| p != relay && mycelium_core::bootstrap::is_mesh_peer_id(p))
-        .collect();
-    drop(guard);
-
-    let mut out = Vec::new();
-    let mut seen = std::collections::HashSet::new();
-    for peer in live {
-        if !seen.insert(peer.clone()) {
-            continue;
-        }
-        let display_name = stored
-            .get(&peer)
-            .map(|c| c.display_name.clone())
-            .unwrap_or_else(|| peer.chars().take(16).collect());
-        let guard = state.read().await;
-        if let Some(s) = guard.as_ref() {
-            let _ = s.app_node.add_contact(&peer, &display_name, true);
-        }
-        out.push(json!({
-            "peer_id": peer,
-            "display_name": display_name,
-        }));
-    }
-    for (peer, c) in stored {
-        if seen.insert(peer.clone()) {
-            out.push(json!({
-                "peer_id": c.peer_id,
-                "display_name": c.display_name,
-            }));
-        }
-    }
-    Ok(out)
+    list_accepted_contacts(state).await
 }
 
 #[tauri::command]
@@ -510,27 +540,13 @@ async fn list_accepted_contacts(
     let s = guard
         .as_ref()
         .ok_or_else(|| "node not started".to_string())?;
-    let mut contacts = s
+    let contacts = s
         .app_node
         .list_accepted_contacts()
         .map_err(|e| e.to_string())?
         .into_iter()
         .filter(|c| mycelium_core::bootstrap::is_mesh_peer_id(&c.peer_id))
         .collect::<Vec<_>>();
-    // Fallback: show connected mesh peers as chat contacts when sync missed the UI event.
-    if contacts.is_empty() {
-        let relay = mycelium_core::bootstrap::RELAY_PEER_ID;
-        for peer in s.handle.known_peers().await {
-            if peer == relay || !mycelium_core::bootstrap::is_mesh_peer_id(&peer) {
-                continue;
-            }
-            let label = peer.chars().take(16).collect::<String>();
-            match s.app_node.add_contact(&peer, &label, true) {
-                Ok(c) => contacts.push(c),
-                Err(e) => tracing::warn!("peer contact fallback {peer}: {e}"),
-            }
-        }
-    }
     Ok(contacts.into_iter().map(contact_json).collect())
 }
 
@@ -872,6 +888,21 @@ async fn wallet_address(state: State<'_, SharedState>) -> Result<String, String>
 }
 
 #[tauri::command]
+async fn subscribe_bulletin_scope(
+    state: State<'_, SharedState>,
+    scope: String,
+) -> Result<(), String> {
+    let guard = state.read().await;
+    let s = guard
+        .as_ref()
+        .ok_or_else(|| "node not started".to_string())?;
+    s.handle
+        .subscribe_bulletin_scope(scope)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 async fn post_bulletin(
     state: State<'_, SharedState>,
     scope: String,
@@ -1193,6 +1224,20 @@ async fn miniapp_install(
 }
 
 #[tauri::command]
+async fn miniapp_install_official(
+    state: State<'_, SharedState>,
+    app_id: String,
+) -> Result<serde_json::Value, String> {
+    let g = state.read().await;
+    let s = g.as_ref().ok_or_else(|| "node not started".to_string())?;
+    let m = s
+        .app_store
+        .install_official_bundle(&app_id)
+        .map_err(|e| e.to_string())?;
+    serde_json::to_value(&m).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 async fn miniapp_uninstall(state: State<'_, SharedState>, app_id: String) -> Result<(), String> {
     let g = state.read().await;
     let s = g.as_ref().ok_or_else(|| "node not started".to_string())?;
@@ -1208,7 +1253,16 @@ async fn miniapp_browse_store(
     let rows = s.app_store.browse_listings().map_err(|e| e.to_string())?;
     let mut out = Vec::new();
     for l in rows {
-        out.push(serde_json::to_value(&l).map_err(|e| e.to_string())?);
+        let signature_valid = l.verify_signature().unwrap_or(false);
+        out.push(serde_json::json!({
+            "manifest": l.manifest,
+            "bundle_hash": l.bundle_hash,
+            "sources": l.sources,
+            "published_at_ms": l.published_at_ms,
+            "updated_at_ms": l.updated_at_ms,
+            "signature": l.signature,
+            "signature_valid": signature_valid,
+        }));
     }
     Ok(out)
 }
@@ -1565,12 +1619,14 @@ async fn panic_wipe(app: AppHandle, state: State<'_, SharedState>) -> Result<(),
         guard.as_ref().map(|s| s.db_path.clone())
     };
 
-    {
-        let mut guard = state.write().await;
-        *guard = None;
-    }
-
+    shutdown_active_node(&state).await;
     wipe_all_local_data(active_path.as_deref())?;
+    let default = default_db_path();
+    if std::path::Path::new(&default).exists() {
+        return Err(format!(
+            "local data still present at {default} after wipe — close Mycelium completely and retry"
+        ));
+    }
     app.restart();
 }
 
@@ -1653,18 +1709,6 @@ fn setup_event_emitter(app_handle: AppHandle, state: SharedState) {
             let peers = live_peers.len();
             if peers != last_peer_count {
                 last_peer_count = peers;
-                for peer in &live_peers {
-                    if !mycelium_core::bootstrap::is_mesh_peer_id(peer) {
-                        continue;
-                    }
-                    let label = peer.chars().take(16).collect::<String>();
-                    if let Ok(c) = s.app_node.add_contact(peer, &label, true) {
-                        let _ = app_handle.emit(
-                            "contacts-updated",
-                            json!({ "peer_id": peer, "display_name": c.display_name }),
-                        );
-                    }
-                }
             }
             let connectivity = *s.connectivity_mode.read().await;
             let _ = app_handle.emit(
@@ -1737,6 +1781,7 @@ pub fn run() {
             wallet_address,
             wallet_send,
             post_bulletin,
+            subscribe_bulletin_scope,
             bulletins_for_scope,
             add_peer,
             list_groups,
@@ -1749,6 +1794,7 @@ pub fn run() {
             miniapp_list_installed,
             miniapp_preview_install,
             miniapp_install,
+            miniapp_install_official,
             miniapp_uninstall,
             miniapp_browse_store,
             miniapp_get_entry_html,

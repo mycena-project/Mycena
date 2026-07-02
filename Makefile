@@ -1,17 +1,22 @@
 SHELL := /bin/zsh
 
-.PHONY: help desktop-dev desktop-check-relay android-apk android-apk-ci android-apk-local android-install android-deploy clean test test-fast test-unit test-sim check clippy ci fmt docker-android-ci docker-compose-android gradle-wrapper
+.PHONY: help desktop-dev desktop-stop desktop-nuke desktop-check-relay android-apk android-apk-ci android-apk-local android-install android-deploy android-nuke clean test test-fast test-unit test-sim check clippy ci fmt docker-android-ci docker-compose-android gradle-wrapper
 
 help:
 	@echo "Mycelium — the maintainer mesh client (no server stack)"
 	@echo ""
-	@echo "  make desktop-dev     Run desktop UI (Tauri) — local dev"
-	@echo "  make android-apk     Build Android debug APK"
-	@echo "  make clean           Clean build artifacts (not a running mesh)"
+	@echo "  make desktop-dev      Run desktop UI (Tauri) — local dev"
+	@echo "  make desktop-stop     Stop desktop dev (Tauri / Vite / local relay)"
+	@echo "  make desktop-nuke     Stop desktop + delete ALL local Mac data (scorched earth)"
+	@echo "  make android-apk      Build Android debug APK (Docker, full rebuild)"
+	@echo "  make android-install  Install debug APK on USB device (adb)"
+	@echo "  make android-deploy   Stop desktop, rebuild APK, install on device"
+	@echo "  make android-nuke     Clear ALL app data on USB device (scorched earth)"
+	@echo "  make clean            Clean build artifacts (not a running mesh)"
 	@echo ""
 	@echo "See docs/ECOSYSTEM.md · Android: ./android/build.sh"
 
-.PHONY: test test-fast test-unit test-sim check clippy ci fmt docker-android-ci docker-compose-android gradle-wrapper desktop-dev desktop-check-relay android-apk android-apk-ci android-apk-local android-install android-deploy clean
+.PHONY: test test-fast test-unit test-sim check clippy ci fmt docker-android-ci docker-compose-android gradle-wrapper desktop-dev desktop-stop desktop-check-relay android-apk android-apk-ci android-apk-local android-install android-deploy android-nuke clean
 
 # One-shot: add Gradle wrapper under android/ using Docker (no local Gradle needed).
 gradle-wrapper:
@@ -60,6 +65,12 @@ desktop-check-relay:
 desktop-dev:
 	./scripts/run-desktop.sh
 
+desktop-stop:
+	./scripts/stop-desktop.sh
+
+desktop-nuke:
+	./scripts/nuke-desktop-data.sh
+
 # Default: mingc/android-build-box (no local rustup). See scripts/mingc-android-build.sh
 android-apk:
 	./scripts/mingc-android-build.sh
@@ -78,7 +89,11 @@ android-install:
 android-install-github:
 	./scripts/install-android-apk.sh --from-github
 
-android-deploy: android-apk android-install
+# Stop desktop dev, full Android rebuild (Rust + UniFFI + Gradle clean), adb install.
+android-deploy: desktop-stop android-apk android-install
+
+android-nuke:
+	./scripts/nuke-android-data.sh
 
 clean:
 	./scripts/clean-repo.sh --deep

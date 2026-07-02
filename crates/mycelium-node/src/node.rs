@@ -357,6 +357,20 @@ impl NodeHandle {
         )
     }
 
+    pub fn build_contact_hello(
+        &self,
+        peer_id: &str,
+        display_name: &str,
+    ) -> anyhow::Result<mycelium_core::contact_hello::ContactHello> {
+        mycelium_core::contact_hello::ContactHello::sign(
+            peer_id,
+            &self.account_id,
+            display_name,
+            &self.enc_pubkey_hex,
+            &self.account_signing_key,
+        )
+    }
+
     /// First stable LAN multiaddr seen; cached so the signed v3 invite QR does not flip.
     pub async fn stable_direct_multiaddr(&self, local_peer_id: &str) -> Option<String> {
         if let Some(cached) = self.invite_direct_cache.read().await.clone() {
@@ -730,24 +744,40 @@ impl NodeRunner {
         loop {
             tokio::select! {
                 transport_event = self.transport.next_event() => {
-                    self.handle_transport_event(transport_event?).await?;
+                    match transport_event {
+                        Ok(event) => {
+                            if let Err(e) = self.handle_transport_event(event).await {
+                                warn!("transport event handler error: {e:#}");
+                            }
+                        }
+                        Err(e) => warn!("transport event stream error: {e:#}"),
+                    }
                 }
                 Some(cmd) = self.cmd_rx.recv() => {
-                    self.handle_command(cmd).await?;
+                    if let Err(e) = self.handle_command(cmd).await {
+                        warn!("command handler error: {e:#}");
+                    }
                 }
                 Some(remote_ids) = rendezvous_rx.recv() => {
                     self.dial_rendezvous_list(remote_ids).await;
                 }
                 _ = forward_tick.tick() => {
-                    self.forward_once().await?;
+                    if let Err(e) = self.forward_once().await {
+                        warn!("forward tick error: {e:#}");
+                    }
                 }
                 _ = sync_tick.tick() => {
-                    self.sync_known_peers().await?;
+                    if let Err(e) = self.sync_known_peers().await {
+                        warn!("sync tick error: {e:#}");
+                    }
                 }
                 _ = gc_tick.tick() => {
-                    let deleted = self.store.gc_expired().await?;
-                    if deleted > 0 {
-                        info!("GC: deleted {} expired messages", deleted);
+                    match self.store.gc_expired().await {
+                        Ok(deleted) if deleted > 0 => {
+                            info!("GC: deleted {} expired messages", deleted);
+                        }
+                        Ok(_) => {}
+                        Err(e) => warn!("GC tick error: {e:#}"),
                     }
                 }
                 _ = dial_tick.tick() => {
@@ -919,6 +949,7 @@ impl NodeRunner {
                         info!("bulletin subscribed: {scope}");
                     }
                 }
+                self.announce_subscribed_scopes_to_peers().await?;
             }
             NodeCommand::UnsubscribeBulletinScope(scope) => {
                 self.bulletin_subscriptions
@@ -1055,10 +1086,17 @@ impl NodeRunner {
         body: String,
         payload: Vec<u8>,
     ) -> anyhow::Result<()> {
-        let targets = self.targets_for_scope(&scope);
-        if targets.is_empty() {
-            self.transport.publish_scoped(scope, payload).await?;
-            return Ok(());
+        let mut targets: HashSet<String> = self.targets_for_scope(&scope).into_iter().collect();
+        // Bulletin posts must reach every connected peer — ScopeAnnounce can be
+        // missed when peer_cap has not recorded the sender yet (asymmetric LAN sync).
+        if body.starts_with("[bulletin:") {
+            if let Ok(peers) = self.peers.try_read() {
+                for peer in peers.iter() {
+                    if !mycelium_core::bootstrap::is_relay_peer(peer) {
+                        targets.insert(peer.clone());
+                    }
+                }
+            }
         }
         for to_peer in targets {
             let mut envelope = mycelium_core::data::Envelope::new(
@@ -1073,11 +1111,53 @@ impl NodeRunner {
                 envelope,
                 body: body.clone(),
             };
-            let _ = self
-                .ingest
-                .ingest(&mut self.seen_cache, &msg, false)
-                .await?;
-            self.enqueue(to_peer, msg).await?;
+            match self.ingest.ingest(&mut self.seen_cache, &msg, false).await {
+                Ok(true) => {
+                    if let Err(e) = self.enqueue(to_peer.clone(), msg).await {
+                        warn!("broadcast enqueue to {to_peer}: {e:#}");
+                    }
+                }
+                Ok(false) => {}
+                Err(e) => warn!("broadcast ingest for {scope}: {e:#}"),
+            }
+        }
+        // Always gossip so remote peers receive posts even when ScopeAnnounce was missed.
+        if let Err(e) = self.transport.publish_scoped(scope, payload).await {
+            warn!("gossip publish for bulletin scope (non-fatal): {e:#}");
+        }
+        Ok(())
+    }
+
+    async fn announce_subscribed_scopes_to_peers(&mut self) -> anyhow::Result<()> {
+        let scopes: Vec<String> = self
+            .subscribed_scopes
+            .read()
+            .await
+            .iter()
+            .cloned()
+            .collect();
+        if scopes.is_empty() {
+            return Ok(());
+        }
+        let peers: Vec<String> = self
+            .transport
+            .known_peers()
+            .into_iter()
+            .filter(|p| !mycelium_core::bootstrap::is_relay_peer(p))
+            .collect();
+        for peer in peers {
+            if let Err(err) = self
+                .transport
+                .send_direct(
+                    peer.clone(),
+                    WireMessage::ScopeAnnounce {
+                        scopes: scopes.clone(),
+                    },
+                )
+                .await
+            {
+                warn!("scope announce to {peer} failed: {err}");
+            }
         }
         Ok(())
     }
@@ -1574,7 +1654,10 @@ impl NodeRunner {
                     .take(32)
                     .collect();
                 if !validated.is_empty() {
-                    self.peer_scopes.insert(from_peer.clone(), validated);
+                    self.peer_scopes
+                        .entry(from_peer.clone())
+                        .or_default()
+                        .extend(validated);
                 }
                 info!("stored peer info for {from_peer}");
             }
@@ -1646,9 +1729,7 @@ impl NodeRunner {
                 self.forward_wire_to_others(&from_peer, &message).await?;
             }
             WireMessage::ScopeAnnounce { scopes } => {
-                let known_peers = self.transport.known_peers();
-                if !known_peers.iter().any(|p| p == &from_peer) {
-                    warn!("ScopeAnnounce from unknown peer {from_peer} — ignoring");
+                if mycelium_core::bootstrap::is_relay_peer(&from_peer) {
                     return Ok(());
                 }
                 let validated_scopes: HashSet<String> = scopes
@@ -1659,7 +1740,10 @@ impl NodeRunner {
                 if validated_scopes.is_empty() {
                     return Ok(());
                 }
-                self.peer_scopes.insert(from_peer, validated_scopes);
+                self.peer_scopes
+                    .entry(from_peer)
+                    .or_default()
+                    .extend(validated_scopes);
             }
         }
         Ok(())

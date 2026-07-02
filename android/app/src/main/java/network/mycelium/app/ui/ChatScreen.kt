@@ -26,10 +26,14 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import network.mycelium.app.MeshUiState
 import network.mycelium.app.R
+import network.mycelium.app.util.ChatTimeFormatter
 import network.mycelium.app.viewmodel.ChatListEntry
 import network.mycelium.app.viewmodel.ChatViewModel
 
@@ -38,6 +42,12 @@ import network.mycelium.app.viewmodel.ChatViewModel
 fun ChatScreen(navController: NavController, vm: ChatViewModel = viewModel()) {
     val accepted by vm.acceptedContacts.collectAsState()
     val pending by vm.pendingContacts.collectAsState()
+
+    LifecycleResumeEffect(Unit) {
+        MeshUiState.bumpChatRevision()
+        onPauseOrDispose { }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -101,16 +111,34 @@ private fun ContactRow(entry: ChatListEntry, navController: NavController) {
         Text(text = entry.displayName, style = MaterialTheme.typography.bodyLarge)
         Text(
             text =
-                if (entry.online) {
-                    stringResource(
-                        R.string.chat_peer_subtitle_online,
-                        entry.peerId.take(20) + "…",
-                    )
-                } else {
-                    stringResource(R.string.chat_peer_subtitle_offline, entry.peerId.take(20) + "…")
+                entry.lastMessagePreview.ifBlank {
+                    stringResource(R.string.chat_no_messages_yet)
                 },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(top = 2.dp),
+        )
+        val statusText =
+            if (entry.online) {
+                stringResource(R.string.chat_online)
+            } else {
+                stringResource(R.string.chat_offline)
+            }
+        val subtitle =
+            buildString {
+                if (entry.lastMessageTimeMs > 0L) {
+                    append(ChatTimeFormatter.format(entry.lastMessageTimeMs.toULong()))
+                    append(" · ")
+                }
+                append(statusText)
+            }
+        Text(
+            text = subtitle,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 2.dp),
         )
     }
 }

@@ -19,7 +19,7 @@ pub enum Sd030DropReason {
 /// Gossip relay bodies are unsigned by design: inner payload carries its own auth
 /// (E2E group, signed store listing, enc1 bulletin). Only these exact tags bypass SD-030.
 pub fn is_gossip_relay_body(body: &str) -> bool {
-    body == "[mycelium:group]" || body == "[appstore]"
+    body == "[mycelium:group]" || body == "[appstore]" || body.starts_with("[bulletin:")
 }
 
 /// Returns `Ok(())` when the message may be processed; `Err` when it must be dropped.

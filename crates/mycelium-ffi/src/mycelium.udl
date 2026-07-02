@@ -4,6 +4,8 @@ namespace mycelium {
   void init_node(NodeConfig config);
   void stop_node();
   string local_peer_id();
+  /// Stable account id (long-lived; contacts follow this across transport rotation).
+  string local_account_id();
   /// Ephemeral relay identity (distinct from `local_peer_id()`).
   string relay_peer_id();
   /// Seconds since the current relay keypair was created.
@@ -72,6 +74,7 @@ namespace mycelium {
   [Throws=MyceliumException]
   void send_proximity_message(string enc_pubkey_hex, string message);
 
+  [Throws=MyceliumException]
   void send_mail(string to_peer, string subject, string body);
   sequence<MailMessage> mail_inbox(u32 limit);
   sequence<MailMessage> mail_sent(u32 limit);

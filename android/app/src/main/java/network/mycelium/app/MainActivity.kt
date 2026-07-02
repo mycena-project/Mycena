@@ -8,6 +8,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.layout.Box
@@ -22,7 +23,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.delay
+import network.mycelium.app.IdentityHelper
+import network.mycelium.app.OnboardingActivity
+import network.mycelium.app.WelcomeBackActivity
 import network.mycelium.app.ui.MainShell
+import network.mycelium.app.ui.MyceliumTheme
 
 class MainActivity : AppCompatActivity() {
 
@@ -34,10 +39,17 @@ class MainActivity : AppCompatActivity() {
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         val prefs = getSharedPreferences("app", MODE_PRIVATE)
         if (!prefs.getBoolean("onboarding_complete", false)) {
-            startActivity(Intent(this, OnboardingActivity::class.java))
+            val next =
+                if (IdentityHelper.hasExistingIdentity(this)) {
+                    WelcomeBackActivity::class.java
+                } else {
+                    OnboardingActivity::class.java
+                }
+            startActivity(Intent(this, next))
             finish()
             return
         }
@@ -45,21 +57,23 @@ class MainActivity : AppCompatActivity() {
         startMeshServiceIfNeeded()
         requestNotificationPermissionIfNeeded()
         setContent {
-            var nodeReady by remember { mutableStateOf(MeshService.isNodeReady()) }
-            LaunchedEffect(Unit) {
-                while (!nodeReady) {
-                    if (MeshService.isNodeReady()) {
-                        nodeReady = true
-                    } else {
-                        delay(50)
+            MyceliumTheme {
+                var nodeReady by remember { mutableStateOf(MeshService.isNodeReady()) }
+                LaunchedEffect(Unit) {
+                    while (!nodeReady) {
+                        if (MeshService.isNodeReady()) {
+                            nodeReady = true
+                        } else {
+                            delay(50)
+                        }
                     }
                 }
-            }
-            if (nodeReady) {
-                MainShell()
-            } else {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+                if (nodeReady) {
+                    MainShell()
+                } else {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
                 }
             }
         }

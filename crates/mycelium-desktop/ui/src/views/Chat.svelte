@@ -54,21 +54,13 @@
   async function refreshContacts() {
     errorMsg = "";
     try {
-      acceptedContacts = await invoke("get_chat_contacts");
+      acceptedContacts = await invoke("list_accepted_contacts");
       if (!Array.isArray(acceptedContacts)) {
         acceptedContacts = [];
       }
     } catch (e) {
-      try {
-        const peers = await invoke("get_peers");
-        acceptedContacts = (Array.isArray(peers) ? peers : []).map((peer_id) => ({
-          peer_id,
-          display_name: peer_id.slice(0, 16) + "…",
-        }));
-      } catch (e2) {
-        errorMsg = String(e2);
-        acceptedContacts = [];
-      }
+      errorMsg = String(e);
+      acceptedContacts = [];
     }
     try {
       pendingContacts = await invoke("list_pending_contacts");
@@ -214,7 +206,6 @@
     (async () => {
       unsubs.push(await listen("chat-updated", refresh));
       unsubs.push(await listen("contacts-updated", refresh));
-      unsubs.push(await listen("metrics-updated", refreshContacts));
     })();
     return () => unsubs.forEach((u) => u?.());
   });

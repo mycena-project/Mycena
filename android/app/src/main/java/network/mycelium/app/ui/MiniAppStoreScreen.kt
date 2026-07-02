@@ -15,7 +15,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -75,7 +74,10 @@ fun MiniAppStoreScreen(navController: NavController, vm: MiniAppViewModel = view
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text(stringResource(R.string.miniapp_store_title)) })
+            MyceliumBackTopBar(
+                title = stringResource(R.string.miniapp_store_title),
+                onBack = { navController.popBackStack() },
+            )
         },
     ) { padding ->
         LazyColumn(

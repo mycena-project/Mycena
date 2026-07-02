@@ -30,6 +30,8 @@ class OnboardingActivity : ComponentActivity() {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     OnboardingFlow(
                         onComplete = { displayName ->
+                            // Always wipe before first node start (like desktop Setup).
+                            LocalDataWiper.wipeAllLocalData(this)
 
                             getSharedPreferences("settings", MODE_PRIVATE)
                                 .edit()

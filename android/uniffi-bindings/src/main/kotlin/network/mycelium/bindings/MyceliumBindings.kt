@@ -32,6 +32,7 @@ object mycelium {
     fun initNode(config: NodeConfig) = uniffi.mycelium.initNode(config)
     fun stopNode() = uniffi.mycelium.stopNode()
     fun localPeerId(): String = uniffi.mycelium.localPeerId()
+    fun localAccountId(): String = uniffi.mycelium.localAccountId()
     fun knownPeers(): List<String> = uniffi.mycelium.knownPeers()
     fun metrics(): NodeMetrics = uniffi.mycelium.metrics()
     fun relayPeerId(): String = uniffi.mycelium.relayPeerId()

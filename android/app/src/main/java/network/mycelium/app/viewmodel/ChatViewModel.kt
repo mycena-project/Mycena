@@ -8,7 +8,6 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -32,6 +31,8 @@ data class ChatListEntry(
     val peerId: String,
     val displayName: String,
     val online: Boolean,
+    val lastMessagePreview: String = "",
+    val lastMessageTimeMs: Long = 0L,
 )
 
 sealed class ChatUiEvent {
@@ -40,6 +41,7 @@ sealed class ChatUiEvent {
 
 class ChatViewModel(app: Application) : AndroidViewModel(app) {
     private val appContext = getApplication<Application>()
+    private val chatHistoryFlows = mutableMapOf<String, StateFlow<List<ChatMessage>>>()
 
     val localPeerId: String
         get() = runCatching { mycelium.localPeerId() }.getOrDefault("")
@@ -58,10 +60,13 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             val online = mycelium.knownPeers().toSet() - RelayBootstrap.RELAY_PEER_ID
             val accepted =
                 mycelium.listAcceptedContacts().map { c ->
+                    val last = mycelium.chatHistory(c.peerId, 1u).lastOrNull()
                     ChatListEntry(
                         peerId = c.peerId,
                         displayName = c.displayName.ifBlank { c.peerId.take(16) },
                         online = c.peerId in online,
+                        lastMessagePreview = last?.body?.take(80).orEmpty(),
+                        lastMessageTimeMs = last?.timestampMs?.toLong() ?: 0L,
                     )
                 }
             val pending =
@@ -84,7 +89,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                 val (a, _) = refreshContacts()
                 emit(a)
             }
-        }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val pendingContacts: StateFlow<List<ChatListEntry>> =
         flow {
@@ -95,7 +100,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                 val (_, p) = refreshContacts()
                 emit(p)
             }
-        }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** @deprecated use [acceptedContacts] — kept for any legacy callers */
     val peers: StateFlow<List<String>> =
@@ -110,18 +115,21 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
     fun acceptContact(peerId: String) {
         viewModelScope.launch(Dispatchers.IO) {
             mycelium.acceptContact(peerId)
+            MeshUiState.bumpChatRevision()
         }
     }
 
     fun rejectContact(peerId: String) {
         viewModelScope.launch(Dispatchers.IO) {
             mycelium.rejectContact(peerId)
+            MeshUiState.bumpChatRevision()
         }
     }
 
     fun blockContact(peerId: String) {
         viewModelScope.launch(Dispatchers.IO) {
             mycelium.blockContact(peerId)
+            MeshUiState.bumpChatRevision()
         }
     }
 
@@ -133,12 +141,15 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             }
         }.stateIn(viewModelScope, SharingStarted.Lazily, null)
 
-    fun chatHistory(peerId: String): Flow<List<ChatMessage>> =
-        flow {
-            emit(mycelium.chatHistory(peerId, 100u))
-            MeshUiState.chatRevision.collect {
+    fun chatHistory(peerId: String): StateFlow<List<ChatMessage>> =
+        chatHistoryFlows.getOrPut(peerId) {
+            flow {
+                awaitNodeReady()
                 emit(mycelium.chatHistory(peerId, 100u))
-            }
+                MeshUiState.chatRevision.collect {
+                    emit(mycelium.chatHistory(peerId, 100u))
+                }
+            }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
         }
 
     fun peerHasEncKey(peerId: String): StateFlow<Boolean> =
@@ -153,6 +164,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 mycelium.sendChatEncrypted(toPeer, body)
+                MeshUiState.bumpChatRevision()
                 onSuccess()
             } catch (e: MyceliumException.ChatException) {
                 val message =
@@ -160,6 +172,9 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                         e.detail.contains("enc_key_not_yet_exchanged") ->
                             appContext.getString(R.string.chat_key_not_yet_exchanged)
                         e.detail.contains("peer_not_connected") ->
+                            appContext.getString(R.string.chat_peer_not_connected)
+                        e.detail.contains("channel closed", ignoreCase = true) ||
+                            e.detail.contains("not connected to peer", ignoreCase = true) ->
                             appContext.getString(R.string.chat_peer_not_connected)
                         else -> e.detail
                     }

@@ -34,6 +34,10 @@
             android:exported="false" />
 
         <activity
+            android:name=".WelcomeBackActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".LegalDocumentActivity"
             android:exported="false"
             android:label="@string/settings_privacy_policy" />

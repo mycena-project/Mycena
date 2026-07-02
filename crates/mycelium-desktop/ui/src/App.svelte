@@ -112,10 +112,6 @@
         <Chat {peerId} />
       {:else if activeView === "groups"}
         <Groups />
-      {:else if activeView === "mail"}
-        <Mail />
-      {:else if activeView === "bulletin"}
-        <Bulletin />
       {:else if activeView === "sos"}
         <Sos />
       {:else if activeView === "peers"}
@@ -137,6 +133,12 @@
       {:else if activeView === "settings"}
         <Settings {peerId} />
       {/if}
+      <div class="view-panel" class:hidden={activeView !== "mail"}>
+        <Mail />
+      </div>
+      <div class="view-panel" class:hidden={activeView !== "bulletin"}>
+        <Bulletin />
+      </div>
     </main>
   </div>
 {/if}
@@ -220,6 +222,15 @@
     display: flex;
     flex-direction: column;
     background: var(--bg);
+  }
+  .view-panel {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .view-panel.hidden {
+    display: none;
   }
   .miniapp-run {
     display: flex;

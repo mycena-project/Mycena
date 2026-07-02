@@ -3,6 +3,7 @@
 pub mod account_identity;
 pub mod at_rest;
 pub mod bootstrap;
+pub mod contact_hello;
 pub mod crypto;
 pub mod data;
 pub mod e2e_direct_wrap;

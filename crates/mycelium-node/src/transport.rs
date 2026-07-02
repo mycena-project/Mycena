@@ -678,17 +678,25 @@ impl MeshTransport for Libp2pTransport {
     }
 
     async fn publish_scoped(&mut self, scope: ScopeId, payload: Vec<u8>) -> anyhow::Result<()> {
-        let topic = gossipsub::IdentTopic::new(scope);
-        self.swarm.behaviour_mut().gossip.publish(topic, payload)?;
-        Ok(())
+        let topic = gossipsub::IdentTopic::new(scope.clone());
+        match self.swarm.behaviour_mut().gossip.publish(topic, payload) {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                // InsufficientPeers is normal before the gossip mesh forms; direct
+                // delivery + DTN forwarding still carry the payload.
+                warn!("gossip publish on {scope}: {e}");
+                Ok(())
+            }
+        }
     }
 
     async fn subscribe_scope(&mut self, scope: ScopeId) -> anyhow::Result<()> {
         let topic = gossipsub::IdentTopic::new(scope.clone());
-        if !self.swarm.behaviour_mut().gossip.subscribe(&topic)? {
-            anyhow::bail!("failed to subscribe to gossip topic: {scope}");
+        match self.swarm.behaviour_mut().gossip.subscribe(&topic) {
+            Ok(true) => tracing::info!("subscribed to gossip topic: {scope}"),
+            Ok(false) => tracing::debug!("already subscribed to gossip topic: {scope}"),
+            Err(e) => anyhow::bail!("failed to subscribe to gossip topic {scope}: {e}"),
         }
-        tracing::info!("subscribed to gossip topic: {scope}");
         Ok(())
     }
 

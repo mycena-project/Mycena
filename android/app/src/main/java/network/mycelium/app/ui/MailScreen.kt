@@ -18,6 +18,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -29,8 +33,10 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -58,9 +64,22 @@ fun MailScreen(navController: NavController, vm: MailViewModel = viewModel()) {
     var tab by remember { mutableIntStateOf(0) }
     var showCompose by remember { mutableStateOf(false) }
     var selectedMail by remember { mutableStateOf<MailMessage?>(null) }
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(vm) {
+        vm.sendError.collect { message ->
+            snackbarHostState.showSnackbar(message)
+        }
+    }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text(stringResource(R.string.mail_title)) }) },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        topBar = {
+            MyceliumBackTopBar(
+                title = stringResource(R.string.mail_title),
+                onBack = { navController.popBackStack() },
+            )
+        },
         floatingActionButton = {
             FloatingActionButton(onClick = { showCompose = true }) {
                 Icon(Icons.Default.Add, contentDescription = stringResource(R.string.mail_compose))
@@ -68,6 +87,12 @@ fun MailScreen(navController: NavController, vm: MailViewModel = viewModel()) {
         },
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+            Text(
+                text = stringResource(R.string.mail_description),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            )
             TabRow(selectedTabIndex = tab) {
                 Tab(
                     selected = tab == 0,
@@ -213,6 +238,7 @@ private fun MailListRow(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun MailComposeDialog(
     contacts: List<network.mycelium.app.viewmodel.MailContact>,
@@ -220,6 +246,8 @@ private fun MailComposeDialog(
     onSend: (toPeer: String, subject: String, body: String) -> Unit,
 ) {
     var toPeer by remember { mutableStateOf("") }
+    var selectedLabel by remember { mutableStateOf("") }
+    var menuExpanded by remember { mutableStateOf(false) }
     var subject by remember { mutableStateOf("") }
     var body by remember { mutableStateOf("") }
 
@@ -229,29 +257,51 @@ private fun MailComposeDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (contacts.isNotEmpty()) {
-                    Text(
-                        text = stringResource(R.string.mail_pick_contact),
-                        style = MaterialTheme.typography.labelMedium,
-                    )
-                    contacts.forEach { contact ->
-                        TextButton(
-                            onClick = { toPeer = contact.peerId },
-                            modifier = Modifier.fillMaxWidth(),
+                    ExposedDropdownMenuBox(
+                        expanded = menuExpanded,
+                        onExpandedChange = { menuExpanded = it },
+                    ) {
+                        OutlinedTextField(
+                            value = selectedLabel.ifBlank { stringResource(R.string.mail_pick_contact) },
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text(stringResource(R.string.mail_to_hint)) },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = menuExpanded) },
+                            modifier =
+                                Modifier
+                                    .menuAnchor()
+                                    .fillMaxWidth(),
+                        )
+                        DropdownMenu(
+                            expanded = menuExpanded,
+                            onDismissRequest = { menuExpanded = false },
                         ) {
-                            Text(
-                                text = contact.displayName,
-                                modifier = Modifier.fillMaxWidth(),
-                            )
+                            contacts.forEach { contact ->
+                                DropdownMenuItem(
+                                    text = { Text(contact.displayName) },
+                                    onClick = {
+                                        toPeer = contact.peerId
+                                        selectedLabel = contact.displayName
+                                        menuExpanded = false
+                                    },
+                                )
+                            }
                         }
                     }
+                } else {
+                    Text(
+                        text = stringResource(R.string.mail_no_contacts_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    OutlinedTextField(
+                        value = toPeer,
+                        onValueChange = { toPeer = it },
+                        label = { Text(stringResource(R.string.mail_to_hint)) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                    )
                 }
-                OutlinedTextField(
-                    value = toPeer,
-                    onValueChange = { toPeer = it },
-                    label = { Text(stringResource(R.string.mail_to_hint)) },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                )
                 OutlinedTextField(
                     value = subject,
                     onValueChange = { subject = it },

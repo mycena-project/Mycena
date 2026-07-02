@@ -325,6 +325,7 @@ class MeshService : Service() {
         wifiMulticastLock = null
         serviceScope.cancel()
         mycelium.stopNode()
+        nodeInitialized = false
         nodeReady = false
         super.onDestroy()
     }

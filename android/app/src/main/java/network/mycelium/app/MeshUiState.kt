@@ -65,4 +65,9 @@ object MeshUiState {
             _inbox.value = runCatching { mycelium.mailInbox(100u) }.getOrElse { emptyList() }
         }
     }
+
+    /** Call after QR invite / accept so Chat reloads without waiting for mesh events. */
+    fun bumpChatRevision() {
+        _chatRevision.update { it + 1 }
+    }
 }

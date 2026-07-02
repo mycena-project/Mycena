@@ -175,8 +175,8 @@
   <section class="danger-zone">
     <h4>⚠ Danger zone</h4>
     <p>
-      <strong>Start fresh</strong> — clear all local data and return to onboarding (same as checking
-      “Start fresh” on setup).
+      <strong>Start fresh</strong> — permanently deletes all local chats, contacts, keys, and wallet
+      data on this Mac, then returns to onboarding with a new identity.
     </p>
     <button type="button" onclick={setupAgain} class="secondary danger-outline">
       Start fresh / onboarding

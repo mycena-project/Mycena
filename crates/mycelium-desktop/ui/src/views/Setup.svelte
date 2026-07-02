@@ -11,8 +11,6 @@
   let error = $state("");
   let starting = $state(false);
   let dbPath = $state("");
-  let startFresh = $state(false);
-  let hasExistingData = $state(false);
 
   const identityLocked =
     $derived(error.includes("decrypt") || error.includes("ed25519_identity"));
@@ -20,14 +18,9 @@
   $effect(() => {
     (async () => {
       try {
-        const profile = await invoke("get_saved_profile");
-        hasExistingData = profile?.has_local_data ?? false;
-        if (profile?.display_name && !displayName) {
-          displayName = profile.display_name;
-        }
-        dbPath = profile?.db_path ?? "";
+        dbPath = (await invoke("get_default_db_path")) ?? "";
       } catch {
-        hasExistingData = false;
+        dbPath = "";
       }
     })();
   });
@@ -38,12 +31,11 @@
     starting = true;
     try {
       dbPath = dbPath || (await invoke("get_default_db_path"));
-      if (startFresh) {
-        await invoke("reset_local_data", { dbPath });
-      }
+      await invoke("reset_local_data", { dbPath });
+      displayName = displayName.trim();
       await onstart?.({
         dbPath,
-        displayName: displayName.trim(),
+        displayName,
         bootstrapPeers: [],
       });
     } catch (e) {
@@ -65,7 +57,6 @@
       const path = dbPath || (await invoke("get_default_db_path"));
       await invoke("reset_local_data", { dbPath: path });
       dbPath = path;
-      startFresh = false;
       await onstart?.({
         dbPath: path,
         displayName: displayName.trim(),
@@ -117,6 +108,10 @@
   <div class="onboarding">
     <h2>What should others call you?</h2>
     <p class="muted">You can use a pseudonym. Visible to people you message.</p>
+    <p class="fresh-note">
+      Starting here creates a <strong>new identity</strong> on this Mac. Any previous chats,
+      contacts, and keys on this device are permanently deleted.
+    </p>
     <input
       bind:value={displayName}
       placeholder="Your name or pseudonym"
@@ -124,15 +119,6 @@
         if (e.key === "Enter") void finish();
       }}
     />
-    {#if hasExistingData}
-      <label class="fresh-row">
-        <input type="checkbox" bind:checked={startFresh} />
-        <span>
-          <strong>Start fresh</strong> — delete existing chats, contacts, and keys on this Mac
-          before starting.
-        </span>
-      </label>
-    {/if}
     {#if error}
       <p class="error" role="alert">{error}</p>
       {#if identityLocked}
@@ -189,19 +175,16 @@
   .muted {
     font-size: 13px;
   }
-  .fresh-row {
-    display: flex;
-    gap: 10px;
-    align-items: flex-start;
-    width: 100%;
+  .fresh-note {
     font-size: 13px;
+    line-height: 1.45;
     color: var(--text-secondary);
+    width: 100%;
     text-align: left;
-    cursor: pointer;
-  }
-  .fresh-row input {
-    margin-top: 3px;
-    flex-shrink: 0;
+    padding: 12px 14px;
+    border-radius: 8px;
+    background: var(--surface-elevated, var(--surface));
+    border: 1px solid var(--border);
   }
   .error {
     color: var(--danger);

@@ -15,7 +15,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -28,17 +27,25 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
 import network.mycelium.app.R
 import network.mycelium.app.viewmodel.ShareAppViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ShareAppScreen(vm: ShareAppViewModel = viewModel()) {
+fun ShareAppScreen(navController: NavController, vm: ShareAppViewModel = viewModel()) {
     val shareUrl by vm.shareUrl.collectAsState()
     val isServing by vm.isServing.collectAsState()
     val transferCount by vm.transferCount.collectAsState()
 
-    Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.share_app_title)) }) }) { padding ->
+    Scaffold(
+        topBar = {
+            MyceliumBackTopBar(
+                title = stringResource(R.string.share_app_title),
+                onBack = { navController.popBackStack() },
+            )
+        },
+    ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()

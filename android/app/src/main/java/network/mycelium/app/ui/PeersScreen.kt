@@ -50,6 +50,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.graphics.createBitmap
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
 import com.journeyapps.barcodescanner.ScanContract
@@ -178,10 +179,19 @@ fun PeersScreen(navController: NavController, vm: PeersViewModel = viewModel()) 
     var pasteInvite by remember { mutableStateOf("") }
     var showAdvanced by remember { mutableStateOf(false) }
 
-    fun onInviteApplied(successMessage: String) {
+    fun onInviteApplied(successMessage: String, peerId: String?) {
         scope.launch {
             snackbar.showSnackbar(successMessage)
             vm.refresh()
+            if (!peerId.isNullOrBlank()) {
+                navController.navigate("chat") {
+                    popUpTo(navController.graph.findStartDestination().id) {
+                        saveState = true
+                    }
+                    launchSingleTop = true
+                }
+                navController.navigate("chat/$peerId")
+            }
         }
     }
 
@@ -190,7 +200,9 @@ fun PeersScreen(navController: NavController, vm: PeersViewModel = viewModel()) 
             val raw = result.contents
             if (raw.isNullOrBlank()) return@rememberLauncherForActivityResult
             InviteConnect.apply(raw)
-                .onSuccess { onInviteApplied(context.getString(R.string.connect_success)) }
+                .onSuccess { peerId ->
+                    onInviteApplied(context.getString(R.string.connect_success), peerId)
+                }
                 .onFailure { scope.launch { snackbar.showSnackbar(context.getString(R.string.error_invalid_qr)) } }
         }
 
@@ -342,9 +354,9 @@ fun PeersScreen(navController: NavController, vm: PeersViewModel = viewModel()) 
                         val raw = pasteInvite.trim()
                         if (raw.isEmpty()) return@Button
                         InviteConnect.apply(raw)
-                            .onSuccess {
+                            .onSuccess { peerId ->
                                 pasteInvite = ""
-                                onInviteApplied(context.getString(R.string.connect_success))
+                                onInviteApplied(context.getString(R.string.connect_success), peerId)
                             }
                             .onFailure {
                                 scope.launch {

@@ -21,7 +21,7 @@ use mycelium_node::{NodeCommand, NodeHandle};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tokio::sync::{broadcast, Mutex, RwLock};
-use tracing::warn;
+use tracing::{info, warn};
 
 pub struct AppNode {
     handle: NodeHandle,
@@ -124,40 +124,66 @@ impl AppNode {
         });
     }
 
-    /// When a remote peer connects (e.g. after they scanned our QR), add them as a contact
-    /// and remember their relay circuit for reconnect.
+    /// Re-dial relay circuits for saved accepted contacts after node restart.
+    pub fn restore_accepted_contact_dials(self: Arc<Self>) {
+        tokio::spawn(async move {
+            // Let transport/bootstrap init settle before dialing.
+            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+            let contacts = match self.storage.contacts_with_status(ContactStatus::Accepted) {
+                Ok(rows) => rows,
+                Err(err) => {
+                    warn!("restore contact dials: {err}");
+                    return;
+                }
+            };
+            for contact in contacts {
+                let peer = contact.peer_id;
+                let Some(addr) = mycelium_core::bootstrap::relay_circuit_multiaddr(&peer) else {
+                    continue;
+                };
+                if let Err(err) = self
+                    .handle
+                    .send(NodeCommand::AddBootstrapPeer { multiaddr: addr })
+                    .await
+                {
+                    warn!("restore dial {peer}: {err}");
+                } else {
+                    info!("restored relay dial toward {peer}");
+                }
+            }
+        });
+    }
+
+    /// Remember relay circuits for reconnect when a remote peer comes online.
+    /// Contacts are added only via QR invite / explicit accept — not on mere connectivity.
     pub fn start_peer_contact_sync(self: Arc<Self>) {
         let relay = mycelium_core::bootstrap::RELAY_PEER_ID.to_string();
         tokio::spawn(async move {
-            let mut seen = std::collections::HashSet::<String>::new();
+            let mut bootstrapped = std::collections::HashSet::<String>::new();
             let mut tick = tokio::time::interval(std::time::Duration::from_secs(2));
             tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
             loop {
                 tick.tick().await;
                 let peers = self.handle.known_peers().await;
-                let live: std::collections::HashSet<String> = peers.into_iter().collect();
-                for peer in live.difference(&seen) {
-                    if peer == &relay || !mycelium_core::bootstrap::is_mesh_peer_id(peer) {
+                for peer in peers {
+                    if peer == relay || !mycelium_core::bootstrap::is_mesh_peer_id(&peer) {
                         continue;
                     }
-                    let label = peer.chars().take(16).collect::<String>();
-                    match self.add_contact(peer, &label, true) {
-                        Ok(c) => {
-                            self.notifier.on_contact_added(peer, &c.display_name);
-                        }
-                        Err(e) => warn!("auto-add contact {peer}: {e}"),
-                    }
-                    if let Some(addr) = mycelium_core::bootstrap::relay_circuit_multiaddr(peer) {
-                        if let Err(e) = self
-                            .handle
-                            .send(NodeCommand::AddBootstrapPeer { multiaddr: addr })
-                            .await
+                    // Relay bootstrap only — contacts come from QR scan + signed ContactHello.
+                    if !bootstrapped.contains(&peer) {
+                        if let Some(addr) = mycelium_core::bootstrap::relay_circuit_multiaddr(&peer)
                         {
-                            warn!("auto-dial {peer}: {e}");
+                            if let Err(e) = self
+                                .handle
+                                .send(NodeCommand::AddBootstrapPeer { multiaddr: addr })
+                                .await
+                            {
+                                warn!("auto-dial {peer}: {e}");
+                            }
                         }
+                        bootstrapped.insert(peer);
                     }
                 }
-                seen = live;
             }
         });
     }
@@ -167,7 +193,10 @@ impl AppNode {
             return false;
         }
         match self.storage.contact_by_id(peer) {
-            Ok(Some(c)) if c.status == ContactStatus::Accepted => true,
+            Ok(Some(c)) if c.status == ContactStatus::Accepted => {
+                self.maybe_update_stub_display_name(peer, display_name);
+                true
+            }
             Ok(Some(c)) if c.status == ContactStatus::Blocked => false,
             Ok(Some(_)) | Ok(None) => {
                 let name = if display_name.is_empty() {
@@ -188,6 +217,41 @@ impl AppNode {
             }
             Err(e) => {
                 warn!("contact lookup failed for {peer}: {e}");
+                false
+            }
+        }
+    }
+
+    /// Replace peer-id placeholder labels once we learn a human display name (ContactHello or chat).
+    fn maybe_update_stub_display_name(&self, peer: &str, display_name: &str) -> bool {
+        let name = display_name.trim();
+        if name.is_empty() {
+            return false;
+        }
+        let Ok(Some(c)) = self.storage.contact_by_id(peer) else {
+            return false;
+        };
+        if c.status != ContactStatus::Accepted {
+            return false;
+        }
+        let stub = peer.chars().take(16).collect::<String>();
+        let looks_like_stub = c.display_name == stub
+            || (c.display_name.starts_with("12D3") && c.display_name.len() <= 20);
+        if !looks_like_stub || c.display_name == name {
+            return false;
+        }
+        match self.storage.upsert_contact_with_account(
+            peer,
+            name,
+            ContactStatus::Accepted,
+            c.account_id.as_deref(),
+        ) {
+            Ok(updated) => {
+                self.notifier.on_contact_added(peer, &updated.display_name);
+                true
+            }
+            Err(e) => {
+                warn!("update stub display name for {peer}: {e}");
                 false
             }
         }
@@ -262,6 +326,11 @@ impl AppNode {
             }
             return;
         }
+        if msg.body == "[contact:hello]" {
+            self.handle_contact_hello(&msg.envelope.from_peer, &msg.envelope.payload)
+                .await;
+            return;
+        }
         if let Some(scope) = msg
             .body
             .strip_prefix("[bulletin:")
@@ -319,6 +388,15 @@ impl AppNode {
                     let _ = self.bulletin_tx.send(m);
                 }
                 AppPayload::Mail(m) => {
+                    let addressed_to_us = m.to_peer == self.local_peer_id
+                        || msg
+                            .envelope
+                            .to_peer
+                            .as_deref()
+                            .is_some_and(|p| p == self.local_peer_id);
+                    if !addressed_to_us {
+                        return;
+                    }
                     if let Err(err) = self.storage.save_mail_inbox(&m) {
                         warn!("failed to save inbox mail: {err}");
                     }
@@ -469,7 +547,7 @@ impl AppNode {
     ) -> anyhow::Result<EncryptionResult> {
         self.ensure_contact_accepted_for_send(&to_peer, "")?;
         if !self
-            .wait_peer_connected(&to_peer, 10, std::time::Duration::from_millis(500))
+            .wait_peer_connected(&to_peer, 40, std::time::Duration::from_millis(500))
             .await
         {
             anyhow::bail!("peer_not_connected");
@@ -557,6 +635,7 @@ impl AppNode {
         body: String,
         ttl_secs: u64,
     ) -> anyhow::Result<()> {
+        let scope = normalize_bulletin_scope(&scope)?;
         let _ = self
             .handle
             .send(NodeCommand::SubscribeBulletinScope(scope.clone()))
@@ -691,6 +770,7 @@ impl AppNode {
         body: String,
         attachments: Vec<Attachment>,
     ) -> anyhow::Result<()> {
+        let to_peer = self.resolve_mail_recipient(&to_peer)?;
         let display_name = self.display_name.read().await.clone();
         let mail = MailMessage {
             id: uuid::Uuid::new_v4(),
@@ -1040,12 +1120,32 @@ impl AppNode {
         self.storage.contacts_with_status(ContactStatus::Pending)
     }
 
+    fn resolve_mail_recipient(&self, to: &str) -> anyhow::Result<String> {
+        let trimmed = to.trim();
+        if trimmed.is_empty() {
+            anyhow::bail!("recipient required");
+        }
+        if trimmed.starts_with("12D3") {
+            if let Ok(Some(contact)) = self.storage.contact_by_id(trimmed) {
+                return Ok(contact.peer_id);
+            }
+            return Ok(trimmed.to_string());
+        }
+        for contact in self.storage.contacts_with_status(ContactStatus::Accepted)? {
+            if contact.display_name.eq_ignore_ascii_case(trimmed) {
+                return Ok(contact.peer_id);
+            }
+        }
+        anyhow::bail!("unknown recipient — pick a contact or use a peer ID");
+    }
+
     /// Parse QR/deep-link invite: seed E2E key (v2), add contact, dial direct + relay.
-    pub async fn connect_from_invite(&self, raw: &str) -> anyhow::Result<()> {
+    pub async fn connect_from_invite(self: Arc<Self>, raw: &str) -> anyhow::Result<()> {
         let target = mycelium_core::invite::parse_invite(raw.trim())
             .ok_or_else(|| anyhow::anyhow!("invalid invite"))?;
         match target {
             mycelium_core::invite::InviteTarget::Peer(info) => {
+                let target_peer = info.peer_id.clone();
                 let label = info.peer_id.chars().take(16).collect::<String>();
                 let contact = self.storage.upsert_contact_with_account(
                     &info.peer_id,
@@ -1063,6 +1163,7 @@ impl AppNode {
                         .send(NodeCommand::AddBootstrapPeer { multiaddr: addr })
                         .await?;
                 }
+                self.schedule_contact_hello(target_peer);
             }
             mycelium_core::invite::InviteTarget::Multiaddr(addr) => {
                 self.handle
@@ -1071,6 +1172,100 @@ impl AppNode {
             }
         }
         Ok(())
+    }
+
+    fn schedule_contact_hello(self: &Arc<Self>, target_peer: String) {
+        let this = Arc::clone(self);
+        tokio::spawn(async move {
+            for attempt in 0..15 {
+                if this
+                    .wait_peer_connected(&target_peer, 1, std::time::Duration::from_secs(2))
+                    .await
+                {
+                    match this.send_contact_hello(&target_peer).await {
+                        Ok(()) => return,
+                        Err(e) if attempt + 1 >= 15 => {
+                            warn!("contact hello to {target_peer}: {e}");
+                        }
+                        Err(e) => {
+                            warn!("contact hello retry {target_peer} ({attempt}): {e}");
+                        }
+                    }
+                }
+                if attempt + 1 >= 15 {
+                    warn!("contact hello: {target_peer} never connected");
+                    return;
+                }
+            }
+        });
+    }
+
+    async fn send_contact_hello(&self, to_peer: &str) -> anyhow::Result<()> {
+        let display_name = self.display_name.read().await.clone();
+        let hello = self
+            .handle
+            .build_contact_hello(&self.local_peer_id, &display_name)?;
+        let payload = hello.encode()?;
+        self.handle
+            .send(NodeCommand::SendDirectPayload {
+                to_peer: to_peer.to_string(),
+                body: "[contact:hello]".into(),
+                payload,
+            })
+            .await
+    }
+
+    async fn handle_contact_hello(&self, from_peer: &str, payload: &[u8]) {
+        match mycelium_core::contact_hello::ContactHello::decode(payload) {
+            Ok(hello) if hello.verify() => {
+                if hello.peer_id != from_peer {
+                    warn!(
+                        "rejected contact hello: peer_id mismatch ({from_peer} vs {})",
+                        hello.peer_id
+                    );
+                    return;
+                }
+                if self.storage.is_peer_blocked(from_peer).unwrap_or(false) {
+                    return;
+                }
+                let had_accepted = self
+                    .storage
+                    .contact_by_id(from_peer)
+                    .ok()
+                    .flatten()
+                    .is_some_and(|c| c.status == ContactStatus::Accepted);
+                if let Err(e) = self
+                    .handle
+                    .seed_peer_enc_key(from_peer, &hello.enc_pubkey_hex)
+                    .await
+                {
+                    warn!("contact hello enc key seed for {from_peer}: {e}");
+                }
+                let name = if hello.display_name.trim().is_empty() {
+                    from_peer.chars().take(16).collect::<String>()
+                } else {
+                    hello.display_name.trim().to_string()
+                };
+                match self.storage.upsert_contact_with_account(
+                    from_peer,
+                    &name,
+                    ContactStatus::Accepted,
+                    Some(&hello.account_id),
+                ) {
+                    Ok(c) => {
+                        self.notifier.on_contact_added(from_peer, &c.display_name);
+                    }
+                    Err(e) => warn!("contact hello upsert {from_peer}: {e}"),
+                }
+                if !had_accepted {
+                    if let Err(e) = self.send_contact_hello(from_peer).await {
+                        warn!("contact hello reply to {from_peer}: {e}");
+                    }
+                }
+            }
+            Ok(_) => warn!("rejected contact hello from {from_peer}: bad signature"),
+            Err(e) => warn!("contact hello decode from {from_peer}: {e}"),
+        }
     }
 
     pub fn add_contact(
@@ -1271,6 +1466,18 @@ impl AppNode {
     pub fn is_mail_read(&self, mail_id: &uuid::Uuid) -> anyhow::Result<bool> {
         self.storage.is_read(mail_id)
     }
+}
+
+fn normalize_bulletin_scope(scope: &str) -> anyhow::Result<String> {
+    let scope = scope.trim();
+    if scope.is_empty() {
+        anyhow::bail!("scope required");
+    }
+    Ok(if scope.starts_with("mycelium/") {
+        scope.to_lowercase()
+    } else {
+        scope.to_string()
+    })
 }
 
 #[derive(Debug, Clone)]

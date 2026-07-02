@@ -69,6 +69,12 @@ object PeerInvite {
         return legacyHostPort(input)
     }
 
+    fun peerIdFrom(raw: String): String? =
+        when (val target = parse(raw)) {
+            is Target.PeerId -> target.id
+            else -> null
+        }
+
     fun toDialMultiaddr(target: Target): String? =
         when (target) {
             is Target.Multiaddr -> target.addr

@@ -3,12 +3,13 @@
 package network.mycelium.app.viewmodel
 
 import android.app.Application
+import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import network.mycelium.app.MeshEvent
 import network.mycelium.app.meshEvents
 import network.mycelium.bindings.BulletinPost
@@ -16,32 +17,94 @@ import network.mycelium.bindings.mycelium
 
 class BulletinViewModel(app: Application) : AndroidViewModel(app) {
     private val appContext = getApplication<Application>()
+    private val prefs = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
-    val isEnabled: StateFlow<Boolean> =
-        flow {
-            emit(mycelium.isBulletinEnabled())
+    private val _subscriptions = MutableStateFlow(loadSubscriptions())
+    val subscriptions: StateFlow<List<String>> = _subscriptions.asStateFlow()
+
+    private val _activeScope = MutableStateFlow(_subscriptions.value.firstOrNull() ?: DEFAULT_SCOPE)
+    val activeScope: StateFlow<String> = _activeScope.asStateFlow()
+
+    private val _posts = MutableStateFlow<List<BulletinPost>>(emptyList())
+    val posts: StateFlow<List<BulletinPost>> = _posts.asStateFlow()
+
+    init {
+        ensureSubscribed(_activeScope.value)
+        reloadPosts()
+        viewModelScope.launch {
             appContext.meshEvents().collect {
                 if (it == MeshEvent.Bulletin) {
-                    emit(mycelium.isBulletinEnabled())
+                    reloadPosts()
                 }
             }
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+        }
+    }
 
-    val posts: StateFlow<List<BulletinPost>> =
-        flow {
-            emit(loadPosts())
-            appContext.meshEvents().collect {
-                if (it == MeshEvent.Bulletin) {
-                    emit(loadPosts())
-                }
-            }
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    fun setActiveScope(scope: String) {
+        val normalized = normalizeScope(scope)
+        if (normalized.isBlank()) return
+        _activeScope.value = normalized
+        ensureSubscribed(normalized)
+        reloadPosts()
+    }
 
-    private fun loadPosts(): List<BulletinPost> {
-        if (!mycelium.isBulletinEnabled()) return emptyList()
-        return mycelium.getBulletinSubscriptions()
-            .flatMap { scope -> mycelium.bulletinsForScope(scope) }
-            .distinctBy { it.id }
-            .sortedByDescending { it.timestampMs }
+    fun addScope(scope: String) {
+        val normalized = normalizeScope(scope)
+        if (normalized.isBlank()) return
+        ensureSubscribed(normalized)
+        _activeScope.value = normalized
+        reloadPosts()
+    }
+
+    fun removeScope(scope: String) {
+        mycelium.unsubscribeBulletinScope(scope)
+        val updated = mycelium.getBulletinSubscriptions()
+        persistSubscriptions(updated)
+        _subscriptions.value = updated
+        if (_activeScope.value == scope) {
+            _activeScope.value = updated.firstOrNull() ?: DEFAULT_SCOPE
+        }
+        reloadPosts()
+    }
+
+    fun post(title: String, body: String) {
+        val scope = _activeScope.value
+        if (scope.isBlank() || title.isBlank() || body.isBlank()) return
+        ensureSubscribed(scope)
+        mycelium.postBulletin(scope, title.trim(), body.trim(), 86_400u)
+        reloadPosts()
+    }
+
+    fun reloadPosts() {
+        val scope = _activeScope.value
+        _subscriptions.value = mycelium.getBulletinSubscriptions()
+        _posts.value =
+            runCatching { mycelium.bulletinsForScope(scope) }
+                .getOrElse { emptyList() }
+                .sortedByDescending { it.timestampMs }
+    }
+
+    private fun ensureSubscribed(scope: String) {
+        mycelium.subscribeBulletinScope(scope)
+        val updated = mycelium.getBulletinSubscriptions()
+        persistSubscriptions(updated)
+        _subscriptions.value = updated
+    }
+
+    private fun loadSubscriptions(): List<String> =
+        prefs.getStringSet(KEY_BULLETIN_SUBSCRIPTIONS, emptySet())?.toList().orEmpty()
+            .ifEmpty { mycelium.getBulletinSubscriptions() }
+
+    private fun persistSubscriptions(scopes: List<String>) {
+        prefs.edit().putStringSet(KEY_BULLETIN_SUBSCRIPTIONS, scopes.toSet()).apply()
+    }
+
+    private fun normalizeScope(raw: String): String =
+        raw.trim().lowercase().replace(" ", "/")
+
+    companion object {
+        const val PREFS_NAME = "settings"
+        const val KEY_BULLETIN_SUBSCRIPTIONS = "bulletin_subscriptions"
+        const val DEFAULT_SCOPE = "mycelium/general"
     }
 }

@@ -67,12 +67,15 @@
     // Listen addr may appear a few seconds after the node starts.
     const retryInvite = setTimeout(refreshInvite, 3_000);
     let unlistenMetrics = () => {};
+    let unlistenContacts = () => {};
     (async () => {
       unlistenMetrics = await listen("metrics-updated", refreshPeers);
+      unlistenContacts = await listen("contacts-updated", refreshPeers);
     })();
     return () => {
       clearTimeout(retryInvite);
       unlistenMetrics();
+      unlistenContacts();
     };
   });
 

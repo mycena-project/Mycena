@@ -2,7 +2,7 @@
 # Build debug APK in mingc/android-build-box (your working Docker flow).
 #
 #   make android-apk
-#   make android-deploy
+#   make android-deploy    # stop desktop, rebuild, adb install
 #   ./scripts/mingc-android-build.sh
 #   ./scripts/mingc-android-build.sh --no-bump
 set -euo pipefail

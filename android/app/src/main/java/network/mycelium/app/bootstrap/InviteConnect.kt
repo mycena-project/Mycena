@@ -2,14 +2,16 @@
 // Copyright (C) 2026 Mycelium Project
 package network.mycelium.app.bootstrap
 
+import network.mycelium.app.MeshUiState
 import network.mycelium.bindings.mycelium
 
-/** Apply a scanned or pasted invite: contact, E2E key (v2), and dial. */
+/** Apply a scanned or pasted invite: contact, E2E key (v2/v3), and dial. Returns remote peer id when known. */
 object InviteConnect {
-    fun apply(raw: String): Result<Unit> {
+    fun apply(raw: String): Result<String?> {
         return try {
             mycelium.connectInvite(raw.trim())
-            Result.success(Unit)
+            MeshUiState.bumpChatRevision()
+            Result.success(PeerInvite.peerIdFrom(raw))
         } catch (e: Exception) {
             Result.failure(
                 e as? Exception ?: IllegalArgumentException(e.message ?: "invalid_invite"),

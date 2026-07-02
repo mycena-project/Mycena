@@ -29,6 +29,24 @@ pub fn invite_v3_signable_bytes(
     bytes
 }
 
+pub fn contact_hello_signable_bytes(
+    peer_id: &str,
+    account_id: &str,
+    display_name: &str,
+    enc_pubkey_hex: &str,
+) -> Vec<u8> {
+    let mut bytes = Vec::new();
+    bytes.extend_from_slice(b"MYCEL/CONTACT/v1\0");
+    bytes.extend_from_slice(peer_id.as_bytes());
+    bytes.push(0);
+    bytes.extend_from_slice(account_id.as_bytes());
+    bytes.push(0);
+    bytes.extend_from_slice(display_name.as_bytes());
+    bytes.push(0);
+    bytes.extend_from_slice(enc_pubkey_hex.as_bytes());
+    bytes
+}
+
 pub fn identity_rotation_signable_bytes(
     account_id: &str,
     new_peer_id: &str,

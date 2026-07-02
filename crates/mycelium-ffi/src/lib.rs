@@ -600,6 +600,7 @@ pub fn init_node(config: NodeConfig) {
         );
         let app_node = Arc::new(app_node);
         app_node.clone().start_incoming_task();
+        app_node.clone().restore_accepted_contact_dials();
         app_node.clone().start_peer_contact_sync();
 
         let peer_handle = handle.clone();
@@ -692,6 +693,10 @@ pub fn stop_node() {
 
 pub fn local_peer_id() -> String {
     with_state(|s| s.local_peer_id.clone())
+}
+
+pub fn local_account_id() -> String {
+    with_state(|s| s.handle.account_id().to_string())
 }
 
 pub fn relay_peer_id() -> String {
@@ -1268,15 +1273,25 @@ pub fn send_proximity_message(
     })
 }
 
-pub fn send_mail(to_peer: String, subject: String, body: String) {
+pub fn send_mail(to_peer: String, subject: String, body: String) -> Result<(), MyceliumException> {
     let state = state_arc();
     runtime().block_on(async {
-        let state = state.read().await;
-        let _ = state
-            .app_node
+        let app_node = {
+            let guard = state.read().await;
+            if guard.runner_task.is_finished() {
+                return Err(MyceliumException::ChatError {
+                    detail: "mesh node stopped — restart the app".into(),
+                });
+            }
+            guard.app_node.clone()
+        };
+        app_node
             .send_mail(to_peer, subject, body, vec![])
-            .await;
-    });
+            .await
+            .map_err(|e| MyceliumException::ChatError {
+                detail: e.to_string(),
+            })
+    })
 }
 
 pub fn mail_inbox(limit: u32) -> Vec<MailMessage> {
@@ -1409,6 +1424,7 @@ pub fn connect_invite(raw: String) -> Result<(), MyceliumException> {
         let state = state.read().await;
         state
             .app_node
+            .clone()
             .connect_from_invite(&raw)
             .await
             .map_err(|e| MyceliumException::ChatError {
