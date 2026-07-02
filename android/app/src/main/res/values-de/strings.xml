@@ -220,6 +220,7 @@
     <string name="share_app_instructions">Empfänger: gleiches WLAN, QR scannen oder URL im Browser öffnen. Keine App nötig.</string>
     <string name="share_app_qr_content_description">QR-Code zur Installation</string>
     <string name="share_app_start">Teilen starten</string>
+    <string name="share_app_share_link">Installationslink teilen</string>
     <string name="share_app_stop">Teilen beenden</string>
     <string name="share_app_title">Myzelium teilen</string>
     <string name="share_app_transfers">Mit %1$d Gerät(en) geteilt ✓</string>

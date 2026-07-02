@@ -18,6 +18,7 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Wallet
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -57,6 +58,13 @@ fun MoreScreen(navController: NavController) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(16.dp))
+            MoreHubRow(
+                icon = Icons.Default.Share,
+                title = stringResource(R.string.share_app_title),
+                subtitle = stringResource(R.string.more_share_app_sub),
+                onClick = { navController.navigate("share_app") },
+            )
+            Spacer(Modifier.height(10.dp))
             MoreHubRow(
                 icon = Icons.Default.Apps,
                 title = stringResource(R.string.settings_mini_apps),

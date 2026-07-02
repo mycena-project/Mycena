@@ -17,11 +17,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.OutlinedButton
@@ -63,6 +67,7 @@ import network.mycelium.app.PortraitQrScanActivity
 import network.mycelium.app.R
 import network.mycelium.app.bootstrap.InviteConnect
 import network.mycelium.app.bootstrap.PeerInvite
+import network.mycelium.app.util.sharePlainText
 import network.mycelium.app.viewmodel.PeersViewModel
 import network.mycelium.bindings.mycelium
 
@@ -255,6 +260,22 @@ fun PeersScreen(navController: NavController, vm: PeersViewModel = viewModel()) 
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.padding(top = 12.dp),
                     )
+                    Button(
+                        onClick = {
+                            sharePlainText(
+                                context,
+                                invitePayload,
+                                context.getString(R.string.peers_share),
+                            )
+                        },
+                        modifier = Modifier.padding(top = 12.dp),
+                    ) {
+                        Icon(Icons.Default.Share, contentDescription = null)
+                        Text(
+                            stringResource(R.string.peers_share),
+                            modifier = Modifier.padding(start = 8.dp),
+                        )
+                    }
                 }
             },
             confirmButton = {
@@ -266,7 +287,19 @@ fun PeersScreen(navController: NavController, vm: PeersViewModel = viewModel()) 
     }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text(stringResource(R.string.peers_title)) }) },
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.peers_title)) },
+                actions = {
+                    IconButton(onClick = { navController.navigate("share_app") }) {
+                        Icon(
+                            Icons.Default.Share,
+                            contentDescription = stringResource(R.string.share_app_title),
+                        )
+                    }
+                },
+            )
+        },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
         LazyColumn(
@@ -334,6 +367,18 @@ fun PeersScreen(navController: NavController, vm: PeersViewModel = viewModel()) 
                     }
                     OutlinedButton(onClick = { showMyQr = true }, modifier = Modifier.fillMaxWidth()) {
                         Text(stringResource(R.string.connect_show_qr_button))
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            sharePlainText(
+                                context,
+                                invitePayload,
+                                context.getString(R.string.peers_share),
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(stringResource(R.string.peers_share))
                     }
                 }
             }

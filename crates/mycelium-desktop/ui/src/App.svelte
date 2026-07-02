@@ -10,6 +10,7 @@
   import Bulletin from "./views/Bulletin.svelte";
   import Sos from "./views/Sos.svelte";
   import Peers from "./views/Peers.svelte";
+  import Share from "./views/Share.svelte";
   import Wallet from "./views/Wallet.svelte";
   import Settings from "./views/Settings.svelte";
   import Setup from "./views/Setup.svelte";
@@ -32,6 +33,7 @@
     { id: "bulletin", label: "Bulletin" },
     { id: "sos", label: "SOS" },
     { id: "peers", label: "Connect" },
+    { id: "share", label: "Share" },
     { id: "wallet", label: "Wallet" },
     { id: "miniapp", label: "Mini apps" },
     { id: "settings", label: "Settings" },
@@ -116,6 +118,8 @@
         <Sos />
       {:else if activeView === "peers"}
         <Peers {peerId} />
+      {:else if activeView === "share"}
+        <Share />
       {:else if activeView === "wallet"}
         <Wallet />
       {:else if activeView === "miniapp"}

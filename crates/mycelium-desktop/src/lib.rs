@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Mycelium Project
+mod share_server;
+
 use async_trait::async_trait;
 use mycelium_app::contacts::{Contact, ContactStatus};
 use mycelium_app::envelope::AppMessage;
@@ -13,6 +15,7 @@ use mycelium_core::energy::NodeState;
 use mycelium_core::transport::ConnectivityMode;
 use mycelium_node::{NodeCommand, NodeConfig, NodeHandle, NodeRunner};
 use serde_json::json;
+use share_server::ShareServer;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter, State};
@@ -213,6 +216,22 @@ fn default_db_path() -> String {
         .to_string_lossy()
         .to_string()
 }
+
+fn share_dir() -> PathBuf {
+    PathBuf::from(default_db_path()).join("share")
+}
+
+fn default_share_apk_path() -> PathBuf {
+    share_dir().join("mycelium.apk")
+}
+
+fn ensure_share_dir() -> Result<PathBuf, String> {
+    let dir = share_dir();
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    Ok(dir)
+}
+
+type ShareServerState = Arc<ShareServer>;
 
 /// Delete local Mycelium data (identity, messages, keys). Safe before first successful start.
 fn wipe_local_data_at(path: &str) -> Result<(), String> {
@@ -1611,6 +1630,47 @@ async fn set_custom_bootstrap_peers(
     Ok(())
 }
 
+#[tauri::command]
+async fn get_share_status(share: State<'_, ShareServerState>) -> Result<share_server::ShareServerStatus, String> {
+    Ok(share.status().await)
+}
+
+#[tauri::command]
+async fn start_share_server(share: State<'_, ShareServerState>) -> Result<share_server::ShareServerStatus, String> {
+    share.start().await?;
+    Ok(share.status().await)
+}
+
+#[tauri::command]
+async fn stop_share_server(share: State<'_, ShareServerState>) -> Result<share_server::ShareServerStatus, String> {
+    share.stop().await;
+    Ok(share.status().await)
+}
+
+#[tauri::command]
+async fn choose_share_apk(app: AppHandle, share: State<'_, ShareServerState>) -> Result<share_server::ShareServerStatus, String> {
+    use tauri_plugin_dialog::DialogExt;
+
+    let picked = app
+        .dialog()
+        .file()
+        .add_filter("Android APK", &["apk"])
+        .blocking_pick_file();
+
+    let Some(file_path) = picked else {
+        return Ok(share.status().await);
+    };
+
+    let source = file_path
+        .into_path()
+        .map_err(|e| e.to_string())?;
+    ensure_share_dir()?;
+    let dest = default_share_apk_path();
+    std::fs::copy(&source, &dest).map_err(|e| format!("Could not copy APK: {e}"))?;
+    share.set_apk_path(dest).await;
+    Ok(share.status().await)
+}
+
 /// Immediately deletes all local data and restarts the app.
 #[tauri::command]
 async fn panic_wipe(app: AppHandle, state: State<'_, SharedState>) -> Result<(), String> {
@@ -1737,12 +1797,15 @@ fn init_tracing() {
 pub fn run() {
     init_tracing();
     let shared_state: SharedState = Arc::new(RwLock::new(None));
+    let _ = ensure_share_dir();
+    let share_server: ShareServerState = Arc::new(ShareServer::new(default_share_apk_path()));
 
     tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(shared_state.clone())
+        .manage(share_server)
         .setup(move |app| {
             setup_event_emitter(app.handle().clone(), shared_state.clone());
             Ok(())
@@ -1815,6 +1878,10 @@ pub fn run() {
             run_gc,
             get_custom_bootstrap_peers,
             set_custom_bootstrap_peers,
+            get_share_status,
+            start_share_server,
+            stop_share_server,
+            choose_share_apk,
             panic_wipe,
         ])
         .run(tauri::generate_context!())
