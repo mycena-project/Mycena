@@ -29,6 +29,7 @@
 
 ## Optional (Backlog)
 
+- **iOS host (long-term)** — UniFFI Swift shell; see [MOBILE_PLATFORMS.md](./MOBILE_PLATFORMS.md) Phase 2–3
 - Forward Secrecy / Double Ratchet
 - Relay-Parität mit Node-Wire-Semantik
 - Desktop-Release-Runbook (Signierung, Updates)

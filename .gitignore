@@ -9,6 +9,11 @@
 # Local Cargo home (optional tooling)
 /.cargo-home/
 
+# iOS (future)
+/ios/rust-build/
+/ios/DerivedData/
+/ios/Mycelium/Generated/
+
 # Android / Gradle
 /android/.gradle/
 /android/**/build/

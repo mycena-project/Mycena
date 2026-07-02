@@ -25,9 +25,11 @@
 
 See [android/README.md](android/README.md) for build instructions.
 
+**Future iOS:** native Swift shell over the same UniFFI contract — groundwork only; see [docs/MOBILE_PLATFORMS.md](docs/MOBILE_PLATFORMS.md) and [ios/README.md](ios/README.md).
+
 ### Desktop (Tauri)
 
-macOS or Linux with Rust toolchain. Experimental — same mesh stack via FFI.
+macOS or Linux with Rust toolchain. Experimental — same Rust mesh stack, linked **natively** in Tauri (not UniFFI). See [docs/MOBILE_PLATFORMS.md](docs/MOBILE_PLATFORMS.md) for Android vs desktop vs future iOS hosts.
 
 ## Install (simplest path)
 

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Regenerate UniFFI Kotlin bindings (single mycelium.kt, no nested duplicates).
+# Prefer: ./scripts/regenerate-uniffi-bindings.sh [kotlin|swift|all]
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"

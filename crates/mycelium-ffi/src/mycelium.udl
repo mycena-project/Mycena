@@ -153,7 +153,7 @@ dictionary NodeConfig {
   string listen_addr;
   string display_name;
   sequence<string> bootstrap_peers;
-  /// Optional 64-char hex (32 bytes) master key for at-rest encryption (Android).
+  /// Optional 64-char hex (32 bytes) master key for at-rest encryption (host-provided; mobile Keychain/Keystore).
   string? storage_key_hex;
   /// Opt-in relay rendezvous (find/be found on public relay).
   boolean rendezvous_enabled;

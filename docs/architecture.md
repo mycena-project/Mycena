@@ -16,6 +16,14 @@
 - `sync/` (core placeholder): Bloom-filter digest model for delta exchange.
 - `energy/` (core): node energy state (`Active`, `Intermittent`, `Passive`) and scheduling hints.
 
+## Mobile hosts
+
+Android (Kotlin/Compose + UniFFI) is the primary mobile beta. A future iOS app will use the **same** `mycelium.udl` contract with Swift bindings; desktop uses direct Rust in Tauri instead.
+
+- Strategy and phased plan: [MOBILE_PLATFORMS.md](./MOBILE_PLATFORMS.md)
+- Architecture decision: [adr/001-mobile-host-architecture.md](./adr/001-mobile-host-architecture.md)
+- iOS scaffold: [../ios/README.md](../ios/README.md)
+
 ## Core Traits and Data Types
 
 - `MessageStore`: persistence boundary for local-first durability (currently sled implementation in node crate).
