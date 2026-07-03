@@ -231,7 +231,7 @@ impl PeerTrustStore {
         })
     }
 
-    pub(crate) fn load_all(&self) -> HashMap<String, PeerTrust> {
+    pub fn load_all(&self) -> HashMap<String, PeerTrust> {
         self.cache
             .lock()
             .expect("peer trust cache lock") // INVARIANT: mutex not poisoned
@@ -244,7 +244,7 @@ impl PeerTrustStore {
         Ok(())
     }
 
-    pub(crate) fn with_peer<F>(&self, peer_id: &str, now_ms: u64, f: F) -> anyhow::Result<()>
+    pub fn with_peer<F>(&self, peer_id: &str, now_ms: u64, f: F) -> anyhow::Result<()>
     where
         F: FnOnce(&mut PeerTrust),
     {

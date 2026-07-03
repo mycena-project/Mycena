@@ -19,6 +19,7 @@ use mycelium_coin::{
 };
 use mycelium_core::energy::NodeState as RustEnergyState;
 use mycelium_core::transport::ConnectivityMode as NetConnectivityMode;
+use mycelium_l1_facade::consistency::{OP_DIRECT_MESSAGE_SEND, OP_GOSSIP_BULLETIN_PUBLISH};
 use mycelium_node::{
     ConnectivityMonitor, NodeCommand, NodeConfig as RustNodeConfig, NodeHandle, NodeRunner,
 };
@@ -248,6 +249,7 @@ fn entry_to_nearby(entry: mycelium_app::proximity::ProximityNearbyEntry) -> Near
 pub struct WalletBalance {
     pub confirmed_muon: u64,
     pub pending_muon: u64,
+    pub settled_muon: u64,
 }
 
 #[derive(Debug, Clone)]
@@ -433,11 +435,12 @@ impl CoinTransport for FfiCoinTransport {
     async fn broadcast_coin_inner(&self, coin_inner: Vec<u8>) -> anyhow::Result<()> {
         let payload = AppMessage::encode_coin_payload(&coin_inner)?;
         self.handle
-            .send(NodeCommand::BroadcastPayload {
-                scope: "mycelium/coin/v1".into(),
-                body: "[coin]".into(),
+            .mesh_broadcast(
+                "mycelium/coin/v1".into(),
+                "[coin]".into(),
                 payload,
-            })
+                OP_GOSSIP_BULLETIN_PUBLISH,
+            )
             .await
     }
 
@@ -448,11 +451,7 @@ impl CoinTransport for FfiCoinTransport {
     ) -> anyhow::Result<()> {
         let payload = AppMessage::encode_coin_payload(&coin_inner)?;
         self.handle
-            .send(NodeCommand::SendDirectPayload {
-                to_peer,
-                body: "[coin]".into(),
-                payload,
-            })
+            .mesh_send_direct(to_peer, "[coin]".into(), payload, OP_DIRECT_MESSAGE_SEND)
             .await
     }
 }
@@ -1603,13 +1602,22 @@ pub fn wallet_address() -> String {
 
 pub fn wallet_balance() -> WalletBalance {
     with_state(|s| match s.coin_node.balance_eventual() {
-        Ok(view) => WalletBalance {
-            confirmed_muon: view.confirmed_muon(),
-            pending_muon: view.pending_muon(),
-        },
+        Ok(view) => {
+            let settled = s
+                .coin_node
+                .balance_settled()
+                .map(|v| v.spendable_muon())
+                .unwrap_or(0);
+            WalletBalance {
+                confirmed_muon: view.confirmed_muon(),
+                pending_muon: view.pending_muon(),
+                settled_muon: settled,
+            }
+        }
         Err(_) => WalletBalance {
             confirmed_muon: 0,
             pending_muon: 0,
+            settled_muon: 0,
         },
     })
 }

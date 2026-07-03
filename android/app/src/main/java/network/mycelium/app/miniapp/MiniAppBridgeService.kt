@@ -67,7 +67,7 @@ class MiniAppBridgeService : Service() {
                 mycelium.listInstalledApps().find { it.id == appId }?.paymentAddress
 
             override fun getWalletConfirmedMuon(): Long =
-                mycelium.walletBalance().confirmedMuon.toLong()
+                mycelium.walletBalance().settledMuon.toLong()
 
             override fun sendTransaction(toAddress: String, amountMuon: Long, memo: String?) {
                 mycelium.sendTransaction(toAddress, amountMuon.toULong(), memo?.ifBlank { null })

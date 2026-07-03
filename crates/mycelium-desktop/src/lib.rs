@@ -13,6 +13,7 @@ use mycelium_app::storage::AppStorage;
 use mycelium_coin::{address_from_keypair, CoinNode, CoinTransport, LocalLedger};
 use mycelium_l0_facade::bootstrap::{load_custom_bootstrap_peers, save_custom_bootstrap_peers};
 use mycelium_l0_facade::energy::NodeState;
+use mycelium_l1_facade::consistency::{OP_DIRECT_MESSAGE_SEND, OP_GOSSIP_BULLETIN_PUBLISH};
 use mycelium_l1_facade::ConnectivityMode;
 use mycelium_l1_facade::{NodeCommand, NodeConfig, NodeHandle, NodeRunner};
 use serde_json::json;
@@ -197,11 +198,12 @@ impl CoinTransport for DesktopCoinTransport {
     async fn broadcast_coin_inner(&self, coin_inner: Vec<u8>) -> anyhow::Result<()> {
         let payload = AppMessage::encode_coin_payload(&coin_inner)?;
         self.handle
-            .send(NodeCommand::BroadcastPayload {
-                scope: "mycelium/coin".to_string(),
-                body: "coin:broadcast".to_string(),
+            .mesh_broadcast(
+                "mycelium/coin".to_string(),
+                "coin:broadcast".to_string(),
                 payload,
-            })
+                OP_GOSSIP_BULLETIN_PUBLISH,
+            )
             .await
     }
 
@@ -212,11 +214,12 @@ impl CoinTransport for DesktopCoinTransport {
     ) -> anyhow::Result<()> {
         let payload = AppMessage::encode_coin_payload(&coin_inner)?;
         self.handle
-            .send(NodeCommand::SendDirectPayload {
+            .mesh_send_direct(
                 to_peer,
-                body: "coin:direct".to_string(),
+                "coin:direct".to_string(),
                 payload,
-            })
+                OP_DIRECT_MESSAGE_SEND,
+            )
             .await
     }
 }

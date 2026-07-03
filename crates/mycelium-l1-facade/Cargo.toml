@@ -7,4 +7,5 @@ authors.workspace = true
 description = "L1 facade: stable messaging/sync/payments API over mycelium-node for app-layer crates"
 
 [dependencies]
+mycelium-l0-facade = { path = "../mycelium-l0-facade" }
 mycelium-node = { path = "../mycelium-node" }

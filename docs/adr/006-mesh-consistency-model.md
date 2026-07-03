@@ -76,8 +76,8 @@ Outgoing `send_transaction` requires `SpendAuthorization`, forcing callers throu
 
 | Phase | Scope |
 |-------|--------|
-| **1 (this ADR)** | Core enum + coin typed views / spend token |
-| 2 | Node: tag `send_direct`, SOS, contact commands with `StateOp` in docs + API names |
+| **1** | Core enum + coin typed views / spend token |
+| **2 (done)** | Node: `NodeCommand::mesh_consistency()`, typed `NodeHandle::mesh_*` send helpers tagged with `StateOp` |
 | 3 | App / FFI: expose consistency in metrics or debug API |
 
 ---

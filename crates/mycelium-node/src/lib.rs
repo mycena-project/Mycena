@@ -7,6 +7,7 @@ mod error;
 mod forwarding;
 mod ingest_guard;
 mod node;
+mod node_consistency;
 mod peer_enc_keys;
 mod peer_trust;
 mod ratchet_store;

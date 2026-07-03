@@ -4149,6 +4149,7 @@ dependencies = [
  "mycelium-app",
  "mycelium-coin",
  "mycelium-core",
+ "mycelium-l1-facade",
  "mycelium-node",
  "once_cell",
  "serde_json",
@@ -4178,6 +4179,7 @@ dependencies = [
 name = "mycelium-l1-facade"
 version = "0.1.0"
 dependencies = [
+ "mycelium-l0-facade",
  "mycelium-node",
 ]
 

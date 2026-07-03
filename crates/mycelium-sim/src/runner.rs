@@ -496,10 +496,11 @@ mod tests {
         sim.set_link(b.peer_id.clone(), c.peer_id.clone(), LinkProfile::default());
 
         a.handle
-            .send(mycelium_node::NodeCommand::SendDirect {
-                to_peer: c.peer_id.clone(),
-                body: "hello from A".to_string(),
-            })
+            .mesh_send_direct_text(
+                c.peer_id.clone(),
+                "hello from A".to_string(),
+                mycelium_core::consistency::OP_DIRECT_MESSAGE_SEND,
+            )
             .await
             .expect("send");
 

@@ -6,6 +6,7 @@
 //! Transport internals (`storage`, `ratchet_store`, mesh behaviour) remain private
 //! inside `mycelium-node`.
 
+pub use mycelium_l0_facade::consistency;
 pub use mycelium_node::connectivity::{
     kad_action_for_mode, ConnectivityMonitor, KadConnectivityAction,
 };

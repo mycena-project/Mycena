@@ -50,7 +50,7 @@ class WalletViewModel : ViewModel() {
         viewModelScope.launch(Dispatchers.IO) {
             runCatching {
                 val b = mycelium.walletBalance()
-                _balance.value = b.confirmedMuon.toLong()
+                _balance.value = b.settledMuon.toLong()
                 _pending.value = b.pendingMuon.toLong()
                 _localAddress.value = mycelium.walletAddress()
                 _transactions.value = mycelium.walletRecentTransactions(50u)

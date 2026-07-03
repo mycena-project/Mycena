@@ -2230,6 +2230,7 @@ dependencies = [
 name = "mycelium-l1-facade"
 version = "0.1.0"
 dependencies = [
+ "mycelium-l0-facade",
  "mycelium-node",
 ]
 

@@ -492,10 +492,11 @@ impl NodeHandle {
     }
 
     pub async fn seed_peer_enc_key(&self, peer: &str, enc_pubkey_hex: &str) -> anyhow::Result<()> {
-        self.send(NodeCommand::SeedPeerEncKey {
-            peer_id: peer.to_string(),
-            enc_pubkey_hex: enc_pubkey_hex.to_string(),
-        })
+        self.mesh_seed_invite_enc_key(
+            peer.to_string(),
+            enc_pubkey_hex.to_string(),
+            mycelium_core::consistency::OP_INVITE_PARSE,
+        )
         .await
     }
 

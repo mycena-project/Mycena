@@ -279,7 +279,7 @@ class MiniappJsBridge(
                                         ?.paymentAddress
 
                                 override fun walletConfirmedMuon(): Long =
-                                    mycelium.walletBalance().confirmedMuon.toLong()
+                                    mycelium.walletBalance().settledMuon.toLong()
 
                                 override fun sendPayment(
                                     toAddress: String,

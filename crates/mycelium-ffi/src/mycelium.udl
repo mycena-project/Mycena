@@ -148,6 +148,7 @@ namespace mycelium {
 dictionary WalletBalance {
   u64 confirmed_muon;
   u64 pending_muon;
+  u64 settled_muon;
 };
 
 dictionary TxInfo {

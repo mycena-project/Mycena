@@ -15,6 +15,9 @@ use crate::proximity::{
 use crate::scope_key::ScopeKey;
 use crate::storage::AppStorage;
 use mycelium_coin::CoinNode;
+use mycelium_l0_facade::consistency::{
+    OP_DIRECT_MESSAGE_SEND, OP_GOSSIP_BULLETIN_PUBLISH, OP_SOS_BROADCAST,
+};
 use mycelium_l0_facade::data::now_ms;
 use mycelium_l0_facade::{
     decrypt_group, encrypt_for, encrypt_group, parse_x25519_public_hex, EncKey,
@@ -491,11 +494,12 @@ impl AppNode {
                 }
                 .encode()?;
                 self.handle
-                    .send(NodeCommand::BroadcastPayload {
-                        scope: "mycelium/chat".to_string(),
+                    .mesh_broadcast(
+                        "mycelium/chat".to_string(),
                         body,
                         payload,
-                    })
+                        OP_GOSSIP_BULLETIN_PUBLISH,
+                    )
                     .await?;
                 Ok(ChatSendResult::SentPlaintext)
             }
@@ -531,11 +535,7 @@ impl AppNode {
         }
         .encode()?;
         self.handle
-            .send(NodeCommand::BroadcastPayload {
-                scope,
-                body,
-                payload,
-            })
+            .mesh_broadcast(scope, body, payload, OP_GOSSIP_BULLETIN_PUBLISH)
             .await?;
         Ok(())
     }
@@ -574,10 +574,7 @@ impl AppNode {
                 e2e_version,
             };
             self.handle
-                .send(NodeCommand::SendWireOrQueueBle {
-                    to_peer: to_peer.clone(),
-                    message: wire,
-                })
+                .mesh_send_wire_or_ble(to_peer.clone(), wire, OP_DIRECT_MESSAGE_SEND)
                 .await?;
             self.storage.save_chat(&to_peer, &chat)?;
             tracing::info!("sent encrypted chat to {to_peer} ({} bytes)", body.len());
@@ -616,11 +613,12 @@ impl AppNode {
             .send(NodeCommand::SubscribeScope("mycelium/group/*".into()))
             .await;
         self.handle
-            .send(NodeCommand::BroadcastPayload {
+            .mesh_broadcast(
                 scope,
-                body: "[group message]".into(),
+                "[group message]".into(),
                 payload,
-            })
+                OP_GOSSIP_BULLETIN_PUBLISH,
+            )
             .await?;
         Ok(())
     }
@@ -666,13 +664,16 @@ impl AppNode {
             plaintext
         };
 
-        self.handle
-            .send(NodeCommand::BroadcastPayload {
-                scope: scope.clone(),
-                body: format!("[bulletin:{scope}]"),
-                payload,
-            })
-            .await?;
+        let body_tag = format!("[bulletin:{scope}]");
+        if scope == crate::sos::SOS_SCOPE {
+            self.handle
+                .mesh_broadcast_sos(scope.clone(), body_tag, payload, OP_SOS_BROADCAST)
+                .await?;
+        } else {
+            self.handle
+                .mesh_broadcast(scope.clone(), body_tag, payload, OP_GOSSIP_BULLETIN_PUBLISH)
+                .await?;
+        }
         Ok(())
     }
 
@@ -786,11 +787,12 @@ impl AppNode {
         }
         .encode()?;
         self.handle
-            .send(NodeCommand::SendDirectPayload {
+            .mesh_send_direct(
                 to_peer,
-                body: format!("mail:{subject}"),
+                format!("mail:{subject}"),
                 payload,
-            })
+                OP_DIRECT_MESSAGE_SEND,
+            )
             .await?;
         Ok(())
     }
@@ -865,11 +867,12 @@ impl AppNode {
                 if let Ok(payload) = refreshed.encode() {
                     *presence.write().await = Some(refreshed);
                     let _ = handle
-                        .send(NodeCommand::BroadcastPayload {
-                            scope: PROXIMITY_SCOPE.into(),
-                            body: "[proximity]".into(),
+                        .mesh_broadcast(
+                            PROXIMITY_SCOPE.into(),
+                            "[proximity]".into(),
                             payload,
-                        })
+                            OP_GOSSIP_BULLETIN_PUBLISH,
+                        )
                         .await;
                 }
             }
@@ -940,11 +943,12 @@ impl AppNode {
         let intent = ProximityMatchIntent::new(self.handle.local_enc_pubkey_hex());
         let payload = intent.encode()?;
         self.handle
-            .send(NodeCommand::BroadcastPayload {
-                scope: PROXIMITY_SCOPE.into(),
-                body: "[proximity]".into(),
+            .mesh_broadcast(
+                PROXIMITY_SCOPE.into(),
+                "[proximity]".into(),
                 payload,
-            })
+                OP_GOSSIP_BULLETIN_PUBLISH,
+            )
             .await?;
         Ok(self
             .proximity_matches
@@ -984,22 +988,24 @@ impl AppNode {
         };
         let payload = direct.encode()?;
         self.handle
-            .send(NodeCommand::BroadcastPayload {
-                scope: PROXIMITY_SCOPE.into(),
-                body: "[proximity]".into(),
+            .mesh_broadcast(
+                PROXIMITY_SCOPE.into(),
+                "[proximity]".into(),
                 payload,
-            })
+                OP_GOSSIP_BULLETIN_PUBLISH,
+            )
             .await?;
         Ok(())
     }
 
     async fn broadcast_presence(&self, payload: Vec<u8>) -> anyhow::Result<()> {
         self.handle
-            .send(NodeCommand::BroadcastPayload {
-                scope: PROXIMITY_SCOPE.into(),
-                body: "[proximity]".into(),
+            .mesh_broadcast(
+                PROXIMITY_SCOPE.into(),
+                "[proximity]".into(),
                 payload,
-            })
+                OP_GOSSIP_BULLETIN_PUBLISH,
+            )
             .await?;
         Ok(())
     }
@@ -1234,11 +1240,12 @@ impl AppNode {
             .build_contact_hello(&self.local_peer_id, &display_name)?;
         let payload = hello.encode()?;
         self.handle
-            .send(NodeCommand::SendDirectPayload {
-                to_peer: to_peer.to_string(),
-                body: "[contact:hello]".into(),
+            .mesh_send_direct(
+                to_peer.to_string(),
+                "[contact:hello]".into(),
                 payload,
-            })
+                OP_DIRECT_MESSAGE_SEND,
+            )
             .await
     }
 
@@ -1445,11 +1452,12 @@ impl AppNode {
         }
         .encode()?;
         self.handle
-            .send(NodeCommand::BroadcastPayload {
-                scope: "mycelium/appstore/v1".into(),
-                body: format!("[app:{}]", listing.manifest.id),
+            .mesh_broadcast(
+                "mycelium/appstore/v1".into(),
+                format!("[app:{}]", listing.manifest.id),
                 payload,
-            })
+                OP_GOSSIP_BULLETIN_PUBLISH,
+            )
             .await?;
         tracing::info!(
             "published listing: {} v{}",
@@ -1473,11 +1481,12 @@ impl AppNode {
         }
         .encode()?;
         self.handle
-            .send(NodeCommand::BroadcastPayload {
-                scope: "mycelium/appstore/revocations/v1".into(),
-                body: format!("[revoke:{}]", entry.app_id),
+            .mesh_broadcast(
+                "mycelium/appstore/revocations/v1".into(),
+                format!("[revoke:{}]", entry.app_id),
                 payload,
-            })
+                OP_GOSSIP_BULLETIN_PUBLISH,
+            )
             .await?;
         if let Some(ref store) = self.app_store {
             let _ = store.ingest_revocation_gossip(entry);

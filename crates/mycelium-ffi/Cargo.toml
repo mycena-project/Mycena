@@ -13,6 +13,7 @@ crate-type = ["cdylib", "staticlib"]
 anyhow.workspace = true
 async-trait.workspace = true
 mycelium-core = { path = "../mycelium-core" }
+mycelium-l1-facade = { path = "../mycelium-l1-facade" }
 mycelium-node = { path = "../mycelium-node" }
 mycelium-app = { path = "../mycelium-app" }
 mycelium-coin = { path = "../mycelium-coin" }
