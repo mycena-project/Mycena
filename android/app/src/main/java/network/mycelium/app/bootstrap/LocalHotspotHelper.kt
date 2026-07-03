@@ -3,8 +3,7 @@
 package network.mycelium.app.bootstrap
 
 import android.content.Context
-import android.net.ConnectivityManager
-import android.net.wifi.LocalOnlyHotspotReservation
+import android.net.wifi.WifiManager
 import android.os.Build
 import android.util.Log
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -21,7 +20,7 @@ class LocalHotspotHelper(private val context: Context) {
         private const val TAG = "LocalHotspot"
     }
 
-    private var reservation: LocalOnlyHotspotReservation? = null
+    private var reservation: WifiManager.LocalOnlyHotspotReservation? = null
 
     suspend fun start(): ApkSharePayload.HotspotCredentials =
         suspendCancellableCoroutine { cont ->
@@ -30,12 +29,12 @@ class LocalHotspotHelper(private val context: Context) {
                 return@suspendCancellableCoroutine
             }
 
-            val connectivityManager =
-                context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            val wifiManager =
+                context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
 
-            connectivityManager.startLocalOnlyHotspot(
-                object : ConnectivityManager.LocalOnlyHotspotCallback() {
-                    override fun onStarted(res: LocalOnlyHotspotReservation) {
+            wifiManager.startLocalOnlyHotspot(
+                object : WifiManager.LocalOnlyHotspotCallback() {
+                    override fun onStarted(res: WifiManager.LocalOnlyHotspotReservation) {
                         reservation = res
                         Log.i(TAG, "Local-only hotspot started")
                         cont.resume(readCredentials(res))
@@ -70,12 +69,14 @@ class LocalHotspotHelper(private val context: Context) {
     }
 
     @Suppress("DEPRECATION")
-    private fun readCredentials(res: LocalOnlyHotspotReservation): ApkSharePayload.HotspotCredentials {
+    private fun readCredentials(
+        res: WifiManager.LocalOnlyHotspotReservation,
+    ): ApkSharePayload.HotspotCredentials {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             val config = res.softApConfiguration
             return ApkSharePayload.HotspotCredentials(
-                ssid = config.ssid ?: "",
-                password = config.passphrase ?: "",
+                ssid = config.ssid?.toString().orEmpty(),
+                password = config.passphrase.orEmpty(),
             )
         }
         val legacy = res.wifiConfiguration

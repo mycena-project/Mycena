@@ -9,7 +9,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.IOException
-import java.io.InputStreamReader
 import java.net.ServerSocket
 import java.net.Socket
 import java.util.concurrent.atomic.AtomicInteger
@@ -107,7 +106,7 @@ class WifiDirectSharer(private val context: Context) {
 
     private fun handleRequest(client: Socket, apkFile: File) {
         try {
-            val reader = InputStreamReader(client.getInputStream())
+            val reader = client.getInputStream().bufferedReader()
             val requestLine = reader.readLine().orEmpty()
             val path = requestLine.split(" ").getOrNull(1) ?: "/"
             skipHttpHeaders(reader)
@@ -143,7 +142,7 @@ class WifiDirectSharer(private val context: Context) {
         Log.i(TAG, "APK sent (${apkBytes.size} bytes)")
     }
 
-    private fun skipHttpHeaders(reader: InputStreamReader) {
+    private fun skipHttpHeaders(reader: java.io.BufferedReader) {
         while (true) {
             val line = reader.readLine() ?: break
             if (line.isEmpty()) break
