@@ -11,10 +11,10 @@ use mycelium_app::node::{AppInbox, AppNode};
 use mycelium_app::notify::NotificationSink;
 use mycelium_app::storage::AppStorage;
 use mycelium_coin::{address_from_keypair, CoinNode, CoinTransport, LocalLedger};
-use mycelium_core::bootstrap::{load_custom_bootstrap_peers, save_custom_bootstrap_peers};
-use mycelium_core::energy::NodeState;
-use mycelium_core::transport::ConnectivityMode;
-use mycelium_node::{NodeCommand, NodeConfig, NodeHandle, NodeRunner};
+use mycelium_l0_facade::bootstrap::{load_custom_bootstrap_peers, save_custom_bootstrap_peers};
+use mycelium_l0_facade::energy::NodeState;
+use mycelium_l1_facade::ConnectivityMode;
+use mycelium_l1_facade::{NodeCommand, NodeConfig, NodeHandle, NodeRunner};
 use serde_json::json;
 use share_server::ShareServer;
 use std::path::PathBuf;
@@ -162,7 +162,7 @@ impl NotificationSink for DesktopNotifier {
 
     fn on_bulletin_posted(&self, _scope: &str, _title: &str) {}
 
-    fn on_sos_received(&self, payload: &mycelium_core::sos::SosPayload) {
+    fn on_sos_received(&self, payload: &mycelium_l0_facade::sos::SosPayload) {
         let _ = self.app.emit(
             "sos-updated",
             json!({
@@ -285,7 +285,7 @@ type ShareServerState = Arc<ShareServer>;
 
 /// Delete local Mycelium data (identity, messages, keys). Safe before first successful start.
 fn wipe_local_data_at(path: &str) -> Result<(), String> {
-    mycelium_core::at_rest::clear_keyring_master(path);
+    mycelium_l0_facade::clear_keyring_master(path);
     let p = std::path::Path::new(path);
     if !p.exists() {
         return Ok(());
@@ -295,7 +295,7 @@ fn wipe_local_data_at(path: &str) -> Result<(), String> {
         match std::fs::remove_dir_all(p) {
             Ok(()) => {
                 tracing::info!("destroyed local data at {path}");
-                mycelium_core::at_rest::clear_keyring_master(path);
+                mycelium_l0_facade::clear_keyring_master(path);
                 return Ok(());
             }
             Err(e) => {
@@ -405,7 +405,7 @@ async fn start_node(
     ui_to_save.display_name = Some(display_name.clone());
     save_ui_settings(&db_path, &ui_to_save)?;
     let (connectivity, internet_enabled) =
-        mycelium_node::ConnectivityMonitor::new(ui_settings.internet_enabled);
+        mycelium_l1_facade::ConnectivityMonitor::new(ui_settings.internet_enabled);
     let mut mode_rx = connectivity.mode_rx.clone();
     let connectivity_mode = Arc::new(RwLock::new(*mode_rx.borrow()));
     let connectivity_watch = connectivity_mode.clone();
@@ -418,7 +418,7 @@ async fn start_node(
             *connectivity_watch.write().await = mode;
         }
     });
-    mycelium_node::ConnectivityMonitor::spawn_monitor(
+    mycelium_l1_facade::ConnectivityMonitor::spawn_monitor(
         connectivity.mode_tx.clone(),
         internet_enabled.clone(),
     );
@@ -456,7 +456,7 @@ async fn start_node(
         Arc::new(LocalLedger::open(&format!("{db_path}/coin")).map_err(|e| e.to_string())?);
     let identity_path = format!("{db_path}/identity");
     let coin_keypair =
-        mycelium_node::load_or_create_keypair(&identity_path).map_err(|e| e.to_string())?;
+        mycelium_l1_facade::load_or_create_keypair(&identity_path).map_err(|e| e.to_string())?;
     let coin_addr = address_from_keypair(&coin_keypair);
     let coin_transport = Arc::new(DesktopCoinTransport {
         handle: handle.clone(),
@@ -469,7 +469,7 @@ async fn start_node(
         identity_path,
     ));
 
-    let enc_keypair = mycelium_node::secrets::load_or_create_enc_keypair(&db_path, None)
+    let enc_keypair = mycelium_l0_facade::secrets::load_or_create_enc_keypair(&db_path, None)
         .map_err(|e| e.to_string())?;
 
     let (app_node, inbox) = AppNode::new(
@@ -546,7 +546,7 @@ async fn get_shareable_multiaddrs(state: State<'_, SharedState>) -> Result<Vec<S
         .handle
         .encode_signed_invite_v3(&s.local_peer_id, direct.as_deref())
         .ok();
-    Ok(mycelium_core::bootstrap::shareable_dial_multiaddrs(
+    Ok(mycelium_l0_facade::bootstrap::shareable_dial_multiaddrs(
         &s.local_peer_id,
         &s.handle.local_enc_pubkey_hex(),
         &listen,
@@ -623,7 +623,7 @@ async fn list_accepted_contacts(
         .list_accepted_contacts()
         .map_err(|e| e.to_string())?
         .into_iter()
-        .filter(|c| mycelium_core::bootstrap::is_mesh_peer_id(&c.peer_id))
+        .filter(|c| mycelium_l0_facade::bootstrap::is_mesh_peer_id(&c.peer_id))
         .collect::<Vec<_>>();
     Ok(contacts.into_iter().map(contact_json).collect())
 }
@@ -1429,8 +1429,8 @@ async fn miniapp_publish_revocation(
 ) -> Result<(), String> {
     let g = state.read().await;
     let s = g.as_ref().ok_or_else(|| "node not started".to_string())?;
-    let keypair =
-        mycelium_node::load_or_create_keypair(&s.coin_identity_path).map_err(|e| e.to_string())?;
+    let keypair = mycelium_l1_facade::load_or_create_keypair(&s.coin_identity_path)
+        .map_err(|e| e.to_string())?;
     let entry = s
         .app_store
         .build_revocation_gossip(&app_id, &reason, &s.local_peer_id, &keypair)
@@ -1903,7 +1903,7 @@ fn setup_inbox_emitter(app: AppHandle, mut inbox: AppInbox) {
                 result = inbox.bulletin_rx.recv() => {
                     match result {
                         Ok(post) => {
-                            if post.scope == mycelium_core::sos::SOS_SCOPE {
+                            if post.scope == mycelium_l0_facade::sos::SOS_SCOPE {
                                 let _ = app.emit("sos-updated", ());
                             } else {
                                 let _ = app.emit("bulletin-updated", ());

@@ -8,8 +8,8 @@ use mycelium_app::miniapp::MiniAppBundle;
 use mycelium_app::node::AppNode;
 use mycelium_app::notify::NoopNotifier;
 use mycelium_app::storage::AppStorage;
-use mycelium_core::energy::NodeState;
-use mycelium_node::{
+use mycelium_l0_facade::energy::NodeState;
+use mycelium_l1_facade::{
     load_or_create_keypair, ConnectivityMonitor, NodeCommand, NodeConfig, NodeRunner,
 };
 use std::path::PathBuf;
@@ -187,7 +187,7 @@ async fn cmd_app_publish_live(
     let app_store = Arc::new(mycelium_app::miniapp::AppStore::open(&format!(
         "{db}/miniapp"
     ))?);
-    let enc_keypair = mycelium_node::secrets::load_or_create_enc_keypair(db, None)?;
+    let enc_keypair = mycelium_l0_facade::secrets::load_or_create_enc_keypair(db, None)?;
     let (app_node, _inbox) = AppNode::new(
         handle.clone(),
         publisher_peer,
@@ -251,7 +251,7 @@ async fn run_interactive_server(cli: RunArgs) -> anyhow::Result<()> {
         "{}/miniapp",
         cli.db
     ))?);
-    let enc_keypair = mycelium_node::secrets::load_or_create_enc_keypair(&cli.db, None)?;
+    let enc_keypair = mycelium_l0_facade::secrets::load_or_create_enc_keypair(&cli.db, None)?;
     let (app_node, _inbox) = AppNode::new(
         handle.clone(),
         local_peer_id.clone(),

@@ -44,7 +44,8 @@ Introduce explicit **layer boundary crates** with dependency rules:
 3. **`EncKey::as_core_keypair`** compiles only with `node-internal`; app/miniapp default builds cannot call it (note: workspace feature unification enables it when building `mycelium-app` alongside `mycelium-node` — convention + review).
 4. **`PeerEncKeyStore`** is `pub(crate)` inside `mycelium-node` only.
 5. **`DirectMessage` / `WireMessage`** are exported from `mycelium-l1-facade` for app dispatch code.
-6. Host binaries (`mycelium-desktop`, `mycelium-cli`, …) may still depend on `mycelium-node` directly until migrated.
+6. Host binaries (`mycelium-desktop`, `mycelium-cli`) use `mycelium-l0-facade` and `mycelium-l1-facade`; desktop may still depend on `mycelium-core` for host-only BLE mesh and relay status helpers.
+7. **`scripts/check-layer-boundaries.sh`** runs in `make ci` and fails if app-layer crates (`mycelium-app`, `mycelium-miniapp`, `mycelium-coin`, `miniapp-sdk`) depend on or import `mycelium-core` / `mycelium-node` directly.
 
 ---
 

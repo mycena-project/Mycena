@@ -13,6 +13,7 @@ pub use mycelium_node::secrets::{
     self, bootstrap_identities, encode_signed_invite_v3, load_or_create_enc_keypair,
     IdentityBootstrap, StorageKey,
 };
+pub use mycelium_node::ConnectivityMode;
 pub use mycelium_node::{
     load_or_create_keypair, load_or_create_keypair_from_env, DirectMessage, NodeCommand,
     NodeConfig, NodeHandle, NodeMetrics, NodeRunner, WireMessage,

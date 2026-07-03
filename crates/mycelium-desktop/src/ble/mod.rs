@@ -13,7 +13,7 @@ mod link_registry;
 mod host;
 
 use mycelium_app::node::AppNode;
-use mycelium_node::NodeHandle;
+use mycelium_l1_facade::NodeHandle;
 use std::sync::Arc;
 use std::time::Duration;
 use tracing::info;

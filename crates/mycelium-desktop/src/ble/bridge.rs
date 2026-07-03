@@ -3,7 +3,7 @@
 //! NodeHandle ↔ BLE host bridge (same commands as Android FFI).
 
 use mycelium_app::node::AppNode;
-use mycelium_node::{NodeCommand, NodeHandle};
+use mycelium_l1_facade::{NodeCommand, NodeHandle};
 use std::sync::Arc;
 
 pub async fn invite_uri(handle: &NodeHandle, local_peer_id: &str) -> Option<String> {
@@ -12,7 +12,7 @@ pub async fn invite_uri(handle: &NodeHandle, local_peer_id: &str) -> Option<Stri
     let signed_invite = handle
         .encode_signed_invite_v3(local_peer_id, direct.as_deref())
         .ok();
-    mycelium_core::bootstrap::shareable_dial_multiaddrs(
+    mycelium_l0_facade::bootstrap::shareable_dial_multiaddrs(
         local_peer_id,
         &handle.local_enc_pubkey_hex(),
         &listen,
@@ -85,17 +85,17 @@ pub async fn apply_transport_invite(app_node: &Arc<AppNode>, invite: &str) -> an
 }
 
 pub fn peer_id_from_invite(invite: &str) -> Option<String> {
-    mycelium_core::invite::parse_invite(invite.trim()).map(|target| match target {
-        mycelium_core::invite::InviteTarget::Peer(info) => info.peer_id,
-        mycelium_core::invite::InviteTarget::Multiaddr(_) => String::new(),
+    mycelium_l0_facade::invite::parse_invite(invite.trim()).map(|target| match target {
+        mycelium_l0_facade::invite::InviteTarget::Peer(info) => info.peer_id,
+        mycelium_l0_facade::invite::InviteTarget::Multiaddr(_) => String::new(),
     })
 }
 
 pub fn account_key_from_invite(invite: &str) -> Option<String> {
-    mycelium_core::invite::parse_invite(invite.trim()).and_then(|target| match target {
-        mycelium_core::invite::InviteTarget::Peer(info) => {
+    mycelium_l0_facade::invite::parse_invite(invite.trim()).and_then(|target| match target {
+        mycelium_l0_facade::invite::InviteTarget::Peer(info) => {
             Some(info.account_id.unwrap_or_else(|| info.peer_id.clone()))
         }
-        mycelium_core::invite::InviteTarget::Multiaddr(_) => None,
+        mycelium_l0_facade::invite::InviteTarget::Multiaddr(_) => None,
     })
 }

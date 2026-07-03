@@ -8,9 +8,9 @@ authors.workspace = true
 [dependencies]
 anyhow.workspace = true
 clap.workspace = true
-mycelium-core = { path = "../mycelium-core" }
+mycelium-l0-facade = { path = "../mycelium-l0-facade" }
+mycelium-l1-facade = { path = "../mycelium-l1-facade" }
 mycelium-app = { path = "../mycelium-app" }
-mycelium-node = { path = "../mycelium-node" }
 serde_json.workspace = true
 tokio.workspace = true
 tracing.workspace = true

@@ -13,7 +13,7 @@ use blew::types::{BleDevice, DeviceId};
 use blew::Central;
 use mycelium_app::node::AppNode;
 use mycelium_core::ble_mesh::ChunkAssembler;
-use mycelium_node::NodeHandle;
+use mycelium_l1_facade::NodeHandle;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::Duration;
