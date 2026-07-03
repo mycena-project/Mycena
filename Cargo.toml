@@ -14,6 +14,7 @@ members = [
   "crates/mycelium-relay",
   "crates/miniapp-sdk",
 ]
+exclude = ["fuzz"]
 resolver = "2"
 
 [workspace.package]

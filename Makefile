@@ -1,6 +1,6 @@
 SHELL := /bin/zsh
 
-.PHONY: help desktop-dev desktop-stop desktop-nuke desktop-check-relay android-apk android-apk-ci android-apk-local android-install android-deploy android-nuke clean test test-fast test-integration test-unit test-sim check check-app-layer check-layer-boundaries check-unwrap-audit clippy ci fmt docker-android-ci docker-compose-android gradle-wrapper
+.PHONY: help desktop-dev desktop-stop desktop-nuke desktop-check-relay android-apk android-apk-ci android-apk-local android-install android-deploy android-nuke clean test test-fast test-integration test-unit test-sim check check-app-layer check-layer-boundaries check-unwrap-audit clippy ci fmt fuzz-smoke docker-android-ci docker-compose-android gradle-wrapper
 
 help:
 	@echo "Mycelium — the maintainer mesh client (no server stack)"
@@ -67,6 +67,9 @@ check-unwrap-audit:
 
 ci: check test-fast test-integration check-app-layer check-layer-boundaries check-unwrap-audit clippy
 	CARGO_HOME="$(CURDIR)/.cargo-home" cargo fmt --all --check
+
+fuzz-smoke:
+	./scripts/fuzz-smoke.sh
 
 fmt:
 	CARGO_HOME="$(CURDIR)/.cargo-home" cargo fmt --all

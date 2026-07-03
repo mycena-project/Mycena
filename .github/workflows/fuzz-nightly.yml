@@ -1,0 +1,75 @@
+name: Fuzz (nightly)
+
+on:
+  schedule:
+    # 02:00 UTC daily
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+    inputs:
+      seconds_per_target:
+        description: "Seconds to run each target (default 14400 = 4h)"
+        required: false
+        default: "14400"
+
+concurrency:
+  group: fuzz-nightly
+  cancel-in-progress: false
+
+env:
+  FUZZ_SECONDS: ${{ github.event.inputs.seconds_per_target || '14400' }}
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - fuzz_envelope
+          - fuzz_ble_frame
+          - fuzz_ble_stream
+          - fuzz_ble_multiaddr
+          - fuzz_gossipsub_wire
+          - fuzz_sync_bloom
+          - fuzz_invite
+          - fuzz_coin_payload
+          - fuzz_miniapp_bundle
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: dtolnay/rust-toolchain@nightly
+
+      - name: Install cargo-fuzz
+        run: cargo install cargo-fuzz --locked
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            fuzz/target
+          key: fuzz-nightly-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock', 'fuzz/**') }}
+          restore-keys: |
+            fuzz-nightly-${{ matrix.target }}-
+
+      - name: "Fuzz ${{ matrix.target }} (${{ env.FUZZ_SECONDS }}s)"
+        working-directory: fuzz
+        run: |
+          cargo fuzz run "${{ matrix.target }}" -- \
+            -max_total_time=${{ env.FUZZ_SECONDS }} \
+            -rss_limit_mb=8192 \
+            -timeout=60
+
+      - name: Upload crash artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-crashes-${{ matrix.target }}
+          path: |
+            fuzz/artifacts/**
+            fuzz/corpus/**
+          if-no-files-found: ignore

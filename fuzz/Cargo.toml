@@ -1,0 +1,87 @@
+[package]
+name = "mycelium-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+bincode = "1.3"
+
+[dependencies.mycelium-core]
+path = "../crates/mycelium-core"
+
+[dependencies.mycelium-node]
+path = "../crates/mycelium-node"
+
+[dependencies.mycelium-coin]
+path = "../crates/mycelium-coin"
+
+[dependencies.mycelium-miniapp]
+path = "../crates/mycelium-miniapp"
+
+[[bin]]
+name = "fuzz_envelope"
+path = "fuzz_targets/fuzz_envelope.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_ble_frame"
+path = "fuzz_targets/fuzz_ble_frame.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_ble_stream"
+path = "fuzz_targets/fuzz_ble_stream.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_ble_multiaddr"
+path = "fuzz_targets/fuzz_ble_multiaddr.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_gossipsub_wire"
+path = "fuzz_targets/fuzz_gossipsub_wire.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_sync_bloom"
+path = "fuzz_targets/fuzz_sync_bloom.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_invite"
+path = "fuzz_targets/fuzz_invite.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_coin_payload"
+path = "fuzz_targets/fuzz_coin_payload.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_miniapp_bundle"
+path = "fuzz_targets/fuzz_miniapp_bundle.rs"
+test = false
+doc = false
+bench = false

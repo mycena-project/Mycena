@@ -1,0 +1,62 @@
+name: Fuzz (PR smoke)
+
+on:
+  pull_request:
+    branches: [main, master]
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+concurrency:
+  group: fuzz-pr-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FUZZ_SECONDS: "300"
+
+jobs:
+  fuzz:
+    if: github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - fuzz_envelope
+          - fuzz_ble_frame
+          - fuzz_ble_stream
+          - fuzz_ble_multiaddr
+          - fuzz_gossipsub_wire
+          - fuzz_sync_bloom
+          - fuzz_invite
+          - fuzz_coin_payload
+          - fuzz_miniapp_bundle
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: dtolnay/rust-toolchain@nightly
+
+      - name: Install cargo-fuzz
+        run: cargo install cargo-fuzz --locked
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            fuzz/target
+          key: fuzz-pr-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock', 'fuzz/**') }}
+          restore-keys: |
+            fuzz-pr-${{ matrix.target }}-
+
+      - name: "Fuzz ${{ matrix.target }} (${{ env.FUZZ_SECONDS }}s smoke)"
+        working-directory: fuzz
+        run: |
+          cargo fuzz run "${{ matrix.target }}" -- \
+            -max_total_time=${{ env.FUZZ_SECONDS }} \
+            -rss_limit_mb=4096 \
+            -timeout=30
