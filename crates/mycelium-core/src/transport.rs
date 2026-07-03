@@ -269,6 +269,25 @@ pub trait MeshTransport: Send {
     fn peer_cap_rejections(&self) -> u64 {
         0
     }
+    /// Register an active BLE libp2p link (F3); host opens GATT after handoff.
+    fn register_ble_link(&mut self, _peer_id: String, _device_id: &str) -> Option<TransportEvent> {
+        None
+    }
+    fn remove_ble_link(&mut self, _peer_id: &str) -> Option<TransportEvent> {
+        None
+    }
+    fn ingest_ble_stream_frame(&mut self, _from_peer: &str, _frame: &[u8]) -> anyhow::Result<()> {
+        Ok(())
+    }
+    fn drain_ble_stream_outbound(&mut self, _to_peer: &str, _max: usize) -> Vec<Vec<u8>> {
+        Vec::new()
+    }
+    fn ble_peer_addrs(&self) -> Vec<String> {
+        Vec::new()
+    }
+    fn drain_pending_ble_events(&mut self) -> Vec<TransportEvent> {
+        Vec::new()
+    }
     /// Start a Kademlia lookup for `target_peer_id` (no-op on transports without DHT).
     fn kad_find_peer(&mut self, _target_peer_id: &str) {}
     /// Adjust Kademlia activity for connectivity mode changes.

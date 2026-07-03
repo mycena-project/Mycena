@@ -27,6 +27,7 @@ typealias NearbyProfile = uniffi.mycelium.NearbyProfile
 typealias ProximityMessageData = uniffi.mycelium.ProximityMessageData
 typealias ScopeKeyInfo = uniffi.mycelium.ScopeKeyInfo
 typealias PeerReputationData = uniffi.mycelium.PeerReputationData
+typealias BleOutboundFrame = uniffi.mycelium.BleOutboundFrame
 
 object mycelium {
     fun initNode(config: NodeConfig) = uniffi.mycelium.initNode(config)
@@ -79,6 +80,8 @@ object mycelium {
     fun markMailRead(mailId: String) = uniffi.mycelium.markMailRead(mailId)
     fun setDisplayName(name: String) = uniffi.mycelium.setDisplayName(name)
     fun setRendezvousEnabled(enabled: Boolean) = uniffi.mycelium.setRendezvousEnabled(enabled)
+    fun setInternetEnabled(enabled: Boolean) = uniffi.mycelium.setInternetEnabled(enabled)
+    fun isInternetEnabled(): Boolean = uniffi.mycelium.isInternetEnabled()
     fun setCrowdMode(enabled: Boolean) = uniffi.mycelium.setCrowdMode(enabled)
     fun isCrowdModeEnabled(): Boolean = uniffi.mycelium.isCrowdModeEnabled()
     fun getShareableMultiaddrs(): List<String> = uniffi.mycelium.getShareableMultiaddrs()
@@ -86,6 +89,17 @@ object mycelium {
     fun setEnergyState(state: EnergyState) = uniffi.mycelium.setEnergyState(state)
     fun addBootstrapPeer(multiaddr: String) = uniffi.mycelium.addBootstrapPeer(multiaddr)
     fun connectInvite(raw: String) = uniffi.mycelium.connectInvite(raw)
+    fun ingestBleFrame(fromPeer: String, frame: ByteArray) =
+        uniffi.mycelium.ingestBleFrame(fromPeer, frame)
+    fun drainBleOutbound(toPeer: String?, max: UInt): List<BleOutboundFrame> =
+        uniffi.mycelium.drainBleOutbound(toPeer, max)
+    fun registerBleLink(peerId: String, deviceId: String) =
+        uniffi.mycelium.registerBleLink(peerId, deviceId)
+    fun ingestBleStreamFrame(fromPeer: String, frame: ByteArray) =
+        uniffi.mycelium.ingestBleStreamFrame(fromPeer, frame)
+    fun drainBleStreamOutbound(toPeer: String, max: UInt): List<ByteArray> =
+        uniffi.mycelium.drainBleStreamOutbound(toPeer, max)
+    fun blePeerAddrs(): List<String> = uniffi.mycelium.blePeerAddrs()
     fun setEventCallback(callback: NodeEventCallback) = uniffi.mycelium.setEventCallback(callback)
     fun walletAddress(): String = uniffi.mycelium.walletAddress()
     fun walletBalance(): WalletBalance = uniffi.mycelium.walletBalance()

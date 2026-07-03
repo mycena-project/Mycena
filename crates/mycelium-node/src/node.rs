@@ -61,6 +61,10 @@ pub struct NodeConfig {
     pub max_relay_fanout: usize,
     /// When true, register on relay rendezvous and dial other opted-in peers.
     pub rendezvous_enabled: bool,
+    /// When false, stay in local-mesh mode even if the public relay is reachable.
+    pub internet_enabled: Arc<AtomicBool>,
+    /// Sender paired with [`Self::connectivity_rx`] for runtime mode updates (opt-out, probe).
+    pub connectivity_mode_tx: Option<tokio::sync::watch::Sender<ConnectivityMode>>,
     /// Bulletin-Board-Scopes die der Nutzer explizit abonniert hat.
     /// Leer = kein Bulletin Board (default).
     pub bulletin_subscriptions: Vec<String>,
@@ -72,6 +76,10 @@ pub struct NodeConfig {
 
 fn default_max_relay_fanout() -> usize {
     3
+}
+
+fn default_internet_enabled() -> Arc<AtomicBool> {
+    Arc::new(AtomicBool::new(true))
 }
 
 impl Default for NodeConfig {
@@ -90,6 +98,8 @@ impl Default for NodeConfig {
             storage_key: None,
             max_relay_fanout: default_max_relay_fanout(),
             rendezvous_enabled: true,
+            internet_enabled: default_internet_enabled(),
+            connectivity_mode_tx: None,
             bulletin_subscriptions: Vec::new(),
             max_peers: default_max_peers(),
             crowd_mode: false,
@@ -115,6 +125,8 @@ impl NodeConfig {
             storage_key: None,
             max_relay_fanout: default_max_relay_fanout(),
             rendezvous_enabled: true,
+            internet_enabled: default_internet_enabled(),
+            connectivity_mode_tx: None,
             bulletin_subscriptions: Vec::new(),
             max_peers: default_max_peers(),
             crowd_mode: false,
@@ -212,6 +224,40 @@ pub enum NodeCommand {
     ListPeers,
     SetEnergyState(NodeState),
     SetRendezvousEnabled(bool),
+    /// Voluntary opt-out of relay/internet dials (local mesh only).
+    SetInternetEnabled(bool),
+    /// Ingest a BLE side-channel frame (`mycelium_core::ble_mesh`).
+    IngestBleFrame {
+        from_peer: String,
+        frame: Vec<u8>,
+    },
+    /// Take queued BLE outbound frames for a destination peer (F2).
+    DrainBleOutbound {
+        to_peer: Option<String>,
+        max: usize,
+        reply: Option<tokio::sync::oneshot::Sender<Vec<(String, Vec<u8>)>>>,
+    },
+    /// Send wire message over libp2p if connected, else queue for BLE (F2).
+    SendWireOrQueueBle {
+        to_peer: String,
+        message: WireMessage,
+    },
+    /// Register BLE libp2p overlay link (F3).
+    RegisterBleLink {
+        peer_id: String,
+        device_id: String,
+    },
+    /// Ingest reassembled MYLP stream frame from host GATT (F3).
+    BleStreamInbound {
+        from_peer: String,
+        frame: Vec<u8>,
+    },
+    /// Take queued F3 stream frames for a peer.
+    DrainBleStreamOutbound {
+        to_peer: String,
+        max: usize,
+        reply: Option<tokio::sync::oneshot::Sender<Vec<Vec<u8>>>>,
+    },
     SetCrowdMode(bool),
 }
 
@@ -448,6 +494,8 @@ pub struct NodeRunner {
     max_relay_fanout: usize,
     listen_addrs: Arc<RwLock<Vec<String>>>,
     rendezvous_enabled: Arc<AtomicBool>,
+    internet_enabled: Arc<AtomicBool>,
+    connectivity_mode_tx: Option<tokio::sync::watch::Sender<ConnectivityMode>>,
     db_path: String,
     relay_identity: RelayIdentity,
     bulletin_subscriptions: Arc<RwLock<Vec<String>>>,
@@ -458,6 +506,8 @@ pub struct NodeRunner {
     pending_identity_rotation: Option<mycelium_core::identity_rotation::IdentityRotationGossip>,
     crowd_mode: Arc<AtomicBool>,
     rendezvous_dial_bucket: u32,
+    ble_outbound: VecDeque<(String, Vec<u8>)>,
+    ble_outbound_cap: usize,
 }
 
 async fn persist_peer_enc_key(
@@ -517,6 +567,7 @@ impl NodeRunner {
             config.storage_key,
             config.max_peers,
             config.crowd_mode,
+            config.internet_enabled.clone(),
         )?;
         Self::new_with_transport(config, Box::new(transport), identity)
     }
@@ -592,6 +643,8 @@ impl NodeRunner {
                 max_relay_fanout: config.max_relay_fanout,
                 listen_addrs: listen_addrs.clone(),
                 rendezvous_enabled: rendezvous_enabled.clone(),
+                internet_enabled: config.internet_enabled.clone(),
+                connectivity_mode_tx: config.connectivity_mode_tx.clone(),
                 db_path: config.db_path.clone(),
                 relay_identity: relay_identity.clone(),
                 bulletin_subscriptions: bulletin_subscriptions.clone(),
@@ -602,6 +655,8 @@ impl NodeRunner {
                 pending_identity_rotation,
                 crowd_mode: crowd_mode.clone(),
                 rendezvous_dial_bucket: 0,
+                ble_outbound: VecDeque::new(),
+                ble_outbound_cap: 128,
             },
             NodeHandle {
                 tx,
@@ -708,12 +763,15 @@ impl NodeRunner {
         let (rendezvous_tx, mut rendezvous_rx) = mpsc::channel::<Vec<String>>(8);
         let rendezvous_local = self.local_peer_id.clone();
         let rendezvous_flag = self.rendezvous_enabled.clone();
+        let internet_flag = self.internet_enabled.clone();
         tokio::spawn(async move {
             let mut tick = interval(Duration::from_secs(45));
             tick.set_missed_tick_behavior(MissedTickBehavior::Skip);
             loop {
                 tick.tick().await;
-                if !rendezvous_flag.load(Ordering::Relaxed) {
+                if !rendezvous_flag.load(Ordering::Relaxed)
+                    || !internet_flag.load(Ordering::Relaxed)
+                {
                     continue;
                 }
                 let local = rendezvous_local.clone();
@@ -877,6 +935,77 @@ impl NodeRunner {
                 }
                 self.transport.send_direct(to_peer, message).await?;
             }
+            NodeCommand::SendWireOrQueueBle {
+                to_peer,
+                mut message,
+            } => {
+                if let WireMessage::EncryptedDirect { .. } = &mut message {
+                    match &self.keypair {
+                        Some(keypair) => {
+                            mycelium_core::transport::sign_encrypted_direct(&mut message, keypair)?;
+                        }
+                        None => anyhow::bail!("cannot send EncryptedDirect without local keypair"),
+                    }
+                }
+                if self.transport.is_peer_connected(&to_peer) {
+                    self.transport.send_direct(to_peer, message).await?;
+                } else {
+                    self.queue_ble_wire(to_peer, message);
+                }
+            }
+            NodeCommand::IngestBleFrame { from_peer, frame } => {
+                if self.try_ingest_ble_assembled(&from_peer, &frame).await? {
+                    return Ok(());
+                }
+                let wire = mycelium_core::ble_mesh::decode_frame(&frame)?;
+                self.handle_incoming_direct(from_peer, wire).await?;
+            }
+            NodeCommand::DrainBleOutbound { to_peer, max, reply } => {
+                let mut drained = Vec::new();
+                let mut rest = VecDeque::new();
+                while let Some((peer, frame)) = self.ble_outbound.pop_front() {
+                    let matches = to_peer.as_ref().is_none_or(|p| p == &peer);
+                    if matches && drained.len() < max {
+                        drained.push((peer, frame));
+                    } else {
+                        rest.push_back((peer, frame));
+                    }
+                }
+                self.ble_outbound = rest;
+                if let Some(tx) = reply {
+                    let _ = tx.send(drained);
+                }
+            }
+            NodeCommand::RegisterBleLink { peer_id, device_id } => {
+                if self
+                    .transport
+                    .register_ble_link(peer_id.clone(), &device_id)
+                    .is_some()
+                {
+                    for addr in self.transport.ble_peer_addrs() {
+                        if addr.contains(&peer_id) {
+                            let mut addrs = self.listen_addrs.write().await;
+                            if !addrs.iter().any(|a| a == &addr) {
+                                addrs.push(addr);
+                            }
+                        }
+                    }
+                    self.handle_transport_event(TransportEvent::PeerUp { peer_id }).await?;
+                }
+            }
+            NodeCommand::BleStreamInbound { from_peer, frame } => {
+                self.transport
+                    .ingest_ble_stream_frame(&from_peer, &frame)?;
+                for ev in self.transport.drain_pending_ble_events() {
+                    self.handle_transport_event(ev).await?;
+                }
+            }
+            NodeCommand::DrainBleStreamOutbound { to_peer, max, reply } => {
+                let drained = self.transport.drain_ble_stream_outbound(&to_peer, max);
+                if let Some(tx) = reply {
+                    let _ = tx.send(drained);
+                }
+            }
             NodeCommand::ListPeers => {
                 let peers = self.transport.known_peers();
                 *self.peers.write().await = peers.clone();
@@ -997,6 +1126,34 @@ impl NodeRunner {
                     if enabled { "enabled" } else { "disabled" }
                 );
             }
+            NodeCommand::SetInternetEnabled(enabled) => {
+                self.internet_enabled.store(enabled, Ordering::Relaxed);
+                if !enabled {
+                    self.rendezvous_enabled.store(false, Ordering::Relaxed);
+                    let local = self.local_peer_id.clone();
+                    tokio::task::spawn_blocking(move || {
+                        mycelium_core::rendezvous::set_relay_rendezvous_registration(
+                            &local, false, None,
+                        );
+                    });
+                }
+                if let Some(tx) = &self.connectivity_mode_tx {
+                    let mode = if enabled {
+                        ConnectivityMode::Internet
+                    } else {
+                        ConnectivityMode::MeshOnly
+                    };
+                    let _ = tx.send(mode);
+                }
+                info!(
+                    "internet connectivity {}",
+                    if enabled {
+                        "enabled (relay + mesh)"
+                    } else {
+                        "disabled — local mesh only"
+                    }
+                );
+            }
             NodeCommand::SetCrowdMode(enabled) => {
                 self.crowd_mode.store(enabled, Ordering::Relaxed);
                 info!(
@@ -1006,6 +1163,31 @@ impl NodeRunner {
             }
         }
         Ok(())
+    }
+
+    async fn try_ingest_ble_assembled(&mut self, from_peer: &str, frame: &[u8]) -> anyhow::Result<bool> {
+        if frame.len() >= 4 && frame[..4] == mycelium_core::ble_stream::STREAM_MAGIC {
+            self.transport
+                .ingest_ble_stream_frame(from_peer, frame)?;
+            for ev in self.transport.drain_pending_ble_events() {
+                self.handle_transport_event(ev).await?;
+            }
+            return Ok(true);
+        }
+        Ok(false)
+    }
+
+    fn queue_ble_wire(&mut self, to_peer: String, wire: WireMessage) {
+        match mycelium_core::ble_mesh::encode_wire(&wire) {
+            Ok(frame) => {
+                self.ble_outbound.push_back((to_peer.clone(), frame));
+                while self.ble_outbound.len() > self.ble_outbound_cap {
+                    self.ble_outbound.pop_front();
+                }
+                info!("queued BLE frame for {to_peer} ({} bytes)", self.ble_outbound.back().map(|(_, f)| f.len()).unwrap_or(0));
+            }
+            Err(e) => warn!("BLE encode for {to_peer}: {e:#}"),
+        }
     }
 
     async fn send_direct_internal(
@@ -1026,6 +1208,7 @@ impl NodeRunner {
             envelope,
             body: body.clone(),
         };
+        let wire = WireMessage::Data(msg.clone());
         let _ = self
             .ingest
             .ingest(&mut self.seen_cache, &msg, false)
@@ -1036,6 +1219,7 @@ impl NodeRunner {
             info!("direct message queued for {}", to_peer);
         } else if peers.is_empty() {
             warn!("no relay candidates available for {}", to_peer);
+            self.queue_ble_wire(to_peer.clone(), wire);
         } else {
             let peer_strikes: HashMap<String, u8> = self
                 .peer_reputations
@@ -1063,6 +1247,9 @@ impl NodeRunner {
                 }
             }
             info!("message queued for relay toward {}", to_peer);
+            if !self.transport.is_peer_connected(&to_peer) {
+                self.queue_ble_wire(to_peer.clone(), wire);
+            }
         }
         Ok(())
     }

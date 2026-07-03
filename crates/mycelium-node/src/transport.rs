@@ -3,6 +3,7 @@
 use crate::behaviour::{
     make_direct_response, DirectMessageRequest, DirectMessageResponse, MeshBehaviour,
 };
+use crate::ble_transport::BleTransportRegistry;
 use crate::connectivity::{kad_action_for_mode, KadConnectivityAction};
 use futures::StreamExt;
 use libp2p::multiaddr::Protocol;
@@ -12,6 +13,7 @@ use libp2p::{
     tcp, yamux, Multiaddr, PeerId, SwarmBuilder,
 };
 use mycelium_core::bootstrap::{is_relay_peer, peer_id_from_parsed_multiaddr};
+use mycelium_core::ble_multiaddr::is_ble_multiaddr;
 use mycelium_core::mesh_profile::MeshProfile;
 use mycelium_core::relay_pool::RelayPool;
 use mycelium_core::transport::{
@@ -19,6 +21,8 @@ use mycelium_core::transport::{
 };
 use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::watch;
 use tracing::warn;
@@ -131,6 +135,7 @@ pub struct Libp2pTransport {
     keypair: identity::Keypair,
     peer_cap: DirectPeerCap,
     connectivity_rx: Option<watch::Receiver<ConnectivityMode>>,
+    internet_enabled: Arc<AtomicBool>,
     bootstrap_peers: Vec<Multiaddr>,
     /// Set after `/p2p-circuit` listen is registered (must not race bootstrap dial).
     relay_inbound_enabled: bool,
@@ -144,6 +149,7 @@ pub struct Libp2pTransport {
     active_relay_index: usize,
     mdns_dials_in_window: u32,
     mdns_window_start: Option<Instant>,
+    ble: BleTransportRegistry,
 }
 
 /// Delay circuit dials until the relay client has finished reservation setup.
@@ -160,6 +166,7 @@ impl Libp2pTransport {
         storage_key: crate::secrets::StorageKey,
         max_peers: usize,
         crowd_mode: bool,
+        internet_enabled: Arc<AtomicBool>,
     ) -> anyhow::Result<Self> {
         let keypair_path = keypair_path.unwrap_or_else(|| ".mycelium-node/identity".to_string());
         let key = crate::secrets::load_or_create_keypair(&keypair_path, storage_key)?;
@@ -224,6 +231,7 @@ impl Libp2pTransport {
             keypair: key,
             peer_cap: DirectPeerCap::new(max_peers),
             connectivity_rx,
+            internet_enabled,
             bootstrap_peers,
             relay_inbound_enabled: false,
             relay_inbound_since: None,
@@ -234,8 +242,13 @@ impl Libp2pTransport {
             active_relay_index,
             mdns_dials_in_window: 0,
             mdns_window_start: None,
+            ble: BleTransportRegistry::new(),
         };
-        transport.dial_all_bootstraps();
+        if transport.internet_dials_enabled() {
+            transport.dial_all_bootstraps();
+        } else {
+            transport.dial_lan_bootstrap_peers();
+        }
         transport.setup_kad();
         if crowd_mode {
             tracing::info!(
@@ -247,6 +260,10 @@ impl Libp2pTransport {
             tracing::info!("gossip mesh profile: dense (MYCELIUM_MESH_PROFILE)");
         }
         Ok(transport)
+    }
+
+    fn internet_dials_enabled(&self) -> bool {
+        self.internet_enabled.load(Ordering::Relaxed)
     }
 
     fn crowd_mdns_dial_allowed(&mut self) -> bool {
@@ -270,6 +287,9 @@ impl Libp2pTransport {
     }
 
     fn failover_relay(&mut self) {
+        if !self.internet_dials_enabled() {
+            return;
+        }
         if self.relay_pool.len() <= 1 {
             return;
         }
@@ -357,8 +377,10 @@ impl Libp2pTransport {
         self.set_kad_mode(kad::Mode::Client);
         match action {
             KadConnectivityAction::Activate => {
-                self.dial_all_bootstraps();
-                self.kad_bootstrap();
+                if self.internet_dials_enabled() {
+                    self.dial_all_bootstraps();
+                    self.kad_bootstrap();
+                }
                 tracing::info!("switched to internet mode — kademlia active");
             }
             KadConnectivityAction::Pause => {
@@ -423,6 +445,9 @@ impl Libp2pTransport {
     /// Must run only after a direct connection to the relay exists; calling this alongside
     /// `dial(bootstrap)` races on the relay TCP port and yields EADDRINUSE / failed handshakes.
     fn enable_relay_inbound_listen(&mut self) {
+        if !self.internet_dials_enabled() {
+            return;
+        }
         if self.relay_inbound_enabled {
             return;
         }
@@ -468,6 +493,10 @@ impl Libp2pTransport {
     }
 
     fn dial_all_bootstraps(&mut self) {
+        if !self.internet_dials_enabled() {
+            self.dial_lan_bootstrap_peers();
+            return;
+        }
         for entry in self.relay_pool.entries() {
             if let Ok(addr) = entry.tcp_multiaddr.parse::<Multiaddr>() {
                 if let Ok(peer_id) = PeerId::from_str(&entry.peer_id) {
@@ -566,6 +595,9 @@ impl Libp2pTransport {
     }
 
     fn queue_dial_target(&mut self, multiaddr: String) -> anyhow::Result<()> {
+        if is_ble_multiaddr(&multiaddr) {
+            return self.ble.queue_dial(&multiaddr);
+        }
         let addr: Multiaddr = multiaddr.parse()?;
         if Self::is_circuit_dial(&addr) {
             self.bootstrap_peers
@@ -576,6 +608,10 @@ impl Libp2pTransport {
             tracing::info!("queued dial target: {addr}");
         }
         if Self::is_circuit_dial(&addr) {
+            if !self.internet_dials_enabled() {
+                tracing::debug!("queued circuit dial (internet disabled): {addr}");
+                return Ok(());
+            }
             if !self.relay_ready() {
                 tracing::debug!("queued circuit dial (relay not ready yet): {addr}");
                 return Ok(());
@@ -606,12 +642,19 @@ impl MeshTransport for Libp2pTransport {
     }
 
     fn known_peers(&self) -> Vec<String> {
-        self.peer_cap
+        let mut peers: Vec<String> = self
+            .peer_cap
             .peers
             .iter()
             .map(ToString::to_string)
             .filter(|p| !is_relay_peer(p))
-            .collect()
+            .collect();
+        for p in self.ble.known_peers() {
+            if !peers.contains(&p) && !is_relay_peer(&p) {
+                peers.push(p);
+            }
+        }
+        peers
     }
 
     fn local_keypair(&self) -> Option<identity::Keypair> {
@@ -619,13 +662,16 @@ impl MeshTransport for Libp2pTransport {
     }
 
     fn is_peer_connected(&self, peer_id: &str) -> bool {
+        if self.ble.is_connected(peer_id) {
+            return true;
+        }
         PeerId::from_str(peer_id)
             .ok()
             .is_some_and(|id| self.swarm.is_connected(&id))
     }
 
     fn connected_peer_count(&self) -> usize {
-        self.peer_cap.len()
+        self.known_peers().len()
     }
 
     fn max_direct_peers(&self) -> usize {
@@ -646,6 +692,9 @@ impl MeshTransport for Libp2pTransport {
 
     fn redial_stored_targets(&mut self) {
         self.dial_lan_bootstrap_peers();
+        if !self.internet_dials_enabled() {
+            return;
+        }
         self.try_deferred_circuit_dials();
         self.dial_all_bootstraps();
         self.dial_lan_bootstrap_peers();
@@ -653,6 +702,9 @@ impl MeshTransport for Libp2pTransport {
     }
 
     fn try_deferred_circuit_dials(&mut self) {
+        if !self.internet_dials_enabled() {
+            return;
+        }
         if !self.relay_ready() {
             return;
         }
@@ -667,6 +719,9 @@ impl MeshTransport for Libp2pTransport {
     }
 
     async fn send_direct(&mut self, to_peer: String, message: WireMessage) -> anyhow::Result<()> {
+        if self.ble.is_connected(&to_peer) {
+            return self.ble.send_direct(&to_peer, message);
+        }
         let peer = PeerId::from_str(&to_peer)?;
         self.peer_cap.touch(peer);
         let request = DirectMessageRequest { message };
@@ -717,8 +772,39 @@ impl MeshTransport for Libp2pTransport {
         self.apply_kad_connectivity(kad_action_for_mode(mode));
     }
 
+    fn register_ble_link(&mut self, peer_id: String, device_id: &str) -> Option<TransportEvent> {
+        Libp2pTransport::register_ble_link(self, peer_id, device_id)
+    }
+
+    fn remove_ble_link(&mut self, peer_id: &str) -> Option<TransportEvent> {
+        Libp2pTransport::remove_ble_link(self, peer_id)
+    }
+
+    fn ingest_ble_stream_frame(&mut self, from_peer: &str, frame: &[u8]) -> anyhow::Result<()> {
+        Libp2pTransport::ingest_ble_stream_frame(self, from_peer, frame)
+    }
+
+    fn drain_ble_stream_outbound(&mut self, to_peer: &str, max: usize) -> Vec<Vec<u8>> {
+        Libp2pTransport::drain_ble_stream_outbound(self, to_peer, max)
+    }
+
+    fn ble_peer_addrs(&self) -> Vec<String> {
+        Libp2pTransport::ble_peer_addrs(self)
+    }
+
+    fn drain_pending_ble_events(&mut self) -> Vec<TransportEvent> {
+        let mut out = Vec::new();
+        while let Some(ev) = self.ble.try_recv_event() {
+            out.push(ev);
+        }
+        out
+    }
+
     async fn next_event(&mut self) -> anyhow::Result<TransportEvent> {
         loop {
+            if let Some(ev) = self.ble.try_recv_event() {
+                return Ok(ev);
+            }
             if let Some(rx) = &mut self.connectivity_rx {
                 tokio::select! {
                     changed = rx.changed() => {
@@ -747,6 +833,35 @@ impl MeshTransport for Libp2pTransport {
 }
 
 impl Libp2pTransport {
+    pub fn register_ble_link(&mut self, peer_id: String, device_id: &str) -> Option<TransportEvent> {
+        tracing::info!("BLE libp2p link registered for {peer_id} ({device_id})");
+        self.ble.register_link(peer_id, device_id)
+    }
+
+    pub fn remove_ble_link(&mut self, peer_id: &str) -> Option<TransportEvent> {
+        self.ble.remove_link(peer_id)
+    }
+
+    pub fn ingest_ble_stream_frame(
+        &mut self,
+        from_peer: &str,
+        frame: &[u8],
+    ) -> anyhow::Result<()> {
+        self.ble.ingest_stream_frame(from_peer, frame)
+    }
+
+    pub fn drain_ble_stream_outbound(&mut self, to_peer: &str, max: usize) -> Vec<Vec<u8>> {
+        self.ble.drain_outbound(to_peer, max)
+    }
+
+    pub fn ble_peer_addrs(&self) -> Vec<String> {
+        self.ble
+            .all_peer_infos()
+            .into_iter()
+            .map(|p| p.multiaddr)
+            .collect()
+    }
+
     fn handle_swarm_event(
         &mut self,
         event: SwarmEvent<MeshEvent>,

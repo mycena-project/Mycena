@@ -51,7 +51,7 @@ See also: [CONNECT.md](./CONNECT.md), [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS
 |----|------|--------|
 | B1 | mDNS reliability (redundant dial, guest-network docs) | Done |
 | B2 | Persist learned X25519 keys to sled (survive restart) | Done |
-| B3 | BLE → mesh handoff hint (stretch) | Deferred |
+| B3 | BLE → mesh handoff + data bridge (stretch) | **Done (Android F1+F2)** — [ADR 002](./adr/002-ble-mesh-transport.md) |
 | B4 | Connectivity mode UX (mesh-only / internet assist) | Done |
 
 **Exit criteria:** Two devices on same Wi‑Fi connect with no QR within 30s; chat works after app restart without re-scan.

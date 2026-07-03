@@ -54,7 +54,7 @@ Related: [architecture.md](./architecture.md) · [SECURITY.md](./SECURITY.md) ·
 | System notifications | `NotificationSink` hook | Show notification UI |
 | Events to UI | `NodeEventCallback` (UniFFI) | Broadcast / Flow (Android) · delegate (iOS) |
 | QR / camera | — | Platform camera APIs |
-| BLE “app nearby” hint | — | Kotlin today; Core Bluetooth on iOS |
+| BLE “app nearby” hint + libp2p overlay | — | Kotlin (F1–F3); Core Bluetooth on iOS |
 | mDNS on Wi‑Fi | Rust (libp2p) | Android: multicast lock; iOS: network entitlement |
 | Compose / SwiftUI | — | All screens and navigation |
 | Mini-app WebView sandbox | Bridge in Rust | WebView + process isolation per platform |

@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Mycelium Project
 package network.mycelium.app.bootstrap
 
+import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanFilter
@@ -10,25 +11,36 @@ import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.os.ParcelUuid
 import android.util.Log
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 
 /**
- * Scans for nearby Mycelium nodes advertising the bootstrap service UUID.
+ * Scans for Mycelium GATT service and emits handoff targets for invite read + dial (F1).
  */
 class BleBootstrapScanner(private val context: Context) {
 
-    private val _nearbyNodes = MutableStateFlow<List<NearbyNode>>(emptyList())
-    val nearbyNodes: StateFlow<List<NearbyNode>> = _nearbyNodes
-
-    private var scanCallback: ScanCallback? = null
-    private var isScanning = false
+    data class HandoffTarget(
+        val device: BluetoothDevice,
+        val rssi: Int,
+    )
 
     data class NearbyNode(
-        val peerIdPrefix: String,
+        /** BLE MAC — display only; no peer id on air. */
+        val deviceAddress: String,
         val rssi: Int,
         val firstSeen: Long = System.currentTimeMillis(),
     )
+
+    private val _handoffTargets = MutableSharedFlow<HandoffTarget>(extraBufferCapacity = 8)
+    val handoffTargets: SharedFlow<HandoffTarget> = _handoffTargets.asSharedFlow()
+
+    private val _nearbyNodes = MutableSharedFlow<List<NearbyNode>>(replay = 1)
+    val nearbyNodes: SharedFlow<List<NearbyNode>> = _nearbyNodes.asSharedFlow()
+
+    private var scanCallback: ScanCallback? = null
+    private var isScanning = false
+    private val seenAddresses = linkedMapOf<String, NearbyNode>()
 
     fun startScanning() {
         if (isScanning) return
@@ -37,37 +49,40 @@ class BleBootstrapScanner(private val context: Context) {
             as BluetoothManager
         val scanner = bluetoothManager.adapter?.bluetoothLeScanner ?: return
 
-        val filter = ScanFilter.Builder()
-            .setServiceUuid(ParcelUuid(BleBootstrapAdvertiser.MYCELIUM_SERVICE_UUID))
-            .build()
+        val filter =
+            ScanFilter.Builder()
+                .setServiceUuid(ParcelUuid(BleMeshGatt.SERVICE_UUID))
+                .build()
 
-        val settings = ScanSettings.Builder()
-            .setScanMode(ScanSettings.SCAN_MODE_LOW_POWER)
-            .setCallbackType(ScanSettings.CALLBACK_TYPE_FIRST_MATCH)
-            .build()
+        val settings =
+            ScanSettings.Builder()
+                .setScanMode(ScanSettings.SCAN_MODE_BALANCED)
+                .setCallbackType(ScanSettings.CALLBACK_TYPE_FIRST_MATCH)
+                .build()
 
-        scanCallback = object : ScanCallback() {
-            override fun onScanResult(callbackType: Int, result: ScanResult) {
-                val manufacturerData = result.scanRecord
-                    ?.getManufacturerSpecificData(BleBootstrapAdvertiser.MANUFACTURER_ID)
-                    ?: return
-
-                val peerIdPrefix = manufacturerData.take(8)
-                    .joinToString("") { "%02x".format(it) }
-
-                val node = NearbyNode(
-                    peerIdPrefix = peerIdPrefix,
-                    rssi = result.rssi,
-                )
-
-                val current = _nearbyNodes.value.toMutableList()
-                if (current.none { it.peerIdPrefix == node.peerIdPrefix }) {
-                    current.add(node)
-                    _nearbyNodes.value = current
-                    Log.i("BleScanner", "Found Mycelium node: $peerIdPrefix (RSSI: ${result.rssi})")
+        scanCallback =
+            object : ScanCallback() {
+                override fun onScanResult(callbackType: Int, result: ScanResult) {
+                    val device = result.device ?: return
+                    val address = device.address ?: return
+                    val node =
+                        NearbyNode(
+                            deviceAddress = address,
+                            rssi = result.rssi,
+                        )
+                    if (!seenAddresses.containsKey(address)) {
+                        seenAddresses[address] = node
+                        _nearbyNodes.tryEmit(seenAddresses.values.toList())
+                        Log.i(
+                            "BleScanner",
+                            "Mycelium BLE peer $address RSSI=${result.rssi} — attempting handoff",
+                        )
+                    }
+                    _handoffTargets.tryEmit(
+                        HandoffTarget(device = device, rssi = result.rssi),
+                    )
                 }
             }
-        }
 
         scanner.startScan(listOf(filter), settings, scanCallback!!)
         isScanning = true
@@ -80,6 +95,7 @@ class BleBootstrapScanner(private val context: Context) {
             bluetoothManager.adapter?.bluetoothLeScanner?.stopScan(it)
         }
         isScanning = false
-        _nearbyNodes.value = emptyList()
+        seenAddresses.clear()
+        _nearbyNodes.tryEmit(emptyList())
     }
 }

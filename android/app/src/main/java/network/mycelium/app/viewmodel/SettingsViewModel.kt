@@ -72,6 +72,22 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     fun exportScopeKey(scope: String): String = mycelium.exportScopeKey(scope)
 
+    /** Turn on internet, relay discovery, and BLE discovery together (F0 max-connectivity). */
+    fun applyMaxConnectivity(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_MAX_CONNECTIVITY, enabled).apply()
+        if (!enabled) return
+        prefs.edit()
+            .putBoolean("internet_enabled", true)
+            .putBoolean("rendezvous_enabled", true)
+            .apply()
+        mycelium.setInternetEnabled(true)
+        mycelium.setRendezvousEnabled(true)
+        setBleBootstrap(true)
+    }
+
+    fun isMaxConnectivityEnabled(): Boolean =
+        prefs.getBoolean(KEY_MAX_CONNECTIVITY, false)
+
     fun setBleBootstrap(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_BLE_BOOTSTRAP, enabled).apply()
         _bleBootstrapEnabled.value = enabled
@@ -109,5 +125,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         const val KEY_BLE_BOOTSTRAP = "ble_bootstrap_enabled"
         const val KEY_BULLETIN_SUBSCRIPTIONS = "bulletin_subscriptions"
         const val KEY_CROWD_MODE = "crowd_mode_enabled"
+        const val KEY_MAX_CONNECTIVITY = "max_connectivity_enabled"
     }
 }

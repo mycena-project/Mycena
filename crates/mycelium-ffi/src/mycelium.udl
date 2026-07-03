@@ -84,12 +84,22 @@ namespace mycelium {
   string display_name();
   void set_energy_state(EnergyState state);
   void set_rendezvous_enabled(boolean enabled);
+  void set_internet_enabled(boolean enabled);
+  boolean is_internet_enabled();
   void set_crowd_mode(boolean enabled);
   boolean is_crowd_mode_enabled();
   sequence<string> get_shareable_multiaddrs();
   void add_bootstrap_peer(string multiaddr);
   [Throws=MyceliumException]
   void connect_invite(string raw);
+  [Throws=MyceliumException]
+  void ingest_ble_frame(string from_peer, bytes frame);
+  sequence<BleOutboundFrame> drain_ble_outbound(string? to_peer, u32 max);
+  void register_ble_link(string peer_id, string device_id);
+  [Throws=MyceliumException]
+  void ingest_ble_stream_frame(string from_peer, bytes frame);
+  sequence<bytes> drain_ble_stream_outbound(string to_peer, u32 max);
+  sequence<string> ble_peer_addrs();
   void set_event_callback(NodeEventCallback callback);
 
   string wallet_address();
@@ -148,6 +158,11 @@ dictionary TxInfo {
   boolean confirmed;
 };
 
+dictionary BleOutboundFrame {
+  string to_peer;
+  bytes frame;
+};
+
 dictionary NodeConfig {
   string db_path;
   string listen_addr;
@@ -157,6 +172,8 @@ dictionary NodeConfig {
   string? storage_key_hex;
   /// Opt-in relay rendezvous (find/be found on public relay).
   boolean rendezvous_enabled;
+  /// When false, local mesh only — no relay/bootstrap dials (user opt-out).
+  boolean internet_enabled;
   /// Bulletin scopes subscribed at startup (opt-in).
   sequence<string> bulletin_subscriptions;
   /// Dense-event tuning: cap mDNS dials, dense gossip (transport limits apply at node start).

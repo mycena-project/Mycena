@@ -12,7 +12,7 @@ Three complementary ways to find **other devices** on the network (not the same 
 ## LAN (Phase C)
 
 - **mDNS** on the same Wi‑Fi (Android uses a Wi‑Fi multicast lock).
-- **BLE bootstrap** (optional, Settings): advertises the app to nearby devices without sharing personal data.
+- **BLE bootstrap** (optional, Settings): connectable GATT + signed invite v3; scanner auto-dials via `connect_invite` (F1). When libp2p has no path, **F2** carries signed `WireMessage` frames over GATT mesh-data characteristic.
 
 ## Internet relay
 

@@ -77,12 +77,42 @@ private const val PREFS_NAME = "settings"
 private const val KEY_BOOTSTRAP_PEERS = "bootstrap_peers"
 private const val KEY_ENERGY_STATE = "energy_state"
 private const val KEY_RENDEZVOUS = "rendezvous_enabled"
+private const val KEY_INTERNET_ENABLED = "internet_enabled"
+private const val KEY_MAX_CONNECTIVITY = SettingsViewModel.KEY_MAX_CONNECTIVITY
 private const val KEY_CROWD_MODE = SettingsViewModel.KEY_CROWD_MODE
+
+@Composable
+private fun MaxConnectivitySwitch(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                stringResource(R.string.settings_max_connectivity_title),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Text(
+                stringResource(R.string.settings_max_connectivity_sub),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+        )
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(navController: NavController) {
     val context = LocalContext.current
+    val settingsVm: SettingsViewModel = viewModel()
     val prefs = remember { context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE) }
 
     var displayName by remember {
@@ -97,6 +127,12 @@ fun SettingsScreen(navController: NavController) {
     var saved by remember { mutableStateOf(false) }
     var rendezvousEnabled by remember {
         mutableStateOf(prefs.getBoolean(KEY_RENDEZVOUS, true))
+    }
+    var internetEnabled by remember {
+        mutableStateOf(prefs.getBoolean(KEY_INTERNET_ENABLED, true))
+    }
+    var maxConnectivity by remember {
+        mutableStateOf(prefs.getBoolean(KEY_MAX_CONNECTIVITY, false))
     }
     var crowdModeEnabled by remember {
         mutableStateOf(prefs.getBoolean(KEY_CROWD_MODE, false))
@@ -161,6 +197,48 @@ fun SettingsScreen(navController: NavController) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp),
             )
+            MaxConnectivitySwitch(
+                checked = maxConnectivity,
+                onCheckedChange = { enabled ->
+                    maxConnectivity = enabled
+                    if (enabled) {
+                        internetEnabled = true
+                        rendezvousEnabled = true
+                        settingsVm.applyMaxConnectivity(true)
+                    } else {
+                        prefs.edit().putBoolean(KEY_MAX_CONNECTIVITY, false).apply()
+                    }
+                },
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        stringResource(R.string.settings_internet_title),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(
+                        stringResource(R.string.settings_internet_sub),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = internetEnabled,
+                    onCheckedChange = { enabled ->
+                        internetEnabled = enabled
+                        prefs.edit().putBoolean(KEY_INTERNET_ENABLED, enabled).apply()
+                        mycelium.setInternetEnabled(enabled)
+                        if (!enabled) {
+                            rendezvousEnabled = false
+                            prefs.edit().putBoolean(KEY_RENDEZVOUS, false).apply()
+                            mycelium.setRendezvousEnabled(false)
+                        }
+                    },
+                )
+            }
             Row(
                 modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -178,6 +256,7 @@ fun SettingsScreen(navController: NavController) {
                 }
                 androidx.compose.material3.Switch(
                     checked = rendezvousEnabled,
+                    enabled = internetEnabled,
                     onCheckedChange = { enabled ->
                         rendezvousEnabled = enabled
                         prefs.edit().putBoolean(KEY_RENDEZVOUS, enabled).apply()

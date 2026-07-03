@@ -13,16 +13,31 @@ class BootstrapTests {
     fun mycelium_service_uuid_is_stable() {
         assertEquals(
             UUID.fromString("6e400001-b5a3-f393-e0a9-e50e24dcca9e"),
-            BleBootstrapAdvertiser.MYCELIUM_SERVICE_UUID,
+            BleMeshGatt.SERVICE_UUID,
+        )
+        assertEquals(
+            UUID.fromString("6e400002-b5a3-f393-e0a9-e50e24dcca9e"),
+            BleMeshGatt.INVITE_CHAR_UUID,
         )
     }
 
     @Test
-    fun scanner_extracts_peer_id_from_manufacturer_data() {
-        val peerIdBytes = "12D3KooW".toByteArray().take(8).toByteArray()
-        val extracted = peerIdBytes.joinToString("") { "%02x".format(it) }
-        assertTrue(extracted.isNotEmpty())
-        assertEquals(16, extracted.length)
+    fun peer_invite_account_id_from_v3() {
+        val raw =
+            "mycelium://invite/v3#acc123|12D3KooWpeer|" +
+                "a".repeat(64) + "|1|sig"
+        assertEquals("acc123", PeerInvite.accountIdFrom(raw))
+        assertEquals("12D3KooWpeer", PeerInvite.peerIdFrom(raw))
+    }
+
+    @Test
+    fun scanner_uses_device_address_not_peer_prefix() {
+        val node =
+            BleBootstrapScanner.NearbyNode(
+                deviceAddress = "AA:BB:CC:DD:EE:FF",
+                rssi = -70,
+            )
+        assertEquals("AA:BB:CC:DD:EE:FF", node.deviceAddress)
     }
 
     @Test

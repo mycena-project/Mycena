@@ -3,7 +3,7 @@
   // Copyright (C) 2026 Mycelium Project
   import { onMount } from "svelte";
 
-  let { peerCount = 0, connectivityMode = "internet" } = $props();
+  let { peerCount = 0, connectivityMode = "internet", internetEnabled = true } = $props();
 
   let showConnected = $state(false);
   let showSearching = $state(false);
@@ -11,6 +11,14 @@
   let searchingTimer;
 
   const meshOnly = $derived(connectivityMode === "mesh_only");
+  const voluntaryMesh = $derived(meshOnly && !internetEnabled);
+  const modeLabel = $derived(
+    voluntaryMesh
+      ? "Local mesh (internet off)"
+      : meshOnly
+        ? "Local mesh (relay offline)"
+        : "Internet + mesh",
+  );
 
   const SEARCHING_INITIAL_MS = 25_000;
   const SEARCHING_PULSE_MS = 20_000;
@@ -64,7 +72,7 @@
 
 <div class="status-bar">
   <span class="mode-pill" class:mesh={meshOnly}>
-    {meshOnly ? "Local mesh (relay offline)" : "Internet + mesh"}
+    {modeLabel}
   </span>
 </div>
 

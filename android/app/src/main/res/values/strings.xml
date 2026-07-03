@@ -213,8 +213,8 @@
     <string name="connect_show_advanced">Advanced</string>
     <string name="connect_hide_advanced">Hide advanced</string>
     <string name="connect_advanced_hint">Custom bootstrap multiaddrs live in Settings → Custom bootstrap peers.</string>
-    <string name="settings_ble_advertise">Bluetooth discovery</string>
-    <string name="settings_ble_advertise_sub">Visible to BLE scanners nearby</string>
+    <string name="settings_ble_advertise">Bluetooth mesh handoff</string>
+    <string name="settings_ble_advertise_sub">Nearby devices exchange signed invites over BLE and auto-connect</string>
     <string name="settings_bootstrap_help">One per line. Leave empty to use the default relay.</string>
     <string name="settings_bootstrap_hint">/ip4/149.248.194.198/tcp/4001/p2p/12D3KooWSk…</string>
     <string name="settings_bootstrap_peers">Custom bootstrap peers</string>
@@ -256,6 +256,12 @@
     <string name="settings_panic_description">Panic wipe immediately deletes all local messages, keys, and wallet data. Use if you need to quickly clear sensitive data from this device.</string>
     <string name="settings_rendezvous_sub">When on and both devices use the relay: auto-meet after ~45s. Same Wi‑Fi works without this.</string>
     <string name="settings_rendezvous_title">Relay discovery (remote)</string>
+    <string name="settings_internet_title">Use internet (relay + remote peers)</string>
+    <string name="settings_internet_sub">Turn off for local mesh only — Wi‑Fi / LAN peers still work. Useful for testing offline use.</string>
+    <string name="settings_max_connectivity_title">Maximum connectivity</string>
+    <string name="settings_max_connectivity_sub">Enables internet, relay discovery, and Bluetooth mesh handoff together.</string>
+    <string name="ble_handoff_connected_title">Peer linked via Bluetooth</string>
+    <string name="ble_handoff_connected_body">Linked via Bluetooth — libp2p direct path over BLE when Wi‑Fi or relay are unavailable.</string>
     <string name="settings_crowd_mode_title">Crowd mode (festivals / dense events)</string>
     <string name="settings_crowd_mode_sub">Caps mDNS dials and uses dense gossip tuning. Full transport limits apply after app restart.</string>
     <string name="settings_privacy_title">Network privacy</string>

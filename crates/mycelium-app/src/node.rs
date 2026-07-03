@@ -546,12 +546,6 @@ impl AppNode {
         body: String,
     ) -> anyhow::Result<EncryptionResult> {
         self.ensure_contact_accepted_for_send(&to_peer, "")?;
-        if !self
-            .wait_peer_connected(&to_peer, 40, std::time::Duration::from_millis(500))
-            .await
-        {
-            anyhow::bail!("peer_not_connected");
-        }
         let display_name = self.display_name.read().await.clone();
         let chat = ChatMessage {
             id: uuid::Uuid::new_v4(),
@@ -577,7 +571,7 @@ impl AppNode {
                 max_hops: 8,
             };
             self.handle
-                .send(NodeCommand::SendWire {
+                .send(NodeCommand::SendWireOrQueueBle {
                     to_peer: to_peer.clone(),
                     message: wire,
                 })

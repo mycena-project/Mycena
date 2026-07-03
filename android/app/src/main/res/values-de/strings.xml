@@ -207,6 +207,10 @@
     <string name="settings_panic_description">Panic-Wipe löscht sofort alle lokalen Nachrichten, Schlüssel und Wallet-Daten. Nutzen, wenn Sie schnell sensible Daten vom Gerät entfernen müssen.</string>
     <string name="settings_rendezvous_sub">Andere Relay-Nutzer finden und gefunden werden (Opt-in)</string>
     <string name="settings_rendezvous_title">Relay-Entdeckung</string>
+    <string name="settings_internet_title">Internet nutzen (Relay + Remote-Peers)</string>
+    <string name="settings_internet_sub">Aus für nur lokales Mesh — WLAN-/LAN-Peers funktionieren weiter. Nützlich zum Testen offline.</string>
+    <string name="settings_max_connectivity_title">Maximale Konnektivität</string>
+    <string name="settings_max_connectivity_sub">Aktiviert Internet, Relay-Entdeckung und Bluetooth-Entdeckung zusammen. Bluetooth-Datenübertragung ist geplant.</string>
     <string name="settings_save">Einstellungen speichern</string>
     <string name="settings_saved">✓ Gespeichert</string>
     <string name="settings_share_app">App teilen…</string>

@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Mycelium Project
 pub mod behaviour;
 pub mod connectivity;
+mod ble_transport;
 mod forwarding;
 mod ingest_guard;
 mod node;

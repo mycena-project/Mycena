@@ -155,8 +155,8 @@ async fn cmd_app_publish_live(
     println!("  Bundle hash: {}", listing.bundle_hash);
 
     let listen_addr = listen.parse().context("invalid --listen multiaddr")?;
-    let connectivity = ConnectivityMonitor::new();
-    ConnectivityMonitor::spawn_monitor(connectivity.mode_tx.clone());
+    let (connectivity, internet_enabled) = ConnectivityMonitor::new(true);
+    ConnectivityMonitor::spawn_monitor(connectivity.mode_tx.clone(), internet_enabled.clone());
     let config = NodeConfig {
         listen_addr,
         db_path: db.to_string(),
@@ -165,10 +165,12 @@ async fn cmd_app_publish_live(
         sync_interval_secs: 30,
         bootstrap_peers: bootstrap.to_vec(),
         connectivity_rx: Some(connectivity.mode_rx),
+        connectivity_mode_tx: Some(connectivity.mode_tx),
         display_name: Some("publisher".into()),
         storage_key: None,
         max_relay_fanout: 3,
         rendezvous_enabled: true,
+        internet_enabled,
         bulletin_subscriptions: Vec::new(),
         max_peers: 50,
         crowd_mode: false,
@@ -208,8 +210,8 @@ async fn cmd_app_publish_live(
 
 async fn run_interactive_server(cli: RunArgs) -> anyhow::Result<()> {
     let listen_addr = cli.listen.parse().context("invalid --listen multiaddr")?;
-    let connectivity = ConnectivityMonitor::new();
-    ConnectivityMonitor::spawn_monitor(connectivity.mode_tx.clone());
+    let (connectivity, internet_enabled) = ConnectivityMonitor::new(true);
+    ConnectivityMonitor::spawn_monitor(connectivity.mode_tx.clone(), internet_enabled.clone());
     let config = NodeConfig {
         listen_addr,
         db_path: cli.db.clone(),
@@ -218,10 +220,12 @@ async fn run_interactive_server(cli: RunArgs) -> anyhow::Result<()> {
         sync_interval_secs: 30,
         bootstrap_peers: cli.bootstrap.clone(),
         connectivity_rx: Some(connectivity.mode_rx),
+        connectivity_mode_tx: Some(connectivity.mode_tx),
         display_name: Some(cli.name.clone()),
         storage_key: None,
         max_relay_fanout: 3,
         rendezvous_enabled: true,
+        internet_enabled,
         bulletin_subscriptions: Vec::new(),
         max_peers: 50,
         crowd_mode: false,

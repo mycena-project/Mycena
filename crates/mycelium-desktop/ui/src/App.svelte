@@ -39,6 +39,7 @@
     { id: "settings", label: "Settings" },
   ];
   let connectivityMode = $state("internet");
+  let internetEnabled = $state(true);
 
   async function startNode(config) {
     peerId = await invoke("start_node", {
@@ -74,6 +75,9 @@
         connectivityMode = event.payload.connectivity;
       }
     });
+    invoke("get_settings").then((settings) => {
+      internetEnabled = settings.internet_enabled ?? true;
+    }).catch(() => {});
     const onOpenMiniApp = (e) => {
       selectedMiniAppId = e.detail?.appId ?? "";
       if (selectedMiniAppId) activeView = "miniapp_run";
@@ -109,7 +113,7 @@
       </div>
     </nav>
     <main>
-      <ConnectionStatus peerCount={peers} {connectivityMode} />
+      <ConnectionStatus peerCount={peers} {connectivityMode} {internetEnabled} />
       {#if activeView === "chat"}
         <Chat {peerId} />
       {:else if activeView === "groups"}

@@ -11,6 +11,8 @@
   let energyState = $state('Active');
   let bootstrapPeers = $state('');
   let rendezvousEnabled = $state(false);
+  let internetEnabled = $state(true);
+  let maxConnectivity = $state(false);
   let connectivityMode = $state("internet");
   let accountId = $state("");
   let transportEpoch = $state(0);
@@ -28,6 +30,8 @@
     displayName = settings.display_name ?? '';
     energyState = settings.energy_state ?? 'Active';
     rendezvousEnabled = settings.rendezvous_enabled ?? true;
+    internetEnabled = settings.internet_enabled ?? true;
+    maxConnectivity = settings.max_connectivity ?? false;
     connectivityMode = settings.connectivity_mode ?? "internet";
     accountId = settings.account_id ?? "";
     transportEpoch = settings.transport_epoch ?? 0;
@@ -40,6 +44,8 @@
   async function save() {
     await invoke('set_display_name', { name: displayName });
     await invoke('set_energy_state', { energyState });
+    await invoke('set_internet_enabled', { enabled: internetEnabled });
+    await invoke('set_max_connectivity', { enabled: maxConnectivity });
     await invoke('set_rendezvous_enabled', { enabled: rendezvousEnabled });
     await invoke('set_crowd_mode', { enabled: crowdMode });
     await invoke('set_custom_bootstrap_peers', {
@@ -111,10 +117,48 @@
 
   <section>
     <h4>Network</h4>
+    <label class="checkbox-row">
+      <input
+        type="checkbox"
+        bind:checked={maxConnectivity}
+        onchange={async () => {
+          if (maxConnectivity) {
+            internetEnabled = true;
+            rendezvousEnabled = true;
+            await invoke('set_max_connectivity', { enabled: true });
+          } else {
+            await invoke('set_max_connectivity', { enabled: false });
+          }
+        }}
+      />
+      Maximum connectivity
+    </label>
+    <small class="hint">
+      Enables internet and relay discovery together. On Android, also turns on Bluetooth mesh handoff (F1).
+      Message payload over BLE alone is F2 (planned).
+    </small>
     <p class="connectivity-note">
       Mode: <strong>{connectivityMode === "mesh_only" ? "Local mesh" : "Internet + mesh"}</strong>
-      — switches automatically when the public relay is unreachable.
+      {#if !internetEnabled && connectivityMode === "mesh_only"}
+        — internet disabled in settings.
+      {:else}
+        — switches automatically when the public relay is unreachable.
+      {/if}
     </p>
+    <label class="checkbox-row">
+      <input
+        type="checkbox"
+        bind:checked={internetEnabled}
+        onchange={() => {
+          if (!internetEnabled) rendezvousEnabled = false;
+        }}
+      />
+      Use internet (relay + remote peers)
+    </label>
+    <small class="hint">
+      Turn off for local mesh only — Wi‑Fi / LAN peers still work. Useful for testing
+      offline behavior or everyday use without relying on the public relay.
+    </small>
     <label>
       Energy mode
       <select bind:value={energyState}>
@@ -141,7 +185,7 @@
       Full transport limits apply on next app start; Kademlia lookup policy updates when saved.
     </small>
     <label class="checkbox-row">
-      <input type="checkbox" bind:checked={rendezvousEnabled} />
+      <input type="checkbox" bind:checked={rendezvousEnabled} disabled={!internetEnabled} />
       Relay discovery (opt-in)
     </label>
     <small class="hint">

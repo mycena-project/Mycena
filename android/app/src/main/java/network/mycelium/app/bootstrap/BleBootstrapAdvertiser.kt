@@ -10,25 +10,18 @@ import android.bluetooth.le.BluetoothLeAdvertiser
 import android.content.Context
 import android.os.ParcelUuid
 import android.util.Log
-import java.util.UUID
 
 /**
- * Sends a BLE advertisement inviting nearby devices to discover and install Mycelium.
+ * Connectable BLE advertisement + GATT invite server for mesh handoff (ADR 002 F1).
  *
- * Payload:
- * - Known service UUID (recognized by Mycelium scanners)
- * - Optional peer ID prefix in manufacturer data
- *
- * Power: low-power advertising is typically ~0.1–0.5 mA.
+ * Passive scan filter uses [BleMeshGatt.SERVICE_UUID] only — no peer id in manufacturer data.
  */
-class BleBootstrapAdvertiser(private val context: Context) {
+class BleBootstrapAdvertiser(
+    private val context: Context,
+    private val gattServer: BleInviteGattServer,
+) {
 
     companion object {
-        val MYCELIUM_SERVICE_UUID: UUID =
-            UUID.fromString("6e400001-b5a3-f393-e0a9-e50e24dcca9e")
-
-        const val MANUFACTURER_ID = 0x4D59 // "MY" in ASCII
-
         private const val TAG = "BleBootstrap"
     }
 
@@ -36,10 +29,15 @@ class BleBootstrapAdvertiser(private val context: Context) {
     private var isAdvertising = false
     private var callback: AdvertiseCallback? = null
 
-    fun startAdvertising(peerId: String, installUrl: String = "https://mycelium-beta.vercel.app/") {
-        if (isAdvertising) return
-        @Suppress("UNUSED_VARIABLE")
-        val unusedInstallUrl = installUrl
+    fun startAdvertising(): Boolean {
+        if (isAdvertising) return true
+        if (!gattServer.start()) {
+            Log.w(TAG, "GATT server failed — cannot advertise invite")
+            return false
+        }
+        if (gattServer.refreshInviteValue().isEmpty()) {
+            Log.w(TAG, "no signed invite yet — retry after node ready")
+        }
 
         val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE)
             as BluetoothManager
@@ -47,49 +45,55 @@ class BleBootstrapAdvertiser(private val context: Context) {
 
         if (bluetoothAdapter == null || !bluetoothAdapter.isEnabled) {
             Log.w(TAG, "Bluetooth not available or disabled")
-            return
+            return false
         }
 
         advertiser = bluetoothAdapter.bluetoothLeAdvertiser
         if (advertiser == null) {
             Log.w(TAG, "BLE advertising not supported on this device")
-            return
+            return false
         }
 
-        val settings = AdvertiseSettings.Builder()
-            .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_POWER)
-            .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_LOW)
-            .setConnectable(false)
-            .setTimeout(0)
-            .build()
+        val settings =
+            AdvertiseSettings.Builder()
+                .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_POWER)
+                .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_LOW)
+                .setConnectable(true)
+                .setTimeout(0)
+                .build()
 
-        val peerIdBytes = peerId.toByteArray(Charsets.UTF_8).take(8).toByteArray()
+        val data =
+            AdvertiseData.Builder()
+                .addServiceUuid(ParcelUuid(BleMeshGatt.SERVICE_UUID))
+                .setIncludeDeviceName(false)
+                .setIncludeTxPowerLevel(false)
+                .build()
 
-        val data = AdvertiseData.Builder()
-            .addServiceUuid(ParcelUuid(MYCELIUM_SERVICE_UUID))
-            .addManufacturerData(MANUFACTURER_ID, peerIdBytes)
-            .setIncludeDeviceName(false)
-            .setIncludeTxPowerLevel(false)
-            .build()
+        callback =
+            object : AdvertiseCallback() {
+                override fun onStartSuccess(settingsInEffect: AdvertiseSettings) {
+                    isAdvertising = true
+                    Log.i(TAG, "connectable BLE advertising started (F1 handoff)")
+                }
 
-        callback = object : AdvertiseCallback() {
-            override fun onStartSuccess(settingsInEffect: AdvertiseSettings) {
-                isAdvertising = true
-                Log.i(TAG, "BLE bootstrap advertising started")
+                override fun onStartFailure(errorCode: Int) {
+                    Log.e(TAG, "BLE advertising failed: $errorCode")
+                }
             }
-
-            override fun onStartFailure(errorCode: Int) {
-                Log.e(TAG, "BLE bootstrap advertising failed: $errorCode")
-            }
-        }
 
         advertiser?.startAdvertising(settings, data, callback)
+        return true
+    }
+
+    fun refreshInvite() {
+        gattServer.refreshInviteValue()
     }
 
     fun stopAdvertising() {
         callback?.let { advertiser?.stopAdvertising(it) }
         isAdvertising = false
-        Log.i(TAG, "BLE bootstrap advertising stopped")
+        gattServer.stop()
+        Log.i(TAG, "BLE advertising stopped")
     }
 
     fun isActive() = isAdvertising

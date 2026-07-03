@@ -3,6 +3,9 @@
 pub mod account_identity;
 pub mod at_rest;
 pub mod bootstrap;
+pub mod ble_mesh;
+pub mod ble_multiaddr;
+pub mod ble_stream;
 pub mod contact_hello;
 pub mod crypto;
 pub mod data;

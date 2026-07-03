@@ -59,6 +59,8 @@ pub struct NodeConfig {
     /// Optional 64-char hex master key for at-rest encryption (Android).
     pub storage_key_hex: Option<String>,
     pub rendezvous_enabled: bool,
+    /// When false, use local mesh only (no relay/bootstrap dials).
+    pub internet_enabled: bool,
     pub bulletin_subscriptions: Vec<String>,
     pub crowd_mode: bool,
 }
@@ -459,6 +461,7 @@ struct NodeState {
     cap_mac_key: [u8; 32],
     local_peer_id: String,
     crowd_mode: Arc<AtomicBool>,
+    internet_enabled: Arc<AtomicBool>,
     display_name: Arc<RwLock<String>>,
     runner_task: tokio::task::JoinHandle<anyhow::Result<()>>,
     peer_watch_task: tokio::task::JoinHandle<()>,
@@ -481,8 +484,11 @@ pub fn init_node(config: NodeConfig) {
             }
         }
 
-        let connectivity = ConnectivityMonitor::new();
-        ConnectivityMonitor::spawn_monitor(connectivity.mode_tx.clone());
+        let (connectivity, internet_enabled) = ConnectivityMonitor::new(config.internet_enabled);
+        ConnectivityMonitor::spawn_monitor(
+            connectivity.mode_tx.clone(),
+            internet_enabled.clone(),
+        );
         let connectivity_rx_node = connectivity.mode_rx.clone();
         let mut connectivity_rx_bg = connectivity.mode_rx.clone();
 
@@ -508,6 +514,8 @@ pub fn init_node(config: NodeConfig) {
             storage_key,
             max_relay_fanout: 3,
             rendezvous_enabled: config.rendezvous_enabled,
+            internet_enabled: internet_enabled.clone(),
+            connectivity_mode_tx: Some(connectivity.mode_tx.clone()),
             bulletin_subscriptions: config.bulletin_subscriptions.clone(),
             max_peers: 50,
             crowd_mode: config.crowd_mode,
@@ -667,6 +675,7 @@ pub fn init_node(config: NodeConfig) {
             cap_mac_key,
             local_peer_id,
             crowd_mode,
+            internet_enabled,
             display_name: Arc::new(RwLock::new(config.display_name)),
             runner_task,
             peer_watch_task,
@@ -1371,6 +1380,22 @@ pub fn set_rendezvous_enabled(enabled: bool) {
     });
 }
 
+pub fn set_internet_enabled(enabled: bool) {
+    let state = state_arc();
+    runtime().block_on(async {
+        let st = state.read().await;
+        st.internet_enabled.store(enabled, Ordering::Relaxed);
+        let _ = st
+            .handle
+            .send(NodeCommand::SetInternetEnabled(enabled))
+            .await;
+    });
+}
+
+pub fn is_internet_enabled() -> bool {
+    with_state(|s| s.internet_enabled.load(Ordering::Relaxed))
+}
+
 pub fn set_crowd_mode(enabled: bool) {
     let state = state_arc();
     runtime().block_on(async {
@@ -1418,6 +1443,12 @@ pub fn add_bootstrap_peer(multiaddr: String) {
     });
 }
 
+#[derive(Debug, Clone)]
+pub struct BleOutboundFrame {
+    pub to_peer: String,
+    pub frame: Vec<u8>,
+}
+
 pub fn connect_invite(raw: String) -> Result<(), MyceliumException> {
     let state = state_arc();
     runtime().block_on(async {
@@ -1430,6 +1461,96 @@ pub fn connect_invite(raw: String) -> Result<(), MyceliumException> {
             .map_err(|e| MyceliumException::ChatError {
                 detail: e.to_string(),
             })
+    })
+}
+
+pub fn ingest_ble_frame(from_peer: String, frame: Vec<u8>) -> Result<(), MyceliumException> {
+    let state = state_arc();
+    runtime().block_on(async {
+        let state = state.read().await;
+        state
+            .handle
+            .send(NodeCommand::IngestBleFrame { from_peer, frame })
+            .await
+            .map_err(|e| MyceliumException::ChatError {
+                detail: e.to_string(),
+            })
+    })
+}
+
+pub fn drain_ble_outbound(to_peer: Option<String>, max: u32) -> Vec<BleOutboundFrame> {
+    let state = state_arc();
+    runtime().block_on(async {
+        let state = state.read().await;
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        let _ = state
+            .handle
+            .send(NodeCommand::DrainBleOutbound {
+                to_peer,
+                max: max as usize,
+                reply: Some(tx),
+            })
+            .await;
+        rx.await.unwrap_or_default().into_iter().map(|(to_peer, frame)| BleOutboundFrame {
+            to_peer,
+            frame,
+        }).collect()
+    })
+}
+
+pub fn register_ble_link(peer_id: String, device_id: String) {
+    let state = state_arc();
+    runtime().block_on(async {
+        let state = state.read().await;
+        let _ = state
+            .handle
+            .send(NodeCommand::RegisterBleLink { peer_id, device_id })
+            .await;
+    });
+}
+
+pub fn ingest_ble_stream_frame(from_peer: String, frame: Vec<u8>) -> Result<(), MyceliumException> {
+    let state = state_arc();
+    runtime().block_on(async {
+        let state = state.read().await;
+        state
+            .handle
+            .send(NodeCommand::BleStreamInbound { from_peer, frame })
+            .await
+            .map_err(|e| MyceliumException::ChatError {
+                detail: e.to_string(),
+            })
+    })
+}
+
+pub fn drain_ble_stream_outbound(to_peer: String, max: u32) -> Vec<Vec<u8>> {
+    let state = state_arc();
+    runtime().block_on(async {
+        let state = state.read().await;
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        let _ = state
+            .handle
+            .send(NodeCommand::DrainBleStreamOutbound {
+                to_peer,
+                max: max as usize,
+                reply: Some(tx),
+            })
+            .await;
+        rx.await.unwrap_or_default()
+    })
+}
+
+pub fn ble_peer_addrs() -> Vec<String> {
+    let state = state_arc();
+    runtime().block_on(async {
+        let state = state.read().await;
+        state
+            .handle
+            .listen_addrs()
+            .await
+            .into_iter()
+            .filter(|a| mycelium_core::ble_multiaddr::is_ble_multiaddr(a))
+            .collect()
     })
 }
 

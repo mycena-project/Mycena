@@ -75,6 +75,17 @@ object PeerInvite {
             else -> null
         }
 
+    /** Stable account id from signed v3 invite (for BLE handoff dedupe). */
+    fun accountIdFrom(raw: String): String? {
+        val input = raw.trim()
+        if (!input.startsWith(PREFIX_V3)) return null
+        return input.removePrefix(PREFIX_V3)
+            .split('|', limit = 2)
+            .firstOrNull()
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
+    }
+
     fun toDialMultiaddr(target: Target): String? =
         when (target) {
             is Target.Multiaddr -> target.addr

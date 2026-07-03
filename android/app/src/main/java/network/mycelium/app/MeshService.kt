@@ -14,12 +14,17 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import network.mycelium.app.bootstrap.BleBootstrapAdvertiser
 import network.mycelium.app.bootstrap.BleBootstrapScanner
 import network.mycelium.app.bootstrap.BleBootstrapPermissions
+import network.mycelium.app.bootstrap.BleInviteGattServer
+import network.mycelium.app.bootstrap.BleMeshHandoff
+import network.mycelium.app.bootstrap.BleMeshDataSession
+import network.mycelium.app.bootstrap.BleMeshLinkRegistry
+import network.mycelium.app.bootstrap.BleMeshRelay
 import network.mycelium.app.bootstrap.WifiMulticastLock
 import network.mycelium.app.viewmodel.SettingsViewModel
 import network.mycelium.app.viewmodel.SosViewModel
@@ -41,8 +46,9 @@ class MeshService : Service() {
 
     private var bleAdvertiser: BleBootstrapAdvertiser? = null
     private var bleScanner: BleBootstrapScanner? = null
+    private var bleGattServer: BleInviteGattServer? = null
     private var bleCollectJob: kotlinx.coroutines.Job? = null
-    private val notifiedPeerPrefixes = mutableSetOf<String>()
+    private val notifiedAddresses = mutableSetOf<String>()
     private var nodeInitialized = false
     private var wifiMulticastLock: WifiMulticastLock? = null
 
@@ -73,6 +79,8 @@ class MeshService : Service() {
         val storageKeyHex = StorageKeyHelper.getOrCreateStorageKeyHex(this)
         wifiMulticastLock = WifiMulticastLock(this).also { it.acquire() }
         val rendezvousEnabled = prefs.getBoolean("rendezvous_enabled", true)
+            && prefs.getBoolean("internet_enabled", true)
+        val internetEnabled = prefs.getBoolean("internet_enabled", true)
         val crowdModeEnabled = prefs.getBoolean(SettingsViewModel.KEY_CROWD_MODE, false)
         val bulletinSubscriptions =
             prefs.getStringSet(SettingsViewModel.KEY_BULLETIN_SUBSCRIPTIONS, emptySet())
@@ -86,6 +94,7 @@ class MeshService : Service() {
                 bootstrapPeers = bootstrapPeers,
                 storageKeyHex = storageKeyHex,
                 rendezvousEnabled = rendezvousEnabled,
+                internetEnabled = internetEnabled,
                 bulletinSubscriptions = bulletinSubscriptions,
                 crowdMode = crowdModeEnabled,
             ),
@@ -168,35 +177,78 @@ class MeshService : Service() {
 
     private fun updateBleBootstrap() {
         val prefs = getSharedPreferences("settings", MODE_PRIVATE)
-        val enabled = prefs.getBoolean(SettingsViewModel.KEY_BLE_BOOTSTRAP, false)
+        var enabled = prefs.getBoolean(SettingsViewModel.KEY_BLE_BOOTSTRAP, false)
+        if (!enabled && prefs.getBoolean(SettingsViewModel.KEY_MAX_CONNECTIVITY, false)) {
+            enabled = true
+        }
         stopBleBootstrap()
 
         if (!enabled || !BleBootstrapPermissions.hasAll(this)) {
             return
         }
 
-        bleAdvertiser = BleBootstrapAdvertiser(this)
+        BleMeshHandoff.resetSession()
+        bleGattServer = BleInviteGattServer(this, serviceScope)
+        bleAdvertiser = BleBootstrapAdvertiser(this, bleGattServer!!)
         bleScanner = BleBootstrapScanner(this)
 
-        val peerId = mycelium.localPeerId()
-        bleAdvertiser?.startAdvertising(peerId)
+        bleAdvertiser?.startAdvertising()
         bleScanner?.startScanning()
 
         bleCollectJob = serviceScope.launch {
-            bleScanner!!.nearbyNodes
-                .map { nodes -> nodes.map { it.peerIdPrefix } }
-                .distinctUntilChanged()
-                .collect { prefixes ->
-                    prefixes.forEach { prefix ->
-                        if (notifiedPeerPrefixes.add(prefix)) {
-                            val node = bleScanner!!.nearbyNodes.value.find { it.peerIdPrefix == prefix }
-                            if (node != null) {
-                                showNearbyNodeNotification(node.peerIdPrefix, node.rssi)
+            launch {
+                while (true) {
+                    delay(45_000)
+                    bleAdvertiser?.refreshInvite()
+                }
+            }
+            launch {
+                while (true) {
+                    delay(2_000)
+                    withContext(Dispatchers.IO) {
+                        BleMeshRelay.flushOutbound(this@MeshService)
+                    }
+                }
+            }
+            launch {
+                bleScanner!!.handoffTargets.collect { target ->
+                    val result =
+                        withContext(Dispatchers.IO) {
+                            BleMeshHandoff.tryHandoff(this@MeshService, target)
+                        }
+                    when (result) {
+                        BleMeshHandoff.Result.Connected ->
+                            showBleHandoffNotification()
+                        BleMeshHandoff.Result.AlreadyConnected -> Unit
+                        BleMeshHandoff.Result.SkippedDuplicate -> Unit
+                        is BleMeshHandoff.Result.Failed -> {
+                            val addr = target.device.address ?: return@collect
+                            if (notifiedAddresses.add(addr)) {
+                                showNearbyNodeNotification(addr.takeLast(8), target.rssi)
                             }
                         }
                     }
                 }
+            }
         }
+    }
+
+    private fun showBleHandoffNotification() {
+        val channel = NotificationChannel(
+            DISCOVERY_CHANNEL_ID,
+            getString(R.string.discovery_channel_name),
+            NotificationManager.IMPORTANCE_DEFAULT,
+        )
+        getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+        val notification =
+            NotificationCompat.Builder(this, DISCOVERY_CHANNEL_ID)
+                .setContentTitle(getString(R.string.ble_handoff_connected_title))
+                .setContentText(getString(R.string.ble_handoff_connected_body))
+                .setSmallIcon(android.R.drawable.stat_sys_download)
+                .setAutoCancel(true)
+                .build()
+        getSystemService(NotificationManager::class.java)
+            .notify(DISCOVERY_NOTIFICATION_BASE + 1, notification)
     }
 
     private fun stopBleBootstrap() {
@@ -204,9 +256,15 @@ class MeshService : Service() {
         bleCollectJob = null
         bleAdvertiser?.stopAdvertising()
         bleScanner?.stopScanning()
+        bleGattServer?.stop()
+        serviceScope.launch(Dispatchers.IO) {
+            BleMeshDataSession.closeAll()
+        }
+        BleMeshLinkRegistry.clear()
         bleAdvertiser = null
         bleScanner = null
-        notifiedPeerPrefixes.clear()
+        bleGattServer = null
+        notifiedAddresses.clear()
     }
 
     private fun showNearbyNodeNotification(peerIdPrefix: String, rssi: Int) {

@@ -24,7 +24,7 @@
 | mDNS | On (LAN) | Discovers peers on LAN; **dials** discovered multiaddrs. |
 | Rendezvous | **On** for new installs | Register on relay + **bucketed** selective dial of opted-in peers (~45s tick, ≤3/tick). Turn off in Settings for privacy. |
 | Crowd mode | Off | Festivals / dense LAN: cap mDNS dials, dense gossip, lower peer cap (~20). Enable in Settings (desktop + Android); restart for full transport limits. |
-| BLE | Off | Proximity notification only — does **not** auto-connect peers today. |
+| BLE | Off (use **Maximum connectivity** to enable) | **F1:** GATT invite → auto-connect. **F2:** WireMessage fallback. **F3:** libp2p direct overlay with `/ble/` addrs (Android). |
 
 ## Invite format
 
@@ -54,7 +54,7 @@ Dial target (relay): `/ip4/<relay-ip>/tcp/4001/p2p/<relay>/p2p-circuit/p2p/<peer
 - Hotspot / **guest Wi‑Fi** often blocks device-to-device traffic and mDNS — use QR + relay instead.
 - **Local mesh mode** activates automatically when the public relay is unreachable; the app prioritizes LAN (`mDNS`) dials. Same-subnet Wi‑Fi still required for zero-QR discovery.
 - Desktop has no camera; phone scans Mac’s QR or Mac pastes phone’s invite.
-- **Bluetooth** advertises the app only — it does not establish mesh links yet (Phase B3 stretch).
+- **Bluetooth** — **F1 (Android):** connectable BLE + GATT signed invite → auto `connect_invite`. **F2 (Android):** carry signed `WireMessage` when no libp2p path. **F3 (Android):** libp2p direct protocol over BLE; peers show `/ble/…/p2p/…` addrs. See [ADR 002](./adr/002-ble-mesh-transport.md).
 - E2E keys learned from peers are **persisted on disk** after connect; chat works across app restarts without re-scanning (Phase B2).
 - **Multi-relay pool** (Phase D): clients hash-pick a bootstrap relay for circuits and rotate on disconnect; add regional relays via `bootstrap.txt` or `MYCELIUM_BOOTSTRAP_PEERS`.
 - **Festival scale** is not 100k-ready; crowd mode + dense gossip + rendezvous bucketing reduce dial/gossip storms in dense clusters.
