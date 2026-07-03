@@ -1575,10 +1575,7 @@ async fn set_internet_enabled(state: State<'_, SharedState>, enabled: bool) -> R
 }
 
 #[tauri::command]
-async fn set_max_connectivity(
-    state: State<'_, SharedState>,
-    enabled: bool,
-) -> Result<(), String> {
+async fn set_max_connectivity(state: State<'_, SharedState>, enabled: bool) -> Result<(), String> {
     let mut guard = state.write().await;
     let s = guard
         .as_mut()

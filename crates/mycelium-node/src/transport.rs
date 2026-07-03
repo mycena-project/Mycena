@@ -12,8 +12,8 @@ use libp2p::{
     swarm::{Swarm, SwarmEvent},
     tcp, yamux, Multiaddr, PeerId, SwarmBuilder,
 };
-use mycelium_core::bootstrap::{is_relay_peer, peer_id_from_parsed_multiaddr};
 use mycelium_core::ble_multiaddr::is_ble_multiaddr;
+use mycelium_core::bootstrap::{is_relay_peer, peer_id_from_parsed_multiaddr};
 use mycelium_core::mesh_profile::MeshProfile;
 use mycelium_core::relay_pool::RelayPool;
 use mycelium_core::transport::{
@@ -833,7 +833,11 @@ impl MeshTransport for Libp2pTransport {
 }
 
 impl Libp2pTransport {
-    pub fn register_ble_link(&mut self, peer_id: String, device_id: &str) -> Option<TransportEvent> {
+    pub fn register_ble_link(
+        &mut self,
+        peer_id: String,
+        device_id: &str,
+    ) -> Option<TransportEvent> {
         tracing::info!("BLE libp2p link registered for {peer_id} ({device_id})");
         self.ble.register_link(peer_id, device_id)
     }
@@ -842,11 +846,7 @@ impl Libp2pTransport {
         self.ble.remove_link(peer_id)
     }
 
-    pub fn ingest_ble_stream_frame(
-        &mut self,
-        from_peer: &str,
-        frame: &[u8],
-    ) -> anyhow::Result<()> {
+    pub fn ingest_ble_stream_frame(&mut self, from_peer: &str, frame: &[u8]) -> anyhow::Result<()> {
         self.ble.ingest_stream_frame(from_peer, frame)
     }
 

@@ -15,7 +15,10 @@ pub const GATT_CHUNK_PAYLOAD: usize = 476;
 pub fn encode_wire(wire: &WireMessage) -> anyhow::Result<Vec<u8>> {
     let payload = bincode::serialize(wire)?;
     if payload.len() > MAX_FRAME_LEN {
-        anyhow::bail!("wire message too large for BLE ({payload_len} > {MAX_FRAME_LEN})", payload_len = payload.len());
+        anyhow::bail!(
+            "wire message too large for BLE ({payload_len} > {MAX_FRAME_LEN})",
+            payload_len = payload.len()
+        );
     }
     let mut out = Vec::with_capacity(8 + payload.len());
     out.extend_from_slice(&FRAME_MAGIC);

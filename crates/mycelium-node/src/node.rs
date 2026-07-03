@@ -960,7 +960,11 @@ impl NodeRunner {
                 let wire = mycelium_core::ble_mesh::decode_frame(&frame)?;
                 self.handle_incoming_direct(from_peer, wire).await?;
             }
-            NodeCommand::DrainBleOutbound { to_peer, max, reply } => {
+            NodeCommand::DrainBleOutbound {
+                to_peer,
+                max,
+                reply,
+            } => {
                 let mut drained = Vec::new();
                 let mut rest = VecDeque::new();
                 while let Some((peer, frame)) = self.ble_outbound.pop_front() {
@@ -990,17 +994,21 @@ impl NodeRunner {
                             }
                         }
                     }
-                    self.handle_transport_event(TransportEvent::PeerUp { peer_id }).await?;
+                    self.handle_transport_event(TransportEvent::PeerUp { peer_id })
+                        .await?;
                 }
             }
             NodeCommand::BleStreamInbound { from_peer, frame } => {
-                self.transport
-                    .ingest_ble_stream_frame(&from_peer, &frame)?;
+                self.transport.ingest_ble_stream_frame(&from_peer, &frame)?;
                 for ev in self.transport.drain_pending_ble_events() {
                     self.handle_transport_event(ev).await?;
                 }
             }
-            NodeCommand::DrainBleStreamOutbound { to_peer, max, reply } => {
+            NodeCommand::DrainBleStreamOutbound {
+                to_peer,
+                max,
+                reply,
+            } => {
                 let drained = self.transport.drain_ble_stream_outbound(&to_peer, max);
                 if let Some(tx) = reply {
                     let _ = tx.send(drained);
@@ -1165,10 +1173,13 @@ impl NodeRunner {
         Ok(())
     }
 
-    async fn try_ingest_ble_assembled(&mut self, from_peer: &str, frame: &[u8]) -> anyhow::Result<bool> {
+    async fn try_ingest_ble_assembled(
+        &mut self,
+        from_peer: &str,
+        frame: &[u8],
+    ) -> anyhow::Result<bool> {
         if frame.len() >= 4 && frame[..4] == mycelium_core::ble_stream::STREAM_MAGIC {
-            self.transport
-                .ingest_ble_stream_frame(from_peer, frame)?;
+            self.transport.ingest_ble_stream_frame(from_peer, frame)?;
             for ev in self.transport.drain_pending_ble_events() {
                 self.handle_transport_event(ev).await?;
             }
@@ -1184,7 +1195,10 @@ impl NodeRunner {
                 while self.ble_outbound.len() > self.ble_outbound_cap {
                     self.ble_outbound.pop_front();
                 }
-                info!("queued BLE frame for {to_peer} ({} bytes)", self.ble_outbound.back().map(|(_, f)| f.len()).unwrap_or(0));
+                info!(
+                    "queued BLE frame for {to_peer} ({} bytes)",
+                    self.ble_outbound.back().map(|(_, f)| f.len()).unwrap_or(0)
+                );
             }
             Err(e) => warn!("BLE encode for {to_peer}: {e:#}"),
         }

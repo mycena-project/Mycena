@@ -1491,10 +1491,11 @@ pub fn drain_ble_outbound(to_peer: Option<String>, max: u32) -> Vec<BleOutboundF
                 reply: Some(tx),
             })
             .await;
-        rx.await.unwrap_or_default().into_iter().map(|(to_peer, frame)| BleOutboundFrame {
-            to_peer,
-            frame,
-        }).collect()
+        rx.await
+            .unwrap_or_default()
+            .into_iter()
+            .map(|(to_peer, frame)| BleOutboundFrame { to_peer, frame })
+            .collect()
     })
 }
 

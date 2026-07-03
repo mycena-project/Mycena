@@ -234,9 +234,7 @@ mod tests {
         let _ = b.try_recv_event(); // PeerUp from register_link
         b.ingest_stream_frame("peerA", &frame).unwrap();
 
-        let ev = b
-            .try_recv_event()
-            .expect("direct after ingest");
+        let ev = b.try_recv_event().expect("direct after ingest");
         match ev {
             TransportEvent::DirectReceived { from_peer, message } => {
                 assert_eq!(from_peer, "peerA");
