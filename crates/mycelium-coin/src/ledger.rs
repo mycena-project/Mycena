@@ -3,7 +3,9 @@
 use crate::address::{address_from_public_key, validate_address};
 use crate::settlement_policy::SettlementPolicy;
 use crate::velocity::VelocityTracker;
+use crate::views::{AccountBalanceView, InsufficientSettledFunds, SpendAuthorization};
 use libp2p::identity::PublicKey;
+use mycelium_l0_facade::consistency::{EventuallyConsistentModel, SettlementRequiredModel};
 use serde::{Deserialize, Serialize};
 use std::cmp::Reverse;
 use std::collections::HashSet;
@@ -146,8 +148,26 @@ impl LocalLedger {
         self.policy = policy;
     }
 
-    /// Store a TX. Returns `Err` on I/O; business rules as [`ApplyResult`].
-    pub fn apply_transaction(&self, tx: &Transaction) -> anyhow::Result<ApplyResult> {
+    /// Apply a transaction received from the mesh (no local spend token required).
+    pub fn apply_incoming_transaction(&self, tx: &Transaction) -> anyhow::Result<ApplyResult> {
+        self.apply_transaction_inner(tx)
+    }
+
+    /// Apply a locally authored transaction; requires [`SpendAuthorization`].
+    pub fn apply_outgoing_transaction(
+        &self,
+        tx: &Transaction,
+        auth: &SpendAuthorization,
+    ) -> anyhow::Result<ApplyResult> {
+        if !auth.matches_transaction(tx) {
+            return Ok(ApplyResult::Invalid(
+                "SpendAuthorization does not match transaction".into(),
+            ));
+        }
+        self.apply_transaction_inner(tx)
+    }
+
+    fn apply_transaction_inner(&self, tx: &Transaction) -> anyhow::Result<ApplyResult> {
         if self.transaction_tree()?.contains_key(tx.id.as_bytes())? {
             return Ok(ApplyResult::Duplicate);
         }
@@ -259,6 +279,50 @@ impl LocalLedger {
     }
 
     pub fn account_state(&self, address: &str) -> anyhow::Result<AccountState> {
+        self.load_account(address)
+    }
+
+    pub fn eventual_balance_view(
+        &self,
+        address: &str,
+    ) -> anyhow::Result<AccountBalanceView<EventuallyConsistentModel>> {
+        Ok(AccountBalanceView::from_account(
+            &self.load_account(address)?,
+        ))
+    }
+
+    pub fn settled_balance_view(
+        &self,
+        address: &str,
+    ) -> anyhow::Result<AccountBalanceView<SettlementRequiredModel>> {
+        Ok(AccountBalanceView::from_settled_account(
+            &self.load_account(address)?,
+        ))
+    }
+
+    /// Authorize an outgoing spend against **settled** local balance only.
+    pub fn authorize_spend(
+        &self,
+        from: &str,
+        total_muon: u64,
+    ) -> Result<SpendAuthorization, InsufficientSettledFunds> {
+        let view = self
+            .settled_balance_view(from)
+            .map_err(|_e| InsufficientSettledFunds {
+                have_settled: 0,
+                need: total_muon,
+            })?;
+        if view.spendable_muon() >= total_muon {
+            Ok(SpendAuthorization::new(from.to_string(), total_muon))
+        } else {
+            Err(InsufficientSettledFunds {
+                have_settled: view.spendable_muon(),
+                need: total_muon,
+            })
+        }
+    }
+
+    fn load_account(&self, address: &str) -> anyhow::Result<AccountState> {
         let tree = self.db.open_tree("accounts")?;
         match tree.get(address.as_bytes())? {
             Some(bytes) => Ok(bincode::deserialize(&bytes)?),

@@ -46,7 +46,10 @@ impl HotWallet {
     }
 
     pub async fn maybe_refill(&self) -> anyhow::Result<RefillResult> {
-        let (confirmed, _pending) = self.coin_node.balance()?;
+        let (confirmed, _pending) = {
+            let view = self.coin_node.balance_settled()?;
+            (view.spendable_muon(), 0u64)
+        };
         let (cold_addr, to_request) = {
             let config = self.config.read().await;
             let Some(cold_addr) = config.cold_wallet_address.clone() else {
@@ -81,7 +84,7 @@ impl HotWallet {
     }
 
     pub async fn enforce_cap(&self) -> anyhow::Result<()> {
-        let (confirmed, _) = self.coin_node.balance()?;
+        let confirmed = self.coin_node.balance_settled()?.spendable_muon();
         let maybe_return = {
             let config = self.config.read().await;
             if confirmed > config.max_cache_muon {

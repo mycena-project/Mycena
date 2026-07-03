@@ -4,7 +4,11 @@ use crate::address::address_from_keypair;
 use crate::ledger::{ApplyResult, LocalLedger, Transaction};
 use crate::payload::CoinPayload;
 use crate::settlement_policy::SettlementPolicy;
+use crate::views::{InsufficientSettledFunds, PeerBalanceHint, SpendAuthorization};
 use async_trait::async_trait;
+use mycelium_l0_facade::consistency::{
+    EventuallyConsistentModel, SettlementRequiredModel, OP_COIN_TRANSFER,
+};
 use std::sync::Arc;
 use tracing::{info, warn};
 
@@ -68,6 +72,14 @@ impl CoinNode {
         self.ledger.policy().clone()
     }
 
+    /// Authorize spending settled local balance ([`OP_COIN_TRANSFER`]).
+    pub fn authorize_local_spend(
+        &self,
+        total_muon: u64,
+    ) -> Result<SpendAuthorization, InsufficientSettledFunds> {
+        self.ledger.authorize_spend(&self.local_address, total_muon)
+    }
+
     pub async fn submit_transfer_from_identity_path(
         &self,
         identity_path: &str,
@@ -80,13 +92,31 @@ impl CoinNode {
         if address_from_keypair(&kp) != self.local_address {
             anyhow::bail!("identity does not match coin address");
         }
+        let total = amount_muon
+            .checked_add(fee_muon)
+            .ok_or_else(|| anyhow::anyhow!("amount overflow"))?;
+        let auth = self.authorize_local_spend(total).map_err(|e| {
+            anyhow::anyhow!(
+                "insufficient settled balance: have {} need {} ({})",
+                e.have_settled,
+                e.need,
+                OP_COIN_TRANSFER.name
+            )
+        })?;
         let nonce = self.ledger.account_state(&self.local_address)?.next_nonce;
         let tx = Transaction::new(to, amount_muon, fee_muon, nonce, memo, &kp)?;
-        self.send_transaction(tx).await
+        self.send_transaction(tx, auth).await
     }
 
-    pub async fn send_transaction(&self, tx: Transaction) -> anyhow::Result<()> {
-        match self.ledger.apply_transaction(&tx)? {
+    pub async fn send_transaction(
+        &self,
+        tx: Transaction,
+        auth: SpendAuthorization,
+    ) -> anyhow::Result<()> {
+        if tx.from != self.local_address {
+            anyhow::bail!("transaction from address does not match local wallet");
+        }
+        match self.ledger.apply_outgoing_transaction(&tx, &auth)? {
             ApplyResult::Accepted => {
                 info!("TX {} accepted locally, broadcasting", tx.id);
                 let inner = bincode::serialize(&CoinPayload::Transaction(tx))?;
@@ -103,7 +133,7 @@ impl CoinNode {
         from_peer: &str,
     ) -> anyhow::Result<()> {
         match payload {
-            CoinPayload::Transaction(tx) => match self.ledger.apply_transaction(&tx)? {
+            CoinPayload::Transaction(tx) => match self.ledger.apply_incoming_transaction(&tx)? {
                 ApplyResult::Accepted => {
                     info!("TX {} received and accepted", tx.id);
                     let _ = self
@@ -137,11 +167,14 @@ impl CoinNode {
                 let _ = self.ledger.add_witness(&tx_id, peer_id)?;
             }
             CoinPayload::BalanceQuery { address } => {
-                let acc = self.ledger.account_state(&address)?;
+                let view = self.ledger.eventual_balance_view(&address)?;
+                let confirmed = view.confirmed_muon();
+                let pending = view.pending_muon();
+                let _hint = PeerBalanceHint::new(view.address.clone(), confirmed, pending);
                 let response = CoinPayload::BalanceResponse {
-                    address,
-                    balance_muon: acc.balance_muon,
-                    pending_muon: acc.pending_received,
+                    address: view.address,
+                    balance_muon: confirmed,
+                    pending_muon: pending,
                 };
                 let inner = bincode::serialize(&response)?;
                 self.transport
@@ -191,9 +224,21 @@ impl CoinNode {
         Ok(())
     }
 
+    pub fn balance_eventual(
+        &self,
+    ) -> anyhow::Result<crate::views::AccountBalanceView<EventuallyConsistentModel>> {
+        self.ledger.eventual_balance_view(&self.local_address)
+    }
+
+    pub fn balance_settled(
+        &self,
+    ) -> anyhow::Result<crate::views::AccountBalanceView<SettlementRequiredModel>> {
+        self.ledger.settled_balance_view(&self.local_address)
+    }
+
     pub fn balance(&self) -> anyhow::Result<(u64, u64)> {
-        let acc = self.ledger.account_state(&self.local_address)?;
-        Ok((acc.balance_muon, acc.pending_received))
+        let view = self.balance_eventual()?;
+        Ok((view.confirmed_muon(), view.pending_muon()))
     }
 
     pub fn recent_transactions(&self, limit: usize) -> anyhow::Result<Vec<Transaction>> {

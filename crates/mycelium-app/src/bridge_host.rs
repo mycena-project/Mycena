@@ -267,7 +267,10 @@ impl BridgeHost {
                     .coin
                     .as_ref()
                     .ok_or_else(|| "coin not available".to_string())?;
-                let (confirmed, pending) = coin.balance().map_err(|e| e.to_string())?;
+                let (confirmed, pending) = coin
+                    .balance_eventual()
+                    .map(|v| (v.confirmed_muon(), v.pending_muon()))
+                    .map_err(|e| e.to_string())?;
                 Ok(json!({
                     "confirmed_muon": confirmed,
                     "pending_muon": pending,

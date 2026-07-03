@@ -12,6 +12,7 @@ mod payment;
 mod refill;
 mod settlement_policy;
 mod velocity;
+mod views;
 
 pub use address::{address_from_keypair, validate_address};
 pub use error::{decode_peer_coin_payload, CoinError, CoinResult};
@@ -26,6 +27,9 @@ pub use refill::{RefillRequest, REFILL_REQUEST_TTL_MS};
 pub use settlement_policy::{
     SettlementPolicy, DEFAULT_MAX_BALANCE_MXC, DEFAULT_MAX_TX_MXC, HARD_MAX_BALANCE_MXC,
 };
+pub use views::{
+    AccountBalanceView, InsufficientSettledFunds, PeerBalanceHint, SpendAuthorization,
+};
 
 #[cfg(test)]
 mod tests {
@@ -34,6 +38,7 @@ mod tests {
     use super::payload::CoinPayload;
     use super::payment::PaymentRequest;
     use super::refill::RefillRequest;
+    use super::views::{InsufficientSettledFunds, SpendAuthorization};
     use super::{address_from_keypair, validate_address, CoinNode, CoinTransport};
     use async_trait::async_trait;
     use libp2p::identity::Keypair;
@@ -72,6 +77,71 @@ mod tests {
         }
     }
 
+    fn apply_outgoing(ledger: &LocalLedger, tx: &Transaction) -> ApplyResult {
+        let total = tx.amount_muon + tx.fee_muon;
+        let auth = ledger
+            .authorize_spend(&tx.from, total)
+            .expect("authorize spend");
+        ledger
+            .apply_outgoing_transaction(tx, &auth)
+            .expect("apply outgoing")
+    }
+
+    #[allow(dead_code)]
+    fn apply_incoming(ledger: &LocalLedger, tx: &Transaction) -> ApplyResult {
+        ledger
+            .apply_incoming_transaction(tx)
+            .expect("apply incoming")
+    }
+
+    #[test]
+    fn pending_balance_does_not_authorize_spend() {
+        let dir = tempdir().unwrap();
+        let ledger = LocalLedger::open(dir.path().to_str().unwrap()).unwrap();
+        let sender = Keypair::generate_ed25519();
+        let receiver = Keypair::generate_ed25519();
+        let sender_addr = address_from_keypair(&sender);
+        let receiver_addr = address_from_keypair(&receiver);
+        ledger
+            .genesis_credit(&sender_addr, 10 * MUON_PER_MXC)
+            .unwrap();
+        let tx = Transaction::new(
+            receiver_addr.clone(),
+            5 * MUON_PER_MXC,
+            1000,
+            0,
+            None,
+            &sender,
+        )
+        .unwrap();
+        assert_eq!(apply_outgoing(&ledger, &tx), ApplyResult::Accepted);
+        let receiver_view = ledger.settled_balance_view(&receiver_addr).unwrap();
+        assert_eq!(receiver_view.spendable_muon(), 0);
+        assert_eq!(
+            ledger.authorize_spend(&receiver_addr, 1),
+            Err(InsufficientSettledFunds {
+                have_settled: 0,
+                need: 1,
+            })
+        );
+    }
+
+    #[test]
+    fn outgoing_requires_matching_spend_authorization() {
+        let dir = tempdir().unwrap();
+        let ledger = LocalLedger::open(dir.path().to_str().unwrap()).unwrap();
+        let kp = Keypair::generate_ed25519();
+        let alice = address_from_keypair(&kp);
+        let bob = address_from_keypair(&Keypair::generate_ed25519());
+        ledger.genesis_credit(&alice, MUON_PER_MXC).unwrap();
+        let tx = Transaction::new(bob, 1000, 100, 0, None, &kp).unwrap();
+        let wrong_auth = SpendAuthorization::new("mxc1other".into(), 1100);
+        assert!(matches!(
+            ledger.apply_outgoing_transaction(&tx, &wrong_auth).unwrap(),
+            ApplyResult::Invalid(_)
+        ));
+    }
+
     #[tokio::test]
     async fn basic_transfer() {
         let dir = tempdir().unwrap();
@@ -82,10 +152,7 @@ mod tests {
         assert!(validate_address(&bob));
         ledger.genesis_credit(&alice, 10 * MUON_PER_MXC).unwrap();
         let tx = Transaction::new(bob, 5 * MUON_PER_MXC, 1000, 0, None, &keypair).unwrap();
-        assert_eq!(
-            ledger.apply_transaction(&tx).unwrap(),
-            ApplyResult::Accepted
-        );
+        assert_eq!(apply_outgoing(&ledger, &tx), ApplyResult::Accepted);
         let acc = ledger.account_state(&alice).unwrap();
         assert_eq!(acc.balance_muon, 5 * MUON_PER_MXC - 1000);
     }
@@ -100,13 +167,10 @@ mod tests {
         let carol = address_from_keypair(&Keypair::generate_ed25519());
         ledger.genesis_credit(&alice, 10 * MUON_PER_MXC).unwrap();
         let tx1 = Transaction::new(bob, 8 * MUON_PER_MXC, 1000, 0, None, &keypair).unwrap();
-        let tx2 = Transaction::new(carol, 8 * MUON_PER_MXC, 1000, 0, None, &keypair).unwrap();
-        assert_eq!(
-            ledger.apply_transaction(&tx1).unwrap(),
-            ApplyResult::Accepted
-        );
+        assert_eq!(apply_outgoing(&ledger, &tx1), ApplyResult::Accepted);
+        let tx2 = Transaction::new(carol, 1000, 1000, 0, None, &keypair).unwrap();
         assert!(matches!(
-            ledger.apply_transaction(&tx2).unwrap(),
+            apply_outgoing(&ledger, &tx2),
             ApplyResult::InvalidNonce { .. }
         ));
     }
@@ -121,10 +185,7 @@ mod tests {
         ledger.genesis_credit(&alice, 10 * MUON_PER_MXC).unwrap();
         let tx =
             Transaction::new(bob_addr.clone(), 5 * MUON_PER_MXC, 1000, 0, None, &keypair).unwrap();
-        assert_eq!(
-            ledger.apply_transaction(&tx).unwrap(),
-            ApplyResult::Accepted
-        );
+        assert_eq!(apply_outgoing(&ledger, &tx), ApplyResult::Accepted);
         let bob = ledger.account_state(&bob_addr).unwrap();
         assert_eq!(bob.balance_muon, 0);
         assert_eq!(bob.pending_received, 5 * MUON_PER_MXC);
@@ -147,7 +208,7 @@ mod tests {
         let huge = 30 * MUON_PER_MXC;
         let tx = Transaction::new(bob, huge, 1000, 0, None, &keypair).unwrap();
         assert!(matches!(
-            ledger.apply_transaction(&tx).unwrap(),
+            apply_outgoing(&ledger, &tx),
             ApplyResult::Invalid(_)
         ));
     }
