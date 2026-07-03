@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Mycelium Project
 package network.mycelium.app.bootstrap
 
+import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCharacteristic
 import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothGattService
@@ -67,7 +68,7 @@ class BleInviteGattServer(
                 gattServer?.sendResponse(
                     device,
                     requestId,
-                    BluetoothGattCharacteristic.GATT_SUCCESS,
+                    BluetoothGatt.GATT_SUCCESS,
                     offset,
                     slice,
                 )
@@ -87,7 +88,7 @@ class BleInviteGattServer(
                     gattServer?.sendResponse(
                         device,
                         requestId,
-                        BluetoothGattCharacteristic.GATT_SUCCESS,
+                        BluetoothGatt.GATT_SUCCESS,
                         offset,
                         value,
                     )
