@@ -1,2 +1,4 @@
 /target/
 /artifacts/
+# Local fuzz runs add inputs here; only seed corpus checked in at commit time.
+/corpus/fuzz_*/

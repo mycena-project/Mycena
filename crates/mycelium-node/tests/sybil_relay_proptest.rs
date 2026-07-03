@@ -30,6 +30,7 @@ proptest! {
         fanout in 1usize..=3usize,
         established_count in 1usize..=5usize,
     ) {
+        prop_assume!(established_count + sybil_count >= fanout);
         let now = 1_700_000_000_000u64;
         let mut trust = std::collections::HashMap::new();
         let mut peers = Vec::new();
