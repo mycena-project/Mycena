@@ -308,12 +308,7 @@ pub struct NodeMetrics {
     pub peer_cap_rejections: u64,
 }
 
-#[derive(Debug, Default, Clone, Serialize, Deserialize)]
-pub struct PeerReputationSnapshot {
-    pub strikes: u8,
-    pub last_strike_ms: u64,
-    pub throttled_until_ms: u64,
-}
+use crate::peer_trust::PeerReputationSnapshot;
 
 #[derive(Clone)]
 pub struct NodeHandle {
@@ -321,7 +316,7 @@ pub struct NodeHandle {
     metrics: Arc<RwLock<NodeMetrics>>,
     incoming_tx: broadcast::Sender<DirectMessage>,
     peers: Arc<RwLock<Vec<String>>>,
-    reputations: Arc<Mutex<HashMap<String, PeerReputationSnapshot>>>,
+    reputations: Arc<crate::peer_trust::PeerTrustStore>,
     scopes: Arc<RwLock<HashSet<String>>>,
     bulletin_subscriptions: Arc<RwLock<Vec<String>>>,
     relay_identity: RelayIdentity,
@@ -392,11 +387,10 @@ impl NodeHandle {
     }
 
     pub async fn peer_reputation(&self, peer_id: &str) -> Option<PeerReputationSnapshot> {
+        let now = now_ms();
         self.reputations
-            .lock()
-            .expect("reputation lock") // INVARIANT: mutex not poisoned
             .get(peer_id)
-            .cloned()
+            .map(|t| PeerReputationSnapshot::from_trust(&t, now))
     }
 
     pub async fn subscribed_scopes(&self) -> Vec<String> {
@@ -561,7 +555,7 @@ pub struct NodeRunner {
     peers: Arc<RwLock<Vec<String>>>,
     subscribed_scopes: Arc<RwLock<HashSet<String>>>,
     peer_scopes: HashMap<String, HashSet<String>>,
-    peer_reputations: Arc<Mutex<HashMap<String, PeerReputationSnapshot>>>,
+    peer_trust: Arc<crate::peer_trust::PeerTrustStore>,
     cmd_rx: mpsc::Receiver<NodeCommand>,
     enc_keypair: EncryptionKeypair,
     display_name: Option<String>,
@@ -709,7 +703,13 @@ impl NodeRunner {
         let ingest = IngestPipeline::new(store.clone());
         let metrics = Arc::new(RwLock::new(NodeMetrics::default()));
         let peers = Arc::new(RwLock::new(Vec::new()));
-        let reputations = Arc::new(Mutex::new(HashMap::new()));
+        let peer_trust = Arc::new(crate::peer_trust::PeerTrustStore::open(&config.db_path)?);
+        if !peer_trust.load_all().is_empty() {
+            info!(
+                "loaded {} persisted peer trust record(s)",
+                peer_trust.load_all().len()
+            );
+        }
         let mut initial_scopes: HashSet<String> =
             SYSTEM_SCOPES.iter().map(|s| (*s).to_string()).collect();
         initial_scopes.insert("mycelium/group/*".to_string());
@@ -745,7 +745,7 @@ impl NodeRunner {
                 peers: peers.clone(),
                 subscribed_scopes: scopes.clone(),
                 peer_scopes: HashMap::new(),
-                peer_reputations: reputations.clone(),
+                peer_trust: peer_trust.clone(),
                 cmd_rx,
                 enc_keypair,
                 display_name,
@@ -776,7 +776,7 @@ impl NodeRunner {
                 metrics,
                 incoming_tx,
                 peers,
-                reputations,
+                reputations: peer_trust,
                 scopes,
                 bulletin_subscriptions,
                 relay_identity,
@@ -1182,6 +1182,10 @@ impl NodeRunner {
                             bytes,
                         )
                         .await;
+                        let now = now_ms();
+                        let _ = self.peer_trust.with_peer(&peer_id, now, |t| {
+                            t.note_confirmed_contact(now);
+                        });
                         info!("seeded enc key for {peer_id} from invite");
                         if self.transport.is_peer_connected(&peer_id) {
                             if let Err(e) = self.send_peer_info(peer_id.clone()).await {
@@ -1421,17 +1425,13 @@ impl NodeRunner {
             warn!("no relay candidates available for {}", to_peer);
             self.queue_ble_wire(to_peer.clone(), wire);
         } else {
-            let peer_strikes: HashMap<String, u8> = self
-                .peer_reputations
-                .lock()
-                .expect("reputation lock") // INVARIANT: mutex not poisoned; we never panic while holding it
-                .iter()
-                .map(|(peer, rep)| (peer.clone(), rep.strikes))
-                .collect();
+            let now = now_ms();
+            let peer_trust = self.peer_trust.load_all();
             let relay_candidates = security::select_relay_candidates(
                 &peers,
                 &to_peer,
-                &peer_strikes,
+                &peer_trust,
+                now,
                 self.max_relay_fanout,
             );
             if relay_candidates.is_empty() {
@@ -1591,9 +1591,20 @@ impl NodeRunner {
                     "delivery ack from {} message_id={} accepted={}",
                     from_peer, ack.message_id, ack.accepted
                 );
+                let now = now_ms();
+                let _ = self.peer_trust.with_peer(&from_peer, now, |t| {
+                    t.record_relay_outcome(now, ack.accepted);
+                    if ack.accepted {
+                        t.record_message_accepted(now);
+                    }
+                });
             }
             TransportEvent::SendFailure { to_peer, reason } => {
                 warn!("direct send to {} failed: {}", to_peer, reason);
+                let now = now_ms();
+                let _ = self.peer_trust.with_peer(&to_peer, now, |t| {
+                    t.record_relay_outcome(now, false);
+                });
             }
             TransportEvent::ConnectivityChanged { mode } => {
                 info!("connectivity mode from transport: {:?}", mode);
@@ -2033,6 +2044,10 @@ impl NodeRunner {
                             bytes,
                         )
                         .await;
+                        let now = now_ms();
+                        let _ = self.peer_trust.with_peer(&from_peer, now, |t| {
+                            t.note_confirmed_contact(now);
+                        });
                     }
                     Err(e) => {
                         warn!(
@@ -2123,6 +2138,10 @@ impl NodeRunner {
                                 bytes,
                             )
                             .await;
+                            let now = now_ms();
+                            let _ = self.peer_trust.with_peer(&logical_from, now, |t| {
+                                t.note_confirmed_contact(now);
+                            });
                         }
                         Err(e) => {
                             warn!(
@@ -2470,15 +2489,7 @@ impl NodeRunner {
     }
 
     fn is_throttled(&self, peer: &str) -> bool {
-        let now = now_ms();
-        let mut reps = self.peer_reputations.lock().expect("reputation lock"); // INVARIANT: mutex not poisoned
-        if let Some(rep) = reps.get_mut(peer) {
-            if now.saturating_sub(rep.last_strike_ms) > 10 * 60 * 1000 {
-                rep.strikes = 0;
-            }
-            return now < rep.throttled_until_ms;
-        }
-        false
+        self.peer_trust.is_throttled(peer, now_ms())
     }
 
     fn record_ingest_reject(&self, reason: IngestReject) {
@@ -2495,23 +2506,16 @@ impl NodeRunner {
 
     fn register_strike(&self, peer: &str) {
         let now = now_ms();
-        let mut reps = self.peer_reputations.lock().expect("reputation lock"); // INVARIANT: mutex not poisoned
-        let rep = reps.entry(peer.to_string()).or_default();
-        if now.saturating_sub(rep.last_strike_ms) > 60 * 1000 {
-            rep.strikes = 0;
-        }
-        rep.strikes = rep.strikes.saturating_add(1);
-        rep.last_strike_ms = now;
-        if rep.strikes >= 3 {
-            rep.throttled_until_ms = now + 5 * 60 * 1000;
-        }
+        let _ = self.peer_trust.with_peer(peer, now, |t| {
+            t.record_message_rejected(now);
+        });
     }
 
     fn reward_peer(&self, peer: &str) {
-        let mut reps = self.peer_reputations.lock().expect("reputation lock"); // INVARIANT: mutex not poisoned
-        if let Some(rep) = reps.get_mut(peer) {
-            rep.strikes /= 2;
-        }
+        let now = now_ms();
+        let _ = self.peer_trust.with_peer(peer, now, |t| {
+            t.record_message_accepted(now);
+        });
     }
 }
 
