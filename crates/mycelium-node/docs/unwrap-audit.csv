@@ -12,25 +12,26 @@ P0,crates/mycelium-node/src/security.rs,26,否,peer_input_envelope,"validate_dat
 P0,crates/mycelium-node/src/ingest_guard.rs,136,否,peer_input_ingest,"allow_direct / check_gossip_* -> Result",already_safe
 P0,crates/mycelium-coin/src/node.rs,100,否,peer_input_coin,"handle_incoming -> anyhow::Result; rejects invalid tx",already_safe
 P0,crates/mycelium-coin/src/payload.rs,8,否,peer_input_coin,"CoinPayload serde; deserialize at host boundary uses ?",already_safe
-P2,crates/mycelium-node/src/node.rs,93,否,local_state_startup,".expect(""default listen addr must parse"")",invariant_comment
-P2,crates/mycelium-node/src/node.rs,120,否,local_state_startup,".expect(""default listen addr must parse"")",invariant_comment
-P2,crates/mycelium-node/src/node.rs,157,否,local_state_mutex,".expect(""relay keypair lock"")",invariant_comment
-P2,crates/mycelium-node/src/node.rs,166,否,local_state_mutex,".expect(""relay created_at lock"")",invariant_comment
-P2,crates/mycelium-node/src/node.rs,173,否,local_state_mutex,"keypair.lock().expect(...)",invariant_comment
-P2,crates/mycelium-node/src/node.rs,175,否,local_state_mutex,"created_at.lock().expect(...)",invariant_comment
-P2,crates/mycelium-node/src/node.rs,181,否,local_state_mutex,"keypair.lock().expect(...).clone()",invariant_comment
-P2,crates/mycelium-node/src/node.rs,375,否,local_state_mutex,"peer_reputations.lock().expect(...)",invariant_comment
-P2,crates/mycelium-node/src/node.rs,724,否,local_state_mutex,"created_at.lock().expect(...)",invariant_comment
-P2,crates/mycelium-node/src/node.rs,1277,否,local_state_mutex,"peer_reputations.lock().expect(...)",invariant_comment
-P2,crates/mycelium-node/src/node.rs,2181,否,local_state_mutex,"peer_reputations.lock().expect(...)",invariant_comment
-P2,crates/mycelium-node/src/node.rs,2205,否,local_state_mutex,"peer_reputations.lock().expect(...)",invariant_comment
-P2,crates/mycelium-node/src/node.rs,2218,否,local_state_mutex,"peer_reputations.lock().expect(...)",invariant_comment
-P2,crates/mycelium-node/src/secrets.rs,18,否,local_state_mutex,"locks.lock().expect(""account load lock map"")",invariant_comment
-P2,crates/mycelium-node/src/secrets.rs,105,否,local_state_mutex,"lock.lock().expect(""account load mutex"")",invariant_comment
-P2,crates/mycelium-node/src/behaviour.rs,57,否,local_state_startup,"gossipsub ConfigBuilder.build().expect(...)",invariant_comment
-P2,crates/mycelium-node/src/behaviour.rs,62,否,local_state_startup,"gossipsub::Behaviour::new(...).expect(...)",invariant_comment
-P2,crates/mycelium-node/src/behaviour.rs,65,否,local_state_startup,"mdns::Behaviour::new(...).expect(...)",invariant_comment
-P2,crates/mycelium-core/src/relay_pool.rs,72,否,local_state_hash,"try_into().expect(""8 bytes"") on blake3 output",invariant_comment
-P2,crates/mycelium-core/src/rendezvous_dial.rs,73,否,local_state_hash,"try_into().expect(""4 bytes"") on blake3 output",invariant_comment
-P2,crates/mycelium-coin/src/hot_wallet.rs,60,否,local_state_config,"cold_wallet_address.clone().unwrap() after is_none check",refactor_no_unwrap
-P2,crates/mycelium-core/src/ble_mesh.rs,131,否,local_state_reassembly,"part.unwrap_or_default() after all parts verified Some",invariant_comment
+P2,crates/mycelium-node/src/node.rs,93,否,local_state_startup,".expect(""default listen addr must parse"")",invariant_comment_done
+P2,crates/mycelium-node/src/node.rs,120,否,local_state_startup,".expect(""default listen addr must parse"")",invariant_comment_done
+P2,crates/mycelium-node/src/node.rs,157,否,local_state_mutex,".expect(""relay keypair lock"")",invariant_comment_done
+P2,crates/mycelium-node/src/node.rs,166,否,local_state_mutex,".expect(""relay created_at lock"")",invariant_comment_done
+P2,crates/mycelium-node/src/node.rs,173,否,local_state_mutex,"keypair.lock().expect(...)",invariant_comment_done
+P2,crates/mycelium-node/src/node.rs,175,否,local_state_mutex,"created_at.lock().expect(...)",invariant_comment_done
+P2,crates/mycelium-node/src/node.rs,181,否,local_state_mutex,"keypair.lock().expect(...).clone()",invariant_comment_done
+P2,crates/mycelium-node/src/node.rs,375,否,local_state_mutex,"peer_reputations.lock().expect(...)",invariant_comment_done
+P2,crates/mycelium-node/src/node.rs,724,否,local_state_mutex,"created_at.lock().expect(...)",invariant_comment_done
+P2,crates/mycelium-node/src/node.rs,1277,否,local_state_mutex,"peer_reputations.lock().expect(...)",invariant_comment_done
+P2,crates/mycelium-node/src/node.rs,2181,否,local_state_mutex,"peer_reputations.lock().expect(...)",invariant_comment_done
+P2,crates/mycelium-node/src/node.rs,2205,否,local_state_mutex,"peer_reputations.lock().expect(...)",invariant_comment_done
+P2,crates/mycelium-node/src/node.rs,2218,否,local_state_mutex,"peer_reputations.lock().expect(...)",invariant_comment_done
+P2,crates/mycelium-node/src/secrets.rs,18,否,local_state_mutex,"locks.lock().expect(""account load lock map"")",invariant_comment_done
+P2,crates/mycelium-node/src/secrets.rs,105,否,local_state_mutex,"lock.lock().expect(""account load mutex"")",invariant_comment_done
+P2,crates/mycelium-node/src/behaviour.rs,57,否,local_state_startup,"gossipsub ConfigBuilder.build().expect(...)",invariant_comment_done
+P2,crates/mycelium-node/src/behaviour.rs,62,否,local_state_startup,"gossipsub::Behaviour::new(...).expect(...)",invariant_comment_done
+P2,crates/mycelium-node/src/behaviour.rs,65,否,local_state_startup,"mdns::Behaviour::new(...).expect(...)",invariant_comment_done
+P2,crates/mycelium-core/src/relay_pool.rs,72,否,local_state_hash,"try_into().expect(""8 bytes"") on blake3 output",invariant_comment_done
+P2,crates/mycelium-core/src/rendezvous_dial.rs,73,否,local_state_hash,"try_into().expect(""4 bytes"") on blake3 output",invariant_comment_done
+P2,crates/mycelium-coin/src/hot_wallet.rs,60,否,local_state_config,"if let Some(cold_addr) = config.cold_wallet_address.clone()",already_safe
+P2,crates/mycelium-core/src/ble_mesh.rs,131,否,local_state_reassembly,"part.unwrap_or_default() after all parts verified Some",invariant_comment_done
+P2,crates/mycelium-core/src/crypto/ratchet.rs,329,否,local_state_hash,"try_into().expect(""32"") on hkdf_64 output",invariant_comment_done

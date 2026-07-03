@@ -326,16 +326,16 @@ fn kdf_root(root_key: &[u8; 32], dh: &[u8]) -> ([u8; 32], [u8; 32]) {
     ikm.extend_from_slice(dh);
     let okm = hkdf_64(&ikm, ROOT_INFO);
     (
-        okm[0..32].try_into().expect("32"),
-        okm[32..64].try_into().expect("32"),
+        okm[0..32].try_into().expect("32"), // INVARIANT: hkdf_64 always yields 64 bytes
+        okm[32..64].try_into().expect("32"), // INVARIANT: hkdf_64 always yields 64 bytes
     )
 }
 
 fn kdf_chain(chain_key: &[u8; 32]) -> ([u8; 32], [u8; 32]) {
     let okm = hkdf_64(chain_key, CHAIN_INFO);
     (
-        okm[0..32].try_into().expect("32"),
-        okm[32..64].try_into().expect("32"),
+        okm[0..32].try_into().expect("32"), // INVARIANT: hkdf_64 always yields 64 bytes
+        okm[32..64].try_into().expect("32"), // INVARIANT: hkdf_64 always yields 64 bytes
     )
 }
 

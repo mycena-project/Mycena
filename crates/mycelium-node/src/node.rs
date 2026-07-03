@@ -2360,9 +2360,8 @@ impl NodeRunner {
                 &mut prekeys,
                 payload,
             )?;
+            self.ratchet_store.save_local_prekeys(&prekeys)?;
             drop(prekeys);
-            self.ratchet_store
-                .save_local_prekeys(&self.local_prekeys.lock().expect("local prekeys lock"))?;
             let (author, _) = mycelium_core::e2e_direct_wrap::unwrap_inner(&plain, from_peer);
             let session = if author != logical {
                 session.with_peer_id(author)

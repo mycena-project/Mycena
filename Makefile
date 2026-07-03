@@ -1,6 +1,6 @@
 SHELL := /bin/zsh
 
-.PHONY: help desktop-dev desktop-stop desktop-nuke desktop-check-relay android-apk android-apk-ci android-apk-local android-install android-deploy android-nuke clean test test-fast test-integration test-unit test-sim check check-layer-boundaries clippy ci fmt docker-android-ci docker-compose-android gradle-wrapper
+.PHONY: help desktop-dev desktop-stop desktop-nuke desktop-check-relay android-apk android-apk-ci android-apk-local android-install android-deploy android-nuke clean test test-fast test-integration test-unit test-sim check check-layer-boundaries check-unwrap-audit clippy ci fmt docker-android-ci docker-compose-android gradle-wrapper
 
 help:
 	@echo "Mycelium — the maintainer mesh client (no server stack)"
@@ -16,7 +16,7 @@ help:
 	@echo ""
 	@echo "See docs/ECOSYSTEM.md · Android: ./android/build.sh"
 
-.PHONY: test test-fast test-integration test-unit test-sim check check-layer-boundaries clippy ci fmt docker-android-ci docker-compose-android gradle-wrapper desktop-dev desktop-stop desktop-check-relay android-apk android-apk-ci android-apk-local android-install android-deploy android-nuke clean
+.PHONY: test test-fast test-integration test-unit test-sim check check-layer-boundaries check-unwrap-audit clippy ci fmt docker-android-ci docker-compose-android gradle-wrapper desktop-dev desktop-stop desktop-check-relay android-apk android-apk-ci android-apk-local android-install android-deploy android-nuke clean
 
 # One-shot: add Gradle wrapper under android/ using Docker (no local Gradle needed).
 gradle-wrapper:
@@ -59,7 +59,10 @@ clippy:
 check-layer-boundaries:
 	./scripts/check-layer-boundaries.sh
 
-ci: check test-fast test-integration check-layer-boundaries clippy
+check-unwrap-audit:
+	./scripts/check-unwrap-audit.sh
+
+ci: check test-fast test-integration check-layer-boundaries check-unwrap-audit clippy
 	CARGO_HOME="$(CURDIR)/.cargo-home" cargo fmt --all --check
 
 fmt:
