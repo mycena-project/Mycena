@@ -11,7 +11,7 @@ use crate::storage::SledMessageStore;
 use crate::transport::Libp2pTransport;
 use libp2p::{identity, Multiaddr, PeerId};
 use mycelium_core::bootstrap::load_bootstrap_peers;
-use mycelium_core::crypto::{self, EncryptionKeypair};
+use mycelium_core::crypto::{self};
 use mycelium_core::data::{now_ms, Priority};
 use mycelium_core::energy::NodeState;
 use mycelium_core::sync::BloomFilter;
@@ -19,6 +19,7 @@ use mycelium_core::transport::{
     ConnectivityMode, DirectMessage, MeshTransport, MessageStore, Scope, StoreStats,
     TransportEvent, WireMessage,
 };
+use mycelium_l0_facade::EncKey;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -537,7 +538,7 @@ pub struct NodeRunner {
     peer_scopes: HashMap<String, HashSet<String>>,
     peer_reputations: Arc<Mutex<HashMap<String, PeerReputationSnapshot>>>,
     cmd_rx: mpsc::Receiver<NodeCommand>,
-    enc_keypair: EncryptionKeypair,
+    enc_keypair: EncKey,
     display_name: Option<String>,
     peer_x25519: Arc<RwLock<HashMap<String, [u8; 32]>>>,
     max_relay_fanout: usize,
@@ -669,8 +670,10 @@ impl NodeRunner {
         let local_prekeys = match ratchet_store.load_local_prekeys()? {
             Some(pk) => pk,
             None => {
-                let pk =
-                    mycelium_core::crypto::ratchet::LocalPrekeyStore::generate(&enc_keypair, 32);
+                let pk = mycelium_core::crypto::ratchet::LocalPrekeyStore::generate(
+                    enc_keypair.as_core_keypair(),
+                    32,
+                );
                 ratchet_store.save_local_prekeys(&pk)?;
                 pk
             }
@@ -2214,7 +2217,7 @@ impl NodeRunner {
             .local_prekeys
             .lock()
             .expect("local prekeys lock") // INVARIANT: mutex not poisoned
-            .public_bundle(&self.enc_keypair);
+            .public_bundle(self.enc_keypair.as_core_keypair());
         let info = WireMessage::PeerInfo {
             enc_pubkey_hex: self.enc_keypair.public_hex(),
             display_name: self.display_name.clone(),
@@ -2250,7 +2253,7 @@ impl NodeRunner {
             if ratchet::verify_prekey_bundle(&bundle) {
                 let (session, wire) = RatchetSession::init_outbound(
                     to_peer.to_string(),
-                    &self.enc_keypair,
+                    self.enc_keypair.as_core_keypair(),
                     &bundle,
                     plaintext,
                 )?;
@@ -2274,13 +2277,13 @@ impl NodeRunner {
 
         let use_ratchet = e2e_version == E2E_VERSION_RATCHET || ratchet::is_ratchet_wire(payload);
         if !use_ratchet {
-            return crypto::decrypt_with(payload, &self.enc_keypair);
+            return crypto::decrypt_with(payload, self.enc_keypair.as_core_keypair());
         }
         if ratchet::is_ratchet_init_frame(payload) {
             let mut prekeys = self.local_prekeys.lock().expect("local prekeys lock"); // INVARIANT: mutex not poisoned
             let (session, plain) = RatchetSession::init_inbound(
                 logical.to_string(),
-                &self.enc_keypair,
+                self.enc_keypair.as_core_keypair(),
                 &mut prekeys,
                 payload,
             )?;

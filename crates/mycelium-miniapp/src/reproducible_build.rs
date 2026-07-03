@@ -100,7 +100,7 @@ mod content_hash_tests {
     #[test]
     fn content_hash_ignores_reproducible_block() {
         let mut bundle = MiniAppBundle {
-            manifest: crate::miniapp::manifest::MiniAppManifest {
+            manifest: crate::manifest::MiniAppManifest {
                 id: "com.test.app".into(),
                 name: "T".into(),
                 description: "d".into(),

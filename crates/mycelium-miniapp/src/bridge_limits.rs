@@ -5,7 +5,7 @@
 use std::collections::HashMap;
 use std::sync::{LazyLock, Mutex};
 
-use mycelium_core::data::now_ms;
+use mycelium_l0_facade::data::now_ms;
 
 const WINDOW_MS: u64 = 60_000;
 const MAX_CALLS_PER_MINUTE: u32 = 120;

@@ -4,7 +4,7 @@ use crate::contacts::{Contact, ContactStatus};
 use crate::envelope::{BulletinPost, ChatMessage, MailMessage};
 use crate::groups::Group;
 use crate::scope_key::ScopeKey;
-use mycelium_core::data::now_ms;
+use mycelium_l0_facade::data::now_ms;
 use uuid::Uuid;
 
 #[derive(Debug, Clone)]

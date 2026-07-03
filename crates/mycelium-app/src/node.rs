@@ -15,9 +15,11 @@ use crate::proximity::{
 use crate::scope_key::ScopeKey;
 use crate::storage::AppStorage;
 use mycelium_coin::CoinNode;
-use mycelium_core::crypto::EncryptionKeypair;
-use mycelium_core::transport::{DirectMessage, WireMessage};
-use mycelium_node::{NodeCommand, NodeHandle};
+use mycelium_l0_facade::data::now_ms;
+use mycelium_l0_facade::{
+    decrypt_group, encrypt_for, encrypt_group, parse_x25519_public_hex, EncKey,
+};
+use mycelium_l1_facade::{DirectMessage, NodeCommand, NodeHandle, WireMessage};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tokio::sync::{broadcast, Mutex, RwLock};
@@ -35,7 +37,7 @@ pub struct AppNode {
     notifier: Arc<dyn NotificationSink>,
     coin: Option<Arc<CoinNode>>,
     app_store: Option<Arc<crate::miniapp::AppStore>>,
-    enc_keypair: EncryptionKeypair,
+    enc_keypair: EncKey,
     proximity_store: Arc<Mutex<ProximityStore>>,
     proximity_matches: Arc<Mutex<ProximityMatchState>>,
     proximity_inbox: Arc<Mutex<ProximityInbox>>,
@@ -73,7 +75,7 @@ impl AppNode {
         notifier: Arc<dyn NotificationSink>,
         coin: Option<Arc<CoinNode>>,
         app_store: Option<Arc<crate::miniapp::AppStore>>,
-        enc_keypair: EncryptionKeypair,
+        enc_keypair: EncKey,
     ) -> (Self, AppInbox) {
         let (chat_tx, chat_rx) = broadcast::channel(256);
         let (bulletin_tx, bulletin_rx) = broadcast::channel(256);
@@ -138,7 +140,8 @@ impl AppNode {
             };
             for contact in contacts {
                 let peer = contact.peer_id;
-                let Some(addr) = mycelium_core::bootstrap::relay_circuit_multiaddr(&peer) else {
+                let Some(addr) = mycelium_l0_facade::bootstrap::relay_circuit_multiaddr(&peer)
+                else {
                     continue;
                 };
                 if let Err(err) = self
@@ -157,7 +160,7 @@ impl AppNode {
     /// Remember relay circuits for reconnect when a remote peer comes online.
     /// Contacts are added only via QR invite / explicit accept — not on mere connectivity.
     pub fn start_peer_contact_sync(self: Arc<Self>) {
-        let relay = mycelium_core::bootstrap::RELAY_PEER_ID.to_string();
+        let relay = mycelium_l0_facade::bootstrap::RELAY_PEER_ID.to_string();
         tokio::spawn(async move {
             let mut bootstrapped = std::collections::HashSet::<String>::new();
             let mut tick = tokio::time::interval(std::time::Duration::from_secs(2));
@@ -166,12 +169,13 @@ impl AppNode {
                 tick.tick().await;
                 let peers = self.handle.known_peers().await;
                 for peer in peers {
-                    if peer == relay || !mycelium_core::bootstrap::is_mesh_peer_id(&peer) {
+                    if peer == relay || !mycelium_l0_facade::bootstrap::is_mesh_peer_id(&peer) {
                         continue;
                     }
                     // Relay bootstrap only — contacts come from QR scan + signed ContactHello.
                     if !bootstrapped.contains(&peer) {
-                        if let Some(addr) = mycelium_core::bootstrap::relay_circuit_multiaddr(&peer)
+                        if let Some(addr) =
+                            mycelium_l0_facade::bootstrap::relay_circuit_multiaddr(&peer)
                         {
                             if let Err(e) = self
                                 .handle
@@ -266,35 +270,31 @@ impl AppNode {
             {
                 let from = msg.envelope.from_peer.clone();
                 match self.storage.group_by_id(&group_id) {
-                    Ok(Some(group)) => {
-                        match mycelium_core::crypto::decrypt_group(&encrypted_payload, &group.key) {
-                            Ok(plain) => {
-                                if let Ok(app_msg) = AppMessage::decode(&plain) {
-                                    if let AppPayload::Chat(m) = app_msg.payload {
-                                        if let Err(err) =
-                                            self.storage.save_group_chat(&group_id, &m)
-                                        {
-                                            warn!("failed to save group chat: {err}");
-                                        }
-                                        if let Err(err) =
-                                            self.storage.group_record_peer_seen(&group_id, &from)
-                                        {
-                                            warn!("group member record failed: {err}");
-                                        }
-                                        self.notifier.on_chat_received(
-                                            &from,
-                                            &m.body.chars().take(40).collect::<String>(),
-                                        );
-                                        let _ = self.chat_tx.send(ChatIncoming {
-                                            from_peer: from.clone(),
-                                            message: m,
-                                        });
+                    Ok(Some(group)) => match decrypt_group(&encrypted_payload, &group.key) {
+                        Ok(plain) => {
+                            if let Ok(app_msg) = AppMessage::decode(&plain) {
+                                if let AppPayload::Chat(m) = app_msg.payload {
+                                    if let Err(err) = self.storage.save_group_chat(&group_id, &m) {
+                                        warn!("failed to save group chat: {err}");
                                     }
+                                    if let Err(err) =
+                                        self.storage.group_record_peer_seen(&group_id, &from)
+                                    {
+                                        warn!("group member record failed: {err}");
+                                    }
+                                    self.notifier.on_chat_received(
+                                        &from,
+                                        &m.body.chars().take(40).collect::<String>(),
+                                    );
+                                    let _ = self.chat_tx.send(ChatIncoming {
+                                        from_peer: from.clone(),
+                                        message: m,
+                                    });
                                 }
                             }
-                            Err(e) => warn!("group decrypt failed: {e}"),
                         }
-                    }
+                        Err(e) => warn!("group decrypt failed: {e}"),
+                    },
                     Ok(None) => {}
                     Err(e) => warn!("group lookup failed: {e}"),
                 }
@@ -306,7 +306,7 @@ impl AppNode {
             return;
         }
         if msg.body.starts_with("[identity:") {
-            match mycelium_core::identity_rotation::IdentityRotationGossip::decode(
+            match mycelium_l0_facade::identity_rotation::IdentityRotationGossip::decode(
                 &msg.envelope.payload,
             ) {
                 Ok(rot) if rot.verify() => {
@@ -482,7 +482,7 @@ impl AppNode {
                     id: uuid::Uuid::new_v4(),
                     from_display_name: display_name,
                     body: body.clone(),
-                    timestamp_ms: mycelium_core::data::now_ms(),
+                    timestamp_ms: now_ms(),
                     reply_to: None,
                 };
                 let payload = AppMessage {
@@ -522,7 +522,7 @@ impl AppNode {
             id: uuid::Uuid::new_v4(),
             from_display_name: display_name,
             body: body.clone(),
-            timestamp_ms: mycelium_core::data::now_ms(),
+            timestamp_ms: now_ms(),
             reply_to: None,
         };
         let payload = AppMessage {
@@ -551,7 +551,7 @@ impl AppNode {
             id: uuid::Uuid::new_v4(),
             from_display_name: display_name,
             body: body.clone(),
-            timestamp_ms: mycelium_core::data::now_ms(),
+            timestamp_ms: now_ms(),
             reply_to: None,
         };
         let plaintext = AppMessage {
@@ -559,7 +559,8 @@ impl AppNode {
             payload: AppPayload::Chat(chat.clone()),
         }
         .encode()?;
-        let wrapped = mycelium_core::e2e_direct_wrap::wrap_inner(&self.local_peer_id, &plaintext);
+        let wrapped =
+            mycelium_l0_facade::e2e_direct_wrap::wrap_inner(&self.local_peer_id, &plaintext);
         if self.handle.has_enc_key_for(&to_peer).await {
             let (encrypted, e2e_version) =
                 self.handle.encrypt_e2e_payload(&to_peer, wrapped).await?;
@@ -594,7 +595,7 @@ impl AppNode {
             id: uuid::Uuid::new_v4(),
             from_display_name: display_name,
             body: body.clone(),
-            timestamp_ms: mycelium_core::data::now_ms(),
+            timestamp_ms: now_ms(),
             reply_to: None,
         };
         self.storage.save_group_chat(&group.id, &chat)?;
@@ -603,7 +604,7 @@ impl AppNode {
             payload: AppPayload::Chat(chat),
         }
         .encode()?;
-        let encrypted = mycelium_core::crypto::encrypt_group(&plaintext, &group.key)?;
+        let encrypted = encrypt_group(&plaintext, &group.key)?;
         let wire = WireMessage::EncryptedGroup {
             group_id: group.id.clone(),
             encrypted_payload: encrypted,
@@ -638,7 +639,7 @@ impl AppNode {
             .await;
 
         let display_name = self.display_name.read().await.clone();
-        let now = mycelium_core::data::now_ms();
+        let now = now_ms();
         let post = BulletinPost {
             id: uuid::Uuid::new_v4(),
             from_display_name: display_name,
@@ -657,7 +658,7 @@ impl AppNode {
         .encode()?;
 
         let payload = if let Some(sk) = self.storage.get_scope_key(&scope)? {
-            let encrypted = mycelium_core::crypto::encrypt_group(&plaintext, &sk.key)?;
+            let encrypted = encrypt_group(&plaintext, &sk.key)?;
             let mut marker = b"enc1:".to_vec();
             marker.extend_from_slice(&encrypted);
             marker
@@ -683,7 +684,7 @@ impl AppNode {
         if raw_payload.starts_with(b"enc1:") {
             let ciphertext = &raw_payload[5..];
             if let Some(sk) = self.storage.get_scope_key(scope)? {
-                match mycelium_core::crypto::decrypt_group(ciphertext, &sk.key) {
+                match decrypt_group(ciphertext, &sk.key) {
                     Ok(plaintext) => {
                         let msg = AppMessage::decode(&plaintext)?;
                         if let AppPayload::Bulletin(post) = msg.payload {
@@ -775,7 +776,7 @@ impl AppNode {
             to_peer: to_peer.clone(),
             subject: subject.clone(),
             body: body.clone(),
-            timestamp_ms: mycelium_core::data::now_ms(),
+            timestamp_ms: now_ms(),
             attachments,
         };
         self.storage.save_mail_sent(&mail)?;
@@ -973,13 +974,13 @@ impl AppNode {
         {
             anyhow::bail!("mutual match required before messaging");
         }
-        let recipient = mycelium_core::crypto::parse_x25519_public_hex(&enc_pubkey_hex)?;
-        let encrypted = mycelium_core::crypto::encrypt_for(message.as_bytes(), &recipient)?;
+        let recipient = parse_x25519_public_hex(&enc_pubkey_hex)?;
+        let encrypted = encrypt_for(message.as_bytes(), &recipient)?;
         let direct = ProximityDirectMessage {
             target_enc_pubkey_hex: enc_pubkey_hex,
             sender_enc_pubkey_hex: self.handle.local_enc_pubkey_hex(),
             encrypted_payload: encrypted,
-            created_at_ms: mycelium_core::data::now_ms(),
+            created_at_ms: now_ms(),
         };
         let payload = direct.encode()?;
         self.handle
@@ -1020,7 +1021,7 @@ impl AppNode {
                 warn!("proximity message dropped: no mutual match");
                 return;
             }
-            match mycelium_core::crypto::decrypt_with(&msg.encrypted_payload, &self.enc_keypair) {
+            match self.enc_keypair.decrypt_direct(&msg.encrypted_payload) {
                 Ok(plain) => {
                     let text = String::from_utf8_lossy(&plain).into_owned();
                     self.proximity_inbox
@@ -1029,7 +1030,7 @@ impl AppNode {
                         .push(ProximityReceivedMessage {
                             from_enc_pubkey_hex: msg.sender_enc_pubkey_hex.clone(),
                             body: text.clone(),
-                            received_at_ms: mycelium_core::data::now_ms(),
+                            received_at_ms: now_ms(),
                         });
                     self.notifier.on_chat_received("proximity", &text);
                 }
@@ -1137,10 +1138,10 @@ impl AppNode {
 
     /// Parse QR/deep-link invite: seed E2E key (v2), add contact, dial direct + relay.
     pub async fn connect_from_invite(self: Arc<Self>, raw: &str) -> anyhow::Result<()> {
-        let target = mycelium_core::invite::parse_invite(raw.trim())
+        let target = mycelium_l0_facade::invite::parse_invite(raw.trim())
             .ok_or_else(|| anyhow::anyhow!("invalid invite"))?;
         match target {
-            mycelium_core::invite::InviteTarget::Peer(info) => {
+            mycelium_l0_facade::invite::InviteTarget::Peer(info) => {
                 let target_peer = info.peer_id.clone();
                 self.register_transport_for_peer(&info).await?;
                 let label = info.peer_id.chars().take(16).collect::<String>();
@@ -1154,7 +1155,7 @@ impl AppNode {
                     .on_contact_added(&info.peer_id, &contact.display_name);
                 self.schedule_contact_hello(target_peer);
             }
-            mycelium_core::invite::InviteTarget::Multiaddr(addr) => {
+            mycelium_l0_facade::invite::InviteTarget::Multiaddr(addr) => {
                 self.handle
                     .send(NodeCommand::AddBootstrapPeer { multiaddr: addr })
                     .await?;
@@ -1165,13 +1166,13 @@ impl AppNode {
 
     /// BLE mesh handoff (F1): dial and seed keys only — no chat contact, no ContactHello.
     pub async fn register_transport_from_invite(self: Arc<Self>, raw: &str) -> anyhow::Result<()> {
-        let target = mycelium_core::invite::parse_invite(raw.trim())
+        let target = mycelium_l0_facade::invite::parse_invite(raw.trim())
             .ok_or_else(|| anyhow::anyhow!("invalid invite"))?;
         match target {
-            mycelium_core::invite::InviteTarget::Peer(info) => {
+            mycelium_l0_facade::invite::InviteTarget::Peer(info) => {
                 self.register_transport_for_peer(&info).await?;
             }
-            mycelium_core::invite::InviteTarget::Multiaddr(addr) => {
+            mycelium_l0_facade::invite::InviteTarget::Multiaddr(addr) => {
                 self.handle
                     .send(NodeCommand::AddBootstrapPeer { multiaddr: addr })
                     .await?;
@@ -1182,7 +1183,7 @@ impl AppNode {
 
     async fn register_transport_for_peer(
         &self,
-        info: &mycelium_core::invite::PeerInviteInfo,
+        info: &mycelium_l0_facade::invite::PeerInviteInfo,
     ) -> anyhow::Result<()> {
         if let Some(enc) = &info.enc_pubkey_hex {
             self.handle.seed_peer_enc_key(&info.peer_id, enc).await?;
@@ -1237,7 +1238,7 @@ impl AppNode {
     }
 
     async fn handle_contact_hello(&self, from_peer: &str, payload: &[u8]) {
-        match mycelium_core::contact_hello::ContactHello::decode(payload) {
+        match mycelium_l0_facade::contact_hello::ContactHello::decode(payload) {
             Ok(hello) if hello.verify() => {
                 if hello.peer_id != from_peer {
                     warn!(
@@ -1365,7 +1366,7 @@ impl AppNode {
         let payload = SosPayload {
             geohash: geohash.trim().to_string(),
             message: message.trim().to_string(),
-            created_at_ms: mycelium_core::data::now_ms(),
+            created_at_ms: now_ms(),
         };
         payload.validate()?;
         let body = payload.encode_json()?;
@@ -1521,9 +1522,9 @@ mod dispatch_tests {
     use crate::miniapp::manifest::MiniAppManifest;
     use crate::miniapp::store::{AppSource, AppStore};
     use crate::proximity::{PresenceProfile, PresenceSignal, ProximityMatchIntent};
-    use mycelium_core::crypto::EncryptionKeypair;
-    use mycelium_core::data::Envelope;
-    use mycelium_core::transport::DirectMessage;
+    use mycelium_l0_facade::data::Envelope;
+    use mycelium_l0_facade::{encrypt_for, encrypt_group, parse_x25519_public_hex, EncKey};
+    use mycelium_l1_facade::DirectMessage;
 
     fn sample_manifest(peer_id: Option<String>) -> MiniAppManifest {
         MiniAppManifest {
@@ -1554,14 +1555,14 @@ mod dispatch_tests {
         let storage = Arc::new(AppStorage::open(&format!("{base}/app")).expect("storage"));
 
         let storage_key = blake3::derive_key("mycelium-test-vault", base.as_bytes());
-        let mut config = mycelium_node::NodeConfig::with_defaults(base);
+        let mut config = mycelium_l1_facade::NodeConfig::with_defaults(base);
         config.storage_key = Some(storage_key);
-        let (runner, handle) = mycelium_node::NodeRunner::new(config).expect("node");
+        let (runner, handle) = mycelium_l1_facade::NodeRunner::new(config).expect("node");
         tokio::spawn(async move {
             let _ = runner.run().await;
         });
 
-        let keypair = mycelium_node::secrets::load_or_create_keypair(
+        let keypair = mycelium_l1_facade::secrets::load_or_create_keypair(
             &format!("{base}/identity"),
             Some(storage_key),
         )
@@ -1584,7 +1585,7 @@ mod dispatch_tests {
             Arc::new(crate::notify::NoopNotifier),
             None,
             Some(store.clone()),
-            mycelium_node::secrets::load_or_create_enc_keypair(
+            mycelium_l0_facade::secrets::load_or_create_enc_keypair(
                 &format!("{base}/identity"),
                 Some(storage_key),
             )
@@ -1617,28 +1618,23 @@ mod dispatch_tests {
         assert!(err.to_string().contains("enc_key_not_yet_exchanged"));
     }
 
-    async fn spawn_test_app_node() -> (
-        Arc<AppNode>,
-        Arc<AppStorage>,
-        EncryptionKeypair,
-        tempfile::TempDir,
-    ) {
+    async fn spawn_test_app_node() -> (Arc<AppNode>, Arc<AppStorage>, EncKey, tempfile::TempDir) {
         let dir = tempfile::tempdir().expect("tempdir");
         let base = dir.path().to_str().expect("path");
         let storage = Arc::new(AppStorage::open(&format!("{base}/app")).expect("storage"));
         let storage_key = blake3::derive_key("mycelium-test-vault", base.as_bytes());
-        let mut config = mycelium_node::NodeConfig::with_defaults(base);
+        let mut config = mycelium_l1_facade::NodeConfig::with_defaults(base);
         config.storage_key = Some(storage_key);
-        let (runner, handle) = mycelium_node::NodeRunner::new(config).expect("node");
+        let (runner, handle) = mycelium_l1_facade::NodeRunner::new(config).expect("node");
         tokio::spawn(async move {
             let _ = runner.run().await;
         });
-        let enc_keypair = mycelium_node::secrets::load_or_create_enc_keypair(
+        let enc_keypair = mycelium_l0_facade::secrets::load_or_create_enc_keypair(
             &format!("{base}/identity"),
             Some(storage_key),
         )
         .expect("enc keypair");
-        let keypair = mycelium_node::secrets::load_or_create_keypair(
+        let keypair = mycelium_l1_facade::secrets::load_or_create_keypair(
             &format!("{base}/identity"),
             Some(storage_key),
         )
@@ -1660,13 +1656,13 @@ mod dispatch_tests {
     #[tokio::test]
     async fn encrypted_bulletin_direct_relay_stored_decrypted() {
         use crate::scope_key::ScopeKey;
-        use mycelium_core::crypto::encrypt_group;
+        use encrypt_group;
 
         let (app_node, storage, _enc, _dir) = spawn_test_app_node().await;
         let sk = ScopeKey::new("mycelium/rescue/test".into(), "Team Alpha".into());
         storage.save_scope_key(&sk).expect("save scope key");
 
-        let now = mycelium_core::data::now_ms();
+        let now = now_ms();
         let post = BulletinPost {
             id: uuid::Uuid::new_v4(),
             from_display_name: "alice".into(),
@@ -1712,7 +1708,7 @@ mod dispatch_tests {
             .await
             .expect("start proximity");
 
-        let peer_enc = EncryptionKeypair::generate();
+        let peer_enc = EncKey::generate();
         let signal = PresenceSignal::new(
             peer_enc.public_hex(),
             PresenceProfile {
@@ -1744,7 +1740,7 @@ mod dispatch_tests {
             .await
             .expect("start");
 
-        let peer_enc = EncryptionKeypair::generate();
+        let peer_enc = EncKey::generate();
         let peer_hex = peer_enc.public_hex();
         let signal = PresenceSignal::new(peer_hex.clone(), PresenceProfile::default(), 300);
         app_node
@@ -1774,8 +1770,8 @@ mod dispatch_tests {
     #[tokio::test]
     async fn encrypted_chat_payload_roundtrip_and_dispatch() {
         use crate::envelope::ChatMessage;
-        use mycelium_core::crypto::{decrypt_with, encrypt_for};
-        use mycelium_core::e2e_direct_wrap;
+        use encrypt_for;
+        use mycelium_l0_facade::e2e_direct_wrap;
 
         let remote_peer = "12D3KooWRemotePeerIdForTestOnly12";
         let (app_node, storage, local_enc, _dir) = spawn_test_app_node().await;
@@ -1784,7 +1780,7 @@ mod dispatch_tests {
             id: uuid::Uuid::new_v4(),
             from_display_name: "Remote".into(),
             body: "encrypted hello".into(),
-            timestamp_ms: mycelium_core::data::now_ms(),
+            timestamp_ms: now_ms(),
             reply_to: None,
         };
         let app_msg = AppMessage {
@@ -1793,8 +1789,9 @@ mod dispatch_tests {
         };
         let plaintext = app_msg.encode().expect("encode");
         let wrapped = e2e_direct_wrap::wrap_inner(remote_peer, &plaintext);
-        let encrypted = encrypt_for(&wrapped, &local_enc.public).expect("encrypt");
-        let plain = decrypt_with(&encrypted, &local_enc).expect("decrypt");
+        let local_pk = parse_x25519_public_hex(&local_enc.public_hex()).expect("pk");
+        let encrypted = encrypt_for(&wrapped, &local_pk).expect("encrypt");
+        let plain = local_enc.decrypt_direct(&encrypted).expect("decrypt");
         let (logical_from, app_bytes) = e2e_direct_wrap::unwrap_inner(&plain, "relay-hop");
         assert_eq!(logical_from, remote_peer);
 
@@ -1830,7 +1827,7 @@ mod dispatch_tests {
             id: uuid::Uuid::new_v4(),
             from_display_name: "Stranger".into(),
             body: "hi there".into(),
-            timestamp_ms: mycelium_core::data::now_ms(),
+            timestamp_ms: now_ms(),
             reply_to: None,
         };
         let app_msg = AppMessage {

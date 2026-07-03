@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Mycelium Project
 pub mod api;
+pub mod bridge_host;
 pub mod contacts;
 pub mod envelope;
 pub mod groups;
-pub mod miniapp;
 mod miniapp_storage_enc;
 pub mod node;
 pub mod notify;
@@ -12,6 +12,11 @@ pub mod proximity;
 pub mod scope_key;
 pub mod sos;
 pub mod storage;
+
+pub mod miniapp {
+    pub use crate::bridge_host;
+    pub use mycelium_miniapp::*;
+}
 
 #[cfg(test)]
 #[path = "contacts_tests.rs"]
@@ -25,6 +30,7 @@ mod invite_transport_tests;
 mod tests {
     use crate::envelope::{AppId, AppMessage, AppPayload, BulletinPost, ChatMessage, MailMessage};
     use crate::storage::AppStorage;
+    use mycelium_l0_facade::data::now_ms;
 
     #[tokio::test]
     async fn app_message_roundtrip() {
@@ -50,7 +56,7 @@ mod tests {
     async fn bulletin_expiry_pruning() {
         let dir = tempfile::tempdir().expect("tempdir");
         let storage = AppStorage::open(dir.path().to_str().expect("path")).expect("open");
-        let now = mycelium_core::data::now_ms();
+        let now = now_ms();
         let mk = |expires_at_ms: u64, title: &str| BulletinPost {
             id: uuid::Uuid::new_v4(),
             from_display_name: "alice".to_string(),

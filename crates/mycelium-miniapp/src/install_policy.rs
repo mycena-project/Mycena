@@ -204,8 +204,8 @@ impl AppStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::miniapp::bundle_signature::{self, BundleSignatureFile};
-    use crate::miniapp::manifest::Permission;
+    use crate::bundle_signature::{self, BundleSignatureFile};
+    use crate::manifest::Permission;
     use tempfile::tempdir;
 
     fn sample_zip(manifest_json: &str, entry_html: &str) -> Vec<u8> {

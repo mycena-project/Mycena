@@ -28,7 +28,7 @@ impl RevocationGossip {
         curator_peer_id: String,
         keypair: &Keypair,
     ) -> anyhow::Result<Self> {
-        let revoked_at_ms = mycelium_core::data::now_ms();
+        let revoked_at_ms = mycelium_l0_facade::data::now_ms();
         let mut entry = Self {
             app_id,
             reason,
@@ -102,7 +102,7 @@ pub fn revoke_app(db: &Db, app_id: &str) -> anyhow::Result<()> {
     if !snap.revoked_app_ids.iter().any(|x| x == app_id) {
         snap.revoked_app_ids.push(app_id.to_string());
     }
-    snap.updated_at_ms = mycelium_core::data::now_ms();
+    snap.updated_at_ms = mycelium_l0_facade::data::now_ms();
     save_revocations(db, &snap)
 }
 
@@ -112,7 +112,7 @@ pub fn is_revoked(db: &Db, app_id: &str) -> anyhow::Result<bool> {
 
 /// Merge shipped default revocation snapshot (offline baseline, P3).
 pub fn merge_bundled_defaults(db: &Db) -> anyhow::Result<usize> {
-    const BUNDLED: &str = include_str!("../../assets/miniapp/bundled_revocations.json");
+    const BUNDLED: &str = include_str!("../assets/bundled_revocations.json");
     let bundled: RevocationSnapshot = serde_json::from_str(BUNDLED)?;
     if bundled.revoked_app_ids.is_empty() {
         return Ok(0);
@@ -126,7 +126,7 @@ pub fn merge_bundled_defaults(db: &Db) -> anyhow::Result<usize> {
         }
     }
     if added > 0 {
-        snap.updated_at_ms = mycelium_core::data::now_ms();
+        snap.updated_at_ms = mycelium_l0_facade::data::now_ms();
         save_revocations(db, &snap)?;
     }
     Ok(added)

@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, LazyLock, Mutex};
 
 use mycelium_coin::{CoinNode, PaymentRequest};
-use mycelium_core::data::now_ms;
+use mycelium_l0_facade::data::now_ms;
 use serde_json::{json, Value};
 
 use crate::miniapp::bridge_limits::check_bridge_rate;
@@ -493,7 +493,7 @@ impl BridgeHost {
                 Ok(json!("ok"))
             }
 
-            "util.now" => Ok(json!(mycelium_core::data::now_ms())),
+            "util.now" => Ok(json!(now_ms())),
 
             "util.scan_qr" => {
                 self.require_permission(Permission::Camera)?;

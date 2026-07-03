@@ -105,7 +105,7 @@ pub fn verify_bundle_developer_signature(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::miniapp::manifest::Permission;
+    use crate::manifest::Permission;
 
     #[test]
     fn bundle_signature_roundtrip() {

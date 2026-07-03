@@ -7,8 +7,9 @@ use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::routing::{delete, get, post, put};
 use axum::{Json, Router};
-use mycelium_core::energy::NodeState;
-use mycelium_node::NodeCommand;
+use mycelium_l0_facade::data::now_ms;
+use mycelium_l0_facade::energy::NodeState;
+use mycelium_l1_facade::NodeCommand;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tower_http::cors::CorsLayer;
@@ -24,7 +25,7 @@ struct StatusResponse {
     peer_id: String,
     display_name: String,
     peers: Vec<String>,
-    metrics: mycelium_node::NodeMetrics,
+    metrics: mycelium_l1_facade::NodeMetrics,
 }
 
 #[derive(Debug, Deserialize)]
@@ -310,7 +311,7 @@ async fn get_peer_reputation(
         Some(rep) => Json(serde_json::json!({
             "peer_id": peer_id,
             "strikes": rep.strikes,
-            "throttled": mycelium_core::data::now_ms() < rep.throttled_until_ms,
+            "throttled": now_ms() < rep.throttled_until_ms,
             "throttled_until_ms": rep.throttled_until_ms
         })),
         None => Json(serde_json::json!({

@@ -41,7 +41,7 @@ impl Transaction {
     ) -> anyhow::Result<Self> {
         let from = address_from_keypair(keypair);
         let from_public_key = keypair.public().encode_protobuf();
-        let timestamp_ms = mycelium_core::data::now_ms();
+        let timestamp_ms = mycelium_l0_facade::data::now_ms();
         let mut tx = Self {
             id: String::new(),
             from,

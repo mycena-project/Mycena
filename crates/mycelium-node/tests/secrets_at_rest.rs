@@ -77,7 +77,7 @@ fn recreates_enc_key_when_ciphertext_unreadable() {
     .unwrap();
 
     let kp = secrets::load_or_create_enc_keypair(db, None).unwrap();
-    assert_eq!(kp.secret_bytes().len(), 32);
+    assert!(!kp.public_hex().is_empty());
     assert!(vault.secrets_dir().join("enc_x25519.enc").exists());
     let blob = std::fs::read(vault.secrets_dir().join("enc_x25519.enc")).unwrap();
     assert_ne!(blob, b"not-valid-chacha-ciphertext");

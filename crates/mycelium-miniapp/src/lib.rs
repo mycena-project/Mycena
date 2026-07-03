@@ -2,7 +2,6 @@
 // Copyright (C) 2026 Mycelium Project
 //! Mini-app platform: manifests, `.mxa` bundles, local store, and JS bridge source.
 
-pub mod bridge_host;
 pub mod bridge_limits;
 pub mod bridge_session;
 pub mod bundle;

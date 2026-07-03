@@ -24,7 +24,8 @@ pub use error::{
     NodeResult,
 };
 pub use mycelium_core::at_rest::parse_storage_key_hex;
-pub use mycelium_core::transport::{ConnectivityMode, StoreStats};
+pub use mycelium_core::transport::{ConnectivityMode, DirectMessage, StoreStats, WireMessage};
+pub use mycelium_l0_facade::EncKey;
 pub use node::{
     NodeCommand, NodeConfig, NodeHandle, NodeMetrics, NodeRunner, PeerReputationSnapshot,
     SYSTEM_SCOPES,

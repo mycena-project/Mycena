@@ -135,7 +135,7 @@ fn validate_html_content(html: &str, label: &str) -> anyhow::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::miniapp::manifest::MiniAppManifest;
+    use crate::manifest::MiniAppManifest;
     use std::collections::HashMap;
 
     fn minimal_bundle(entry_html: &str) -> (MiniAppBundle, Vec<u8>) {

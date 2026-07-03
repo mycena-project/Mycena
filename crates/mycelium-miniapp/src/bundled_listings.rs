@@ -6,7 +6,7 @@ use super::install_policy::InstallTrust;
 use super::manifest::MiniAppManifest;
 use super::store::{AppStore, AppStoreListing};
 
-const BUNDLED_LISTINGS_JSON: &str = include_str!("../../assets/miniapp/bundled_listings.json");
+const BUNDLED_LISTINGS_JSON: &str = include_str!("../assets/bundled_listings.json");
 
 #[derive(serde::Deserialize)]
 struct BundledListingsFile {
@@ -21,15 +21,15 @@ struct OfficialBundle {
 const OFFICIAL_BUNDLES: &[OfficialBundle] = &[
     OfficialBundle {
         app_id: "network.mycelium.meshaid",
-        bytes: include_bytes!("../../assets/miniapp/bundles/meshaid.mxa"),
+        bytes: include_bytes!("../assets/bundles/meshaid.mxa"),
     },
     OfficialBundle {
         app_id: "network.mycelium.meshmarket",
-        bytes: include_bytes!("../../assets/miniapp/bundles/meshmarket.mxa"),
+        bytes: include_bytes!("../assets/bundles/meshmarket.mxa"),
     },
     OfficialBundle {
         app_id: "network.mycelium.proximity",
-        bytes: include_bytes!("../../assets/miniapp/bundles/proximity.mxa"),
+        bytes: include_bytes!("../assets/bundles/proximity.mxa"),
     },
 ];
 

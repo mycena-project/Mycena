@@ -1,0 +1,65 @@
+# ADR 005: Layer cargo boundaries (L0–L3)
+
+**Status:** Accepted  
+**Date:** 2026-07-03  
+**Context:** Mycelium grew as a flat workspace where `mycelium-app` depended directly on `mycelium-core` and embedded the entire mini-app platform. That made it hard to enforce which crates may touch raw key material, ratchet internals, or mesh transport details.
+
+---
+
+## Decision
+
+Introduce explicit **layer boundary crates** with dependency rules:
+
+| Layer | Crate | Role | May depend on |
+|-------|--------|------|----------------|
+| **L0** | `mycelium-core` | Crypto, wire formats, at-rest vault, mesh primitives | External crates only |
+| **L0 facade** | `mycelium-l0-facade` | Stable app-facing API over L0 (`EncKey`, invites, bootstrap, vault helpers) | `mycelium-core` |
+| **L1** | `mycelium-node` | libp2p node, ratchet store, transport runner | `mycelium-core`, `mycelium-l0-facade` (`node-internal`) |
+| **L1 facade** | `mycelium-l1-facade` | Stable messaging/sync API over L1 (`NodeHandle`, `WireMessage`, …) | `mycelium-node` |
+| **L2** | `mycelium-miniapp` | Mini-app manifests, bundles, store, bridge helpers | `mycelium-l0-facade` only |
+| **L3** | `mycelium-app` | Chat, contacts, API, bridge host glue | `mycelium-l0-facade`, `mycelium-l1-facade`, `mycelium-miniapp`, `mycelium-coin` |
+
+### L0 facade (`mycelium-l0-facade`)
+
+- **`EncKey`**: opaque wrapper around `EncryptionKeypair`; exposes `generate`, `public_hex`, `decrypt_direct`, `decrypt_group`, `clone`. Does **not** expose `secret_bytes` or `from_secret_bytes` publicly.
+- Re-exports protocol modules: `data`, `invite`, `contact_hello`, `bootstrap`, `sos`, `energy`, `identity_rotation`, `e2e_direct_wrap`, `account_identity`, and `at_rest::{clear_keyring_master, parse_storage_key_hex}`.
+- Hosts `secrets` (vault open, enc key load).
+- Feature **`node-internal`** (enabled by `mycelium-node` only): exposes `EncKey::as_core_keypair` for ratchet/session setup.
+- **`PeerEncKeyStore`** lives in `mycelium-node` (private); not part of the L0 facade.
+
+### L1 facade (`mycelium-l1-facade`)
+
+- Re-exports the app-safe node surface: `NodeHandle`, `NodeCommand`, `NodeConfig`, `NodeRunner`, `NodeMetrics`, `DirectMessage`, `WireMessage`, `ConnectivityMonitor`, identity bootstrap helpers, and `load_or_create_keypair`.
+- Does **not** re-export `storage`, `ratchet_store`, `transport`, or mesh behaviour modules.
+
+### L2 mini-app (`mycelium-miniapp`)
+
+- All mini-app platform sources live here (manifest, bundle, store, policy, etc.).
+- **`bridge_host.rs` remains in `mycelium-app`** because it depends on `AppNode`, `AppStorage`, and `CoinNode`; it is re-exported under `mycelium_app::miniapp::bridge_host`.
+
+### Dependency rules
+
+1. **App-layer crates** (`mycelium-app`, `mycelium-miniapp`, `miniapp-sdk`, `mycelium-coin`) must **not** depend on `mycelium-core` or `mycelium-node` directly.
+2. **`mycelium-node`** uses `mycelium-core` for ratchet/transport internals and `mycelium-l0-facade` with `node-internal` for enc key loading and peer enc key store.
+3. **`EncKey::as_core_keypair`** compiles only with `node-internal`; app/miniapp default builds cannot call it (note: workspace feature unification enables it when building `mycelium-app` alongside `mycelium-node` — convention + review).
+4. **`PeerEncKeyStore`** is `pub(crate)` inside `mycelium-node` only.
+5. **`DirectMessage` / `WireMessage`** are exported from `mycelium-l1-facade` for app dispatch code.
+6. Host binaries (`mycelium-desktop`, `mycelium-cli`, …) may still depend on `mycelium-node` directly until migrated.
+
+---
+
+## Consequences
+
+- Clear compile-time enforcement of key-material boundaries for new app code.
+- Mini-app SDK and tooling can depend on `mycelium-miniapp` without pulling the full app stack or node internals.
+- Node and core remain coupled for ratchet evolution; session derivation stays in L1.
+- App may still transitively resolve `mycelium-core` via facades; the goal is **API boundary**, not hiding core from the linker.
+
+---
+
+## References
+
+- [ADR 004: Double Ratchet E2E](./004-double-ratchet-e2e.md)
+- [`mycelium-l0-facade`](../crates/mycelium-l0-facade/src/lib.rs)
+- [`mycelium-l1-facade`](../crates/mycelium-l1-facade/src/lib.rs)
+- [`mycelium-miniapp`](../crates/mycelium-miniapp/src/lib.rs)

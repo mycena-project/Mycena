@@ -17,9 +17,10 @@ hmac = "0.12"
 sha2.workspace = true
 chrono.workspace = true
 hex = { workspace = true }
-mycelium-core = { path = "../mycelium-core" }
+mycelium-l0-facade = { path = "../mycelium-l0-facade" }
+mycelium-l1-facade = { path = "../mycelium-l1-facade" }
+mycelium-miniapp = { path = "../mycelium-miniapp" }
 mycelium-coin = { path = "../mycelium-coin" }
-mycelium-node = { path = "../mycelium-node" }
 libp2p.workspace = true
 rand.workspace = true
 serde.workspace = true

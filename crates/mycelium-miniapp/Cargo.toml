@@ -1,0 +1,28 @@
+[package]
+name = "mycelium-miniapp"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Mini-app platform: manifests, bundles, store, and bridge helpers"
+
+[dependencies]
+anyhow.workspace = true
+base64 = "0.22"
+blake3.workspace = true
+chrono.workspace = true
+hex.workspace = true
+hmac = "0.12"
+libp2p.workspace = true
+mycelium-l0-facade = { path = "../mycelium-l0-facade" }
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+sled.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+uuid.workspace = true
+zip.workspace = true
+
+[dev-dependencies]
+tempfile = "3"

@@ -3,14 +3,11 @@
 //! Load identity and encryption keys through [`mycelium_core::at_rest::SecretVault`].
 
 use libp2p::identity;
-use mycelium_core::at_rest::SecretVault;
-use mycelium_core::crypto::EncryptionKeypair;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::{Arc, Mutex, OnceLock};
 
 const IDENTITY_SECRET: &str = "ed25519_identity";
-const ENC_SECRET: &str = "enc_x25519";
 
 fn account_load_lock(db_path: &str) -> Arc<Mutex<()>> {
     static LOCKS: OnceLock<Mutex<HashMap<String, Arc<Mutex<()>>>>> = OnceLock::new();
@@ -156,11 +153,7 @@ pub fn encode_signed_invite_v3(
 }
 
 /// Optional 32-byte master key (Android); when `None`, OS keyring or fallback is used.
-pub type StorageKey = Option<[u8; 32]>;
-
-pub fn open_vault(db_path: &str, storage_key: StorageKey) -> anyhow::Result<SecretVault> {
-    SecretVault::open_with_migration(db_path, storage_key)
-}
+pub use mycelium_l0_facade::secrets::{load_or_create_enc_keypair, open_vault, StorageKey};
 
 pub fn load_or_create_keypair(
     path: &str,
@@ -201,39 +194,6 @@ pub fn load_or_create_keypair(
     Ok(keypair)
 }
 
-pub fn load_or_create_enc_keypair(
-    db_path: &str,
-    storage_key: StorageKey,
-) -> anyhow::Result<EncryptionKeypair> {
-    let vault = open_vault(db_path, storage_key)?;
-
-    match vault.read_secret(ENC_SECRET) {
-        Ok(Some(bytes)) => return enc_from_secret_bytes(&bytes),
-        Ok(None) => {}
-        Err(e) => {
-            tracing::warn!(
-                "unreadable encrypted enc key at {:?}: {e}; removing corrupt secret",
-                vault.secrets_dir().join(format!("{ENC_SECRET}.enc"))
-            );
-            let _ = vault.delete_secret(ENC_SECRET);
-        }
-    }
-
-    let legacy_path = Path::new(db_path).join("enc_x25519.secret");
-    if legacy_path.exists() {
-        let bytes = std::fs::read(&legacy_path)?;
-        vault.write_secret(ENC_SECRET, &bytes)?;
-        std::fs::remove_file(&legacy_path)?;
-        tracing::info!("migrated X25519 enc key to encrypted at-rest storage");
-        return enc_from_secret_bytes(&bytes);
-    }
-
-    let kp = EncryptionKeypair::generate();
-    vault.write_secret(ENC_SECRET, &kp.secret_bytes())?;
-    tracing::info!("generated new X25519 encryption keypair (encrypted at rest)");
-    Ok(kp)
-}
-
 fn keypair_from_ed25519_secret(secret: &[u8]) -> anyhow::Result<identity::Keypair> {
     let mut secret_bytes = secret.to_vec();
     let sk = identity::ed25519::SecretKey::try_from_bytes(&mut secret_bytes)
@@ -249,13 +209,6 @@ fn ed25519_secret_bytes(keypair: &identity::Keypair) -> anyhow::Result<Vec<u8>> 
         .try_into_ed25519()
         .map_err(|_| anyhow::anyhow!("keypair is not ed25519"))?;
     Ok(ed.secret().as_ref().to_vec())
-}
-
-fn enc_from_secret_bytes(bytes: &[u8]) -> anyhow::Result<EncryptionKeypair> {
-    let arr: [u8; 32] = bytes
-        .try_into()
-        .map_err(|_| anyhow::anyhow!("invalid enc key length"))?;
-    Ok(EncryptionKeypair::from_secret_bytes(arr))
 }
 
 fn read_legacy_sled_identity(path: &str) -> anyhow::Result<Option<Vec<u8>>> {

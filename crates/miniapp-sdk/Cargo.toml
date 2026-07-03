@@ -14,7 +14,7 @@ anyhow.workspace = true
 blake3.workspace = true
 clap.workspace = true
 libp2p = { workspace = true, features = ["ed25519"] }
-mycelium-app = { path = "../mycelium-app" }
+mycelium-miniapp = { path = "../mycelium-miniapp" }
 serde_json.workspace = true
 serde = { workspace = true, features = ["derive"] }
 tempfile = "3"

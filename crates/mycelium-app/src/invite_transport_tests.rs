@@ -3,8 +3,8 @@
 //! Invite parsing helpers used by transport-only vs full contact connect paths.
 
 use libp2p::identity::Keypair;
-use mycelium_core::account_identity;
-use mycelium_core::invite::{encode_signed_invite_v3, parse_invite, InviteTarget};
+use mycelium_l0_facade::account_identity;
+use mycelium_l0_facade::invite::{encode_signed_invite_v3, parse_invite, InviteTarget};
 
 #[test]
 fn signed_v3_invite_exposes_dial_targets_for_ble_handoff() {

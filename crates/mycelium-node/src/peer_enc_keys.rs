@@ -6,13 +6,13 @@ use anyhow::Context;
 use std::collections::HashMap;
 use std::path::Path;
 
-pub struct PeerEncKeyStore {
+pub(crate) struct PeerEncKeyStore {
     _db: sled::Db,
     tree: sled::Tree,
 }
 
 impl PeerEncKeyStore {
-    pub fn open(db_path: &str) -> anyhow::Result<Self> {
+    pub(crate) fn open(db_path: &str) -> anyhow::Result<Self> {
         let path = Path::new(db_path).join("peer_enc_keys");
         let db = sled::Config::new()
             .path(path)
@@ -23,7 +23,7 @@ impl PeerEncKeyStore {
         Ok(Self { _db: db, tree })
     }
 
-    pub fn load_all(&self) -> anyhow::Result<HashMap<String, [u8; 32]>> {
+    pub(crate) fn load_all(&self) -> anyhow::Result<HashMap<String, [u8; 32]>> {
         let mut out = HashMap::new();
         for item in self.tree.iter() {
             let (k, v) = item?;
@@ -37,13 +37,13 @@ impl PeerEncKeyStore {
         Ok(out)
     }
 
-    pub fn save(&self, peer_id: &str, key: &[u8; 32]) -> anyhow::Result<()> {
+    pub(crate) fn save(&self, peer_id: &str, key: &[u8; 32]) -> anyhow::Result<()> {
         self.tree.insert(peer_id.as_bytes(), key.as_slice())?;
         Ok(())
     }
 
     #[allow(dead_code)]
-    pub fn remove(&self, peer_id: &str) -> anyhow::Result<()> {
+    pub(crate) fn remove(&self, peer_id: &str) -> anyhow::Result<()> {
         self.tree.remove(peer_id.as_bytes())?;
         Ok(())
     }

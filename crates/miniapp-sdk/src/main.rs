@@ -8,11 +8,11 @@ use std::path::{Path, PathBuf};
 use anyhow::Context;
 use clap::{Parser, Subcommand};
 use libp2p::identity::Keypair;
-use mycelium_app::miniapp::bundle_signature::{self, BundleSignatureFile, BUNDLE_SIG_FILE};
-use mycelium_app::miniapp::manifest::MiniAppManifest;
-use mycelium_app::miniapp::reproducible_build::{content_attestation_hash, digest_file_hex};
-use mycelium_app::miniapp::store::{AppSource, AppStoreListing};
-use mycelium_app::miniapp::{scan_bundle, MiniAppBundle, ReproducibleBuild};
+use mycelium_miniapp::bundle_signature::{self, BundleSignatureFile, BUNDLE_SIG_FILE};
+use mycelium_miniapp::manifest::MiniAppManifest;
+use mycelium_miniapp::reproducible_build::{content_attestation_hash, digest_file_hex};
+use mycelium_miniapp::store::{AppSource, AppStoreListing};
+use mycelium_miniapp::{scan_bundle, MiniAppBundle, ReproducibleBuild};
 use zip::write::FileOptions;
 use zip::ZipArchive;
 

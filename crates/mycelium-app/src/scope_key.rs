@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Mycelium Project
+use mycelium_l0_facade::data::now_ms;
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
 
@@ -20,7 +21,7 @@ impl ScopeKey {
             scope,
             display_name,
             key,
-            added_at_ms: mycelium_core::data::now_ms(),
+            added_at_ms: now_ms(),
         }
     }
 
@@ -54,7 +55,7 @@ impl ScopeKey {
                 .unwrap_or("Encrypted Channel")
                 .to_string(),
             key,
-            added_at_ms: mycelium_core::data::now_ms(),
+            added_at_ms: now_ms(),
         })
     }
 }
@@ -62,7 +63,7 @@ impl ScopeKey {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mycelium_core::crypto::{decrypt_group, encrypt_group};
+    use mycelium_l0_facade::{decrypt_group, encrypt_group};
 
     #[test]
     fn scope_key_roundtrip() {
@@ -87,7 +88,7 @@ mod tests {
         use crate::envelope::{AppId, AppMessage, AppPayload, BulletinPost};
 
         let sk = ScopeKey::new("mycelium/rescue/alpha".into(), "Team".into());
-        let now = mycelium_core::data::now_ms();
+        let now = now_ms();
         let post = BulletinPost {
             id: uuid::Uuid::new_v4(),
             from_display_name: "alice".into(),

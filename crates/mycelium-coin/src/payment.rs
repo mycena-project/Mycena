@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Mycelium Project
 //! QR-friendly payment URI (`mxcpay:`) for MeshCoin transfers.
 
-use mycelium_core::data::now_ms;
+use mycelium_l0_facade::data::now_ms;
 use serde::{Deserialize, Serialize};
 
 /// Payment request encoded as `mxcpay:{address}?amount={muon}&memo=…&expires=…`.

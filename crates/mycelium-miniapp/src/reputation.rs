@@ -54,7 +54,7 @@ pub fn apply_delta(db: &Db, app_id: &str, delta: i16) -> anyhow::Result<AppReput
     let mut rep = load(db, app_id)?;
     let next = (rep.score as i16 + delta).clamp(0, 100) as u8;
     rep.score = next;
-    rep.updated_at_ms = mycelium_core::data::now_ms();
+    rep.updated_at_ms = mycelium_l0_facade::data::now_ms();
     save(db, app_id, &rep)?;
     Ok(rep)
 }

@@ -3875,7 +3875,7 @@ dependencies = [
  "blake3",
  "clap",
  "libp2p",
- "mycelium-app",
+ "mycelium-miniapp",
  "serde",
  "serde_json",
  "tempfile",
@@ -4028,8 +4028,9 @@ dependencies = [
  "hmac",
  "libp2p",
  "mycelium-coin",
- "mycelium-core",
- "mycelium-node",
+ "mycelium-l0-facade",
+ "mycelium-l1-facade",
+ "mycelium-miniapp",
  "rand 0.8.6",
  "serde",
  "serde_json",
@@ -4074,8 +4075,8 @@ dependencies = [
  "blake3",
  "bs58",
  "libp2p",
- "mycelium-core",
- "mycelium-node",
+ "mycelium-l0-facade",
+ "mycelium-l1-facade",
  "serde",
  "sled",
  "tempfile",
@@ -4160,6 +4161,50 @@ dependencies = [
 ]
 
 [[package]]
+name = "mycelium-l0-facade"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "hex",
+ "libp2p",
+ "mycelium-core",
+ "sled",
+ "tempfile",
+ "tracing",
+ "zeroize",
+]
+
+[[package]]
+name = "mycelium-l1-facade"
+version = "0.1.0"
+dependencies = [
+ "mycelium-node",
+]
+
+[[package]]
+name = "mycelium-miniapp"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "base64 0.22.1",
+ "blake3",
+ "chrono",
+ "hex",
+ "hmac",
+ "libp2p",
+ "mycelium-l0-facade",
+ "serde",
+ "serde_json",
+ "sha2",
+ "sled",
+ "tempfile",
+ "tokio",
+ "tracing",
+ "uuid",
+ "zip",
+]
+
+[[package]]
 name = "mycelium-node"
 version = "0.1.0"
 dependencies = [
@@ -4171,6 +4216,7 @@ dependencies = [
  "hex",
  "libp2p",
  "mycelium-core",
+ "mycelium-l0-facade",
  "serde",
  "serde_cbor",
  "serde_json",

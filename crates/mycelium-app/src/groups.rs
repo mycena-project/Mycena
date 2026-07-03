@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Mycelium Project
+use mycelium_l0_facade::data::now_ms;
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
 
@@ -22,7 +23,7 @@ impl Group {
             name,
             key,
             members: Vec::new(),
-            created_at_ms: mycelium_core::data::now_ms(),
+            created_at_ms: now_ms(),
         }
     }
 
@@ -52,7 +53,7 @@ impl Group {
             name: v["name"].as_str().unwrap_or("Group").to_string(),
             key,
             members: Vec::new(),
-            created_at_ms: mycelium_core::data::now_ms(),
+            created_at_ms: now_ms(),
         })
     }
 

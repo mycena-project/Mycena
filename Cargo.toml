@@ -1,8 +1,11 @@
 [workspace]
 members = [
   "crates/mycelium-core",
+  "crates/mycelium-l0-facade",
+  "crates/mycelium-l1-facade",
   "crates/mycelium-node",
   "crates/mycelium-app",
+  "crates/mycelium-miniapp",
   "crates/mycelium-coin",
   "crates/mycelium-ffi",
   "crates/mycelium-cli",

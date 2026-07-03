@@ -61,7 +61,7 @@ impl HotWallet {
             (cold_addr, to_request)
         };
 
-        let hot_kp = mycelium_node::load_or_create_keypair(&self.identity_path)?;
+        let hot_kp = mycelium_l1_facade::load_or_create_keypair(&self.identity_path)?;
         let req = RefillRequest::new_signed(&hot_kp, cold_addr.clone(), to_request, 1000)?;
         self.coin_node
             .broadcast_coin_payload(CoinPayload::RefillRequest(req.clone()))

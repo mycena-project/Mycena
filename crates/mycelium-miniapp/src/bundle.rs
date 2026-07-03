@@ -163,7 +163,7 @@ mod tests {
 
         let dir = tempdir().unwrap();
         let store_path = dir.path().join("miniapp_db");
-        let store = crate::miniapp::store::AppStore::open(store_path.to_str().unwrap()).unwrap();
+        let store = crate::store::AppStore::open(store_path.to_str().unwrap()).unwrap();
 
         let big = vec![b'a'; 11 * 1024 * 1024];
         let mut zip_buf = Vec::new();

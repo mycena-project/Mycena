@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Mycelium Project
+use mycelium_l0_facade::data::now_ms;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -26,7 +27,7 @@ impl Contact {
         Self {
             peer_id,
             display_name,
-            added_at_ms: mycelium_core::data::now_ms(),
+            added_at_ms: now_ms(),
             status,
             account_id: None,
         }

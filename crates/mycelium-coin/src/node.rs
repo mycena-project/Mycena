@@ -76,7 +76,7 @@ impl CoinNode {
         fee_muon: u64,
         memo: Option<String>,
     ) -> anyhow::Result<()> {
-        let kp = mycelium_node::load_or_create_keypair(identity_path)?;
+        let kp = mycelium_l1_facade::load_or_create_keypair(identity_path)?;
         if address_from_keypair(&kp) != self.local_address {
             anyhow::bail!("identity does not match coin address");
         }
@@ -153,7 +153,7 @@ impl CoinNode {
                 if req.cold_address != self.local_address {
                     return Ok(());
                 }
-                if mycelium_core::data::now_ms() > req.expires_at_ms {
+                if mycelium_l0_facade::data::now_ms() > req.expires_at_ms {
                     warn!("refill request expired from {from_peer}");
                     return Ok(());
                 }

@@ -5,7 +5,7 @@
 use std::collections::HashMap;
 use std::sync::{LazyLock, Mutex};
 
-use mycelium_core::data::now_ms;
+use mycelium_l0_facade::data::now_ms;
 use uuid::Uuid;
 
 const SESSION_TTL_MS: u64 = 3_600_000;
