@@ -1,6 +1,6 @@
 SHELL := /bin/zsh
 
-.PHONY: help desktop-dev desktop-stop desktop-nuke desktop-check-relay android-apk android-apk-ci android-apk-local android-install android-deploy android-nuke clean test test-fast test-unit test-sim check clippy ci fmt docker-android-ci docker-compose-android gradle-wrapper
+.PHONY: help desktop-dev desktop-stop desktop-nuke desktop-check-relay android-apk android-apk-ci android-apk-local android-install android-deploy android-nuke clean test test-fast test-integration test-unit test-sim check clippy ci fmt docker-android-ci docker-compose-android gradle-wrapper
 
 help:
 	@echo "Mycelium — the maintainer mesh client (no server stack)"
@@ -16,7 +16,7 @@ help:
 	@echo ""
 	@echo "See docs/ECOSYSTEM.md · Android: ./android/build.sh"
 
-.PHONY: test test-fast test-unit test-sim check clippy ci fmt docker-android-ci docker-compose-android gradle-wrapper desktop-dev desktop-stop desktop-check-relay android-apk android-apk-ci android-apk-local android-install android-deploy android-nuke clean
+.PHONY: test test-fast test-integration test-unit test-sim check clippy ci fmt docker-android-ci docker-compose-android gradle-wrapper desktop-dev desktop-stop desktop-check-relay android-apk android-apk-ci android-apk-local android-install android-deploy android-nuke clean
 
 # One-shot: add Gradle wrapper under android/ using Docker (no local Gradle needed).
 gradle-wrapper:
@@ -50,10 +50,13 @@ test:
 test-fast:
 	CARGO_HOME="$(CURDIR)/.cargo-home" cargo test --workspace --lib
 
+test-integration:
+	CARGO_HOME="$(CURDIR)/.cargo-home" cargo test --workspace --tests
+
 clippy:
 	CARGO_HOME="$(CURDIR)/.cargo-home" cargo clippy --workspace --all-targets -- -D warnings
 
-ci: check test-fast clippy
+ci: check test-fast test-integration clippy
 	CARGO_HOME="$(CURDIR)/.cargo-home" cargo fmt --all --check
 
 fmt:
