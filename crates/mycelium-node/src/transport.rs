@@ -158,6 +158,7 @@ const RELAY_CIRCUIT_GRACE: Duration = Duration::from_millis(800);
 const CIRCUIT_DIAL_COOLDOWN: Duration = Duration::from_secs(5);
 
 impl Libp2pTransport {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         listen_addr: Multiaddr,
         keypair_path: Option<String>,

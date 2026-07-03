@@ -44,7 +44,7 @@ pub fn is_ble_multiaddr(addr: &str) -> bool {
 /// Parse `/ble/<device>/gatt/<uuid>/p2p/<peer-id>`.
 pub fn parse_ble_multiaddr(addr: &str) -> Option<BleMultiaddr> {
     let mut parts = addr.trim().split('/');
-    if parts.next()? != "" {
+    if !parts.next()?.is_empty() {
         return None;
     }
     if parts.next()? != "ble" {

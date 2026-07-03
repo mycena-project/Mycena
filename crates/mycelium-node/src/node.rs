@@ -27,6 +27,9 @@ use tokio::sync::{broadcast, mpsc, RwLock};
 use tokio::time::{interval, MissedTickBehavior};
 use tracing::{debug, info, warn};
 
+type BleWireOutboundReply = tokio::sync::oneshot::Sender<Vec<(String, Vec<u8>)>>;
+type BleStreamOutboundReply = tokio::sync::oneshot::Sender<Vec<Vec<u8>>>;
+
 /// Scopes subscribed on the libp2p gossip layer at node startup.
 pub const SYSTEM_SCOPES: &[&str] = &[
     "mycelium/chat",
@@ -235,7 +238,7 @@ pub enum NodeCommand {
     DrainBleOutbound {
         to_peer: Option<String>,
         max: usize,
-        reply: Option<tokio::sync::oneshot::Sender<Vec<(String, Vec<u8>)>>>,
+        reply: Option<BleWireOutboundReply>,
     },
     /// Send wire message over libp2p if connected, else queue for BLE (F2).
     SendWireOrQueueBle {
@@ -256,7 +259,7 @@ pub enum NodeCommand {
     DrainBleStreamOutbound {
         to_peer: String,
         max: usize,
-        reply: Option<tokio::sync::oneshot::Sender<Vec<Vec<u8>>>>,
+        reply: Option<BleStreamOutboundReply>,
     },
     SetCrowdMode(bool),
 }

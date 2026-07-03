@@ -14,7 +14,6 @@ const OUTBOUND_CAP: usize = 64;
 
 #[derive(Debug, Clone)]
 pub struct BlePeerInfo {
-    pub peer_id: String,
     pub multiaddr: String,
 }
 
@@ -104,9 +103,8 @@ impl BleTransportRegistry {
 
     pub fn all_peer_infos(&self) -> Vec<BlePeerInfo> {
         self.links
-            .iter()
-            .map(|(peer_id, l)| BlePeerInfo {
-                peer_id: peer_id.clone(),
+            .values()
+            .map(|l| BlePeerInfo {
                 multiaddr: l.multiaddr.clone(),
             })
             .collect()
@@ -254,7 +252,7 @@ mod tests {
         let info = reg
             .all_peer_infos()
             .into_iter()
-            .find(|p| p.peer_id == "12D3KooWTest")
+            .find(|p| p.multiaddr.contains("12D3KooWTest"))
             .expect("info");
         assert!(info.multiaddr.starts_with("/ble/aabbccddeeff/gatt/"));
         assert!(info.multiaddr.ends_with("/p2p/12D3KooWTest"));
