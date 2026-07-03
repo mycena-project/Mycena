@@ -137,6 +137,11 @@ pub struct PeerReputationData {
     pub strikes: u8,
     pub last_strike_ms: u64,
     pub throttled_until_ms: u64,
+    pub reliability: f32,
+    pub spam_score: f32,
+    pub relay_success_rate: f32,
+    pub age_ms: u64,
+    pub mutual_contacts: u16,
 }
 
 #[derive(Debug, Clone)]
@@ -915,6 +920,11 @@ pub fn peer_reputation(peer_id: String) -> Option<PeerReputationData> {
             strikes: rep.strikes,
             last_strike_ms: rep.last_strike_ms,
             throttled_until_ms: rep.throttled_until_ms,
+            reliability: rep.reliability,
+            spam_score: rep.spam_score,
+            relay_success_rate: rep.relay_success_rate,
+            age_ms: rep.age_ms,
+            mutual_contacts: rep.mutual_contacts,
         })
     })
 }
@@ -1592,10 +1602,10 @@ pub fn wallet_address() -> String {
 }
 
 pub fn wallet_balance() -> WalletBalance {
-    with_state(|s| match s.coin_node.balance() {
-        Ok((c, p)) => WalletBalance {
-            confirmed_muon: c,
-            pending_muon: p,
+    with_state(|s| match s.coin_node.balance_eventual() {
+        Ok(view) => WalletBalance {
+            confirmed_muon: view.confirmed_muon(),
+            pending_muon: view.pending_muon(),
         },
         Err(_) => WalletBalance {
             confirmed_muon: 0,

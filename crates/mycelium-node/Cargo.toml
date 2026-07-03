@@ -24,5 +24,6 @@ tracing.workspace = true
 
 [dev-dependencies]
 libp2p.workspace = true
+proptest = "1.6"
 sled.workspace = true
 tempfile = "3"

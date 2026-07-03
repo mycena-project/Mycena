@@ -19,12 +19,10 @@ P2,crates/mycelium-node/src/node.rs,166,否,local_state_mutex,".expect(""relay c
 P2,crates/mycelium-node/src/node.rs,173,否,local_state_mutex,"keypair.lock().expect(...)",invariant_comment_done
 P2,crates/mycelium-node/src/node.rs,175,否,local_state_mutex,"created_at.lock().expect(...)",invariant_comment_done
 P2,crates/mycelium-node/src/node.rs,181,否,local_state_mutex,"keypair.lock().expect(...).clone()",invariant_comment_done
-P2,crates/mycelium-node/src/node.rs,375,否,local_state_mutex,"peer_reputations.lock().expect(...)",invariant_comment_done
-P2,crates/mycelium-node/src/node.rs,724,否,local_state_mutex,"created_at.lock().expect(...)",invariant_comment_done
-P2,crates/mycelium-node/src/node.rs,1277,否,local_state_mutex,"peer_reputations.lock().expect(...)",invariant_comment_done
-P2,crates/mycelium-node/src/node.rs,2181,否,local_state_mutex,"peer_reputations.lock().expect(...)",invariant_comment_done
-P2,crates/mycelium-node/src/node.rs,2205,否,local_state_mutex,"peer_reputations.lock().expect(...)",invariant_comment_done
-P2,crates/mycelium-node/src/node.rs,2218,否,local_state_mutex,"peer_reputations.lock().expect(...)",invariant_comment_done
+P2,crates/mycelium-node/src/peer_trust.rs,237,否,local_state_mutex,"peer trust cache lock",invariant_comment_done
+P2,crates/mycelium-node/src/peer_trust.rs,251,否,local_state_mutex,"peer trust cache lock",invariant_comment_done
+P2,crates/mycelium-node/src/peer_trust.rs,264,否,local_state_mutex,"peer trust cache lock",invariant_comment_done
+P2,crates/mycelium-node/src/peer_trust.rs,271,否,local_state_mutex,"peer trust cache lock",invariant_comment_done
 P2,crates/mycelium-node/src/secrets.rs,18,否,local_state_mutex,"locks.lock().expect(""account load lock map"")",invariant_comment_done
 P2,crates/mycelium-node/src/secrets.rs,105,否,local_state_mutex,"lock.lock().expect(""account load mutex"")",invariant_comment_done
 P2,crates/mycelium-node/src/behaviour.rs,57,否,local_state_startup,"gossipsub ConfigBuilder.build().expect(...)",invariant_comment_done

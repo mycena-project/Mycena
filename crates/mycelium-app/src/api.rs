@@ -312,13 +312,23 @@ async fn get_peer_reputation(
             "peer_id": peer_id,
             "strikes": rep.strikes,
             "throttled": now_ms() < rep.throttled_until_ms,
-            "throttled_until_ms": rep.throttled_until_ms
+            "throttled_until_ms": rep.throttled_until_ms,
+            "reliability": rep.reliability,
+            "spam_score": rep.spam_score,
+            "relay_success_rate": rep.relay_success_rate,
+            "age_ms": rep.age_ms,
+            "mutual_contacts": rep.mutual_contacts,
         })),
         None => Json(serde_json::json!({
             "peer_id": peer_id,
             "strikes": 0,
             "throttled": false,
-            "throttled_until_ms": 0
+            "throttled_until_ms": 0,
+            "reliability": 0.25,
+            "spam_score": 0.0,
+            "relay_success_rate": 0.25,
+            "age_ms": 0,
+            "mutual_contacts": 0,
         })),
     }
 }

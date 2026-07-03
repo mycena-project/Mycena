@@ -751,11 +751,21 @@ async fn get_peer_reputation(
             "strikes": r.strikes,
             "last_strike_ms": r.last_strike_ms,
             "throttled_until_ms": r.throttled_until_ms,
+            "reliability": r.reliability,
+            "spam_score": r.spam_score,
+            "relay_success_rate": r.relay_success_rate,
+            "age_ms": r.age_ms,
+            "mutual_contacts": r.mutual_contacts,
         }),
         None => json!({
             "strikes": 0,
             "last_strike_ms": 0,
             "throttled_until_ms": 0,
+            "reliability": 0.25,
+            "spam_score": 0.0,
+            "relay_success_rate": 0.25,
+            "age_ms": 0,
+            "mutual_contacts": 0,
         }),
     })
 }
@@ -953,8 +963,21 @@ async fn wallet_balance(state: State<'_, SharedState>) -> Result<serde_json::Val
     let Some(s) = guard.as_ref() else {
         return Ok(json!({"confirmed_muon": 0u64, "pending_muon": 0u64}));
     };
-    let (confirmed, pending) = s.coin_node.balance().unwrap_or((0, 0));
-    Ok(json!({"confirmed_muon": confirmed, "pending_muon": pending}))
+    let (confirmed, pending) = s
+        .coin_node
+        .balance_eventual()
+        .map(|v| (v.confirmed_muon(), v.pending_muon()))
+        .unwrap_or((0, 0));
+    let settled = s
+        .coin_node
+        .balance_settled()
+        .map(|v| v.spendable_muon())
+        .unwrap_or(0);
+    Ok(json!({
+        "confirmed_muon": confirmed,
+        "pending_muon": pending,
+        "settled_muon": settled,
+    }))
 }
 
 #[tauri::command]
