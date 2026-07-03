@@ -6,11 +6,6 @@ license.workspace = true
 authors.workspace = true
 description = "L0 facade: stable crypto and protocol primitives for app-layer crates"
 
-[features]
-default = []
-## Ratchet/session internals (`EncKey::as_core_keypair`). Enabled by `mycelium-node` only.
-node-internal = []
-
 [dependencies]
 anyhow.workspace = true
 hex.workspace = true

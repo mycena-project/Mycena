@@ -39,14 +39,6 @@ impl EncKey {
     }
 }
 
-#[cfg(feature = "node-internal")]
-impl EncKey {
-    /// Node-internal access for ratchet/session setup (`mycelium-core` ratchet APIs).
-    pub fn as_core_keypair(&self) -> &EncryptionKeypair {
-        &self.0
-    }
-}
-
 impl Clone for EncKey {
     fn clone(&self) -> Self {
         Self(self.0.clone())

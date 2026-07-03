@@ -12,7 +12,7 @@ use blew::peripheral::{AdvertisingConfig, Peripheral, PeripheralRequest};
 use blew::types::{BleDevice, DeviceId};
 use blew::Central;
 use mycelium_app::node::AppNode;
-use mycelium_core::ble_mesh::ChunkAssembler;
+use mycelium_l0_facade::ble_mesh::ChunkAssembler;
 use mycelium_l1_facade::NodeHandle;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -435,7 +435,7 @@ async fn flush_relay(
 }
 
 async fn send_mesh_frame(central: &Central, device: &DeviceId, frame: &[u8]) -> bool {
-    for chunk in mycelium_core::ble_mesh::chunk_frame(frame) {
+    for chunk in mycelium_l0_facade::ble_mesh::chunk_frame(frame) {
         let ok = central
             .write_characteristic(device, MESH_DATA_CHAR_UUID, chunk, WriteType::WithResponse)
             .await

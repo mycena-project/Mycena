@@ -14,7 +14,7 @@ futures.workspace = true
 hex.workspace = true
 libp2p.workspace = true
 mycelium-core = { path = "../mycelium-core" }
-mycelium-l0-facade = { path = "../mycelium-l0-facade", features = ["node-internal"] }
+mycelium-l0-facade = { path = "../mycelium-l0-facade" }
 serde.workspace = true
 serde_cbor.workspace = true
 serde_json.workspace = true

@@ -10,6 +10,7 @@ APP_LAYER_CRATES=(
   mycelium-miniapp
   mycelium-coin
   miniapp-sdk
+  mycelium-desktop
 )
 
 violations=0
@@ -32,6 +33,12 @@ for crate in "${APP_LAYER_CRATES[@]}"; do
   if [[ -d "$src" ]] && rg -q 'mycelium_core::|mycelium_node::' "$src" 2>/dev/null; then
     echo "Layer violation: $crate source uses mycelium_core:: or mycelium_node::"
     rg 'mycelium_core::|mycelium_node::' "$src" || true
+    violations=1
+  fi
+
+  if [[ -d "$src" ]] && rg -q 'as_core_keypair|node-internal' "$src" "$toml" 2>/dev/null; then
+    echo "Layer violation: $crate references as_core_keypair or node-internal (removed — use EncKey / L1 node secrets)"
+    rg 'as_core_keypair|node-internal' "$src" "$toml" || true
     violations=1
   fi
 done

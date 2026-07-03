@@ -14,7 +14,7 @@ Introduce explicit **layer boundary crates** with dependency rules:
 |-------|--------|------|----------------|
 | **L0** | `mycelium-core` | Crypto, wire formats, at-rest vault, mesh primitives | External crates only |
 | **L0 facade** | `mycelium-l0-facade` | Stable app-facing API over L0 (`EncKey`, invites, bootstrap, vault helpers) | `mycelium-core` |
-| **L1** | `mycelium-node` | libp2p node, ratchet store, transport runner | `mycelium-core`, `mycelium-l0-facade` (`node-internal`) |
+| **L1** | `mycelium-node` | libp2p node, ratchet store, transport runner | `mycelium-core`, `mycelium-l0-facade` |
 | **L1 facade** | `mycelium-l1-facade` | Stable messaging/sync API over L1 (`NodeHandle`, `WireMessage`, …) | `mycelium-node` |
 | **L2** | `mycelium-miniapp` | Mini-app manifests, bundles, store, bridge helpers | `mycelium-l0-facade` only |
 | **L3** | `mycelium-app` | Chat, contacts, API, bridge host glue | `mycelium-l0-facade`, `mycelium-l1-facade`, `mycelium-miniapp`, `mycelium-coin` |
@@ -22,10 +22,10 @@ Introduce explicit **layer boundary crates** with dependency rules:
 ### L0 facade (`mycelium-l0-facade`)
 
 - **`EncKey`**: opaque wrapper around `EncryptionKeypair`; exposes `generate`, `public_hex`, `decrypt_direct`, `decrypt_group`, `clone`. Does **not** expose `secret_bytes` or `from_secret_bytes` publicly.
-- Re-exports protocol modules: `data`, `invite`, `contact_hello`, `bootstrap`, `sos`, `energy`, `identity_rotation`, `e2e_direct_wrap`, `account_identity`, and `at_rest::{clear_keyring_master, parse_storage_key_hex}`.
+- Re-exports protocol modules: `data`, `invite`, `contact_hello`, `bootstrap`, `ble_mesh`, `relay_status`, `sos`, `energy`, `identity_rotation`, `e2e_direct_wrap`, `account_identity`, and `at_rest::{clear_keyring_master, parse_storage_key_hex}`.
 - Hosts `secrets` (vault open, enc key load).
-- Feature **`node-internal`** (enabled by `mycelium-node` only): exposes `EncKey::as_core_keypair` for ratchet/session setup.
 - **`PeerEncKeyStore`** lives in `mycelium-node` (private); not part of the L0 facade.
+- Ratchet/session code in **`mycelium-node`** loads `mycelium_core::crypto::EncryptionKeypair` via `secrets::load_or_create_encryption_keypair` — not through `EncKey`.
 
 ### L1 facade (`mycelium-l1-facade`)
 
@@ -40,12 +40,13 @@ Introduce explicit **layer boundary crates** with dependency rules:
 ### Dependency rules
 
 1. **App-layer crates** (`mycelium-app`, `mycelium-miniapp`, `miniapp-sdk`, `mycelium-coin`) must **not** depend on `mycelium-core` or `mycelium-node` directly.
-2. **`mycelium-node`** uses `mycelium-core` for ratchet/transport internals and `mycelium-l0-facade` with `node-internal` for enc key loading and peer enc key store.
-3. **`EncKey::as_core_keypair`** compiles only with `node-internal`; app/miniapp default builds cannot call it (note: workspace feature unification enables it when building `mycelium-app` alongside `mycelium-node` — convention + review).
+2. **`mycelium-node`** uses `mycelium-core` for ratchet/transport internals and loads encryption keys as `EncryptionKeypair` (L1-only); app code uses opaque `EncKey` from the L0 facade.
+3. **`EncKey`** does not expose raw key material or core keypair accessors; app/miniapp cannot reach ratchet setup APIs through the facade.
 4. **`PeerEncKeyStore`** is `pub(crate)` inside `mycelium-node` only.
 5. **`DirectMessage` / `WireMessage`** are exported from `mycelium-l1-facade` for app dispatch code.
-6. Host binaries (`mycelium-desktop`, `mycelium-cli`) use `mycelium-l0-facade` and `mycelium-l1-facade`; desktop may still depend on `mycelium-core` for host-only BLE mesh and relay status helpers.
-7. **`scripts/check-layer-boundaries.sh`** runs in `make ci` and fails if app-layer crates (`mycelium-app`, `mycelium-miniapp`, `mycelium-coin`, `miniapp-sdk`) depend on or import `mycelium-core` / `mycelium-node` directly.
+6. Host binaries (`mycelium-desktop`, `mycelium-cli`) use `mycelium-l0-facade` and `mycelium-l1-facade` only — no direct `mycelium-core` / `mycelium-node` dependency.
+7. **`scripts/check-layer-boundaries.sh`** runs in `make ci` and fails if app/host-layer crates depend on or import `mycelium-core` / `mycelium-node` directly, or reference removed `as_core_keypair` / `node-internal`.
+8. **`make check-app-layer`** runs `cargo check` on app/host crates without `mycelium-node`, verifying the L0 facade stays free of node-only APIs.
 
 ---
 

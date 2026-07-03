@@ -156,6 +156,53 @@ pub fn encode_signed_invite_v3(
 /// Optional 32-byte master key (Android); when `None`, OS keyring or fallback is used.
 pub use mycelium_l0_facade::secrets::{load_or_create_enc_keypair, open_vault, StorageKey};
 
+const ENC_SECRET: &str = "enc_x25519";
+
+/// Load X25519 encryption key for node ratchet/session (uses core type — not exposed via [`EncKey`]).
+pub fn load_or_create_encryption_keypair(
+    db_path: &str,
+    storage_key: StorageKey,
+) -> anyhow::Result<mycelium_core::crypto::EncryptionKeypair> {
+    use mycelium_core::crypto::EncryptionKeypair;
+    use std::path::Path;
+
+    let vault = open_vault(db_path, storage_key)?;
+
+    match vault.read_secret(ENC_SECRET) {
+        Ok(Some(bytes)) => return enc_keypair_from_secret_bytes(&bytes),
+        Ok(None) => {}
+        Err(e) => {
+            tracing::warn!(
+                "unreadable encrypted enc key at {:?}: {e}; removing corrupt secret",
+                vault.secrets_dir().join(format!("{ENC_SECRET}.enc"))
+            );
+            let _ = vault.delete_secret(ENC_SECRET);
+        }
+    }
+
+    let legacy_path = Path::new(db_path).join("enc_x25519.secret");
+    if legacy_path.exists() {
+        let bytes = std::fs::read(&legacy_path)?;
+        vault.write_secret(ENC_SECRET, &bytes)?;
+        std::fs::remove_file(&legacy_path)?;
+        tracing::info!("migrated X25519 enc key to encrypted at-rest storage");
+        return enc_keypair_from_secret_bytes(&bytes);
+    }
+
+    let kp = EncryptionKeypair::generate();
+    vault.write_secret(ENC_SECRET, &kp.secret_bytes())?;
+    tracing::info!("generated new X25519 encryption keypair (encrypted at rest)");
+    Ok(kp)
+}
+
+fn enc_keypair_from_secret_bytes(bytes: &[u8]) -> anyhow::Result<mycelium_core::crypto::EncryptionKeypair> {
+    use mycelium_core::crypto::EncryptionKeypair;
+    let arr: [u8; 32] = bytes
+        .try_into()
+        .map_err(|_| anyhow::anyhow!("invalid enc key length"))?;
+    Ok(EncryptionKeypair::from_secret_bytes(arr))
+}
+
 pub fn load_or_create_keypair(
     path: &str,
     storage_key: StorageKey,

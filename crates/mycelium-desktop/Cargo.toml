@@ -22,7 +22,6 @@ anyhow.workspace = true
 async-trait.workspace = true
 bincode.workspace = true
 dirs = "5"
-mycelium-core = { path = "../mycelium-core" }
 mycelium-l0-facade = { path = "../mycelium-l0-facade" }
 mycelium-l1-facade = { path = "../mycelium-l1-facade" }
 mycelium-app = { path = "../mycelium-app" }

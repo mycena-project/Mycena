@@ -530,7 +530,7 @@ async fn get_peers(state: State<'_, SharedState>) -> Result<Vec<String>, String>
 
 #[tauri::command]
 fn get_relay_status() -> Result<serde_json::Value, String> {
-    let status = mycelium_core::relay_status::fetch_relay_status(None);
+    let status = mycelium_l0_facade::relay_status::fetch_relay_status(None);
     serde_json::to_value(status).map_err(|e| e.to_string())
 }
 
