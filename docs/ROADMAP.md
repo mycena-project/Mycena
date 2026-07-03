@@ -2,6 +2,8 @@
 
 **Level 0 mesh (discovery, privacy, scale, emergency):** see **[LEVEL0_ROADMAP.md](./LEVEL0_ROADMAP.md)** — phased plan from the Mac/Android chat milestone toward offline mesh, daily ID rotation, and emergency SOS.
 
+**Connectivity modes & disaster mesh:** see **[CONNECTIVITY_MODES.md](./CONNECTIVITY_MODES.md)** and **[DISASTER_MESH_ROADMAP.md](./DISASTER_MESH_ROADMAP.md)** — Settings semantics, status labels, desktop BLE Phase 1, DTN Phases 2–4 ([ADR 003](./adr/003-desktop-ble-and-disaster-mesh.md)).
+
 ## Phase 1 — Kurzfristig (P0)
 
 | # | Thema | Status |
@@ -9,6 +11,8 @@
 | 1 | Android Bottom Navigation + Settings-Parität | Done |
 | 2 | CLI `/broadcast <scope> <text>` + README | Done |
 | 3 | Android-Build in CI (`android-ci.yml`) | Done |
+| 4 | Desktop Settings immediate apply + connectivity status | Done |
+| 5 | Disaster mesh docs + desktop BLE Phase 1a (stub) | Done — [DISASTER_MESH_ROADMAP.md](./DISASTER_MESH_ROADMAP.md) |
 
 ## Phase 2 — Mittelfristig
 

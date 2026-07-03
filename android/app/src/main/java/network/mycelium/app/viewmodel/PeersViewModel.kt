@@ -11,7 +11,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
 import network.mycelium.app.MeshEvent
-import network.mycelium.app.bootstrap.RelayBootstrap
 import network.mycelium.app.meshEvents
 import network.mycelium.bindings.NodeMetrics
 import network.mycelium.bindings.mycelium
@@ -39,6 +38,5 @@ class PeersViewModel(app: Application) : AndroidViewModel(app) {
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), mycelium.metrics())
 
-    fun refresh(): List<String> =
-        mycelium.knownPeers().filter { it != RelayBootstrap.RELAY_PEER_ID }
+    fun refresh(): List<String> = mycelium.connectedPeers()
 }

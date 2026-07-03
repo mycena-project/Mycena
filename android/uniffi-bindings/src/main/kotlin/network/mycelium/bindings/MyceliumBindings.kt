@@ -35,6 +35,7 @@ object mycelium {
     fun localPeerId(): String = uniffi.mycelium.localPeerId()
     fun localAccountId(): String = uniffi.mycelium.localAccountId()
     fun knownPeers(): List<String> = uniffi.mycelium.knownPeers()
+    fun connectedPeers(): List<String> = uniffi.mycelium.connectedPeers()
     fun metrics(): NodeMetrics = uniffi.mycelium.metrics()
     fun relayPeerId(): String = uniffi.mycelium.relayPeerId()
     fun relayKeypairAgeSecs(): ULong = uniffi.mycelium.relayKeypairAgeSecs()
@@ -89,8 +90,11 @@ object mycelium {
     fun setEnergyState(state: EnergyState) = uniffi.mycelium.setEnergyState(state)
     fun addBootstrapPeer(multiaddr: String) = uniffi.mycelium.addBootstrapPeer(multiaddr)
     fun connectInvite(raw: String) = uniffi.mycelium.connectInvite(raw)
+    fun connectTransportInvite(raw: String) = uniffi.mycelium.connectTransportInvite(raw)
     fun ingestBleFrame(fromPeer: String, frame: ByteArray) =
         uniffi.mycelium.ingestBleFrame(fromPeer, frame)
+    fun peerIdFromBleFrame(frame: ByteArray): String? =
+        uniffi.mycelium.peerIdFromBleFrame(frame)
     fun drainBleOutbound(toPeer: String?, max: UInt): List<BleOutboundFrame> =
         uniffi.mycelium.drainBleOutbound(toPeer, max)
     fun registerBleLink(peerId: String, deviceId: String) =

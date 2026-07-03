@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Mycelium Project
+mod ble;
 mod share_server;
 
 use async_trait::async_trait;
@@ -36,6 +37,7 @@ pub struct AppState {
     internet_enabled: bool,
     connectivity_mode: Arc<RwLock<ConnectivityMode>>,
     runner_task: tauri::async_runtime::JoinHandle<()>,
+    ble_host: Option<ble::DesktopBleHost>,
 }
 
 fn connectivity_label(mode: ConnectivityMode) -> &'static str {
@@ -43,6 +45,39 @@ fn connectivity_label(mode: ConnectivityMode) -> &'static str {
         ConnectivityMode::Internet => "internet",
         ConnectivityMode::MeshOnly => "mesh_only",
     }
+}
+
+fn connectivity_detail(
+    internet_enabled: bool,
+    rendezvous_enabled: bool,
+    mode: ConnectivityMode,
+) -> String {
+    if !internet_enabled {
+        return "Internet disabled in Settings — desktop uses LAN (mDNS) only; no relay or rendezvous.".into();
+    }
+    if mode == ConnectivityMode::MeshOnly {
+        return "Internet enabled but public relay unreachable — local mesh (same Wi‑Fi) only."
+            .into();
+    }
+    if rendezvous_enabled {
+        return "Internet + relay online — LAN, bootstrap relay, and opt-in rendezvous active."
+            .into();
+    }
+    "Internet + relay online — LAN and bootstrap relay; rendezvous discovery off.".into()
+}
+
+async fn connectivity_snapshot(s: &AppState) -> serde_json::Value {
+    let mode = *s.connectivity_mode.read().await;
+    json!({
+        "internet_enabled": s.internet_enabled,
+        "rendezvous_enabled": s.rendezvous_enabled,
+        "connectivity_mode": connectivity_label(mode),
+        "connectivity_detail": connectivity_detail(s.internet_enabled, s.rendezvous_enabled, mode),
+    })
+}
+
+fn emit_settings_updated(app: &AppHandle, snapshot: serde_json::Value) {
+    let _ = app.emit("settings-updated", snapshot);
 }
 
 type SharedState = Arc<RwLock<Option<AppState>>>;
@@ -61,6 +96,9 @@ struct UiSettings {
     listen_sos: bool,
     #[serde(default)]
     crowd_mode: bool,
+    /// BLE mesh handoff (macOS/Linux preview — host stub until Phase 1b).
+    #[serde(default)]
+    ble_bootstrap: bool,
 }
 
 fn default_rendezvous_enabled() -> bool {
@@ -80,6 +118,7 @@ impl Default for UiSettings {
             display_name: None,
             listen_sos: false,
             crowd_mode: false,
+            ble_bootstrap: false,
         }
     }
 }
@@ -451,6 +490,13 @@ async fn start_node(
     }
     setup_inbox_emitter(app, inbox);
 
+    let ble_host = ble::DesktopBleHost::start(
+        handle.clone(),
+        app_node.clone(),
+        local_peer_id.clone(),
+        ui_settings.ble_bootstrap,
+    );
+
     let cap_mac_key = mycelium_app::miniapp::mac_key_from_db_path(&db_path);
     *state.write().await = Some(AppState {
         handle,
@@ -467,6 +513,7 @@ async fn start_node(
         internet_enabled: ui_settings.internet_enabled,
         connectivity_mode: connectivity_mode.clone(),
         runner_task,
+        ble_host,
     });
 
     Ok(local_peer_id)
@@ -478,13 +525,7 @@ async fn get_peers(state: State<'_, SharedState>) -> Result<Vec<String>, String>
     let Some(s) = guard.as_ref() else {
         return Ok(vec![]);
     };
-    let relay = mycelium_core::bootstrap::RELAY_PEER_ID;
-    Ok(s.handle
-        .known_peers()
-        .await
-        .into_iter()
-        .filter(|p| p != relay)
-        .collect())
+    Ok(s.handle.connected_peers().await)
 }
 
 #[tauri::command]
@@ -1523,96 +1564,156 @@ async fn get_settings(state: State<'_, SharedState>) -> Result<serde_json::Value
         "max_connectivity": ui.max_connectivity,
         "listen_sos": ui.listen_sos,
         "crowd_mode": ui.crowd_mode,
+        "ble_bootstrap": ui.ble_bootstrap,
         "connectivity_mode": connectivity_label(connectivity),
+        "connectivity_detail": connectivity_detail(s.internet_enabled, s.rendezvous_enabled, connectivity),
     }))
 }
 
 #[tauri::command]
 async fn set_rendezvous_enabled(
+    app: AppHandle,
     state: State<'_, SharedState>,
     enabled: bool,
 ) -> Result<(), String> {
-    let mut guard = state.write().await;
-    let s = guard
-        .as_mut()
-        .ok_or_else(|| "node not started".to_string())?;
-    if !s.internet_enabled && enabled {
-        return Err("Enable internet connectivity before relay discovery".into());
-    }
-    s.handle
-        .send(NodeCommand::SetRendezvousEnabled(enabled))
-        .await
-        .map_err(|e| e.to_string())?;
-    s.rendezvous_enabled = enabled;
-    let mut ui = load_ui_settings(&s.db_path);
-    ui.rendezvous_enabled = enabled;
-    save_ui_settings(&s.db_path, &ui)?;
-    Ok(())
-}
-
-#[tauri::command]
-async fn set_internet_enabled(state: State<'_, SharedState>, enabled: bool) -> Result<(), String> {
-    let mut guard = state.write().await;
-    let s = guard
-        .as_mut()
-        .ok_or_else(|| "node not started".to_string())?;
-    s.handle
-        .send(NodeCommand::SetInternetEnabled(enabled))
-        .await
-        .map_err(|e| e.to_string())?;
-    s.internet_enabled = enabled;
-    if !enabled {
-        s.rendezvous_enabled = false;
-    }
-    let mut ui = load_ui_settings(&s.db_path);
-    ui.internet_enabled = enabled;
-    if !enabled {
-        ui.rendezvous_enabled = false;
-        ui.max_connectivity = false;
-    }
-    save_ui_settings(&s.db_path, &ui)?;
-    Ok(())
-}
-
-#[tauri::command]
-async fn set_max_connectivity(state: State<'_, SharedState>, enabled: bool) -> Result<(), String> {
-    let mut guard = state.write().await;
-    let s = guard
-        .as_mut()
-        .ok_or_else(|| "node not started".to_string())?;
-    let mut ui = load_ui_settings(&s.db_path);
-    ui.max_connectivity = enabled;
-    if enabled {
+    let snapshot = {
+        let mut guard = state.write().await;
+        let s = guard
+            .as_mut()
+            .ok_or_else(|| "node not started".to_string())?;
+        if !s.internet_enabled && enabled {
+            return Err("Enable internet connectivity before relay discovery".into());
+        }
         s.handle
-            .send(NodeCommand::SetInternetEnabled(true))
+            .send(NodeCommand::SetRendezvousEnabled(enabled))
             .await
             .map_err(|e| e.to_string())?;
-        s.handle
-            .send(NodeCommand::SetRendezvousEnabled(true))
-            .await
-            .map_err(|e| e.to_string())?;
-        s.internet_enabled = true;
-        s.rendezvous_enabled = true;
-        ui.internet_enabled = true;
-        ui.rendezvous_enabled = true;
-    }
-    save_ui_settings(&s.db_path, &ui)?;
+        s.rendezvous_enabled = enabled;
+        let mut ui = load_ui_settings(&s.db_path);
+        ui.rendezvous_enabled = enabled;
+        save_ui_settings(&s.db_path, &ui)?;
+        connectivity_snapshot(s).await
+    };
+    emit_settings_updated(&app, snapshot);
     Ok(())
 }
 
 #[tauri::command]
-async fn set_crowd_mode(state: State<'_, SharedState>, enabled: bool) -> Result<(), String> {
-    let mut guard = state.write().await;
-    let s = guard
-        .as_mut()
-        .ok_or_else(|| "node not started".to_string())?;
-    s.handle
-        .send(NodeCommand::SetCrowdMode(enabled))
-        .await
-        .map_err(|e| e.to_string())?;
-    let mut ui = load_ui_settings(&s.db_path);
-    ui.crowd_mode = enabled;
-    save_ui_settings(&s.db_path, &ui)?;
+async fn set_internet_enabled(
+    app: AppHandle,
+    state: State<'_, SharedState>,
+    enabled: bool,
+) -> Result<(), String> {
+    let snapshot = {
+        let mut guard = state.write().await;
+        let s = guard
+            .as_mut()
+            .ok_or_else(|| "node not started".to_string())?;
+        s.handle
+            .send(NodeCommand::SetInternetEnabled(enabled))
+            .await
+            .map_err(|e| e.to_string())?;
+        s.internet_enabled = enabled;
+        if !enabled {
+            s.rendezvous_enabled = false;
+        }
+        let mut ui = load_ui_settings(&s.db_path);
+        ui.internet_enabled = enabled;
+        if !enabled {
+            ui.rendezvous_enabled = false;
+            ui.max_connectivity = false;
+        }
+        save_ui_settings(&s.db_path, &ui)?;
+        connectivity_snapshot(s).await
+    };
+    emit_settings_updated(&app, snapshot);
+    Ok(())
+}
+
+#[tauri::command]
+async fn set_max_connectivity(
+    app: AppHandle,
+    state: State<'_, SharedState>,
+    enabled: bool,
+) -> Result<(), String> {
+    let snapshot = {
+        let mut guard = state.write().await;
+        let s = guard
+            .as_mut()
+            .ok_or_else(|| "node not started".to_string())?;
+        let mut ui = load_ui_settings(&s.db_path);
+        ui.max_connectivity = enabled;
+        if enabled {
+            s.handle
+                .send(NodeCommand::SetInternetEnabled(true))
+                .await
+                .map_err(|e| e.to_string())?;
+            s.handle
+                .send(NodeCommand::SetRendezvousEnabled(true))
+                .await
+                .map_err(|e| e.to_string())?;
+            s.internet_enabled = true;
+            s.rendezvous_enabled = true;
+            ui.internet_enabled = true;
+            ui.rendezvous_enabled = true;
+        }
+        save_ui_settings(&s.db_path, &ui)?;
+        connectivity_snapshot(s).await
+    };
+    emit_settings_updated(&app, snapshot);
+    Ok(())
+}
+
+#[tauri::command]
+async fn set_crowd_mode(
+    app: AppHandle,
+    state: State<'_, SharedState>,
+    enabled: bool,
+) -> Result<(), String> {
+    let snapshot = {
+        let mut guard = state.write().await;
+        let s = guard
+            .as_mut()
+            .ok_or_else(|| "node not started".to_string())?;
+        s.handle
+            .send(NodeCommand::SetCrowdMode(enabled))
+            .await
+            .map_err(|e| e.to_string())?;
+        let mut ui = load_ui_settings(&s.db_path);
+        ui.crowd_mode = enabled;
+        save_ui_settings(&s.db_path, &ui)?;
+        connectivity_snapshot(s).await
+    };
+    emit_settings_updated(&app, snapshot);
+    Ok(())
+}
+
+#[tauri::command]
+async fn set_ble_bootstrap(
+    app: AppHandle,
+    state: State<'_, SharedState>,
+    enabled: bool,
+) -> Result<(), String> {
+    let snapshot = {
+        let mut guard = state.write().await;
+        let s = guard
+            .as_mut()
+            .ok_or_else(|| "node not started".to_string())?;
+        let mut ui = load_ui_settings(&s.db_path);
+        ui.ble_bootstrap = enabled;
+        save_ui_settings(&s.db_path, &ui)?;
+        if let Some(host) = s.ble_host.take() {
+            host.stop_and_wait().await;
+        }
+        s.ble_host = ble::DesktopBleHost::start(
+            s.handle.clone(),
+            s.app_node.clone(),
+            s.local_peer_id.clone(),
+            enabled,
+        );
+        connectivity_snapshot(s).await
+    };
+    emit_settings_updated(&app, snapshot);
     Ok(())
 }
 
@@ -1830,8 +1931,6 @@ fn setup_inbox_emitter(app: AppHandle, mut inbox: AppInbox) {
 
 fn setup_event_emitter(app_handle: AppHandle, state: SharedState) {
     tauri::async_runtime::spawn(async move {
-        let relay = mycelium_core::bootstrap::RELAY_PEER_ID.to_string();
-        let mut last_peer_count = 0usize;
         loop {
             tokio::time::sleep(std::time::Duration::from_millis(500)).await;
             let guard = state.read().await;
@@ -1839,17 +1938,8 @@ fn setup_event_emitter(app_handle: AppHandle, state: SharedState) {
                 continue;
             };
             let metrics = s.handle.metrics().await;
-            let live_peers: Vec<String> = s
-                .handle
-                .known_peers()
-                .await
-                .into_iter()
-                .filter(|p| p != &relay)
-                .collect();
+            let live_peers: Vec<String> = s.handle.connected_peers().await;
             let peers = live_peers.len();
-            if peers != last_peer_count {
-                last_peer_count = peers;
-            }
             let connectivity = *s.connectivity_mode.read().await;
             let _ = app_handle.emit(
                 "metrics-updated",
@@ -1858,6 +1948,13 @@ fn setup_event_emitter(app_handle: AppHandle, state: SharedState) {
                     "queue": metrics.pending_queue_size,
                     "peers": peers,
                     "connectivity": connectivity_label(connectivity),
+                    "internet_enabled": s.internet_enabled,
+                    "rendezvous_enabled": s.rendezvous_enabled,
+                    "connectivity_detail": connectivity_detail(
+                        s.internet_enabled,
+                        s.rendezvous_enabled,
+                        connectivity,
+                    ),
                 }),
             );
         }
@@ -1868,7 +1965,9 @@ fn init_tracing() {
     use tracing_subscriber::EnvFilter;
     let _ = tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-            EnvFilter::new("mycelium_node=info,mycelium_app=info,libp2p_mdns=info")
+            EnvFilter::new(
+                "mycelium_desktop=info,mycelium_node=info,mycelium_app=info,libp2p_mdns=info",
+            )
         }))
         .with_target(true)
         .try_init();
@@ -1955,6 +2054,7 @@ pub fn run() {
             set_rendezvous_enabled,
             set_internet_enabled,
             set_max_connectivity,
+            set_ble_bootstrap,
             set_crowd_mode,
             get_store_stats,
             run_gc,

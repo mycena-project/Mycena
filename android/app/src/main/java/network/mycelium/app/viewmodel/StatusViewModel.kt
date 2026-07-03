@@ -16,7 +16,6 @@ import network.mycelium.app.MeshEvent
 import network.mycelium.app.MeshService
 import network.mycelium.app.meshEvents
 import network.mycelium.bindings.ConnectivityMode
-import network.mycelium.app.bootstrap.RelayBootstrap
 import network.mycelium.bindings.mycelium
 import uniffi.mycelium.InternalException
 
@@ -72,7 +71,7 @@ class StatusViewModel(app: Application) : AndroidViewModel(app) {
     private fun refreshPeerCount() {
         _peerCount.value =
             runCatching {
-                mycelium.knownPeers().count { it != RelayBootstrap.RELAY_PEER_ID }
+                mycelium.connectedPeers().size
             }.getOrElse { e ->
                 if (e is InternalException && e.message?.contains("node not initialized") == true) 0
                 else throw e

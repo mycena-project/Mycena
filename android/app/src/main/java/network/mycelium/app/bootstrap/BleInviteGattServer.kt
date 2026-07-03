@@ -43,11 +43,8 @@ class BleInviteGattServer(
                 newState: Int,
             ) {
                 Log.d(TAG, "central ${device.address} state=$newState status=$status")
-                if (newState == android.bluetooth.BluetoothProfile.STATE_CONNECTED) {
-                    scope.launch(Dispatchers.IO) {
-                        maybeRegisterCentral(device)
-                    }
-                }
+                // Do not dial back as GATT central here — that drops the remote's connection
+                // while it is discovering our services (Mac ↔ Android handoff race).
             }
 
             override fun onCharacteristicReadRequest(
@@ -169,30 +166,30 @@ class BleInviteGattServer(
         Log.i(TAG, "GATT server stopped")
     }
 
-    /** When a central connects to write mesh data, learn its peer id via invite read (F2). */
-    private suspend fun maybeRegisterCentral(device: android.bluetooth.BluetoothDevice) {
-        val address = device.address ?: return
-        if (BleMeshLinkRegistry.peerForAddress(address) != null) return
-        val invite = BleInviteReader.readInvite(context, device) ?: return
-        val peerId = PeerInvite.peerIdFrom(invite) ?: return
+    private fun resolvePeerForDevice(
+        device: android.bluetooth.BluetoothDevice,
+        frame: ByteArray,
+    ): String? {
+        val address = device.address ?: return null
+        BleMeshLinkRegistry.peerForAddress(address)?.let { return it }
+        val peerId =
+            runCatching { mycelium.peerIdFromBleFrame(frame) }.getOrNull()?.takeIf { it.isNotBlank() }
+                ?: return null
         BleMeshLinkRegistry.register(peerId, device)
         mycelium.registerBleLink(peerId, address)
-        Log.i(TAG, "registered central $peerId @ $address")
+        Log.i(TAG, "registered central $peerId @ $address from BLE frame")
+        return peerId
     }
 
     private suspend fun ingestMeshChunk(device: android.bluetooth.BluetoothDevice, chunk: ByteArray) {
         val address = device.address ?: return
-        var fromPeer = BleMeshLinkRegistry.peerForAddress(address)
-        if (fromPeer == null) {
-            maybeRegisterCentral(device)
-            fromPeer = BleMeshLinkRegistry.peerForAddress(address)
-        }
         val assembler = assemblers.getOrPut(address) { BleMeshChunker.Assembler() }
         val frame = assembler.push(chunk) ?: return
-        val peer = fromPeer ?: run {
-            Log.w(TAG, "mesh frame from unknown $address")
-            return
-        }
+        val peer =
+            resolvePeerForDevice(device, frame) ?: run {
+                Log.w(TAG, "mesh frame from unknown $address")
+                return
+            }
         try {
             mycelium.ingestBleFrame(peer, frame)
             Log.i(TAG, "ingested BLE frame from $peer (${frame.size} bytes)")

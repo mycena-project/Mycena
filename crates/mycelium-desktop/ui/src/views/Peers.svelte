@@ -125,10 +125,12 @@
       <li><strong>Mac → phone:</strong> show the QR below; on Android open <em>Connect → Scan their QR</em>.</li>
       <li><strong>Phone → Mac:</strong> scan the phone&apos;s QR and paste it below.</li>
       <li>
-        <strong>Different cities:</strong> scan QR once; <em>Relay discovery</em> is on by default
-        for new installs (both devices online, ~45s).
+        <strong>Different cities:</strong> scan QR once; contacts stay in your book even when paths drop.
+        <em>Relay discovery</em> helps reconnect when both devices are online (~45s).
       </li>
-      <li><strong>Bluetooth:</strong> not used for pairing yet — use Wi‑Fi or QR + relay.</li>
+      <li>
+        <strong>Bluetooth:</strong> Android pocket mesh (F1–F3) when internet/Wi‑Fi fail; macOS BLE is Phase 1 preview — use QR or same Wi‑Fi on Mac today.
+      </li>
     </ul>
     {#if !rendezvousEnabled && peers.length === 0}
       <p class="tip">
@@ -175,6 +177,18 @@
         <p class="mono peer">{peer}</p>
       {/each}
     {/if}
+  </section>
+
+  <section class="muted-block">
+    <h3>Contact durability</h3>
+    <p>
+      Scan or paste an invite <strong>once</strong> — the contact stays in your book across restarts.
+      Network paths (Wi‑Fi, relay, BLE) come and go; you do not need to re-scan when a peer drops offline.
+    </p>
+    <p>
+      <strong>Relay discovery</strong> only helps when both devices are online on the relay at the same time.
+      If your Mac has internet off, it will not discover Android via relay until you turn internet back on or meet on LAN.
+    </p>
   </section>
 
   <section class="muted-block">

@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Mycelium Project
 //! BLE side-channel framing for wire messages (ADR 002 F2).
 
+use crate::contact_hello::ContactHello;
 use crate::transport::WireMessage;
 
 pub const FRAME_MAGIC: [u8; 4] = *b"MYBL";
@@ -25,6 +26,26 @@ pub fn encode_wire(wire: &WireMessage) -> anyhow::Result<Vec<u8>> {
     out.extend_from_slice(&(payload.len() as u32).to_be_bytes());
     out.extend_from_slice(&payload);
     Ok(out)
+}
+
+/// Sender libp2p peer id from a reassembled MYBL frame (contact hello or envelope).
+pub fn sender_peer_from_frame(bytes: &[u8]) -> Option<String> {
+    let wire = decode_frame(bytes).ok()?;
+    match wire {
+        WireMessage::Data(dm) => {
+            if dm.body == "[contact:hello]" {
+                ContactHello::decode(&dm.envelope.payload)
+                    .ok()
+                    .filter(|h| h.verify())
+                    .map(|h| h.peer_id)
+            } else if !dm.envelope.from_peer.is_empty() {
+                Some(dm.envelope.from_peer)
+            } else {
+                None
+            }
+        }
+        _ => None,
+    }
 }
 
 /// Decode a full frame produced by [`encode_wire`].

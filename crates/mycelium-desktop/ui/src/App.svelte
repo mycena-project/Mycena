@@ -40,6 +40,8 @@
   ];
   let connectivityMode = $state("internet");
   let internetEnabled = $state(true);
+  let rendezvousEnabled = $state(false);
+  let connectivityDetail = $state("");
 
   async function startNode(config) {
     peerId = await invoke("start_node", {
@@ -74,9 +76,35 @@
       if (event.payload.connectivity) {
         connectivityMode = event.payload.connectivity;
       }
+      if (event.payload.internet_enabled !== undefined) {
+        internetEnabled = event.payload.internet_enabled;
+      }
+      if (event.payload.rendezvous_enabled !== undefined) {
+        rendezvousEnabled = event.payload.rendezvous_enabled;
+      }
+      if (event.payload.connectivity_detail) {
+        connectivityDetail = event.payload.connectivity_detail;
+      }
+    });
+    const unlistenSettings = await listen("settings-updated", (event) => {
+      if (event.payload.internet_enabled !== undefined) {
+        internetEnabled = event.payload.internet_enabled;
+      }
+      if (event.payload.rendezvous_enabled !== undefined) {
+        rendezvousEnabled = event.payload.rendezvous_enabled;
+      }
+      if (event.payload.connectivity_mode) {
+        connectivityMode = event.payload.connectivity_mode;
+      }
+      if (event.payload.connectivity_detail) {
+        connectivityDetail = event.payload.connectivity_detail;
+      }
     });
     invoke("get_settings").then((settings) => {
       internetEnabled = settings.internet_enabled ?? true;
+      rendezvousEnabled = settings.rendezvous_enabled ?? false;
+      connectivityMode = settings.connectivity_mode ?? "internet";
+      connectivityDetail = settings.connectivity_detail ?? "";
     }).catch(() => {});
     const onOpenMiniApp = (e) => {
       selectedMiniAppId = e.detail?.appId ?? "";
@@ -85,6 +113,7 @@
     window.addEventListener("mycelium-open-miniapp", onOpenMiniApp);
     return () => {
       unlisten();
+      unlistenSettings();
       window.removeEventListener("mycelium-open-miniapp", onOpenMiniApp);
     };
   });
@@ -113,7 +142,13 @@
       </div>
     </nav>
     <main>
-      <ConnectionStatus peerCount={peers} {connectivityMode} {internetEnabled} />
+      <ConnectionStatus
+        peerCount={peers}
+        {connectivityMode}
+        {internetEnabled}
+        {rendezvousEnabled}
+        {connectivityDetail}
+      />
       {#if activeView === "chat"}
         <Chat {peerId} />
       {:else if activeView === "groups"}

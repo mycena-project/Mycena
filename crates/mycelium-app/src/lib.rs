@@ -18,6 +18,10 @@ pub mod storage;
 mod contacts_tests;
 
 #[cfg(test)]
+#[path = "invite_transport_tests.rs"]
+mod invite_transport_tests;
+
+#[cfg(test)]
 mod tests {
     use crate::envelope::{AppId, AppMessage, AppPayload, BulletinPost, ChatMessage, MailMessage};
     use crate::storage::AppStorage;

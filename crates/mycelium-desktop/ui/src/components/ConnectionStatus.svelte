@@ -3,7 +3,13 @@
   // Copyright (C) 2026 Mycelium Project
   import { onMount } from "svelte";
 
-  let { peerCount = 0, connectivityMode = "internet", internetEnabled = true } = $props();
+  let {
+    peerCount = 0,
+    connectivityMode = "internet",
+    internetEnabled = true,
+    rendezvousEnabled = false,
+    connectivityDetail = "",
+  } = $props();
 
   let showConnected = $state(false);
   let showSearching = $state(false);
@@ -74,6 +80,9 @@
   <span class="mode-pill" class:mesh={meshOnly}>
     {modeLabel}
   </span>
+  {#if connectivityDetail}
+    <span class="mode-detail">{connectivityDetail}</span>
+  {/if}
 </div>
 
 {#if showSearching && peerCount === 0}
@@ -95,6 +104,9 @@
     padding: 6px 16px;
     border-bottom: 1px solid var(--border);
     background: var(--surface-elevated);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
   }
   .mode-pill {
     display: inline-block;
@@ -103,11 +115,17 @@
     border-radius: 999px;
     background: var(--accent-subtle);
     color: var(--text-secondary);
+    width: fit-content;
   }
   .mode-pill.mesh {
     background: var(--surface);
     color: var(--text);
     border: 1px solid var(--border);
+  }
+  .mode-detail {
+    font-size: 11px;
+    color: var(--text-muted);
+    line-height: 1.35;
   }
   .status-banner {
     padding: 8px 16px;

@@ -8,7 +8,7 @@ import network.mycelium.bindings.mycelium
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Attempts BLE GATT invite read → [InviteConnect] (libp2p dial + contact).
+ * Attempts BLE GATT invite read → transport dial (F1). Chat contacts still require QR / connectInvite.
  */
 object BleMeshHandoff {
 
@@ -45,11 +45,13 @@ object BleMeshHandoff {
                 return Result.SkippedDuplicate
             }
             val peerId = PeerInvite.peerIdFrom(invite)
-            if (peerId != null && mycelium.knownPeers().contains(peerId)) {
+            if (peerId != null && mycelium.connectedPeers().contains(peerId)) {
                 accountsHandedOff.add(accountId)
                 return Result.AlreadyConnected
             }
-            return InviteConnect.apply(invite).fold(
+            return runCatching {
+                mycelium.connectTransportInvite(invite.trim())
+            }.fold(
                 onSuccess = {
                     accountsHandedOff.add(accountId)
                     if (peerId != null) {

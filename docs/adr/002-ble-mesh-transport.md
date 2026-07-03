@@ -13,7 +13,7 @@ We will treat Bluetooth as **three layers**, rolled out in order. Chat/mail/bull
 | Phase | Name | What ships | Carries libp2p? |
 |-------|------|------------|-----------------|
 | **F0** | Maximum connectivity preset | Settings toggle: internet + rendezvous + BLE discovery **on** | No (existing paths only) |
-| **F1** | BLE → mesh handoff (Level 0 **B3**) | GATT exchange of signed invite v3; scanner calls `connect_invite` | Indirect (dials relay/LAN after BLE) |
+| **F1** | BLE → mesh handoff (Level 0 **B3**) | GATT exchange of signed invite v3; scanner calls `connect_transport_invite` (transport only) | Indirect (dials relay/LAN after BLE) |
 | **F2** | BLE data bridge (DTN side-channel) | GATT/L2CAP carries signed `Envelope` / gossip frames when no TCP path | Parallel to libp2p; node ingests same pipeline |
 | **F3** | libp2p-native BLE transport | Custom `Transport` in swarm (Noise + Yamux over BLE); multiaddr `/ble/...` | Yes |
 
@@ -42,7 +42,8 @@ We will treat Bluetooth as **three layers**, rolled out in order. Chat/mail/bull
 ├─────────────────────────────────────────────────────────────┤
 │  Host layer (Android / iOS / desktop)                        │
 │    F0: advertise + scan (today)                              │
-│    F1: GATT invite read → connect_invite()                   │
+│    F1: GATT invite read → connect_transport_invite()         │
+│       (QR / paste still uses connect_invite → chat contact)  │
 │    F2: GATT/L2CAP framed WireMessage / Envelope              │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -61,8 +62,9 @@ We will treat Bluetooth as **three layers**, rolled out in order. Chat/mail/bull
 
 **Scanner (central):**
 
-- On `FIRST_MATCH`, GATT connect → read invite → `mycelium.connectInvite(uri)`
-- Dedupe by account id; skip if already connected
+- On `FIRST_MATCH`, GATT connect → read invite → `mycelium.connectTransportInvite(uri)`
+- Dedupe by account id; skip if already connected (`connectedPeers()`)
+- **Does not add chat contacts** — use QR / `connectInvite` for social layer
 - Fallback: notification-only if GATT fails (current behavior)
 
 **Does not require Wi‑Fi.** Dial target is relay circuit from invite; if both devices later share LAN, mDNS upgrades the path.
@@ -101,7 +103,12 @@ Full Noise+Yamux inside the libp2p swarm over BLE remains optional future work i
 | **Maximum connectivity** | Enables internet, rendezvous, BLE discovery; does **not** disable privacy toggles without user consent |
 | **Use internet** | Master off → local mesh only (existing) |
 | **Relay discovery** | Requires internet |
-| **Bluetooth** | F0: discovery + notify; F1+: auto-handoff |
+| **Bluetooth** | F0: discovery + notify; F1+: auto-handoff (transport only) |
+| **QR / paste invite** | Adds chat contact + dials (`connect_invite`) |
+
+Android BLE requires runtime `BLUETOOTH_SCAN`, `BLUETOOTH_ADVERTISE`, and `BLUETOOTH_CONNECT` (API 31+). Settings prompts before enabling mesh.
+
+Peer counts in UI use **`connected_peers()`** (live transport), not cached `known_peers()`.
 
 Status strings:
 

@@ -7,7 +7,7 @@ This document tracks phased work from the current milestone toward the Level 0 v
 
 > When the internet fails, devices within reach automatically find each other and form a safe, fast mesh. Identities rotate to resist tracking. Emergency help works without prior QR pairing, with abuse controls.
 
-See also: [CONNECT.md](./CONNECT.md), [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md), [PRIVACY_ROADMAP.md](./PRIVACY_ROADMAP.md), [ARCHITECTURE_RISKS.md](./ARCHITECTURE_RISKS.md).
+See also: [CONNECT.md](./CONNECT.md), [CONNECTIVITY_MODES.md](./CONNECTIVITY_MODES.md), [DISASTER_MESH_ROADMAP.md](./DISASTER_MESH_ROADMAP.md), [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md), [PRIVACY_ROADMAP.md](./PRIVACY_ROADMAP.md), [ARCHITECTURE_RISKS.md](./ARCHITECTURE_RISKS.md).
 
 ---
 
@@ -52,7 +52,9 @@ See also: [CONNECT.md](./CONNECT.md), [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS
 | B1 | mDNS reliability (redundant dial, guest-network docs) | Done |
 | B2 | Persist learned X25519 keys to sled (survive restart) | Done |
 | B3 | BLE → mesh handoff + data bridge (stretch) | **Done (Android F1+F2)** — [ADR 002](./adr/002-ble-mesh-transport.md) |
-| B4 | Connectivity mode UX (mesh-only / internet assist) | Done |
+| B4 | Connectivity mode UX (mesh-only / internet assist) | Done — [CONNECTIVITY_MODES.md](./CONNECTIVITY_MODES.md) |
+| B5 | Desktop BLE host stub + disaster mesh Phase 1a | Done — [ADR 003](./adr/003-desktop-ble-and-disaster-mesh.md) |
+| B6 | Desktop BLE blew GATT (F1 parity) | Done — [ADR 003](./adr/003-desktop-ble-and-disaster-mesh.md) |
 
 **Exit criteria:** Two devices on same Wi‑Fi connect with no QR within 30s; chat works after app restart without re-scan.
 
@@ -108,7 +110,9 @@ See also: [CONNECT.md](./CONNECT.md), [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS
 | Requirement | Today | Target phase |
 |-------------|-------|--------------|
 | Auto-discovery without QR (LAN) | mDNS redial + persisted keys (Phase B) | B ✓ |
+| Auto-discovery without QR (BLE pocket) | Android F1–F3; desktop blew F1–F2 on macOS/Linux | B5 ✓ / B6 ✓ |
 | Auto-discovery without QR (remote) | QR or opt-in rendezvous with bucketed dial (≤3/tick) | D ✓ (partial) |
+| Disaster city-wide multi-hop | Not supported — see [DISASTER_MESH_ROADMAP.md](./DISASTER_MESH_ROADMAP.md) | Phase 3+ |
 | Daily ID rotation | Transport PeerId rotates; stable account id in contact book (spike) | C ✓ (spike) |
 | Safe mesh participation | E2E send; pending contacts; block list + reputation UI | A, C ✓ |
 | Fast connect/disconnect | Moderate; crowd mode caps in dense settings | B, D |

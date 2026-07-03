@@ -115,6 +115,24 @@ fun SettingsScreen(navController: NavController) {
     val settingsVm: SettingsViewModel = viewModel()
     val prefs = remember { context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE) }
 
+    var pendingBleAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+    val blePermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) { results ->
+        if (results.values.all { it }) {
+            pendingBleAction?.invoke()
+        }
+        pendingBleAction = null
+    }
+    val enableBleAfterPermissions: (onGranted: () -> Unit) -> Unit = { onGranted ->
+        if (BleBootstrapPermissions.hasAll(context)) {
+            onGranted()
+        } else {
+            pendingBleAction = onGranted
+            blePermissionLauncher.launch(BleBootstrapPermissions.required)
+        }
+    }
+
     var displayName by remember {
         mutableStateOf(
             prefs.getString("display_name", null)?.takeIf { it.isNotBlank() }
@@ -136,6 +154,12 @@ fun SettingsScreen(navController: NavController) {
     }
     var crowdModeEnabled by remember {
         mutableStateOf(prefs.getBoolean(KEY_CROWD_MODE, false))
+    }
+    var bleBootstrapEnabled by remember {
+        mutableStateOf(
+            prefs.getBoolean(SettingsViewModel.KEY_BLE_BOOTSTRAP, false)
+                || prefs.getBoolean(SettingsViewModel.KEY_MAX_CONNECTIVITY, false),
+        )
     }
 
     Scaffold(
@@ -200,13 +224,17 @@ fun SettingsScreen(navController: NavController) {
             MaxConnectivitySwitch(
                 checked = maxConnectivity,
                 onCheckedChange = { enabled ->
-                    maxConnectivity = enabled
-                    if (enabled) {
+                    if (!enabled) {
+                        maxConnectivity = false
+                        prefs.edit().putBoolean(KEY_MAX_CONNECTIVITY, false).apply()
+                        return@MaxConnectivitySwitch
+                    }
+                    enableBleAfterPermissions {
+                        maxConnectivity = true
                         internetEnabled = true
                         rendezvousEnabled = true
+                        bleBootstrapEnabled = true
                         settingsVm.applyMaxConnectivity(true)
-                    } else {
-                        prefs.edit().putBoolean(KEY_MAX_CONNECTIVITY, false).apply()
                     }
                 },
             )
@@ -261,6 +289,43 @@ fun SettingsScreen(navController: NavController) {
                         rendezvousEnabled = enabled
                         prefs.edit().putBoolean(KEY_RENDEZVOUS, enabled).apply()
                         mycelium.setRendezvousEnabled(enabled)
+                    },
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        stringResource(R.string.settings_ble_advertise),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(
+                        stringResource(R.string.settings_ble_advertise_sub),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = bleBootstrapEnabled,
+                    onCheckedChange = { enabled ->
+                        if (!enabled) {
+                            bleBootstrapEnabled = false
+                            settingsVm.setBleBootstrap(false)
+                            if (maxConnectivity) {
+                                maxConnectivity = false
+                                prefs.edit()
+                                    .putBoolean(SettingsViewModel.KEY_MAX_CONNECTIVITY, false)
+                                    .apply()
+                            }
+                            return@Switch
+                        }
+                        enableBleAfterPermissions {
+                            bleBootstrapEnabled = true
+                            settingsVm.setBleBootstrap(true)
+                        }
                     },
                 )
             }
@@ -713,21 +778,7 @@ fun EncryptedChannelsSection(vm: SettingsViewModel = viewModel()) {
 @Composable
 fun DistributionSettings(
     modifier: Modifier = Modifier,
-    vm: SettingsViewModel = viewModel(),
 ) {
-    val context = LocalContext.current
-    val bleEnabled by vm.bleBootstrapEnabled.collectAsState()
-    var pendingEnable by remember { mutableStateOf(false) }
-
-    val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions(),
-    ) { results ->
-        if (pendingEnable && results.values.all { it }) {
-            vm.setBleBootstrap(true)
-        }
-        pendingEnable = false
-    }
-
     Card(modifier = modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
@@ -740,40 +791,6 @@ fun DistributionSettings(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
             )
-            Spacer(Modifier.height(12.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        stringResource(R.string.settings_ble_advertise),
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                    Text(
-                        stringResource(R.string.settings_ble_advertise_sub),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                    )
-                }
-                Switch(
-                    checked = bleEnabled,
-                    onCheckedChange = { enabled ->
-                        if (!enabled) {
-                            vm.setBleBootstrap(false)
-                            return@Switch
-                        }
-                        if (BleBootstrapPermissions.hasAll(context)) {
-                            vm.setBleBootstrap(true)
-                        } else {
-                            pendingEnable = true
-                            permissionLauncher.launch(BleBootstrapPermissions.required)
-                        }
-                    },
-                )
-            }
         }
     }
 }

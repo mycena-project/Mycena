@@ -11,6 +11,7 @@ namespace mycelium {
   /// Seconds since the current relay keypair was created.
   u64 relay_keypair_age_secs();
   sequence<string> known_peers();
+  sequence<string> connected_peers();
   NodeMetrics metrics();
 
   [Throws=MyceliumException]
@@ -93,7 +94,10 @@ namespace mycelium {
   [Throws=MyceliumException]
   void connect_invite(string raw);
   [Throws=MyceliumException]
+  void connect_transport_invite(string raw);
+  [Throws=MyceliumException]
   void ingest_ble_frame(string from_peer, bytes frame);
+  string? peer_id_from_ble_frame(bytes frame);
   sequence<BleOutboundFrame> drain_ble_outbound(string? to_peer, u32 max);
   void register_ble_link(string peer_id, string device_id);
   [Throws=MyceliumException]

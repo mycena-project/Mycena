@@ -82,6 +82,26 @@ private fun jsonLong(json: String, key: String): Long? =
 
 @Composable
 private fun RelayStatusBadge() {
+    val context = LocalContext.current
+    val internetEnabled =
+        context.getSharedPreferences("settings", android.content.Context.MODE_PRIVATE)
+            .getBoolean("internet_enabled", true)
+
+    if (!internetEnabled) {
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            shape = MaterialTheme.shapes.small,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.peers_relay_internet_off),
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                style = MaterialTheme.typography.labelSmall,
+            )
+        }
+        return
+    }
+
     var relayStatus by remember { mutableStateOf<RelayStatus?>(null) }
 
     LaunchedEffect(Unit) {

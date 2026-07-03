@@ -257,4 +257,15 @@ mod tests {
         assert!(info.multiaddr.starts_with("/ble/aabbccddeeff/gatt/"));
         assert!(info.multiaddr.ends_with("/p2p/12D3KooWTest"));
     }
+
+    #[test]
+    fn remove_link_clears_connected_state() {
+        let mut reg = BleTransportRegistry::new();
+        reg.register_link("peerA".into(), "aabbccddeeff");
+        assert!(reg.is_connected("peerA"));
+        assert_eq!(reg.known_peers(), vec!["peerA"]);
+        reg.remove_link("peerA");
+        assert!(!reg.is_connected("peerA"));
+        assert!(reg.known_peers().is_empty());
+    }
 }

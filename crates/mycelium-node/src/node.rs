@@ -225,6 +225,9 @@ pub enum NodeCommand {
         reply: Option<tokio::sync::oneshot::Sender<StoreStats>>,
     },
     ListPeers,
+    ConnectedPeers {
+        reply: Option<tokio::sync::oneshot::Sender<Vec<String>>>,
+    },
     SetEnergyState(NodeState),
     SetRendezvousEnabled(bool),
     /// Voluntary opt-out of relay/internet dials (local mesh only).
@@ -333,8 +336,25 @@ impl NodeHandle {
             .collect()
     }
 
+    /// Peers with an active libp2p or BLE transport path (not just cached in peer cap).
+    pub async fn connected_peers(&self) -> Vec<String> {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        if self
+            .tx
+            .send(NodeCommand::ConnectedPeers { reply: Some(tx) })
+            .await
+            .is_err()
+        {
+            return Vec::new();
+        }
+        rx.await.unwrap_or_default()
+    }
+
     pub async fn is_peer_connected(&self, peer: &str) -> bool {
-        self.known_peers().await.iter().any(|p| p == peer)
+        if mycelium_core::bootstrap::is_relay_peer(peer) {
+            return false;
+        }
+        self.connected_peers().await.iter().any(|p| p == peer)
     }
 
     pub async fn listen_addrs(&self) -> Vec<String> {
@@ -953,7 +973,9 @@ impl NodeRunner {
                 if self.transport.is_peer_connected(&to_peer) {
                     self.transport.send_direct(to_peer, message).await?;
                 } else {
-                    self.queue_ble_wire(to_peer, message);
+                    anyhow::bail!(
+                        "peer_not_connected: no delivery path to {to_peer} (connect via Wi‑Fi, relay, or BLE first)"
+                    );
                 }
             }
             NodeCommand::IngestBleFrame { from_peer, frame } => {
@@ -1023,6 +1045,17 @@ impl NodeRunner {
                 info!("known peers: {}", peers.len());
                 for peer in peers {
                     info!("peer {}", peer);
+                }
+            }
+            NodeCommand::ConnectedPeers { reply } => {
+                let peers: Vec<String> = self
+                    .transport
+                    .known_peers()
+                    .into_iter()
+                    .filter(|p| self.transport.is_peer_connected(p))
+                    .collect();
+                if let Some(tx) = reply {
+                    let _ = tx.send(peers);
                 }
             }
             NodeCommand::AddBootstrapPeer { multiaddr } => {

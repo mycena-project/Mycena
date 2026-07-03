@@ -12,7 +12,7 @@ Three complementary ways to find **other devices** on the network (not the same 
 ## LAN (Phase C)
 
 - **mDNS** on the same Wi‑Fi (Android uses a Wi‑Fi multicast lock).
-- **BLE bootstrap** (optional, Settings): connectable GATT + signed invite v3; scanner auto-dials via `connect_invite` (F1). When libp2p has no path, **F2** carries signed `WireMessage` frames over GATT mesh-data characteristic.
+- **BLE bootstrap** (optional, Settings): connectable GATT + signed invite v3; scanner auto-dials via `connect_transport_invite` (F1 transport handoff — **no chat contact**). When libp2p has no path, **F2** carries signed `WireMessage` frames over GATT mesh-data characteristic.
 
 ## Internet relay
 
@@ -24,9 +24,9 @@ Three complementary ways to find **other devices** on the network (not the same 
 
 ## Manual linking
 
-- QR / invite: `mycelium://invite/v1#<PeerID>` (short; dialled via relay circuit).
-- Multiaddr paste on Peers tab.
-- Adding a peer from QR also creates an **accepted contact** when the payload is a peer ID.
+- QR / invite: `mycelium://invite/v1#<PeerID>` (short; dialled via relay circuit). Adds an **accepted contact** for chat.
+- Multiaddr paste on Peers tab (transport dial only).
+- BLE mesh handoff (F1): reads the same invite over GATT but only opens a **transport path** — does not add a chat contact.
 
 ## Privacy notes
 

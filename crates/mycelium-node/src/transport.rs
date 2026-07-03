@@ -150,12 +150,15 @@ pub struct Libp2pTransport {
     mdns_dials_in_window: u32,
     mdns_window_start: Option<Instant>,
     ble: BleTransportRegistry,
+    /// Throttle redials to stale LAN addrs (e.g. phone in flight mode).
+    last_lan_dial: HashMap<String, Instant>,
 }
 
 /// Delay circuit dials until the relay client has finished reservation setup.
 const RELAY_CIRCUIT_GRACE: Duration = Duration::from_millis(800);
 /// Minimum gap between circuit dial batches (avoids relay client oneshot races).
 const CIRCUIT_DIAL_COOLDOWN: Duration = Duration::from_secs(5);
+const LAN_DIAL_COOLDOWN: Duration = Duration::from_secs(45);
 
 impl Libp2pTransport {
     #[allow(clippy::too_many_arguments)]
@@ -244,6 +247,7 @@ impl Libp2pTransport {
             mdns_dials_in_window: 0,
             mdns_window_start: None,
             ble: BleTransportRegistry::new(),
+            last_lan_dial: HashMap::new(),
         };
         if transport.internet_dials_enabled() {
             transport.dial_all_bootstraps();
@@ -547,8 +551,19 @@ impl Libp2pTransport {
             if self.swarm.is_connected(&peer_id) {
                 continue;
             }
+            let key = addr.to_string();
+            if self
+                .last_lan_dial
+                .get(&key)
+                .is_some_and(|t| t.elapsed() < LAN_DIAL_COOLDOWN)
+            {
+                continue;
+            }
             match self.swarm.dial(addr.clone()) {
-                Ok(()) => tracing::debug!("LAN redial {addr}"),
+                Ok(()) => {
+                    self.last_lan_dial.insert(key, Instant::now());
+                    tracing::debug!("LAN redial {addr}");
+                }
                 Err(e) => tracing::debug!("LAN redial {addr}: {e}"),
             }
         }
@@ -672,7 +687,10 @@ impl MeshTransport for Libp2pTransport {
     }
 
     fn connected_peer_count(&self) -> usize {
-        self.known_peers().len()
+        self.known_peers()
+            .into_iter()
+            .filter(|p| self.is_peer_connected(p))
+            .count()
     }
 
     fn max_direct_peers(&self) -> usize {

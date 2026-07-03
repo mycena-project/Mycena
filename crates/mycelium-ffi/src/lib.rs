@@ -732,6 +732,14 @@ pub fn known_peers() -> Vec<String> {
     })
 }
 
+pub fn connected_peers() -> Vec<String> {
+    let state = state_arc();
+    runtime().block_on(async {
+        let guard = state.read().await;
+        guard.handle.connected_peers().await
+    })
+}
+
 pub fn metrics() -> NodeMetrics {
     let state = state_arc();
     runtime().block_on(async {
@@ -1464,6 +1472,21 @@ pub fn connect_invite(raw: String) -> Result<(), MyceliumException> {
     })
 }
 
+pub fn connect_transport_invite(raw: String) -> Result<(), MyceliumException> {
+    let state = state_arc();
+    runtime().block_on(async {
+        let state = state.read().await;
+        state
+            .app_node
+            .clone()
+            .register_transport_from_invite(&raw)
+            .await
+            .map_err(|e| MyceliumException::ChatError {
+                detail: e.to_string(),
+            })
+    })
+}
+
 pub fn ingest_ble_frame(from_peer: String, frame: Vec<u8>) -> Result<(), MyceliumException> {
     let state = state_arc();
     runtime().block_on(async {
@@ -1476,6 +1499,10 @@ pub fn ingest_ble_frame(from_peer: String, frame: Vec<u8>) -> Result<(), Myceliu
                 detail: e.to_string(),
             })
     })
+}
+
+pub fn peer_id_from_ble_frame(frame: Vec<u8>) -> Option<String> {
+    mycelium_core::ble_mesh::sender_peer_from_frame(&frame)
 }
 
 pub fn drain_ble_outbound(to_peer: Option<String>, max: u32) -> Vec<BleOutboundFrame> {

@@ -19,7 +19,6 @@ import kotlinx.coroutines.launch
 import network.mycelium.app.MeshService
 import network.mycelium.app.MeshUiState
 import network.mycelium.app.R
-import network.mycelium.app.bootstrap.RelayBootstrap
 import network.mycelium.app.util.shareCurrentLocation
 import network.mycelium.bindings.ChatMessage
 import network.mycelium.bindings.PeerReputationData
@@ -57,7 +56,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun refreshContacts(): Pair<List<ChatListEntry>, List<ChatListEntry>> =
         runCatching {
-            val online = mycelium.knownPeers().toSet() - RelayBootstrap.RELAY_PEER_ID
+            val online = mycelium.connectedPeers().toSet()
             val accepted =
                 mycelium.listAcceptedContacts().map { c ->
                     val last = mycelium.chatHistory(c.peerId, 1u).lastOrNull()

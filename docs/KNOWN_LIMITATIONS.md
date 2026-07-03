@@ -109,8 +109,8 @@ Treat as **preview only**:
 
 **If you are in disaster zone / internet outage:**
 
-- **Good fit (with caveats):** LAN mesh, bulletin, offline-first *after* peers joined.
-- **Caveats:** Still need initial peer discovery; relay not required on LAN; battery cost.
+- **Good fit (with caveats):** LAN mesh, bulletin, offline-first *after* peers joined; **Android BLE pocket mesh** (F1–F3) when Wi‑Fi/cell absent.
+- **Caveats:** Still need initial peer discovery; relay not required on LAN; battery cost; **Mac/laptop BLE not active yet** ([DISASTER_MESH_ROADMAP.md](./DISASTER_MESH_ROADMAP.md)); city-wide hundreds of hops **not supported**.
 
 ---
 
@@ -164,3 +164,5 @@ These gaps were reviewed and left out of scope because mini-apps or settings alr
 - [SECURITY_DEBT_REGISTER.md](./SECURITY_DEBT_REGISTER.md)
 - [BETA_SECURITY_ASSESSMENT.md](./BETA_SECURITY_ASSESSMENT.md)
 - [security-for-users.md](./security-for-users.md)
+- [CONNECTIVITY_MODES.md](./CONNECTIVITY_MODES.md)
+- [DISASTER_MESH_ROADMAP.md](./DISASTER_MESH_ROADMAP.md)

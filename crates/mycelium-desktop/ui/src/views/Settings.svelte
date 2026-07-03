@@ -3,6 +3,7 @@
   // Copyright (C) 2026 Mycelium Project
   import { invoke } from '@tauri-apps/api/core';
   import { getVersion } from '@tauri-apps/api/app';
+  import { listen } from '@tauri-apps/api/event';
   import { onMount } from 'svelte';
 
   let { peerId } = $props();
@@ -13,7 +14,9 @@
   let rendezvousEnabled = $state(false);
   let internetEnabled = $state(true);
   let maxConnectivity = $state(false);
+  let bleBootstrap = $state(false);
   let connectivityMode = $state("internet");
+  let connectivityDetail = $state("");
   let accountId = $state("");
   let transportEpoch = $state(0);
   let crowdMode = $state(false);
@@ -22,6 +25,7 @@
   let saved = $state(false);
   let appVersion = $state('');
   let dangerError = $state('');
+  let networkError = $state('');
 
   const energyOptions = ['Active', 'Intermittent', 'Passive'];
 
@@ -32,7 +36,9 @@
     rendezvousEnabled = settings.rendezvous_enabled ?? true;
     internetEnabled = settings.internet_enabled ?? true;
     maxConnectivity = settings.max_connectivity ?? false;
+    bleBootstrap = settings.ble_bootstrap ?? false;
     connectivityMode = settings.connectivity_mode ?? "internet";
+    connectivityDetail = settings.connectivity_detail ?? "";
     accountId = settings.account_id ?? "";
     transportEpoch = settings.transport_epoch ?? 0;
     crowdMode = settings.crowd_mode ?? false;
@@ -41,13 +47,66 @@
     bootstrapPeers = custom.join('\n');
   }
 
+  /** Network toggles apply immediately (same as Android). */
+  async function applyInternet(enabled) {
+    networkError = '';
+    try {
+      await invoke('set_internet_enabled', { enabled });
+      if (!enabled) rendezvousEnabled = false;
+    } catch (e) {
+      networkError = e instanceof Error ? e.message : String(e);
+      internetEnabled = !enabled;
+    }
+  }
+
+  async function applyRendezvous(enabled) {
+    networkError = '';
+    try {
+      await invoke('set_rendezvous_enabled', { enabled });
+    } catch (e) {
+      networkError = e instanceof Error ? e.message : String(e);
+      rendezvousEnabled = !enabled;
+    }
+  }
+
+  async function applyCrowdMode(enabled) {
+    networkError = '';
+    try {
+      await invoke('set_crowd_mode', { enabled });
+    } catch (e) {
+      networkError = e instanceof Error ? e.message : String(e);
+      crowdMode = !enabled;
+    }
+  }
+
+  async function applyMaxConnectivity(enabled) {
+    networkError = '';
+    try {
+      await invoke('set_max_connectivity', { enabled });
+      if (enabled) {
+        internetEnabled = true;
+        rendezvousEnabled = true;
+        maxConnectivity = true;
+      }
+    } catch (e) {
+      networkError = e instanceof Error ? e.message : String(e);
+    }
+  }
+
+  async function applyBleBootstrap(enabled) {
+    networkError = '';
+    try {
+      await invoke('set_ble_bootstrap', { enabled });
+      bleBootstrap = enabled;
+    } catch (e) {
+      networkError = e instanceof Error ? e.message : String(e);
+      bleBootstrap = !enabled;
+    }
+  }
+
   async function save() {
     await invoke('set_display_name', { name: displayName });
     await invoke('set_energy_state', { energyState });
-    await invoke('set_internet_enabled', { enabled: internetEnabled });
-    await invoke('set_max_connectivity', { enabled: maxConnectivity });
-    await invoke('set_rendezvous_enabled', { enabled: rendezvousEnabled });
-    await invoke('set_crowd_mode', { enabled: crowdMode });
     await invoke('set_custom_bootstrap_peers', {
       peers: bootstrapPeers
         .split('\n')
@@ -92,6 +151,17 @@
   onMount(() => {
     load();
     getVersion().then((v) => (appVersion = v));
+    let unlistenSettings = () => {};
+    (async () => {
+      unlistenSettings = await listen('settings-updated', (event) => {
+        const p = event.payload ?? {};
+        if (p.internet_enabled !== undefined) internetEnabled = p.internet_enabled;
+        if (p.rendezvous_enabled !== undefined) rendezvousEnabled = p.rendezvous_enabled;
+        if (p.connectivity_mode) connectivityMode = p.connectivity_mode;
+        if (p.connectivity_detail) connectivityDetail = p.connectivity_detail;
+      });
+    })();
+    return () => unlistenSettings();
   });
 </script>
 
@@ -117,47 +187,48 @@
 
   <section>
     <h4>Network</h4>
+    <p class="connectivity-note">
+      <strong>{connectivityMode === "mesh_only" ? "Local mesh" : "Internet + mesh"}</strong>
+      {#if connectivityDetail}
+        — {connectivityDetail}
+      {/if}
+    </p>
+    {#if networkError}
+      <p class="network-error" role="alert">{networkError}</p>
+    {/if}
     <label class="checkbox-row">
       <input
         type="checkbox"
         bind:checked={maxConnectivity}
-        onchange={async () => {
-          if (maxConnectivity) {
-            internetEnabled = true;
-            rendezvousEnabled = true;
-            await invoke('set_max_connectivity', { enabled: true });
-          } else {
-            await invoke('set_max_connectivity', { enabled: false });
-          }
-        }}
+        onchange={() => applyMaxConnectivity(maxConnectivity)}
       />
       Maximum connectivity
     </label>
     <small class="hint">
-      Enables internet and relay discovery together. On Android, also turns on Bluetooth mesh handoff (F1).
-      Message payload over BLE alone is F2 (planned).
+      Enables internet and relay discovery. On Android, also turns on Bluetooth mesh (F1–F3).
+      On macOS, also turns on Bluetooth mesh when BLE toggle is enabled (Phase 1b).
     </small>
-    <p class="connectivity-note">
-      Mode: <strong>{connectivityMode === "mesh_only" ? "Local mesh" : "Internet + mesh"}</strong>
-      {#if !internetEnabled && connectivityMode === "mesh_only"}
-        — internet disabled in settings.
-      {:else}
-        — switches automatically when the public relay is unreachable.
-      {/if}
-    </p>
     <label class="checkbox-row">
       <input
         type="checkbox"
         bind:checked={internetEnabled}
-        onchange={() => {
-          if (!internetEnabled) rendezvousEnabled = false;
-        }}
+        onchange={() => applyInternet(internetEnabled)}
       />
       Use internet (relay + remote peers)
     </label>
     <small class="hint">
-      Turn off for local mesh only — Wi‑Fi / LAN peers still work. Useful for testing
-      offline behavior or everyday use without relying on the public relay.
+      Applies immediately. Turn off for local mesh only — same-Wi‑Fi peers still work.
+    </small>
+    <label class="checkbox-row">
+      <input
+        type="checkbox"
+        bind:checked={bleBootstrap}
+        onchange={() => applyBleBootstrap(bleBootstrap)}
+      />
+      Bluetooth mesh (macOS preview)
+    </label>
+    <small class="hint">
+      Saves preference and starts desktop BLE host (scan + advertise). Pair with Android for pocket mesh.
     </small>
     <label>
       Energy mode
@@ -174,23 +245,30 @@
         placeholder="/dns4/mycelium-relay.fly.dev/tcp/4001/p2p/12D3KooW..."
         rows="3"
       ></textarea>
-      <small>One per line. Leave empty to use default relay.</small>
+      <small>One per line. Saved with “Save settings”. Leave empty for default relay.</small>
     </label>
     <label class="checkbox-row">
-      <input type="checkbox" bind:checked={crowdMode} />
+      <input
+        type="checkbox"
+        bind:checked={crowdMode}
+        onchange={() => applyCrowdMode(crowdMode)}
+      />
       Crowd mode (festivals / dense events)
     </label>
     <small class="hint">
-      Caps mDNS dials, uses dense gossip tuning, and prioritizes bulletin scopes.
-      Full transport limits apply on next app start; Kademlia lookup policy updates when saved.
+      Applies immediately for Kademlia policy; full transport caps on next restart.
     </small>
     <label class="checkbox-row">
-      <input type="checkbox" bind:checked={rendezvousEnabled} disabled={!internetEnabled} />
+      <input
+        type="checkbox"
+        bind:checked={rendezvousEnabled}
+        disabled={!internetEnabled}
+        onchange={() => applyRendezvous(rendezvousEnabled)}
+      />
       Relay discovery (opt-in)
     </label>
     <small class="hint">
-      When enabled, your device appears on the public relay rendezvous list and
-      auto-dials other opted-in peers. Chat still requires accepted contacts.
+      Applies immediately. Lists you on the public rendezvous while online; auto-dials other opted-in peers.
     </small>
   </section>
 
@@ -209,8 +287,9 @@
   </section>
 
   <button type="button" onclick={save} class="primary">
-    {saved ? '✓ Saved' : 'Save settings'}
+    {saved ? '✓ Saved' : 'Save identity & advanced'}
   </button>
+  <small class="hint">Display name, energy mode, and bootstrap peers require save.</small>
 
   {#if appVersion}
     <p class="version">Version {appVersion}</p>
@@ -265,6 +344,7 @@
   label, .field-label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
   .field-label { margin: 0; }
   .hint, .connectivity-note { font-size: 12px; color: var(--text-muted); margin: 0; }
+  .network-error { font-size: 12px; color: #dc2626; margin: 0; }
   input, select, textarea {
     padding: 7px 10px;
     border-radius: 6px;

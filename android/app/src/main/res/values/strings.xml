@@ -192,6 +192,7 @@
     <string name="peers_offline_title">No peers connected</string>
     <string name="peers_queue">Queue</string>
     <string name="peers_relay_offline">Relay: offline</string>
+    <string name="peers_relay_internet_off">Internet off — relay not used (local mesh / BLE only)</string>
     <string name="peers_relay_online">Relay online · %1$d reachable</string>
     <string name="peers_scan">Scan QR</string>
     <string name="peers_scan_qr_prompt">Scan peer QR</string>
@@ -289,7 +290,7 @@
     <string name="settings_title">Settings</string>
     <string name="settings_saved">✓ Saved</string>
     <string name="settings_share_app">Share this app…</string>
-    <string name="settings_spread_description">When enabled, your device broadcasts a Bluetooth signal that lets nearby devices discover and install Mycelium. No personal data is shared.</string>
+    <string name="settings_spread_description">Enable Bluetooth mesh in the Network section above so nearby devices can discover each other for transport relay and bulletin forwarding. Chat contacts still require scanning a QR code.</string>
     <string name="settings_spread_title">Help spread Mycelium</string>
     <string name="settings_store_size">Stored messages</string>
     <string name="nav_wallet">Wallet</string>

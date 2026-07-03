@@ -22,7 +22,7 @@ object BleMeshRelay {
                 (context.getSystemService(Context.BLUETOOTH_SERVICE) as android.bluetooth.BluetoothManager)
                     .adapter
                     ?: return@withContext
-            val connected = mycelium.knownPeers().toSet()
+            val connected = mycelium.connectedPeers().toSet()
             flushF3Stream(context, adapter, connected)
             flushF2Frames(context, adapter, connected)
         }

@@ -1140,6 +1140,7 @@ impl AppNode {
         match target {
             mycelium_core::invite::InviteTarget::Peer(info) => {
                 let target_peer = info.peer_id.clone();
+                self.register_transport_for_peer(&info).await?;
                 let label = info.peer_id.chars().take(16).collect::<String>();
                 let contact = self.storage.upsert_contact_with_account(
                     &info.peer_id,
@@ -1149,14 +1150,6 @@ impl AppNode {
                 )?;
                 self.notifier
                     .on_contact_added(&info.peer_id, &contact.display_name);
-                if let Some(enc) = &info.enc_pubkey_hex {
-                    self.handle.seed_peer_enc_key(&info.peer_id, enc).await?;
-                }
-                for addr in info.dial_multiaddrs() {
-                    self.handle
-                        .send(NodeCommand::AddBootstrapPeer { multiaddr: addr })
-                        .await?;
-                }
                 self.schedule_contact_hello(target_peer);
             }
             mycelium_core::invite::InviteTarget::Multiaddr(addr) => {
@@ -1164,6 +1157,38 @@ impl AppNode {
                     .send(NodeCommand::AddBootstrapPeer { multiaddr: addr })
                     .await?;
             }
+        }
+        Ok(())
+    }
+
+    /// BLE mesh handoff (F1): dial and seed keys only — no chat contact, no ContactHello.
+    pub async fn register_transport_from_invite(self: Arc<Self>, raw: &str) -> anyhow::Result<()> {
+        let target = mycelium_core::invite::parse_invite(raw.trim())
+            .ok_or_else(|| anyhow::anyhow!("invalid invite"))?;
+        match target {
+            mycelium_core::invite::InviteTarget::Peer(info) => {
+                self.register_transport_for_peer(&info).await?;
+            }
+            mycelium_core::invite::InviteTarget::Multiaddr(addr) => {
+                self.handle
+                    .send(NodeCommand::AddBootstrapPeer { multiaddr: addr })
+                    .await?;
+            }
+        }
+        Ok(())
+    }
+
+    async fn register_transport_for_peer(
+        &self,
+        info: &mycelium_core::invite::PeerInviteInfo,
+    ) -> anyhow::Result<()> {
+        if let Some(enc) = &info.enc_pubkey_hex {
+            self.handle.seed_peer_enc_key(&info.peer_id, enc).await?;
+        }
+        for addr in info.dial_multiaddrs() {
+            self.handle
+                .send(NodeCommand::AddBootstrapPeer { multiaddr: addr })
+                .await?;
         }
         Ok(())
     }

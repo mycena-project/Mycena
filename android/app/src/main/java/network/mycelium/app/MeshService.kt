@@ -183,7 +183,19 @@ class MeshService : Service() {
         }
         stopBleBootstrap()
 
-        if (!enabled || !BleBootstrapPermissions.hasAll(this)) {
+        if (!enabled) {
+            android.util.Log.i("MeshService", "BLE bootstrap disabled in settings")
+            return
+        }
+        if (!BleBootstrapPermissions.hasAll(this)) {
+            val missing = BleBootstrapPermissions.required.filter {
+                checkSelfPermission(it) != android.content.pm.PackageManager.PERMISSION_GRANTED
+            }
+            android.util.Log.w(
+                "MeshService",
+                "BLE bootstrap skipped — missing permissions: ${missing.joinToString()} " +
+                    "(enable Bluetooth mesh in app Settings to grant)",
+            )
             return
         }
 
@@ -194,6 +206,7 @@ class MeshService : Service() {
 
         bleAdvertiser?.startAdvertising()
         bleScanner?.startScanning()
+        android.util.Log.i("MeshService", "BLE bootstrap started — watch logcat tag BleBootstrap for advertising result")
 
         bleCollectJob = serviceScope.launch {
             launch {
@@ -244,7 +257,7 @@ class MeshService : Service() {
             NotificationCompat.Builder(this, DISCOVERY_CHANNEL_ID)
                 .setContentTitle(getString(R.string.ble_handoff_connected_title))
                 .setContentText(getString(R.string.ble_handoff_connected_body))
-                .setSmallIcon(android.R.drawable.stat_sys_download)
+                .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
                 .setAutoCancel(true)
                 .build()
         getSystemService(NotificationManager::class.java)
@@ -293,7 +306,7 @@ class MeshService : Service() {
         val notification = NotificationCompat.Builder(this, DISCOVERY_CHANNEL_ID)
             .setContentTitle(getString(R.string.discovery_notification_title, strength))
             .setContentText(getString(R.string.discovery_notification_body, shortPrefix))
-            .setSmallIcon(android.R.drawable.stat_sys_download)
+            .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
             .build()
@@ -311,7 +324,7 @@ class MeshService : Service() {
         return NotificationCompat.Builder(this, "mycelium_bg")
             .setContentTitle(getString(R.string.notification_running))
             .setContentText(getString(R.string.app_tagline))
-            .setSmallIcon(android.R.drawable.stat_notify_sync)
+            .setSmallIcon(android.R.drawable.ic_menu_info_details)
             .setOngoing(true)
             .build()
     }

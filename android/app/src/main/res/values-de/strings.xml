@@ -158,6 +158,7 @@
     <string name="peers_offline_title">Keine Peers verbunden</string>
     <string name="peers_queue">Warteschlange</string>
     <string name="peers_relay_offline">Relay: offline</string>
+    <string name="peers_relay_internet_off">Internet aus — kein Relay (nur lokales Mesh / BLE)</string>
     <string name="peers_relay_online">Relay online · %1$d erreichbar</string>
     <string name="peers_scan">QR scannen</string>
     <string name="peers_scan_qr_prompt">Peer-QR scannen</string>
