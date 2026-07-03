@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Mycelium Project
+use crate::error::decode_peer_ble_wire_frame;
 use crate::forwarding::{
     EnergyPolicy, ForwardDecision, ForwardingPolicy, IngestPipeline, ProbabilisticForwardingPolicy,
     SeenCache, SimpleEnergyPolicy,
 };
-use crate::error::decode_peer_ble_wire_frame;
 use crate::ingest_guard::{IngestGuard, IngestReject};
 use crate::security::{self, Sd030DropReason};
 use crate::storage::SledMessageStore;
@@ -30,6 +30,7 @@ use tracing::{debug, info, warn};
 
 type BleWireOutboundReply = tokio::sync::oneshot::Sender<Vec<(String, Vec<u8>)>>;
 type BleStreamOutboundReply = tokio::sync::oneshot::Sender<Vec<Vec<u8>>>;
+type E2eEncryptReply = tokio::sync::oneshot::Sender<anyhow::Result<(Vec<u8>, u8)>>;
 
 /// Scopes subscribed on the libp2p gossip layer at node startup.
 pub const SYSTEM_SCOPES: &[&str] = &[
@@ -251,6 +252,12 @@ pub enum NodeCommand {
         to_peer: String,
         message: WireMessage,
     },
+    /// Encrypt a wrapped E2E direct payload (ratchet when possible, else legacy v0).
+    EncryptE2ePayload {
+        to_peer: String,
+        wrapped: Vec<u8>,
+        reply: Option<E2eEncryptReply>,
+    },
     /// Register BLE libp2p overlay link (F3).
     RegisterBleLink {
         peer_id: String,
@@ -460,6 +467,22 @@ impl NodeHandle {
         self.peer_x25519.read().await.contains_key(peer)
     }
 
+    pub async fn encrypt_e2e_payload(
+        &self,
+        to_peer: &str,
+        wrapped: Vec<u8>,
+    ) -> anyhow::Result<(Vec<u8>, u8)> {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        self.tx
+            .send(NodeCommand::EncryptE2ePayload {
+                to_peer: to_peer.to_string(),
+                wrapped,
+                reply: Some(tx),
+            })
+            .await?;
+        rx.await?
+    }
+
     pub async fn seed_peer_enc_key(&self, peer: &str, enc_pubkey_hex: &str) -> anyhow::Result<()> {
         self.send(NodeCommand::SeedPeerEncKey {
             peer_id: peer.to_string(),
@@ -534,6 +557,27 @@ pub struct NodeRunner {
     rendezvous_dial_bucket: u32,
     ble_outbound: VecDeque<(String, Vec<u8>)>,
     ble_outbound_cap: usize,
+    ratchet_store: Arc<crate::ratchet_store::RatchetSessionStore>,
+    local_prekeys: Arc<Mutex<mycelium_core::crypto::ratchet::LocalPrekeyStore>>,
+}
+
+async fn resolve_logical_sender(
+    peer_x25519: &Arc<RwLock<HashMap<String, [u8; 32]>>>,
+    sender_enc_pubkey: &str,
+    from_peer: &str,
+) -> String {
+    if let Ok(pk) = crypto::parse_x25519_public_hex(sender_enc_pubkey) {
+        let target = pk.as_bytes();
+        let map = peer_x25519.read().await;
+        if let Some(id) = map
+            .iter()
+            .find(|(_, v)| v.as_slice() == target)
+            .map(|(k, _)| k.clone())
+        {
+            return id;
+        }
+    }
+    from_peer.to_string()
 }
 
 async fn persist_peer_enc_key(
@@ -619,6 +663,19 @@ impl NodeRunner {
             info!("loaded {} persisted peer enc key(s)", initial_enc.len());
         }
         let peer_x25519 = Arc::new(RwLock::new(initial_enc));
+        let ratchet_store = Arc::new(crate::ratchet_store::RatchetSessionStore::open(
+            &config.db_path,
+        )?);
+        let local_prekeys = match ratchet_store.load_local_prekeys()? {
+            Some(pk) => pk,
+            None => {
+                let pk =
+                    mycelium_core::crypto::ratchet::LocalPrekeyStore::generate(&enc_keypair, 32);
+                ratchet_store.save_local_prekeys(&pk)?;
+                pk
+            }
+        };
+        let local_prekeys = Arc::new(Mutex::new(local_prekeys));
         let listen_addrs = Arc::new(RwLock::new(Vec::new()));
         let display_name = config.display_name.clone();
         let store = Arc::new(SledMessageStore::open(&config.db_path)?);
@@ -683,6 +740,8 @@ impl NodeRunner {
                 rendezvous_dial_bucket: 0,
                 ble_outbound: VecDeque::new(),
                 ble_outbound_cap: 128,
+                ratchet_store: ratchet_store.clone(),
+                local_prekeys: local_prekeys.clone(),
             },
             NodeHandle {
                 tx,
@@ -980,6 +1039,17 @@ impl NodeRunner {
                     anyhow::bail!(
                         "peer_not_connected: no delivery path to {to_peer} (connect via Wi‑Fi, relay, or BLE first)"
                     );
+                }
+            }
+            NodeCommand::EncryptE2ePayload {
+                to_peer,
+                wrapped,
+                reply,
+            } => {
+                let legacy_pk = self.peer_x25519.read().await.get(&to_peer).copied();
+                let result = self.encrypt_e2e_for_peer_sync(&to_peer, &wrapped, legacy_pk);
+                if let Some(tx) = reply {
+                    let _ = tx.send(result);
                 }
             }
             NodeCommand::IngestBleFrame { from_peer, frame } => {
@@ -1869,6 +1939,12 @@ impl NodeRunner {
             WireMessage::PeerInfo {
                 enc_pubkey_hex,
                 supported_scopes,
+                ratchet_registration_id,
+                ratchet_signed_prekey_id,
+                ratchet_signed_prekey_hex,
+                ratchet_signed_prekey_sig_hex,
+                ratchet_one_time_prekey_id,
+                ratchet_one_time_prekey_hex,
                 ..
             } => {
                 let existing = self.peer_x25519.read().await.get(&from_peer).copied();
@@ -1887,6 +1963,44 @@ impl NodeRunner {
                             "rejecting PeerInfo enc key for {from_peer}: {e} (invite/TOFU conflict)"
                         );
                         return Ok(());
+                    }
+                }
+                if let (Some(reg_id), Some(spk_id), Some(spk_hex), Some(sig_hex)) = (
+                    ratchet_registration_id,
+                    ratchet_signed_prekey_id,
+                    ratchet_signed_prekey_hex.as_deref(),
+                    ratchet_signed_prekey_sig_hex.as_deref(),
+                ) {
+                    if let Ok(identity_key) =
+                        crypto::parse_x25519_public_hex(&enc_pubkey_hex).map(|pk| *pk.as_bytes())
+                    {
+                        match mycelium_core::crypto::ratchet::prekey_bundle_from_peer_info(
+                            reg_id,
+                            identity_key,
+                            spk_id,
+                            spk_hex,
+                            sig_hex,
+                            ratchet_one_time_prekey_id,
+                            ratchet_one_time_prekey_hex.as_deref(),
+                        ) {
+                            Ok(bundle)
+                                if mycelium_core::crypto::ratchet::verify_prekey_bundle(
+                                    &bundle,
+                                ) =>
+                            {
+                                if let Err(e) =
+                                    self.ratchet_store.save_peer_bundle(&from_peer, &bundle)
+                                {
+                                    warn!("failed to persist ratchet bundle for {from_peer}: {e}");
+                                }
+                            }
+                            Ok(_) => {
+                                warn!("rejecting invalid ratchet prekey sig from {from_peer}");
+                            }
+                            Err(e) => {
+                                warn!("invalid ratchet bundle from {from_peer}: {e}");
+                            }
+                        }
                     }
                 }
                 let validated: HashSet<String> = supported_scopes
@@ -1909,9 +2023,18 @@ impl NodeRunner {
                 mesh_signature,
                 hop_count,
                 max_hops,
+                e2e_version,
             } => {
                 if to_peer == self.local_peer_id {
-                    let plain = crypto::decrypt_with(&encrypted_payload, &self.enc_keypair)?;
+                    let logical =
+                        resolve_logical_sender(&self.peer_x25519, &sender_enc_pubkey, &from_peer)
+                            .await;
+                    let plain = self.decrypt_e2e_sync(
+                        &logical,
+                        &from_peer,
+                        &encrypted_payload,
+                        e2e_version,
+                    )?;
                     let (logical_from, app_payload) =
                         mycelium_core::e2e_direct_wrap::unwrap_inner(&plain, &from_peer);
                     match crypto::parse_x25519_public_hex(&sender_enc_pubkey) {
@@ -1931,10 +2054,15 @@ impl NodeRunner {
                             );
                         }
                     }
-                    let envelope = mycelium_core::data::Envelope::new(
+                    let delivered_e2e = mycelium_core::crypto::ratchet::wire_e2e_version(
+                        &encrypted_payload,
+                        e2e_version,
+                    );
+                    let envelope = mycelium_core::data::Envelope::new_with_e2e_version(
                         logical_from,
                         Some(self.local_peer_id.clone()),
                         app_payload,
+                        delivered_e2e,
                     );
                     let dm = DirectMessage {
                         envelope,
@@ -1956,6 +2084,7 @@ impl NodeRunner {
                         mesh_signature,
                         hop_count: hop_count.saturating_add(1),
                         max_hops,
+                        e2e_version,
                     };
                     let relay_kp = self.relay_identity.signing_keypair();
                     let _ =
@@ -2081,14 +2210,99 @@ impl NodeRunner {
             .iter()
             .cloned()
             .collect();
+        let bundle = self
+            .local_prekeys
+            .lock()
+            .expect("local prekeys lock") // INVARIANT: mutex not poisoned
+            .public_bundle(&self.enc_keypair);
         let info = WireMessage::PeerInfo {
             enc_pubkey_hex: self.enc_keypair.public_hex(),
             display_name: self.display_name.clone(),
             supported_scopes,
             account_id: Some(self.account_id.clone()),
             transport_epoch: self.transport_epoch,
+            ratchet_registration_id: Some(bundle.registration_id),
+            ratchet_signed_prekey_id: Some(bundle.signed_prekey_id),
+            ratchet_signed_prekey_hex: Some(hex::encode(bundle.signed_prekey)),
+            ratchet_signed_prekey_sig_hex: Some(hex::encode(bundle.signed_prekey_sig)),
+            ratchet_one_time_prekey_id: bundle.one_time_prekey_id,
+            ratchet_one_time_prekey_hex: bundle.one_time_prekey.map(hex::encode),
         };
         self.transport.send_direct(peer_id, info).await
+    }
+
+    fn encrypt_e2e_for_peer_sync(
+        &mut self,
+        to_peer: &str,
+        plaintext: &[u8],
+        legacy_pk: Option<[u8; 32]>,
+    ) -> anyhow::Result<(Vec<u8>, u8)> {
+        use mycelium_core::crypto::ratchet::{
+            self, RatchetSession, E2E_VERSION_LEGACY, E2E_VERSION_RATCHET,
+        };
+
+        if let Some(mut session) = self.ratchet_store.load_session(to_peer)? {
+            let wire = ratchet::ratchet_encrypt(&mut session, plaintext)?;
+            self.ratchet_store.save_session(&session)?;
+            return Ok((wire, E2E_VERSION_RATCHET));
+        }
+        if let Some(bundle) = self.ratchet_store.load_peer_bundle(to_peer)? {
+            if ratchet::verify_prekey_bundle(&bundle) {
+                let (session, wire) = RatchetSession::init_outbound(
+                    to_peer.to_string(),
+                    &self.enc_keypair,
+                    &bundle,
+                    plaintext,
+                )?;
+                self.ratchet_store.save_session(&session)?;
+                return Ok((wire, E2E_VERSION_RATCHET));
+            }
+        }
+        let pk_bytes = legacy_pk.ok_or_else(|| anyhow::anyhow!("no enc key for peer {to_peer}"))?;
+        let wire = crypto::encrypt_for(plaintext, &crypto::public_key_from_bytes(pk_bytes))?;
+        Ok((wire, E2E_VERSION_LEGACY))
+    }
+
+    fn decrypt_e2e_sync(
+        &mut self,
+        logical: &str,
+        from_peer: &str,
+        payload: &[u8],
+        e2e_version: u8,
+    ) -> anyhow::Result<Vec<u8>> {
+        use mycelium_core::crypto::ratchet::{self, RatchetSession, E2E_VERSION_RATCHET};
+
+        let use_ratchet = e2e_version == E2E_VERSION_RATCHET || ratchet::is_ratchet_wire(payload);
+        if !use_ratchet {
+            return crypto::decrypt_with(payload, &self.enc_keypair);
+        }
+        if ratchet::is_ratchet_init_frame(payload) {
+            let mut prekeys = self.local_prekeys.lock().expect("local prekeys lock"); // INVARIANT: mutex not poisoned
+            let (session, plain) = RatchetSession::init_inbound(
+                logical.to_string(),
+                &self.enc_keypair,
+                &mut prekeys,
+                payload,
+            )?;
+            drop(prekeys);
+            self.ratchet_store
+                .save_local_prekeys(&self.local_prekeys.lock().expect("local prekeys lock"))?;
+            let (author, _) = mycelium_core::e2e_direct_wrap::unwrap_inner(&plain, from_peer);
+            let session = if author != logical {
+                session.with_peer_id(author)
+            } else {
+                session
+            };
+            self.ratchet_store.save_session(&session)?;
+            return Ok(plain);
+        }
+        let mut session = self
+            .ratchet_store
+            .load_session(logical)?
+            .ok_or_else(|| anyhow::anyhow!("no ratchet session for {logical}"))?;
+        let plain = ratchet::ratchet_decrypt(&mut session, payload)?;
+        self.ratchet_store.save_session(&session)?;
+        Ok(plain)
     }
 
     async fn forward_wire_to_others(

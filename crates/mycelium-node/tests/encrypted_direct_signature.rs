@@ -16,6 +16,7 @@ fn unsigned_encrypted_direct_fails_verify() {
         mesh_signature: None,
         hop_count: 0,
         max_hops: 8,
+        e2e_version: 0,
     };
     let kp = identity::Keypair::generate_ed25519();
     let peer_id = kp.public().to_peer_id();
@@ -38,6 +39,7 @@ fn signed_encrypted_direct_roundtrip() {
         mesh_signature: None,
         hop_count: 0,
         max_hops: 8,
+        e2e_version: 0,
     };
     sign_encrypted_direct(&mut wire, &sender_kp).unwrap();
     assert!(verify_encrypted_direct(&wire, &sender_id));

@@ -58,7 +58,7 @@
 | # | Item | Debt | Horizon |
 |---|------|------|---------|
 | 1 | Metadata resistance (padding, cover traffic) | SD-070 | 6–12 mo |
-| 2 | Double Ratchet 1:1 | SD-100 | 12 mo |
+| 2 | ~~Double Ratchet 1:1~~ | SD-100 | **Done (2026-07)** — [ADR 004](./adr/004-double-ratchet-e2e.md) |
 | 3 | MLS / sender keys groups | SD-101, SD-242 | 12–18 mo |
 | 4 | Pluggable transport (Tor/Nym) | SD-180 | 18 mo |
 | 5 | WASM sandbox executor | H22 | 12+ mo |

@@ -66,10 +66,12 @@ impl DirectPeerCap {
         }
     }
 
+    #[allow(dead_code)]
     pub fn len(&self) -> usize {
         self.peers.len()
     }
 
+    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.peers.is_empty()
     }

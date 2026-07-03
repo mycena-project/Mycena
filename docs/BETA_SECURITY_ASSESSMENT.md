@@ -142,7 +142,7 @@ These do **not** close network P0 holes.
 2. SD-171 fixed on Android.
 3. Red-team pass on mini-apps with written failures only on accepted risks.
 4. Multi-relay + signed bootstrap.
-5. Double ratchet or equivalent — **not on current roadmap short term**.
+5. Double ratchet (v1, partial) — **shipped** for 1:1 after PeerInfo prekey exchange ([ADR 004](./adr/004-double-ratchet-e2e.md)); v0 fallback retained.
 
 ---
 

@@ -8,16 +8,21 @@ mod forwarding;
 mod ingest_guard;
 mod node;
 mod peer_enc_keys;
+mod ratchet_store;
 pub mod secrets;
 pub mod security;
 mod storage;
 mod transport;
 mod transport_meta;
 
+pub use ratchet_store::RatchetSessionStore;
 pub use transport::{DirectPeerCap, PeerAdmitAction};
 
 pub use connectivity::{kad_action_for_mode, ConnectivityMonitor, KadConnectivityAction};
-pub use error::{decode_peer_ble_stream_frame, decode_peer_ble_wire_frame, decode_peer_wire_message, NodeError, NodeResult};
+pub use error::{
+    decode_peer_ble_stream_frame, decode_peer_ble_wire_frame, decode_peer_wire_message, NodeError,
+    NodeResult,
+};
 pub use mycelium_core::at_rest::parse_storage_key_hex;
 pub use mycelium_core::transport::{ConnectivityMode, StoreStats};
 pub use node::{

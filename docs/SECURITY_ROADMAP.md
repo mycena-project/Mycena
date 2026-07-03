@@ -73,7 +73,7 @@
 
 | Item | Debt IDs | Effort |
 |------|----------|--------|
-| Double Ratchet (1:1) | SD-100 | L |
+| Double Ratchet (1:1) | SD-100 | **Done (v1)** — [ADR 004](./adr/004-double-ratchet-e2e.md) |
 | MLS or Sender Keys (groups) | SD-101, SD-242 | L |
 | EncryptedGroup per-hop auth | forwarding | M |
 | Hardware-backed keys (StrongBox) | SD-120 | M |

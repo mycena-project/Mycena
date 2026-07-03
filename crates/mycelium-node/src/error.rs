@@ -94,9 +94,8 @@ pub fn decode_peer_ble_wire_frame(frame: &[u8]) -> NodeResult<WireMessage> {
 
 /// Decode an F3 MYLP stream frame from a peer; never panics on malformed bytes.
 pub fn decode_peer_ble_stream_frame(frame: &[u8]) -> NodeResult<Vec<u8>> {
-    mycelium_core::ble_stream::decode_stream_frame(frame).map_err(|e| {
-        NodeError::InvalidBleStream(e.to_string())
-    })
+    mycelium_core::ble_stream::decode_stream_frame(frame)
+        .map_err(|e| NodeError::InvalidBleStream(e.to_string()))
 }
 
 /// Deserialize gossip / direct wire payloads from a peer.

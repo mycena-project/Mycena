@@ -560,8 +560,9 @@ impl AppNode {
         }
         .encode()?;
         let wrapped = mycelium_core::e2e_direct_wrap::wrap_inner(&self.local_peer_id, &plaintext);
-        if let Some(pk) = self.handle.peer_x25519_public(&to_peer).await {
-            let encrypted = mycelium_core::crypto::encrypt_for(&wrapped, &pk)?;
+        if self.handle.has_enc_key_for(&to_peer).await {
+            let (encrypted, e2e_version) =
+                self.handle.encrypt_e2e_payload(&to_peer, wrapped).await?;
             let wire = WireMessage::EncryptedDirect {
                 to_peer: to_peer.clone(),
                 sender_enc_pubkey: self.handle.local_enc_pubkey_hex(),
@@ -569,6 +570,7 @@ impl AppNode {
                 mesh_signature: None,
                 hop_count: 0,
                 max_hops: 8,
+                e2e_version,
             };
             self.handle
                 .send(NodeCommand::SendWireOrQueueBle {

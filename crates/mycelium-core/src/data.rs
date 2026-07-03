@@ -45,6 +45,9 @@ pub struct Envelope {
     /// Original author when `from_peer` was replaced by a relay hop identity.
     #[serde(default)]
     pub author_peer: Option<String>,
+    /// E2E crypto protocol: 0 = static X25519 (legacy), 1 = Double Ratchet.
+    #[serde(default)]
+    pub e2e_version: u8,
 }
 
 impl Envelope {
@@ -66,7 +69,20 @@ impl Envelope {
             hop_count: 0,
             max_hops: default_max_hops(),
             author_peer: None,
+            e2e_version: 0,
         }
+    }
+
+    /// Like [`Self::new`] but records which E2E wire protocol decrypted the payload.
+    pub fn new_with_e2e_version(
+        from_peer: String,
+        to_peer: Option<String>,
+        payload: Vec<u8>,
+        e2e_version: u8,
+    ) -> Self {
+        let mut e = Self::new(from_peer, to_peer, payload);
+        e.e2e_version = e2e_version;
+        e
     }
 
     /// Envelope without a mesh signature (gossip relay; author auth lives in payload).

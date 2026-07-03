@@ -65,7 +65,8 @@ Identity and encryption keys are stored **encrypted on disk** (OS keychain on de
 
 ## What we do not provide yet
 
-- **Forward secrecy** (compromised keys do not retroactively expose old messages)
+- **Full forward secrecy** — v1 ratchet sessions protect new 1:1 messages after prekey
+  exchange; legacy v0 and the first message before bundle cache do not ([ADR 004](adr/004-double-ratchet-e2e.md))
 - Guaranteed anonymity or traffic analysis resistance
 - Legal advice — see your jurisdiction and [`LICENSE`](../LICENSE)
 

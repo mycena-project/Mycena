@@ -50,7 +50,7 @@ This ledger describes **systemic** risks arising from architectural choices—no
 | AR-01 | **Concentration** | Single public relay + embedded bootstrap | Global Internet path | Outage obvious | High — mesh LAN still works |
 | AR-02 | **Amplification** | Store-and-forward without authenticated routing | Network-wide flood | Metrics queue growth | High until SD-031 fixed |
 | AR-03 | **Identity binding** | libp2p PeerId == user identity forever | Lifetime tracking | Passive | Critical for activists |
-| AR-04 | **E2E model** | Static X25519 + optional plaintext fallback | Message content | User mistake | High |
+| AR-04 | **E2E model** | v1 Double Ratchet + v0 legacy fallback ([ADR 004](./adr/004-double-ratchet-e2e.md)) | Message content | User mistake / pre-bootstrap v0 | Medium |
 | AR-05 | **Group model** | One PSK per group in QR | All group history | Invite leak | Critical |
 | AR-06 | **Economic layer** | MeshCoin is local-ledger gossip, not BFT | Fake money / scams | User education | Critical if marketed as currency |
 | AR-07 | **Mini-app model** | HTML+JS in WebView with bridge | Wallet + messages | Install count | High |
@@ -69,7 +69,7 @@ This ledger describes **systemic** risks arising from architectural choices—no
 | Plaintext fallback | No `peer_x25519` for recipient | Chat body readable on wire |
 | Unsigned Data accepted | Legacy peer / attacker | Forged messages ingested |
 | Gossip re-sign | Scoped bulletin path | Wrong author attribution |
-| Static E2E keys | Device seizure | Historical decrypt |
+| Static E2E keys | Device seizure | Historical decrypt (**v0 / pre-bootstrap only**; v1 sessions mitigated) |
 | Group QR leak | Photo / forward | Full group read |
 
 ### 3.2 Integrity failures

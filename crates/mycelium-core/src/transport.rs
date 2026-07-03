@@ -44,6 +44,9 @@ pub enum WireMessage {
         hop_count: u8,
         #[serde(default = "default_max_hops")]
         max_hops: u8,
+        /// 0 = legacy static ECDH; 1 = Double Ratchet ([`crate::crypto::ratchet`]).
+        #[serde(default)]
+        e2e_version: u8,
     },
     /// Symmetrisch verschlüsselte Gruppenlast; `group_id` ist öffentlicher Identifier (kein Key).
     EncryptedGroup {
@@ -61,6 +64,19 @@ pub enum WireMessage {
         account_id: Option<String>,
         #[serde(default)]
         transport_epoch: u64,
+        /// X3DH prekey bundle for Double Ratchet (v1 E2E).
+        #[serde(default)]
+        ratchet_registration_id: Option<u32>,
+        #[serde(default)]
+        ratchet_signed_prekey_id: Option<u32>,
+        #[serde(default)]
+        ratchet_signed_prekey_hex: Option<String>,
+        #[serde(default)]
+        ratchet_signed_prekey_sig_hex: Option<String>,
+        #[serde(default)]
+        ratchet_one_time_prekey_id: Option<u32>,
+        #[serde(default)]
+        ratchet_one_time_prekey_hex: Option<String>,
     },
 }
 
@@ -75,9 +91,14 @@ pub fn encrypted_direct_signing_bytes(
     encrypted_payload: &[u8],
     hop_count: u8,
     max_hops: u8,
+    e2e_version: u8,
 ) -> Vec<u8> {
     let mut bytes = Vec::new();
-    bytes.extend_from_slice(b"MYCEL/ENC_DIRECT/v1\0");
+    if e2e_version == 0 {
+        bytes.extend_from_slice(b"MYCEL/ENC_DIRECT/v1\0");
+    } else {
+        bytes.extend_from_slice(b"MYCEL/ENC_DIRECT/v2\0");
+    }
     bytes.extend_from_slice(to_peer.as_bytes());
     bytes.push(0);
     bytes.extend_from_slice(sender_enc_pubkey.as_bytes());
@@ -86,6 +107,9 @@ pub fn encrypted_direct_signing_bytes(
     bytes.extend_from_slice(encrypted_payload);
     bytes.push(hop_count);
     bytes.push(max_hops);
+    if e2e_version > 0 {
+        bytes.push(e2e_version);
+    }
     bytes
 }
 
@@ -100,6 +124,7 @@ pub fn sign_encrypted_direct(
         encrypted_payload,
         hop_count,
         max_hops,
+        e2e_version,
         mesh_signature,
     } = message
     else {
@@ -111,6 +136,7 @@ pub fn sign_encrypted_direct(
         encrypted_payload,
         *hop_count,
         *max_hops,
+        *e2e_version,
     );
     let sig = keypair
         .sign(&bytes)
@@ -128,6 +154,7 @@ pub fn verify_encrypted_direct(message: &WireMessage, sender_peer_id: &libp2p::P
         mesh_signature,
         hop_count,
         max_hops,
+        e2e_version,
     } = message
     else {
         return false;
@@ -135,21 +162,27 @@ pub fn verify_encrypted_direct(message: &WireMessage, sender_peer_id: &libp2p::P
     let Some(sig) = mesh_signature else {
         return false;
     };
-    let bytes = encrypted_direct_signing_bytes(
-        to_peer,
-        sender_enc_pubkey,
-        encrypted_payload,
-        *hop_count,
-        *max_hops,
-    );
-    let multihash = sender_peer_id.as_ref();
-    if multihash.code() != 0 {
-        return false;
+    for version in [*e2e_version, 0] {
+        let bytes = encrypted_direct_signing_bytes(
+            to_peer,
+            sender_enc_pubkey,
+            encrypted_payload,
+            *hop_count,
+            *max_hops,
+            version,
+        );
+        let multihash = sender_peer_id.as_ref();
+        if multihash.code() != 0 {
+            return false;
+        }
+        let Ok(pk) = libp2p::identity::PublicKey::try_decode_protobuf(multihash.digest()) else {
+            return false;
+        };
+        if pk.verify(&bytes, sig) {
+            return true;
+        }
     }
-    let Ok(pk) = libp2p::identity::PublicKey::try_decode_protobuf(multihash.digest()) else {
-        return false;
-    };
-    pk.verify(&bytes, sig)
+    false
 }
 
 impl DirectMessage {

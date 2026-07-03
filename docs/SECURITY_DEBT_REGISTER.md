@@ -459,15 +459,15 @@ This register records **known** security, privacy, abuse, and legal debt. It is 
 
 | Field | Value |
 |-------|-------|
-| **Severity** | High |
-| **Affected systems** | `crypto.rs` static X25519 |
-| **Exploitation scenario** | Long-term key compromise (backup, forensic) decrypts all historical ciphertext |
+| **Severity** | High → **Medium (partial)** |
+| **Affected systems** | v0: `crypto/mod.rs` static ECDH; v1: [`crypto/ratchet.rs`](../crates/mycelium-core/src/crypto/ratchet.rs) |
+| **Exploitation scenario** | Long-term key compromise decrypts v0 and pre-bootstrap v1 traffic; v1 session messages after ratchet steps protected |
 | **Likelihood** | Medium |
-| **Impact** | Retroactive disclosure |
-| **Current mitigations** | Documented non-goal in `security-for-users.md` |
-| **Missing mitigations** | Double Ratchet (Signal-style) per session |
-| **Proposed architecture changes** | libsignal protocol integration per conversation |
-| **Implementation complexity** | L |
+| **Impact** | Retroactive disclosure (reduced for v1 peers) |
+| **Current mitigations** | v1 Double Ratchet ([ADR 004](./adr/004-double-ratchet-e2e.md)); v0 fallback for interop; documented in `KNOWN_LIMITATIONS.md` |
+| **Missing mitigations** | Group ratchet; SPK rotation policy; ContactHello prekey for instant v1 |
+| **Proposed architecture changes** | MLS for groups; optional libsignal alignment |
+| **Implementation complexity** | L (v1 done; groups remain) |
 | **Beta-blocker** | **no** (document) |
 
 ### SD-101 — Group security = single PSK in invite QR

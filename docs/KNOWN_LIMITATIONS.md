@@ -21,7 +21,7 @@ Not a marketing document.
 | Threat | Why |
 |--------|-----|
 | **Long-term tracking via PeerId** | Transport PeerId may rotate daily (SD-190 spike); stable account id remains in contact book — not full anonymity |
-| **Retroactive decrypt (1:1)** | No double ratchet; static X25519 |
+| **Retroactive decrypt (1:1)** | **Partially mitigated (v1):** Double Ratchet after PeerInfo prekey exchange ([ADR 004](./adr/004-double-ratchet-e2e.md)). Legacy v0 and the first message before bundle cache remain static X25519. |
 | **Group QR leak** | Single PSK; no epoch rotation on member leave |
 | **Forged unsigned wire messages** | Mitigated (SD-030) — unsigned `Data` dropped; gossip relay bodies exempt |
 | **Plaintext chat mistake** | Mitigated (SD-081) — send blocked until enc key exchanged |

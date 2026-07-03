@@ -245,11 +245,7 @@ mod tests {
         let old = mk_msg("old");
         let old_id = old.envelope.id.0.clone();
         store.persist(&old).await.expect("persist old");
-        set_order_timestamp(
-            &store,
-            &old_id,
-            now_ms().saturating_sub(10_000),
-        );
+        set_order_timestamp(&store, &old_id, now_ms().saturating_sub(10_000));
         let new = mk_msg("new");
         let new_id = new.envelope.id.0.clone();
         store.persist(&new).await.expect("persist new");
@@ -280,10 +276,7 @@ mod tests {
             let store = SledMessageStore::open(path).expect("reopen store");
             let recent = store.recent(10).await.expect("recent after reopen");
             assert_eq!(recent.len(), 2, "recent must see persisted messages");
-            assert_eq!(
-                recent.first().expect("newest").body,
-                "also_before_restart"
-            );
+            assert_eq!(recent.first().expect("newest").body, "also_before_restart");
             let window = store
                 .list_ids_window(Duration::from_secs(3600))
                 .await

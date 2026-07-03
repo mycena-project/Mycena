@@ -24,6 +24,7 @@ fn encrypted_direct_decrypt_has_no_mesh_signature() {
         mesh_signature: None,
         hop_count: 0,
         max_hops: 8,
+        e2e_version: 0,
     };
 
     let relay_from = "12D3KooWRelayHop";
@@ -38,7 +39,13 @@ fn encrypted_direct_decrypt_has_no_mesh_signature() {
     assert_eq!(logical_from, author);
     assert_eq!(app_bytes, app_payload);
 
-    let envelope = Envelope::new(logical_from, Some("12D3KooWRecipient".into()), app_bytes);
+    let envelope = Envelope::new_with_e2e_version(
+        logical_from,
+        Some("12D3KooWRecipient".into()),
+        app_bytes,
+        0,
+    );
+    assert_eq!(envelope.e2e_version, 0);
     assert!(
         envelope.signature.is_none(),
         "E2E local delivery must not add a mesh signature from the recipient's libp2p key"

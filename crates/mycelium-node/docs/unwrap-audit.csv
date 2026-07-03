@@ -4,7 +4,7 @@ P0,crates/mycelium-core/src/ble_mesh.rs,105,否,peer_input_BLE_chunk,"push_chunk
 P0,crates/mycelium-core/src/ble_stream.rs,22,否,peer_input_BLE_stream,"decode_stream_frame(bytes) -> anyhow::Result",already_safe
 P0,crates/mycelium-core/src/contact_hello.rs,59,否,peer_input_contact_hello,"ContactHello::decode -> anyhow::Result",already_safe
 P0,crates/mycelium-core/src/invite.rs,87,否,peer_input_QR_invite,"parse_invite(raw) -> Option (no panic on bad input)",already_safe
-P0,crates/mycelium-core/src/crypto.rs,71,否,peer_input_crypto,"parse_x25519_public_hex / decrypt_* -> anyhow::Result",already_safe
+P0,crates/mycelium-core/src/crypto/mod.rs,74,否,peer_input_crypto,"parse_x25519_public_hex / decrypt_* -> anyhow::Result",already_safe
 P0,crates/mycelium-core/src/data.rs,90,否,peer_input_envelope,"Envelope::verify -> bool (no unwrap)",already_safe
 P0,crates/mycelium-node/src/node.rs,985,否,peer_input_BLE_frame,"decode_frame(&frame)? in IngestBleFrame",already_safe
 P0,crates/mycelium-node/src/node.rs,1480,否,peer_input_gossip,"bincode::deserialize(...).unwrap_or(false)",already_safe

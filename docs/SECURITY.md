@@ -17,13 +17,19 @@ payload, timestamp, TTL, priority, hop count, max hops.
 
 ## End-to-end encryption
 
-Direct messages use X25519 ECDH key exchange with HKDF-SHA256 key derivation
-and ChaCha20-Poly1305 AEAD encryption. Group messages use a pre-shared
-symmetric key with ChaCha20-Poly1305.
+Direct messages use X25519 for key agreement and ChaCha20-Poly1305 AEAD.
 
-**Limitation**: No forward secrecy. A stolen identity key allows decryption
-of all past intercepted messages. Forward secrecy (Double Ratchet) is
-planned for a future release.
+- **v1 (preferred):** X3DH session setup via `PeerInfo` prekey bundle, then Signal-style
+  Double Ratchet per conversation ([ADR 004](./adr/004-double-ratchet-e2e.md)).
+  Provides forward secrecy for messages after session establishment.
+- **v0 (legacy fallback):** Static ephemeral ECDH per message when a peer has no ratchet
+  bundle yet or runs old software.
+
+Group messages use a pre-shared symmetric key with ChaCha20-Poly1305.
+
+**Limitation**: v0 traffic and the first encrypted message before prekey exchange lack
+forward secrecy. Compromise of the long-term encryption key can decrypt those messages.
+v1 ratchet sessions limit retroactive exposure to pre-bootstrap ciphertext only.
 
 ## At-rest encryption
 
@@ -39,8 +45,8 @@ than plaintext. Upgrade your OS to ensure keyring availability.
 
 ## Known limitations (beta)
 
-- **No forward secrecy**: Static X25519 keys. Past messages can be
-  decrypted if the key is compromised.
+- **Forward secrecy (partial):** v1 Double Ratchet protects post-handshake 1:1 traffic;
+  v0 fallback and pre-PeerInfo messages remain decryptable if the enc key is compromised.
 - **MeshCoin consensus**: The 3-witness model has no Sybil defense.
   MeshCoin is experimental and has no real monetary value.
 - **Metadata**: Message sizes, timing, and routing patterns are visible

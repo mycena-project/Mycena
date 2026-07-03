@@ -34,7 +34,7 @@
 ## Optional (Backlog)
 
 - **iOS host (long-term)** — UniFFI Swift shell; see [MOBILE_PLATFORMS.md](./MOBILE_PLATFORMS.md) Phase 2–3
-- Forward Secrecy / Double Ratchet
+- ~~Forward Secrecy / Double Ratchet~~ — **Done (v1)** — [ADR 004](./adr/004-double-ratchet-e2e.md); v0 fallback retained
 - Relay-Parität mit Node-Wire-Semantik
 - Desktop-Release-Runbook (Signierung, Updates)
 - CLI: Groups, Wallet, Panic für Headless-Nodes

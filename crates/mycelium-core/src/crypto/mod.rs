@@ -2,8 +2,11 @@
 // Copyright (C) 2026 Mycelium Project
 //! Ende-zu-Ende-Verschlüsselung für Mycelium-Nachrichten.
 //!
-//! Direkt: X25519 ECDH → HKDF-SHA256 → ChaCha20-Poly1305  
+//! Direkt: X25519 ECDH → HKDF-SHA256 → ChaCha20-Poly1305 (legacy v0)  
+//! Ratchet: X3DH session setup + Double Ratchet (v1, [`ratchet`])  
 //! Gruppe: symmetrischer Pre-Shared Key → ChaCha20-Poly1305
+
+pub mod ratchet;
 
 use chacha20poly1305::aead::{Aead, AeadCore, KeyInit, OsRng};
 use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce};
@@ -75,6 +78,10 @@ pub fn parse_x25519_public_hex(s: &str) -> anyhow::Result<PublicKey> {
         .try_into()
         .map_err(|_| anyhow::anyhow!("x25519 public key must be 32 bytes"))?;
     Ok(PublicKey::from(arr))
+}
+
+pub fn public_key_from_bytes(bytes: [u8; 32]) -> PublicKey {
+    PublicKey::from(bytes)
 }
 
 /// Output: `[ephemeral_pubkey 32]` + `[nonce 12]` + `[ciphertext]`
