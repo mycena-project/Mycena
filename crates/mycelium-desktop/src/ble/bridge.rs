@@ -11,6 +11,7 @@ pub async fn invite_uri(handle: &NodeHandle, local_peer_id: &str) -> Option<Stri
     let direct = handle.stable_direct_multiaddr(local_peer_id).await;
     let signed_invite = handle
         .encode_signed_invite_v3(local_peer_id, direct.as_deref())
+        .await
         .ok();
     mycelium_l0_facade::bootstrap::shareable_dial_multiaddrs(
         local_peer_id,

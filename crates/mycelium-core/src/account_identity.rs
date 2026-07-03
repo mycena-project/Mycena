@@ -16,6 +16,7 @@ pub fn invite_v3_signable_bytes(
     peer_id: &str,
     enc_pubkey_hex: &str,
     epoch: u64,
+    ratchet: Option<&crate::crypto::ratchet::PrekeyBundle>,
 ) -> Vec<u8> {
     let mut bytes = Vec::new();
     bytes.extend_from_slice(b"MYCEL/INVITE/v3\0");
@@ -26,6 +27,21 @@ pub fn invite_v3_signable_bytes(
     bytes.extend_from_slice(enc_pubkey_hex.as_bytes());
     bytes.push(0);
     bytes.extend_from_slice(&epoch.to_le_bytes());
+    if let Some(b) = ratchet {
+        bytes.extend_from_slice(b"MYCEL/RATCHET\0");
+        bytes.extend_from_slice(&b.registration_id.to_le_bytes());
+        bytes.extend_from_slice(&b.signed_prekey_id.to_le_bytes());
+        bytes.extend_from_slice(&b.signed_prekey);
+        bytes.extend_from_slice(&b.signed_prekey_sig);
+        match (b.one_time_prekey_id, &b.one_time_prekey) {
+            (Some(id), Some(pk)) => {
+                bytes.push(1);
+                bytes.extend_from_slice(&id.to_le_bytes());
+                bytes.extend_from_slice(pk);
+            }
+            _ => bytes.push(0),
+        }
+    }
     bytes
 }
 
@@ -97,7 +113,8 @@ mod tests {
     fn account_sign_verify_roundtrip() {
         let kp = Keypair::generate_ed25519();
         let account_id = account_id_from_keypair(&kp);
-        let bytes = invite_v3_signable_bytes(&account_id, "12D3KooWpeer", &"a".repeat(64), 1);
+        let bytes =
+            invite_v3_signable_bytes(&account_id, "12D3KooWpeer", &"a".repeat(64), 1, None);
         let sig = sign_account_message(&kp, &bytes).unwrap();
         assert!(verify_account_signature(&account_id, &bytes, &sig));
         assert!(!verify_account_signature(&account_id, &bytes, &[0u8; 64]));

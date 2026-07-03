@@ -29,13 +29,15 @@
 ## Bootstrap sequence
 
 ```text
-QR scan → ContactHello (enc pubkey, contact book)
-       → libp2p/BLE connect → PeerInfo (enc pubkey + prekey bundle)
-       → first EncryptedDirect v1 (Init) or v0 if bundle not yet cached
+QR scan (v3 invite may include signed ratchet prekey tail)
+       → seed enc key + bundle locally (no PeerInfo wait)
+       → ContactHello (enc pubkey, contact book)
+       → libp2p/BLE connect → PeerInfo (enc pubkey + fresh prekey bundle)
+       → first EncryptedDirect v1 (Init) when bundle cached (invite or PeerInfo)
        → subsequent EncryptedDirect v1 (Message)
 ```
 
-The **first** encrypted message after QR may still be **v0** if sent before `PeerInfo` arrives (~one connection round-trip). All messages after bundle exchange use v1 forward secrecy within the session.
+When the scanner receives a **v3 invite with ratchet tail**, the first encrypted message can use **v1 immediately** after QR. Legacy v3 invites (enc key only) and v2 still need `PeerInfo` (~one connection round-trip) before v1.
 
 ---
 
@@ -43,7 +45,7 @@ The **first** encrypted message after QR may still be **v0** if sent before `Pee
 
 - Group ratchet / MLS (groups remain PSK ChaCha20-Poly1305).
 - Signed prekey rotation schedule (bundle refreshed on each `PeerInfo`).
-- ContactHello carrying prekeys (PeerInfo is the bundle channel).
+- ContactHello carrying prekeys (invite v3 tail + PeerInfo are bundle channels).
 - Full libsignal compatibility.
 
 ---

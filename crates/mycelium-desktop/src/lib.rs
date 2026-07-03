@@ -545,6 +545,7 @@ async fn get_shareable_multiaddrs(state: State<'_, SharedState>) -> Result<Vec<S
     let signed_invite = s
         .handle
         .encode_signed_invite_v3(&s.local_peer_id, direct.as_deref())
+        .await
         .ok();
     Ok(mycelium_l0_facade::bootstrap::shareable_dial_multiaddrs(
         &s.local_peer_id,

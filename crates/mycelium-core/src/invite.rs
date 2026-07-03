@@ -2,6 +2,8 @@
 // Copyright (C) 2026 Mycelium Project
 //! Compact invite payloads for QR codes and deep links (all Mycelium clients).
 
+use crate::crypto::ratchet::{self, PrekeyBundle};
+
 const PREFIX_V1: &str = "mycelium://invite/v1#";
 const PREFIX_V2: &str = "mycelium://invite/v2#";
 const PREFIX_V3: &str = "mycelium://invite/v3#";
@@ -20,6 +22,8 @@ pub struct PeerInviteInfo {
     pub enc_pubkey_hex: Option<String>,
     /// Optional LAN/direct multiaddr (same Wi‑Fi); tried before relay circuit.
     pub direct_multiaddr: Option<String>,
+    /// Optional Double-Ratchet prekey bundle (v3 tail) — enables v1 E2E on first message after QR.
+    pub ratchet_bundle: Option<PrekeyBundle>,
 }
 
 impl PeerInviteInfo {
@@ -66,6 +70,7 @@ pub fn encode_signed_invite_v3(
     epoch: u64,
     account_keypair: &libp2p::identity::Keypair,
     direct_multiaddr: Option<&str>,
+    ratchet_bundle: Option<&PrekeyBundle>,
 ) -> anyhow::Result<String> {
     let account_id = account_id.trim();
     let peer_id = peer_id.trim();
@@ -73,14 +78,56 @@ pub fn encode_signed_invite_v3(
     if !valid_enc_pubkey_hex(enc) {
         anyhow::bail!("invalid enc_pubkey_hex");
     }
-    let bytes = crate::account_identity::invite_v3_signable_bytes(account_id, peer_id, enc, epoch);
+    if let Some(bundle) = ratchet_bundle {
+        let enc_bytes = hex::decode(enc)?;
+        if enc_bytes.len() != 32 {
+            anyhow::bail!("invalid enc_pubkey_hex");
+        }
+        let mut enc_arr = [0u8; 32];
+        enc_arr.copy_from_slice(&enc_bytes);
+        if bundle.identity_key != enc_arr {
+            anyhow::bail!("ratchet identity_key must match enc_pubkey_hex");
+        }
+        if !ratchet::verify_prekey_bundle(bundle) {
+            anyhow::bail!("invalid ratchet prekey bundle");
+        }
+    }
+    let bytes = crate::account_identity::invite_v3_signable_bytes(
+        account_id,
+        peer_id,
+        enc,
+        epoch,
+        ratchet_bundle,
+    );
     let sig = crate::account_identity::sign_account_message(account_keypair, &bytes)?;
     let sig_hex = hex::encode(sig);
     let direct = direct_multiaddr.map(str::trim).filter(|s| !s.is_empty());
-    Ok(match direct {
+    let mut body = match direct {
         Some(addr) => format!("{PREFIX_V3}{account_id}|{peer_id}|{enc}|{epoch}|{sig_hex}|{addr}"),
         None => format!("{PREFIX_V3}{account_id}|{peer_id}|{enc}|{epoch}|{sig_hex}"),
-    })
+    };
+    if let Some(bundle) = ratchet_bundle {
+        body.push('|');
+        body.push_str(&format_bundle_tail(bundle));
+    }
+    Ok(body)
+}
+
+fn format_bundle_tail(bundle: &PrekeyBundle) -> String {
+    let mut out = format!(
+        "{}|{}|{}|{}",
+        bundle.registration_id,
+        bundle.signed_prekey_id,
+        hex::encode(bundle.signed_prekey),
+        hex::encode(bundle.signed_prekey_sig),
+    );
+    if let (Some(id), Some(pk)) = (bundle.one_time_prekey_id, bundle.one_time_prekey) {
+        out.push('|');
+        out.push_str(&id.to_string());
+        out.push('|');
+        out.push_str(&hex::encode(pk));
+    }
+    out
 }
 
 /// Parse invite QR, multiaddr, or legacy `peerId@host:port` form.
@@ -107,6 +154,7 @@ pub fn parse_invite(raw: &str) -> Option<InviteTarget> {
             signature_valid: false,
             enc_pubkey_hex: None,
             direct_multiaddr: None,
+            ratchet_bundle: None,
         }));
     }
     if input.starts_with('/') {
@@ -120,6 +168,7 @@ pub fn parse_invite(raw: &str) -> Option<InviteTarget> {
             signature_valid: false,
             enc_pubkey_hex: None,
             direct_multiaddr: None,
+            ratchet_bundle: None,
         }));
     }
     legacy_host_port_to_multiaddr(input)
@@ -147,11 +196,56 @@ fn parse_invite_v2(rest: &str) -> Option<InviteTarget> {
         signature_valid: false,
         enc_pubkey_hex: Some(enc.to_string()),
         direct_multiaddr: direct,
+        ratchet_bundle: None,
     }))
 }
 
+fn parse_v3_tail(tail: &[&str]) -> (Option<String>, Option<PrekeyBundle>) {
+    if tail.is_empty() {
+        return (None, None);
+    }
+    let mut idx = 0;
+    let direct = if tail[0].starts_with('/') {
+        idx += 1;
+        Some(tail[0].to_string())
+    } else {
+        None
+    };
+    let ratchet_parts = &tail[idx..];
+    let bundle = parse_ratchet_tail(ratchet_parts);
+    (direct, bundle)
+}
+
+fn parse_ratchet_tail(parts: &[&str]) -> Option<PrekeyBundle> {
+    if parts.len() != 4 && parts.len() != 6 {
+        return None;
+    }
+    let registration_id: u32 = parts[0].trim().parse().ok()?;
+    let signed_prekey_id: u32 = parts[1].trim().parse().ok()?;
+    let signed_prekey_hex = parts[2].trim();
+    let signed_prekey_sig_hex = parts[3].trim();
+    let (one_time_prekey_id, one_time_prekey_hex) = if parts.len() == 6 {
+        (
+            Some(parts[4].trim().parse().ok()?),
+            Some(parts[5].trim()),
+        )
+    } else {
+        (None, None)
+    };
+    ratchet::prekey_bundle_from_peer_info(
+        registration_id,
+        [0u8; 32], // identity filled by caller after enc match
+        signed_prekey_id,
+        signed_prekey_hex,
+        signed_prekey_sig_hex,
+        one_time_prekey_id,
+        one_time_prekey_hex,
+    )
+    .ok()
+}
+
 fn parse_invite_v3(rest: &str) -> Option<InviteTarget> {
-    let parts: Vec<&str> = rest.splitn(6, '|').collect();
+    let parts: Vec<&str> = rest.split('|').collect();
     if parts.len() < 5 {
         return None;
     }
@@ -163,18 +257,34 @@ fn parse_invite_v3(rest: &str) -> Option<InviteTarget> {
     if account_id.is_empty() || peer_id.is_empty() || !valid_enc_pubkey_hex(enc) {
         return None;
     }
+    let enc_bytes = hex::decode(enc).ok()?;
+    if enc_bytes.len() != 32 {
+        return None;
+    }
+    let mut identity_key = [0u8; 32];
+    identity_key.copy_from_slice(&enc_bytes);
+
+    let (direct, mut ratchet_bundle) = parse_v3_tail(&parts[5..]);
+    if let Some(ref mut bundle) = ratchet_bundle {
+        bundle.identity_key = identity_key;
+        if !ratchet::verify_prekey_bundle(bundle) {
+            return None;
+        }
+    }
+
     let sig = hex::decode(sig_hex).ok()?;
-    let bytes = crate::account_identity::invite_v3_signable_bytes(account_id, peer_id, enc, epoch);
+    let bytes = crate::account_identity::invite_v3_signable_bytes(
+        account_id,
+        peer_id,
+        enc,
+        epoch,
+        ratchet_bundle.as_ref(),
+    );
     let signature_valid =
         crate::account_identity::verify_account_signature(account_id, &bytes, &sig);
     if !signature_valid {
         return None;
     }
-    let direct = parts
-        .get(5)
-        .map(|s| s.trim())
-        .filter(|s| !s.is_empty())
-        .map(str::to_string);
     Some(InviteTarget::Peer(PeerInviteInfo {
         peer_id: peer_id.to_string(),
         account_id: Some(account_id.to_string()),
@@ -182,6 +292,7 @@ fn parse_invite_v3(rest: &str) -> Option<InviteTarget> {
         signature_valid: true,
         enc_pubkey_hex: Some(enc.to_string()),
         direct_multiaddr: direct,
+        ratchet_bundle,
     }))
 }
 
@@ -285,7 +396,7 @@ mod tests {
         let account_id = crate::account_identity::account_id_from_keypair(&kp);
         let peer_id = "12D3KooWGv6goWd2fHwcigDjqQm5Dfw28UijwEjnMcYwTpPRPZy6";
         let enc = "b".repeat(64);
-        let encoded = encode_signed_invite_v3(&account_id, peer_id, &enc, 2, &kp, None).unwrap();
+        let encoded = encode_signed_invite_v3(&account_id, peer_id, &enc, 2, &kp, None, None).unwrap();
         match parse_invite(&encoded).unwrap() {
             InviteTarget::Peer(info) => {
                 assert_eq!(info.peer_id, peer_id);
@@ -297,6 +408,40 @@ mod tests {
         }
         let tampered = encoded.replace('b', "c");
         assert!(parse_invite(&tampered).is_none());
+    }
+
+    #[test]
+    fn roundtrip_signed_invite_v3_with_ratchet() {
+        use crate::crypto::{EncryptionKeypair, ratchet::LocalPrekeyStore};
+        use libp2p::identity::Keypair;
+        let kp = Keypair::generate_ed25519();
+        let account_id = crate::account_identity::account_id_from_keypair(&kp);
+        let peer_id = "12D3KooWGv6goWd2fHwcigDjqQm5Dfw28UijwEjnMcYwTpPRPZy6";
+        let enc_kp = EncryptionKeypair::generate();
+        let enc = enc_kp.public_hex();
+        let prekeys = LocalPrekeyStore::generate(&enc_kp, 4);
+        let bundle = prekeys.public_bundle(&enc_kp);
+        let encoded = encode_signed_invite_v3(
+            &account_id,
+            peer_id,
+            &enc,
+            2,
+            &kp,
+            None,
+            Some(&bundle),
+        )
+        .unwrap();
+        match parse_invite(&encoded).unwrap() {
+            InviteTarget::Peer(info) => {
+                assert!(info.signature_valid);
+                assert!(info.ratchet_bundle.is_some());
+                assert_eq!(
+                    info.ratchet_bundle.as_ref().unwrap().registration_id,
+                    bundle.registration_id
+                );
+            }
+            _ => panic!("expected peer"),
+        }
     }
 
     #[test]

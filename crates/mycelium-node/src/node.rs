@@ -219,6 +219,17 @@ pub enum NodeCommand {
         peer_id: String,
         enc_pubkey_hex: String,
     },
+    /// Seed ratchet prekey bundle from invite v3 tail (first-message v1 E2E).
+    SeedPeerRatchetBundle {
+        peer_id: String,
+        bundle: mycelium_core::crypto::ratchet::PrekeyBundle,
+    },
+    /// Build signed v3 invite including live ratchet prekeys from the runner.
+    BuildSignedInviteV3 {
+        peer_id: String,
+        direct_multiaddr: Option<String>,
+        reply: tokio::sync::oneshot::Sender<anyhow::Result<String>>,
+    },
     SubscribeScope(String),
     UnsubscribeScope(String),
     SubscribeBulletinScope(String),
@@ -421,20 +432,22 @@ impl NodeHandle {
         self.enc_pubkey_hex.clone()
     }
 
-    /// Stable signed v3 invite using the account key loaded at node startup.
-    pub fn encode_signed_invite_v3(
+    /// Stable signed v3 invite using the account key and live ratchet prekeys from the runner.
+    pub async fn encode_signed_invite_v3(
         &self,
         peer_id: &str,
         direct_multiaddr: Option<&str>,
     ) -> anyhow::Result<String> {
-        mycelium_core::invite::encode_signed_invite_v3(
-            &self.account_id,
-            peer_id,
-            &self.enc_pubkey_hex,
-            self.transport_epoch,
-            &self.account_signing_key,
-            direct_multiaddr,
-        )
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        self.tx
+            .send(NodeCommand::BuildSignedInviteV3 {
+                peer_id: peer_id.to_string(),
+                direct_multiaddr: direct_multiaddr.map(String::from),
+                reply: tx,
+            })
+            .await?;
+        rx.await
+            .map_err(|_| anyhow::anyhow!("invite build response channel closed"))?
     }
 
     pub fn build_contact_hello(
@@ -488,6 +501,18 @@ impl NodeHandle {
         self.send(NodeCommand::SeedPeerEncKey {
             peer_id: peer.to_string(),
             enc_pubkey_hex: enc_pubkey_hex.to_string(),
+        })
+        .await
+    }
+
+    pub async fn seed_peer_ratchet_bundle(
+        &self,
+        peer: &str,
+        bundle: mycelium_core::crypto::ratchet::PrekeyBundle,
+    ) -> anyhow::Result<()> {
+        self.send(NodeCommand::SeedPeerRatchetBundle {
+            peer_id: peer.to_string(),
+            bundle,
         })
         .await
     }
@@ -553,6 +578,7 @@ pub struct NodeRunner {
     peer_enc_store: Arc<crate::peer_enc_keys::PeerEncKeyStore>,
     account_id: String,
     transport_epoch: u64,
+    account_signing_key: Arc<identity::Keypair>,
     pending_identity_rotation: Option<mycelium_core::identity_rotation::IdentityRotationGossip>,
     crowd_mode: Arc<AtomicBool>,
     rendezvous_dial_bucket: u32,
@@ -738,6 +764,7 @@ impl NodeRunner {
                 peer_enc_store,
                 account_id: account_id.clone(),
                 transport_epoch,
+                account_signing_key: account_signing_key.clone(),
                 pending_identity_rotation,
                 crowd_mode: crowd_mode.clone(),
                 rendezvous_dial_bucket: 0,
@@ -1158,11 +1185,57 @@ impl NodeRunner {
                         )
                         .await;
                         info!("seeded enc key for {peer_id} from invite");
+                        if self.transport.is_peer_connected(&peer_id) {
+                            if let Err(e) = self.send_peer_info(peer_id.clone()).await {
+                                warn!("could not send PeerInfo after invite seed for {peer_id}: {e}");
+                            }
+                        }
                     }
                     Err(e) => {
                         warn!("invalid enc_pubkey_hex in invite for {peer_id}: {e}");
                     }
                 }
+            }
+            NodeCommand::SeedPeerRatchetBundle { peer_id, bundle } => {
+                use mycelium_core::crypto::ratchet;
+                if !ratchet::verify_prekey_bundle(&bundle) {
+                    warn!("rejecting invalid ratchet bundle seed for {peer_id}");
+                    return Ok(());
+                }
+                if let Some(enc) = self.peer_x25519.read().await.get(&peer_id).copied() {
+                    if bundle.identity_key != enc {
+                        warn!(
+                            "rejecting ratchet bundle for {peer_id}: identity_key != seeded enc key"
+                        );
+                        return Ok(());
+                    }
+                }
+                if let Err(e) = self.ratchet_store.save_peer_bundle(&peer_id, &bundle) {
+                    warn!("failed to persist ratchet bundle for {peer_id}: {e}");
+                } else {
+                    info!("seeded ratchet bundle for {peer_id} from invite");
+                }
+            }
+            NodeCommand::BuildSignedInviteV3 {
+                peer_id,
+                direct_multiaddr,
+                reply,
+            } => {
+                let bundle = self
+                    .local_prekeys
+                    .lock()
+                    .expect("local prekeys lock") // INVARIANT: mutex not poisoned
+                    .public_bundle(self.enc_keypair.as_core_keypair());
+                let result = mycelium_core::invite::encode_signed_invite_v3(
+                    &self.account_id,
+                    &peer_id,
+                    &self.enc_keypair.public_hex(),
+                    self.transport_epoch,
+                    self.account_signing_key.as_ref(),
+                    direct_multiaddr.as_deref(),
+                    Some(&bundle),
+                );
+                let _ = reply.send(result);
             }
             NodeCommand::SubscribeScope(scope) => {
                 self.subscribed_scopes.write().await.insert(scope.clone());

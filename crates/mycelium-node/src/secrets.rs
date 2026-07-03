@@ -149,6 +149,7 @@ pub fn encode_signed_invite_v3(
         epoch,
         &account_keypair,
         direct_multiaddr,
+        None,
     )
 }
 

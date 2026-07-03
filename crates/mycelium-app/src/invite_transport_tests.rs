@@ -12,7 +12,7 @@ fn signed_v3_invite_exposes_dial_targets_for_ble_handoff() {
     let account_id = account_identity::account_id_from_keypair(&kp);
     let peer_id = "12D3KooWGv6goWd2fHwcigDjqQm5Dfw28UijwEjnMcYwTpPRPZy6";
     let enc = "b".repeat(64);
-    let encoded = encode_signed_invite_v3(&account_id, peer_id, &enc, 2, &kp, None).unwrap();
+    let encoded = encode_signed_invite_v3(&account_id, peer_id, &enc, 2, &kp, None, None).unwrap();
     match parse_invite(&encoded).unwrap() {
         InviteTarget::Peer(info) => {
             assert_eq!(info.peer_id, peer_id);

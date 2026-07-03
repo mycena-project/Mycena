@@ -1188,6 +1188,11 @@ impl AppNode {
         if let Some(enc) = &info.enc_pubkey_hex {
             self.handle.seed_peer_enc_key(&info.peer_id, enc).await?;
         }
+        if let Some(bundle) = &info.ratchet_bundle {
+            self.handle
+                .seed_peer_ratchet_bundle(&info.peer_id, bundle.clone())
+                .await?;
+        }
         for addr in info.dial_multiaddrs() {
             self.handle
                 .send(NodeCommand::AddBootstrapPeer { multiaddr: addr })

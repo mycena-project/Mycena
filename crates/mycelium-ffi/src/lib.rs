@@ -1430,6 +1430,7 @@ pub fn get_shareable_multiaddrs() -> Vec<String> {
         let signed_invite = guard
             .handle
             .encode_signed_invite_v3(&guard.local_peer_id, direct.as_deref())
+            .await
             .ok();
         mycelium_core::bootstrap::shareable_dial_multiaddrs(
             &guard.local_peer_id,
