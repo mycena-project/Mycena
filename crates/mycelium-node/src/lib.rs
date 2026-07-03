@@ -3,6 +3,7 @@
 pub mod behaviour;
 mod ble_transport;
 pub mod connectivity;
+mod error;
 mod forwarding;
 mod ingest_guard;
 mod node;
@@ -16,6 +17,7 @@ mod transport_meta;
 pub use transport::{DirectPeerCap, PeerAdmitAction};
 
 pub use connectivity::{kad_action_for_mode, ConnectivityMonitor, KadConnectivityAction};
+pub use error::{decode_peer_ble_stream_frame, decode_peer_ble_wire_frame, decode_peer_wire_message, NodeError, NodeResult};
 pub use mycelium_core::at_rest::parse_storage_key_hex;
 pub use mycelium_core::transport::{ConnectivityMode, StoreStats};
 pub use node::{

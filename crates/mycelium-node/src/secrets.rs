@@ -15,7 +15,7 @@ const ENC_SECRET: &str = "enc_x25519";
 fn account_load_lock(db_path: &str) -> Arc<Mutex<()>> {
     static LOCKS: OnceLock<Mutex<HashMap<String, Arc<Mutex<()>>>>> = OnceLock::new();
     let locks = LOCKS.get_or_init(|| Mutex::new(HashMap::new()));
-    let mut guard = locks.lock().expect("account load lock map");
+    let mut guard = locks.lock().expect("account load lock map"); // INVARIANT: mutex not poisoned
     guard
         .entry(db_path.to_string())
         .or_insert_with(|| Arc::new(Mutex::new(())))
@@ -102,7 +102,7 @@ pub fn load_or_create_account_keypair(
     storage_key: StorageKey,
 ) -> anyhow::Result<identity::Keypair> {
     let lock = account_load_lock(db_path);
-    let _guard = lock.lock().expect("account load mutex");
+    let _guard = lock.lock().expect("account load mutex"); // INVARIANT: mutex not poisoned
     let vault = open_vault(db_path, storage_key)?;
     match vault.read_secret(ACCOUNT_SECRET) {
         Ok(Some(bytes)) => return keypair_from_ed25519_secret(&bytes),

@@ -69,6 +69,7 @@ impl RelayPool {
             return 0;
         }
         let h = blake3::hash(seed.as_bytes());
+        // INVARIANT: blake3 output is 32 bytes; slicing [0..8] always fits [u8; 8].
         usize::from_le_bytes(h.as_bytes()[0..8].try_into().expect("8 bytes")) % self.entries.len()
     }
 

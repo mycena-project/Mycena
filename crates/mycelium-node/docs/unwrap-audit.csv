@@ -1,0 +1,36 @@
+priority,file,line,in_test,context,snippet,action
+P0,crates/mycelium-core/src/ble_mesh.rs,52,否,peer_input_BLE_frame,"decode_frame(bytes) -> anyhow::Result (no unwrap in prod)",already_safe
+P0,crates/mycelium-core/src/ble_mesh.rs,105,否,peer_input_BLE_chunk,"push_chunk(chunk) -> anyhow::Result (no unwrap in prod)",already_safe
+P0,crates/mycelium-core/src/ble_stream.rs,22,否,peer_input_BLE_stream,"decode_stream_frame(bytes) -> anyhow::Result",already_safe
+P0,crates/mycelium-core/src/contact_hello.rs,59,否,peer_input_contact_hello,"ContactHello::decode -> anyhow::Result",already_safe
+P0,crates/mycelium-core/src/invite.rs,87,否,peer_input_QR_invite,"parse_invite(raw) -> Option (no panic on bad input)",already_safe
+P0,crates/mycelium-core/src/crypto.rs,71,否,peer_input_crypto,"parse_x25519_public_hex / decrypt_* -> anyhow::Result",already_safe
+P0,crates/mycelium-core/src/data.rs,90,否,peer_input_envelope,"Envelope::verify -> bool (no unwrap)",already_safe
+P0,crates/mycelium-node/src/node.rs,985,否,peer_input_BLE_frame,"decode_frame(&frame)? in IngestBleFrame",already_safe
+P0,crates/mycelium-node/src/node.rs,1480,否,peer_input_gossip,"bincode::deserialize(...).unwrap_or(false)",already_safe
+P0,crates/mycelium-node/src/security.rs,26,否,peer_input_envelope,"validate_data_message_signature -> Result",already_safe
+P0,crates/mycelium-node/src/ingest_guard.rs,136,否,peer_input_ingest,"allow_direct / check_gossip_* -> Result",already_safe
+P0,crates/mycelium-coin/src/node.rs,100,否,peer_input_coin,"handle_incoming -> anyhow::Result; rejects invalid tx",already_safe
+P0,crates/mycelium-coin/src/payload.rs,8,否,peer_input_coin,"CoinPayload serde; deserialize at host boundary uses ?",already_safe
+P2,crates/mycelium-node/src/node.rs,93,否,local_state_startup,".expect(""default listen addr must parse"")",invariant_comment
+P2,crates/mycelium-node/src/node.rs,120,否,local_state_startup,".expect(""default listen addr must parse"")",invariant_comment
+P2,crates/mycelium-node/src/node.rs,157,否,local_state_mutex,".expect(""relay keypair lock"")",invariant_comment
+P2,crates/mycelium-node/src/node.rs,166,否,local_state_mutex,".expect(""relay created_at lock"")",invariant_comment
+P2,crates/mycelium-node/src/node.rs,173,否,local_state_mutex,"keypair.lock().expect(...)",invariant_comment
+P2,crates/mycelium-node/src/node.rs,175,否,local_state_mutex,"created_at.lock().expect(...)",invariant_comment
+P2,crates/mycelium-node/src/node.rs,181,否,local_state_mutex,"keypair.lock().expect(...).clone()",invariant_comment
+P2,crates/mycelium-node/src/node.rs,375,否,local_state_mutex,"peer_reputations.lock().expect(...)",invariant_comment
+P2,crates/mycelium-node/src/node.rs,724,否,local_state_mutex,"created_at.lock().expect(...)",invariant_comment
+P2,crates/mycelium-node/src/node.rs,1277,否,local_state_mutex,"peer_reputations.lock().expect(...)",invariant_comment
+P2,crates/mycelium-node/src/node.rs,2181,否,local_state_mutex,"peer_reputations.lock().expect(...)",invariant_comment
+P2,crates/mycelium-node/src/node.rs,2205,否,local_state_mutex,"peer_reputations.lock().expect(...)",invariant_comment
+P2,crates/mycelium-node/src/node.rs,2218,否,local_state_mutex,"peer_reputations.lock().expect(...)",invariant_comment
+P2,crates/mycelium-node/src/secrets.rs,18,否,local_state_mutex,"locks.lock().expect(""account load lock map"")",invariant_comment
+P2,crates/mycelium-node/src/secrets.rs,105,否,local_state_mutex,"lock.lock().expect(""account load mutex"")",invariant_comment
+P2,crates/mycelium-node/src/behaviour.rs,57,否,local_state_startup,"gossipsub ConfigBuilder.build().expect(...)",invariant_comment
+P2,crates/mycelium-node/src/behaviour.rs,62,否,local_state_startup,"gossipsub::Behaviour::new(...).expect(...)",invariant_comment
+P2,crates/mycelium-node/src/behaviour.rs,65,否,local_state_startup,"mdns::Behaviour::new(...).expect(...)",invariant_comment
+P2,crates/mycelium-core/src/relay_pool.rs,72,否,local_state_hash,"try_into().expect(""8 bytes"") on blake3 output",invariant_comment
+P2,crates/mycelium-core/src/rendezvous_dial.rs,73,否,local_state_hash,"try_into().expect(""4 bytes"") on blake3 output",invariant_comment
+P2,crates/mycelium-coin/src/hot_wallet.rs,60,否,local_state_config,"cold_wallet_address.clone().unwrap() after is_none check",refactor_no_unwrap
+P2,crates/mycelium-core/src/ble_mesh.rs,131,否,local_state_reassembly,"part.unwrap_or_default() after all parts verified Some",invariant_comment

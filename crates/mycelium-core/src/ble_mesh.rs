@@ -128,6 +128,7 @@ impl ChunkAssembler {
         }
         let mut frame = Vec::new();
         for part in self.parts.drain(..) {
+            // INVARIANT: every slot is Some — we return early above if any part is missing.
             frame.extend_from_slice(&part.unwrap_or_default());
         }
         self.total = 0;

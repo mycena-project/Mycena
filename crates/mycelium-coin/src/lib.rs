@@ -3,6 +3,7 @@
 //! Offline-first MeshCoin ledger and mesh propagation hooks.
 
 mod address;
+mod error;
 mod hot_wallet;
 mod ledger;
 mod node;
@@ -13,6 +14,7 @@ mod settlement_policy;
 mod velocity;
 
 pub use address::{address_from_keypair, validate_address};
+pub use error::{decode_peer_coin_payload, CoinError, CoinResult};
 pub use hot_wallet::{HotWallet, HotWalletConfig, RefillResult};
 pub use ledger::{
     AccountState, Address, ApplyResult, LocalLedger, Transaction, TxId, MUON_PER_MXC,

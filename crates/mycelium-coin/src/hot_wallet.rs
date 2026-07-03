@@ -49,15 +49,14 @@ impl HotWallet {
         let (confirmed, _pending) = self.coin_node.balance()?;
         let (cold_addr, to_request) = {
             let config = self.config.read().await;
-            if config.cold_wallet_address.is_none() {
+            let Some(cold_addr) = config.cold_wallet_address.clone() else {
                 return Ok(RefillResult::NoColdWallet);
-            }
+            };
             if confirmed >= config.refill_threshold_muon {
                 return Ok(RefillResult::NotNeeded {
                     current_muon: confirmed,
                 });
             }
-            let cold_addr = config.cold_wallet_address.clone().unwrap();
             let to_request = config.refill_amount_muon.saturating_sub(confirmed);
             (cold_addr, to_request)
         };

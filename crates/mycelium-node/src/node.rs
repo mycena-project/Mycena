@@ -4,6 +4,7 @@ use crate::forwarding::{
     EnergyPolicy, ForwardDecision, ForwardingPolicy, IngestPipeline, ProbabilisticForwardingPolicy,
     SeenCache, SimpleEnergyPolicy,
 };
+use crate::error::decode_peer_ble_wire_frame;
 use crate::ingest_guard::{IngestGuard, IngestReject};
 use crate::security::{self, Sd030DropReason};
 use crate::storage::SledMessageStore;
@@ -90,6 +91,7 @@ impl Default for NodeConfig {
         Self {
             listen_addr: "/ip4/0.0.0.0/tcp/0"
                 .parse()
+                // INVARIANT: compile-time constant multiaddr; parse cannot fail.
                 .expect("default listen addr must parse"),
             db_path: ".mycelium-node".to_string(),
             keypair_path: Some(".mycelium-node/identity".to_string()),
@@ -117,6 +119,7 @@ impl NodeConfig {
         Self {
             listen_addr: "/ip4/0.0.0.0/tcp/0"
                 .parse()
+                // INVARIANT: compile-time constant multiaddr; parse cannot fail.
                 .expect("default listen addr must parse"),
             db_path: db_path.to_string(),
             keypair_path: Some(format!("{db_path}/identity")),
@@ -154,7 +157,7 @@ impl RelayIdentity {
     fn peer_id(&self) -> String {
         self.keypair
             .lock()
-            .expect("relay keypair lock")
+            .expect("relay keypair lock") // INVARIANT: mutex not poisoned; we never panic while holding it
             .public()
             .to_peer_id()
             .to_string()
@@ -163,22 +166,22 @@ impl RelayIdentity {
     fn age_secs(&self) -> u64 {
         self.created_at
             .lock()
-            .expect("relay created_at lock")
+            .expect("relay created_at lock") // INVARIANT: mutex not poisoned; we never panic while holding it
             .elapsed()
             .as_secs()
     }
 
     fn maybe_rotate(&self) {
         if self.age_secs() > RELAY_KEY_ROTATION_SECS {
-            *self.keypair.lock().expect("relay keypair lock") =
+            *self.keypair.lock().expect("relay keypair lock") = // INVARIANT: mutex not poisoned
                 identity::Keypair::generate_ed25519();
-            *self.created_at.lock().expect("relay created_at lock") = Instant::now();
+            *self.created_at.lock().expect("relay created_at lock") = Instant::now(); // INVARIANT: mutex not poisoned
             info!("relay keypair rotated");
         }
     }
 
     fn signing_keypair(&self) -> identity::Keypair {
-        self.keypair.lock().expect("relay keypair lock").clone()
+        self.keypair.lock().expect("relay keypair lock").clone() // INVARIANT: mutex not poisoned
     }
 }
 
@@ -372,7 +375,7 @@ impl NodeHandle {
     pub async fn peer_reputation(&self, peer_id: &str) -> Option<PeerReputationSnapshot> {
         self.reputations
             .lock()
-            .expect("reputation lock")
+            .expect("reputation lock") // INVARIANT: mutex not poisoned
             .get(peer_id)
             .cloned()
     }
@@ -721,7 +724,8 @@ impl NodeRunner {
             .relay_identity
             .created_at
             .lock()
-            .expect("relay created_at lock") = created;
+            .expect("relay created_at lock") // INVARIANT: mutex not poisoned
+            = created;
     }
 
     /// Rotate the relay keypair when it is older than 24 hours.
@@ -982,7 +986,7 @@ impl NodeRunner {
                 if self.try_ingest_ble_assembled(&from_peer, &frame).await? {
                     return Ok(());
                 }
-                let wire = mycelium_core::ble_mesh::decode_frame(&frame)?;
+                let wire = decode_peer_ble_wire_frame(&frame)?;
                 self.handle_incoming_direct(from_peer, wire).await?;
             }
             NodeCommand::DrainBleOutbound {
@@ -1274,7 +1278,7 @@ impl NodeRunner {
             let peer_strikes: HashMap<String, u8> = self
                 .peer_reputations
                 .lock()
-                .expect("reputation lock")
+                .expect("reputation lock") // INVARIANT: mutex not poisoned; we never panic while holding it
                 .iter()
                 .map(|(peer, rep)| (peer.clone(), rep.strikes))
                 .collect();
@@ -2178,7 +2182,7 @@ impl NodeRunner {
 
     fn is_throttled(&self, peer: &str) -> bool {
         let now = now_ms();
-        let mut reps = self.peer_reputations.lock().expect("reputation lock");
+        let mut reps = self.peer_reputations.lock().expect("reputation lock"); // INVARIANT: mutex not poisoned
         if let Some(rep) = reps.get_mut(peer) {
             if now.saturating_sub(rep.last_strike_ms) > 10 * 60 * 1000 {
                 rep.strikes = 0;
@@ -2202,7 +2206,7 @@ impl NodeRunner {
 
     fn register_strike(&self, peer: &str) {
         let now = now_ms();
-        let mut reps = self.peer_reputations.lock().expect("reputation lock");
+        let mut reps = self.peer_reputations.lock().expect("reputation lock"); // INVARIANT: mutex not poisoned
         let rep = reps.entry(peer.to_string()).or_default();
         if now.saturating_sub(rep.last_strike_ms) > 60 * 1000 {
             rep.strikes = 0;
@@ -2215,7 +2219,7 @@ impl NodeRunner {
     }
 
     fn reward_peer(&self, peer: &str) {
-        let mut reps = self.peer_reputations.lock().expect("reputation lock");
+        let mut reps = self.peer_reputations.lock().expect("reputation lock"); // INVARIANT: mutex not poisoned
         if let Some(rep) = reps.get_mut(peer) {
             rep.strikes /= 2;
         }

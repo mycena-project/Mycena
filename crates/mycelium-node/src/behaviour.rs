@@ -54,15 +54,18 @@ impl MeshBehaviour {
             .history_length(params.history_length)
             .history_gossip(params.history_gossip)
             .build()
+            // INVARIANT: MeshProfile params always satisfy gossipsub ConfigBuilder constraints.
             .expect("gossipsub config");
         let gossip = gossipsub::Behaviour::new(
             MessageAuthenticity::Signed(local_key.clone()),
             gossip_config,
         )
+        // INVARIANT: signed local key + valid config always initialize gossipsub.
         .expect("gossipsub init");
 
-        let mdns =
-            mdns::tokio::Behaviour::new(mdns::Config::default(), local_peer_id).expect("mdns init");
+        let mdns = mdns::tokio::Behaviour::new(mdns::Config::default(), local_peer_id)
+            // INVARIANT: default mdns config + valid peer id always initialize.
+            .expect("mdns init");
         let direct = request_response::cbor::Behaviour::new(
             [(
                 StreamProtocol::new("/mycelium/direct/1"),
