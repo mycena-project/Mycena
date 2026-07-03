@@ -90,11 +90,7 @@ impl MeshTransport for LinkedTransport {
 
     fn redial_stored_targets(&mut self) {}
 
-    async fn send_direct(
-        &mut self,
-        to_peer: String,
-        message: WireMessage,
-    ) -> anyhow::Result<()> {
+    async fn send_direct(&mut self, to_peer: String, message: WireMessage) -> anyhow::Result<()> {
         let routes = self.routes.lock().await;
         if let Some(tx) = routes.get(&to_peer) {
             tx.send(TransportEvent::DirectReceived {
@@ -235,8 +231,7 @@ async fn invite_ratchet_bundle_enables_v1_first_e2e_between_two_nodes() {
         }
     })
     .await
-    .expect("timeout waiting for bob delivery")
-    .expect("bob recv");
+    .expect("timeout waiting for bob delivery");
 
     assert_eq!(dm.envelope.e2e_version, 1);
     assert_eq!(dm.envelope.from_peer, alice_id);

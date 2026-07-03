@@ -147,7 +147,7 @@ pub fn parse_invite(raw: &str) -> Option<InviteTarget> {
         if peer_id.is_empty() {
             return None;
         }
-        return Some(InviteTarget::Peer(PeerInviteInfo {
+        return Some(InviteTarget::Peer(Box::new(PeerInviteInfo {
             peer_id: peer_id.to_string(),
             account_id: None,
             transport_epoch: 0,
@@ -155,13 +155,13 @@ pub fn parse_invite(raw: &str) -> Option<InviteTarget> {
             enc_pubkey_hex: None,
             direct_multiaddr: None,
             ratchet_bundle: None,
-        }));
+        })));
     }
     if input.starts_with('/') {
         return Some(InviteTarget::Multiaddr(input.to_string()));
     }
     if looks_like_peer_id(input) {
-        return Some(InviteTarget::Peer(PeerInviteInfo {
+        return Some(InviteTarget::Peer(Box::new(PeerInviteInfo {
             peer_id: input.to_string(),
             account_id: None,
             transport_epoch: 0,
@@ -169,7 +169,7 @@ pub fn parse_invite(raw: &str) -> Option<InviteTarget> {
             enc_pubkey_hex: None,
             direct_multiaddr: None,
             ratchet_bundle: None,
-        }));
+        })));
     }
     legacy_host_port_to_multiaddr(input)
 }
@@ -189,7 +189,7 @@ fn parse_invite_v2(rest: &str) -> Option<InviteTarget> {
         .map(|s| s.trim())
         .filter(|s| !s.is_empty())
         .map(str::to_string);
-    Some(InviteTarget::Peer(PeerInviteInfo {
+    Some(InviteTarget::Peer(Box::new(PeerInviteInfo {
         peer_id: peer_id.to_string(),
         account_id: None,
         transport_epoch: 0,
@@ -197,7 +197,7 @@ fn parse_invite_v2(rest: &str) -> Option<InviteTarget> {
         enc_pubkey_hex: Some(enc.to_string()),
         direct_multiaddr: direct,
         ratchet_bundle: None,
-    }))
+    })))
 }
 
 fn parse_v3_tail(tail: &[&str]) -> (Option<String>, Option<PrekeyBundle>) {
@@ -225,10 +225,7 @@ fn parse_ratchet_tail(parts: &[&str]) -> Option<PrekeyBundle> {
     let signed_prekey_hex = parts[2].trim();
     let signed_prekey_sig_hex = parts[3].trim();
     let (one_time_prekey_id, one_time_prekey_hex) = if parts.len() == 6 {
-        (
-            Some(parts[4].trim().parse().ok()?),
-            Some(parts[5].trim()),
-        )
+        (Some(parts[4].trim().parse().ok()?), Some(parts[5].trim()))
     } else {
         (None, None)
     };
@@ -285,7 +282,7 @@ fn parse_invite_v3(rest: &str) -> Option<InviteTarget> {
     if !signature_valid {
         return None;
     }
-    Some(InviteTarget::Peer(PeerInviteInfo {
+    Some(InviteTarget::Peer(Box::new(PeerInviteInfo {
         peer_id: peer_id.to_string(),
         account_id: Some(account_id.to_string()),
         transport_epoch: epoch,
@@ -293,7 +290,7 @@ fn parse_invite_v3(rest: &str) -> Option<InviteTarget> {
         enc_pubkey_hex: Some(enc.to_string()),
         direct_multiaddr: direct,
         ratchet_bundle,
-    }))
+    })))
 }
 
 fn valid_enc_pubkey_hex(enc: &str) -> bool {
@@ -302,7 +299,7 @@ fn valid_enc_pubkey_hex(enc: &str) -> bool {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum InviteTarget {
-    Peer(PeerInviteInfo),
+    Peer(Box<PeerInviteInfo>),
     Multiaddr(String),
 }
 
@@ -396,7 +393,8 @@ mod tests {
         let account_id = crate::account_identity::account_id_from_keypair(&kp);
         let peer_id = "12D3KooWGv6goWd2fHwcigDjqQm5Dfw28UijwEjnMcYwTpPRPZy6";
         let enc = "b".repeat(64);
-        let encoded = encode_signed_invite_v3(&account_id, peer_id, &enc, 2, &kp, None, None).unwrap();
+        let encoded =
+            encode_signed_invite_v3(&account_id, peer_id, &enc, 2, &kp, None, None).unwrap();
         match parse_invite(&encoded).unwrap() {
             InviteTarget::Peer(info) => {
                 assert_eq!(info.peer_id, peer_id);
@@ -412,7 +410,7 @@ mod tests {
 
     #[test]
     fn roundtrip_signed_invite_v3_with_ratchet() {
-        use crate::crypto::{EncryptionKeypair, ratchet::LocalPrekeyStore};
+        use crate::crypto::{ratchet::LocalPrekeyStore, EncryptionKeypair};
         use libp2p::identity::Keypair;
         let kp = Keypair::generate_ed25519();
         let account_id = crate::account_identity::account_id_from_keypair(&kp);
@@ -421,16 +419,9 @@ mod tests {
         let enc = enc_kp.public_hex();
         let prekeys = LocalPrekeyStore::generate(&enc_kp, 4);
         let bundle = prekeys.public_bundle(&enc_kp);
-        let encoded = encode_signed_invite_v3(
-            &account_id,
-            peer_id,
-            &enc,
-            2,
-            &kp,
-            None,
-            Some(&bundle),
-        )
-        .unwrap();
+        let encoded =
+            encode_signed_invite_v3(&account_id, peer_id, &enc, 2, &kp, None, Some(&bundle))
+                .unwrap();
         match parse_invite(&encoded).unwrap() {
             InviteTarget::Peer(info) => {
                 assert!(info.signature_valid);

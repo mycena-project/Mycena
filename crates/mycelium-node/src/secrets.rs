@@ -195,7 +195,9 @@ pub fn load_or_create_encryption_keypair(
     Ok(kp)
 }
 
-fn enc_keypair_from_secret_bytes(bytes: &[u8]) -> anyhow::Result<mycelium_core::crypto::EncryptionKeypair> {
+fn enc_keypair_from_secret_bytes(
+    bytes: &[u8],
+) -> anyhow::Result<mycelium_core::crypto::EncryptionKeypair> {
     use mycelium_core::crypto::EncryptionKeypair;
     let arr: [u8; 32] = bytes
         .try_into()

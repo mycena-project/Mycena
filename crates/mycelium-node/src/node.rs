@@ -11,6 +11,7 @@ use crate::storage::SledMessageStore;
 use crate::transport::Libp2pTransport;
 use libp2p::{identity, Multiaddr, PeerId};
 use mycelium_core::bootstrap::load_bootstrap_peers;
+use mycelium_core::crypto::EncryptionKeypair;
 use mycelium_core::crypto::{self};
 use mycelium_core::data::{now_ms, Priority};
 use mycelium_core::energy::NodeState;
@@ -19,7 +20,6 @@ use mycelium_core::transport::{
     ConnectivityMode, DirectMessage, MeshTransport, MessageStore, Scope, StoreStats,
     TransportEvent, WireMessage,
 };
-use mycelium_core::crypto::EncryptionKeypair;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -676,10 +676,8 @@ impl NodeRunner {
     ) -> anyhow::Result<(Self, NodeHandle)> {
         let keypair = transport.local_keypair();
         let local_peer_id = transport.local_peer_id();
-        let enc_keypair = crate::secrets::load_or_create_encryption_keypair(
-            &config.db_path,
-            config.storage_key,
-        )?;
+        let enc_keypair =
+            crate::secrets::load_or_create_encryption_keypair(&config.db_path, config.storage_key)?;
         let enc_pubkey_hex = enc_keypair.public_hex();
         let peer_enc_store = Arc::new(crate::peer_enc_keys::PeerEncKeyStore::open(
             &config.db_path,
@@ -698,10 +696,8 @@ impl NodeRunner {
         let local_prekeys = match ratchet_store.load_local_prekeys()? {
             Some(pk) => pk,
             None => {
-                let pk = mycelium_core::crypto::ratchet::LocalPrekeyStore::generate(
-                    &enc_keypair,
-                    32,
-                );
+                let pk =
+                    mycelium_core::crypto::ratchet::LocalPrekeyStore::generate(&enc_keypair, 32);
                 ratchet_store.save_local_prekeys(&pk)?;
                 pk
             }
@@ -1189,7 +1185,9 @@ impl NodeRunner {
                         info!("seeded enc key for {peer_id} from invite");
                         if self.transport.is_peer_connected(&peer_id) {
                             if let Err(e) = self.send_peer_info(peer_id.clone()).await {
-                                warn!("could not send PeerInfo after invite seed for {peer_id}: {e}");
+                                warn!(
+                                    "could not send PeerInfo after invite seed for {peer_id}: {e}"
+                                );
                             }
                         }
                     }
