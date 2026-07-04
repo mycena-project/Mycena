@@ -17,17 +17,28 @@ object RelayBootstrap {
         "/ip4/149.248.194.198/tcp/4001/p2p/$RELAY_PEER_ID",
     )
 
+    private val nativeLibLoaded: Boolean =
+        run {
+            try {
+                System.loadLibrary("uniffi_mycelium")
+                true
+            } catch (_: Throwable) {
+                false
+            }
+        }
+
     fun circuitMultiaddr(remotePeerId: String): String? {
         val remote = remotePeerId.trim()
         if (remote.isEmpty()) return null
-        return try {
-            mycelium.relayCircuitMultiaddr(remote)
-        } catch (_: Exception) {
-            null
-        } ?: run {
-            val base = selectRelayBase(remote)
-            "$base/p2p-circuit/p2p/$remote"
+        if (nativeLibLoaded) {
+            try {
+                mycelium.relayCircuitMultiaddr(remote)?.let { return it }
+            } catch (_: Throwable) {
+                // Fall through to embedded relay bases (JVM unit tests, early startup).
+            }
         }
+        val base = selectRelayBase(remote)
+        return "$base/p2p-circuit/p2p/$remote"
     }
 
     private fun selectRelayBase(seed: String): String {
