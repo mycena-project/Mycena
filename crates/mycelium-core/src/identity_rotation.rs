@@ -28,7 +28,8 @@ impl IdentityRotationGossip {
         epoch: u64,
         account_keypair: &libp2p::identity::Keypair,
     ) -> anyhow::Result<Self> {
-        let bytes = identity_rotation_signable_bytes(account_id, previous_peer_id, new_peer_id, epoch);
+        let bytes =
+            identity_rotation_signable_bytes(account_id, previous_peer_id, new_peer_id, epoch);
         let signature = crate::account_identity::sign_account_message(account_keypair, &bytes)?;
         Ok(Self {
             account_id: account_id.to_string(),
@@ -103,14 +104,9 @@ mod tests {
     fn e2e_announce_roundtrip() {
         let kp = Keypair::generate_ed25519();
         let account_id = crate::account_identity::account_id_from_keypair(&kp);
-        let gossip = IdentityRotationGossip::sign(
-            &account_id,
-            "12D3KooWOld",
-            "12D3KooWNew",
-            1,
-            &kp,
-        )
-        .unwrap();
+        let gossip =
+            IdentityRotationGossip::sign(&account_id, "12D3KooWOld", "12D3KooWNew", 1, &kp)
+                .unwrap();
         let wrapped = gossip.encode_e2e_announce().unwrap();
         let decoded = IdentityRotationGossip::decode_e2e_announce(&wrapped).unwrap();
         assert_eq!(decoded, gossip);

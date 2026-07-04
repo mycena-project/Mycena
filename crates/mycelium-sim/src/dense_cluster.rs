@@ -22,25 +22,22 @@ pub fn dense_cluster_shard_containment(node_count: usize) -> DenseClusterReport 
     let nodes = node_count.max(500);
     let shard_count = 8usize;
     let mut shard_members: HashMap<String, Vec<usize>> = HashMap::new();
-    let prefixes = ["u4pr", "u4ps", "u4pt", "u4pu", "u4pv", "u4pw", "u4px", "u4py"];
+    let prefixes = [
+        "u4pr", "u4ps", "u4pt", "u4pu", "u4pv", "u4pw", "u4px", "u4py",
+    ];
     for i in 0..nodes {
         let prefix = prefixes[i % shard_count];
         shard_members.entry(prefix.to_string()).or_default().push(i);
     }
 
     let global_gossip_fanout = (nodes.saturating_sub(1)) as u64;
-    let largest_shard = shard_members
-        .values()
-        .map(|v| v.len())
-        .max()
-        .unwrap_or(1);
+    let largest_shard = shard_members.values().map(|v| v.len()).max().unwrap_or(1);
     let sharded_gossip_fanout = largest_shard.saturating_sub(1).max(1) as u64;
 
     let density_cfg = CrowdDensityConfig::default();
     let density_backoff_triggered = density_cfg.should_activate(nodes.saturating_sub(1), false);
 
-    let shard_containment_ratio =
-        sharded_gossip_fanout as f64 / global_gossip_fanout.max(1) as f64;
+    let shard_containment_ratio = sharded_gossip_fanout as f64 / global_gossip_fanout.max(1) as f64;
 
     DenseClusterReport {
         nodes,
@@ -67,7 +64,9 @@ pub fn count_sharded_recipients(
 pub fn dense_sos_publish_recipients(nodes: usize, publisher_geohash: &str) -> (usize, usize) {
     let nodes = nodes.max(500);
     let topic = topic_shard::gossip_topic(SOS_SCOPE, publisher_geohash).expect("shard topic");
-    let prefixes = ["u4pr", "u4ps", "u4pt", "u4pu", "u4pv", "u4pw", "u4px", "u4py"];
+    let prefixes = [
+        "u4pr", "u4ps", "u4pt", "u4pu", "u4pv", "u4pw", "u4px", "u4py",
+    ];
 
     let mut subscribers = Vec::with_capacity(nodes);
     for i in 0..nodes {

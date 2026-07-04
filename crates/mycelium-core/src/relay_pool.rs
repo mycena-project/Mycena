@@ -113,9 +113,7 @@ impl RelayPool {
         }
         let h = blake3::hash(seed.as_bytes());
         let b = h.as_bytes();
-        let base = u64::from_le_bytes([
-            b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7],
-        ]) as usize
+        let base = u64::from_le_bytes([b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7]]) as usize
             % self.entries.len();
         for offset in 0..self.entries.len() {
             let idx = (base + offset) % self.entries.len();

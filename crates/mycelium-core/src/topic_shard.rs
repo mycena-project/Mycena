@@ -29,9 +29,10 @@ pub fn shard_prefix(geohash: &str) -> Option<String> {
     if gh.len() < 4 {
         return None;
     }
-    if !gh.chars().all(|c| {
-        matches!(c, '0'..='9' | 'b'..='h' | 'j'..='n' | 'p'..='z')
-    }) {
+    if !gh
+        .chars()
+        .all(|c| matches!(c, '0'..='9' | 'b'..='h' | 'j'..='n' | 'p'..='z'))
+    {
         return None;
     }
     let len = shard_prefix_len().min(gh.len());
@@ -52,8 +53,8 @@ pub fn subscribe_pattern(base_scope: &str) -> String {
 /// Resolve gossip publish topics for a scoped payload.
 pub fn resolve_publish_topics(base_scope: &str, payload: &[u8]) -> Vec<String> {
     if supports_geohash_sharding(base_scope) {
-        if let Some(gh) = geohash_from_payload_bytes(payload)
-            .or_else(|| extract_geohash_field(payload))
+        if let Some(gh) =
+            geohash_from_payload_bytes(payload).or_else(|| extract_geohash_field(payload))
         {
             if let Some(topic) = gossip_topic(base_scope, &gh) {
                 return vec![topic];

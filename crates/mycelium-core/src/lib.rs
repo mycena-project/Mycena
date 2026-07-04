@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Mycelium Project
-pub mod bearer_transport;
 pub mod account_identity;
 pub mod at_rest;
+pub mod bearer_transport;
 pub mod ble_mesh;
 pub mod ble_multiaddr;
 pub mod ble_stream;
@@ -19,7 +19,6 @@ pub mod identity_rotation;
 pub mod invite;
 pub mod mesh_profile;
 pub mod rate_limit;
-pub mod topic_shard;
 pub mod relay_pool;
 pub mod relay_registry;
 pub mod relay_status;
@@ -27,4 +26,5 @@ pub mod rendezvous;
 pub mod rendezvous_dial;
 pub mod sos;
 pub mod sync;
+pub mod topic_shard;
 pub mod transport;

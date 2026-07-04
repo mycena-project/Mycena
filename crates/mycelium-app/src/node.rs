@@ -609,7 +609,11 @@ impl AppNode {
             if !self.handle.has_enc_key_for(&target).await {
                 continue;
             }
-            let (encrypted, e2e_version) = match self.handle.encrypt_e2e_payload(&target, wrapped.clone()).await {
+            let (encrypted, e2e_version) = match self
+                .handle
+                .encrypt_e2e_payload(&target, wrapped.clone())
+                .await
+            {
                 Ok(v) => v,
                 Err(e) => {
                     last_err = Some(e);

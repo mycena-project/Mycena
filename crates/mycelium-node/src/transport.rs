@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Mycelium Project
+use crate::bearer_mesh::BearerMeshRouter;
 use crate::behaviour::{
     make_direct_response, DirectMessageRequest, DirectMessageResponse, MeshBehaviour,
 };
-use crate::bearer_mesh::BearerMeshRouter;
 use crate::connectivity::{kad_action_for_mode, KadConnectivityAction};
 use futures::StreamExt;
 use libp2p::multiaddr::Protocol;
@@ -950,7 +950,11 @@ impl MeshTransport for Libp2pTransport {
         &mut self,
         to_peer: Option<&str>,
         max: usize,
-    ) -> Vec<(String, Vec<u8>, mycelium_core::bearer_transport::BearerMedium)> {
+    ) -> Vec<(
+        String,
+        Vec<u8>,
+        mycelium_core::bearer_transport::BearerMedium,
+    )> {
         self.bearer.drain_bearer_outbound(to_peer, max)
     }
 

@@ -5,10 +5,10 @@
 use crate::bearer_ble::{BearerBleRouter, BearerIngestAction};
 use crate::behaviour::DirectMessageRequest;
 use crate::ble_transport::BlePeerInfo;
-use mycelium_core::ble_stream::encode_stream_frame;
 use mycelium_core::bearer_transport::{
     self, BearerMedium, BearerPayloadKind, BearerTransport, BearerWireVersion, ReliabilityClass,
 };
+use mycelium_core::ble_stream::encode_stream_frame;
 use mycelium_core::transport::{TransportEvent, WireMessage};
 use std::collections::{HashMap, VecDeque};
 
@@ -81,10 +81,7 @@ impl BearerMeshRouter {
     }
 
     fn queue_wifi_frame(&mut self, peer: &str, frame: Vec<u8>) {
-        let q = self
-            .wifi_outbound
-            .entry(peer.to_string())
-            .or_default();
+        let q = self.wifi_outbound.entry(peer.to_string()).or_default();
         q.push_back(frame);
         while q.len() > WIFI_QUEUE_CAP {
             q.pop_front();

@@ -200,10 +200,7 @@ impl BearerTransport for BearerBleRouter {
     }
 
     fn send_frame(&mut self, peer: &str, frame: &[u8]) -> anyhow::Result<()> {
-        let q = self
-            .side_outbound
-            .entry(peer.to_string())
-            .or_default();
+        let q = self.side_outbound.entry(peer.to_string()).or_default();
         q.push_back(frame.to_vec());
         while q.len() > SIDE_QUEUE_CAP {
             q.pop_front();

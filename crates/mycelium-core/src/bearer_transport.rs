@@ -32,12 +32,8 @@ pub enum ReliabilityClass {
 impl ReliabilityClass {
     pub fn from_payload_kind(kind: BearerPayloadKind) -> Self {
         match kind {
-            BearerPayloadKind::SideChannelWire | BearerPayloadKind::LegacyWire => {
-                Self::BestEffort
-            }
-            BearerPayloadKind::StreamDirect | BearerPayloadKind::LegacyStream => {
-                Self::Acknowledged
-            }
+            BearerPayloadKind::SideChannelWire | BearerPayloadKind::LegacyWire => Self::BestEffort,
+            BearerPayloadKind::StreamDirect | BearerPayloadKind::LegacyStream => Self::Acknowledged,
         }
     }
 }
@@ -356,9 +352,12 @@ mod tests {
     #[test]
     fn v1_roundtrip_side_channel() {
         let payload = b"wire-bytes".to_vec();
-        let bytes =
-            encode_bearer_frame(BearerPayloadKind::SideChannelWire, &payload, BearerWireVersion::V1)
-                .unwrap();
+        let bytes = encode_bearer_frame(
+            BearerPayloadKind::SideChannelWire,
+            &payload,
+            BearerWireVersion::V1,
+        )
+        .unwrap();
         let frame = decode_bearer_frame(&bytes).unwrap();
         assert_eq!(frame.kind, BearerPayloadKind::SideChannelWire);
         assert_eq!(frame.payload, payload);
@@ -367,9 +366,12 @@ mod tests {
     #[test]
     fn legacy_mybl_decode() {
         let payload = b"legacy".to_vec();
-        let bytes =
-            encode_bearer_frame(BearerPayloadKind::SideChannelWire, &payload, BearerWireVersion::Legacy)
-                .unwrap();
+        let bytes = encode_bearer_frame(
+            BearerPayloadKind::SideChannelWire,
+            &payload,
+            BearerWireVersion::Legacy,
+        )
+        .unwrap();
         assert_eq!(&bytes[..4], LEGACY_WIRE_MAGIC);
         let frame = decode_bearer_frame(&bytes).unwrap();
         assert_eq!(frame.kind, BearerPayloadKind::LegacyWire);
@@ -379,9 +381,12 @@ mod tests {
     #[test]
     fn legacy_mylp_decode() {
         let payload = b"stream".to_vec();
-        let bytes =
-            encode_bearer_frame(BearerPayloadKind::StreamDirect, &payload, BearerWireVersion::Legacy)
-                .unwrap();
+        let bytes = encode_bearer_frame(
+            BearerPayloadKind::StreamDirect,
+            &payload,
+            BearerWireVersion::Legacy,
+        )
+        .unwrap();
         assert_eq!(&bytes[..4], LEGACY_STREAM_MAGIC);
         let frame = decode_bearer_frame(&bytes).unwrap();
         assert_eq!(frame.kind, BearerPayloadKind::LegacyStream);

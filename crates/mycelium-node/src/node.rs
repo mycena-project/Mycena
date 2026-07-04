@@ -12,13 +12,13 @@ use crate::storage::SledMessageStore;
 use crate::transport::Libp2pTransport;
 use libp2p::{identity, Multiaddr, PeerId};
 use mycelium_core::bootstrap::load_bootstrap_peers;
+use mycelium_core::crowd_density::CrowdDensityConfig;
 use mycelium_core::crypto::EncryptionKeypair;
 use mycelium_core::crypto::{self};
-use mycelium_core::crowd_density::CrowdDensityConfig;
 use mycelium_core::data::{now_ms, Priority};
 use mycelium_core::energy::NodeState;
-use mycelium_core::topic_shard;
 use mycelium_core::sync::BloomFilter;
+use mycelium_core::topic_shard;
 use mycelium_core::transport::{
     ConnectivityMode, DirectMessage, MeshTransport, MessageStore, Scope, StoreStats,
     TransportEvent, WireMessage,
@@ -607,7 +607,11 @@ impl NodeHandle {
             .map_err(|_| anyhow::anyhow!("gc response channel closed"))
     }
 
-    pub async fn remap_transport_peer(&self, old_peer_id: &str, new_peer_id: &str) -> anyhow::Result<()> {
+    pub async fn remap_transport_peer(
+        &self,
+        old_peer_id: &str,
+        new_peer_id: &str,
+    ) -> anyhow::Result<()> {
         self.send(NodeCommand::RemapTransportPeer {
             old_peer_id: old_peer_id.to_string(),
             new_peer_id: new_peer_id.to_string(),
@@ -960,15 +964,15 @@ impl NodeRunner {
 
     fn update_crowd_density_backoff(&mut self) {
         let visible = self.transport.connected_peer_count();
-        let next = self.crowd_density_config.should_activate(visible, self.crowd_density_active);
+        let next = self
+            .crowd_density_config
+            .should_activate(visible, self.crowd_density_active);
         if next == self.crowd_density_active {
             return;
         }
         self.crowd_density_active = next;
-        self.transport.set_density_backoff(
-            next,
-            self.crowd_density_config.max_direct_peers,
-        );
+        self.transport
+            .set_density_backoff(next, self.crowd_density_config.max_direct_peers);
     }
 
     async fn subscribe_gossip_for_scope(&mut self, scope: &str) -> anyhow::Result<()> {
@@ -1302,7 +1306,9 @@ impl NodeRunner {
                 max,
                 reply,
             } => {
-                let drained = self.transport.drain_bearer_outbound(to_peer.as_deref(), max);
+                let drained = self
+                    .transport
+                    .drain_bearer_outbound(to_peer.as_deref(), max);
                 if let Some(tx) = reply {
                     let _ = tx.send(drained);
                 }
@@ -1540,11 +1546,7 @@ impl NodeRunner {
         Ok(())
     }
 
-    async fn ingest_bearer_frame(
-        &mut self,
-        from_peer: &str,
-        frame: &[u8],
-    ) -> anyhow::Result<bool> {
+    async fn ingest_bearer_frame(&mut self, from_peer: &str, frame: &[u8]) -> anyhow::Result<bool> {
         use crate::bearer_ble::{BearerBleRouter, BearerIngestAction};
         match BearerBleRouter::decode_ingest(frame) {
             Ok(BearerIngestAction::StreamFrame(payload)) => {
@@ -1715,7 +1717,10 @@ impl NodeRunner {
         let recipients = if self.identity_rotation_pending_peers.is_empty() {
             self.identity_rotation_recipients()
         } else {
-            self.identity_rotation_pending_peers.iter().cloned().collect()
+            self.identity_rotation_pending_peers
+                .iter()
+                .cloned()
+                .collect()
         };
         if recipients.is_empty() {
             info!(
@@ -1727,10 +1732,7 @@ impl NodeRunner {
         let mut sent = 0usize;
         let mut failed = Vec::new();
         for to_peer in recipients {
-            match self
-                .send_encrypted_direct_internal(&to_peer, &inner)
-                .await
-            {
+            match self.send_encrypted_direct_internal(&to_peer, &inner).await {
                 Ok(()) => sent += 1,
                 Err(e) => {
                     warn!("identity rotation E2E to {to_peer}: {e:#}");
@@ -1761,10 +1763,7 @@ impl NodeRunner {
                 return;
             }
         };
-        match self
-            .send_encrypted_direct_internal(peer_id, &inner)
-            .await
-        {
+        match self.send_encrypted_direct_internal(peer_id, &inner).await {
             Ok(()) => {
                 self.identity_rotation_pending_peers.remove(peer_id);
                 if self.identity_rotation_pending_peers.is_empty() {
@@ -1783,7 +1782,11 @@ impl NodeRunner {
         if self.identity_rotation_pending_peers.is_empty() {
             return;
         }
-        let pending: Vec<String> = self.identity_rotation_pending_peers.iter().cloned().collect();
+        let pending: Vec<String> = self
+            .identity_rotation_pending_peers
+            .iter()
+            .cloned()
+            .collect();
         for peer in pending {
             if self.transport.is_peer_connected(&peer) {
                 self.retry_identity_rotation_to_peer(&peer).await;
@@ -1817,7 +1820,9 @@ impl NodeRunner {
             anyhow::bail!("cannot send EncryptedDirect without local keypair");
         }
         if self.transport.is_peer_connected(to_peer) {
-            self.transport.send_direct(to_peer.to_string(), wire).await?;
+            self.transport
+                .send_direct(to_peer.to_string(), wire)
+                .await?;
         } else {
             let peers = self.transport.known_peers();
             let now = now_ms();
@@ -2336,7 +2341,8 @@ impl NodeRunner {
                         self.enqueue(target, forwarded).await?;
                         return Ok(());
                     }
-                    let crowd = self.crowd_mode.load(Ordering::Relaxed) || self.crowd_density_active;
+                    let crowd =
+                        self.crowd_mode.load(Ordering::Relaxed) || self.crowd_density_active;
                     if !crowd || message.body.starts_with("[bulletin:") {
                         self.find_peer_via_kad(&target).await;
                     }
@@ -2660,10 +2666,10 @@ impl NodeRunner {
             if pending.message.is_expired(now_ms()) {
                 continue;
             }
-            if !self
-                .energy_policy
-                .can_forward(self.effective_forwarding_state(), pending.message.envelope.priority)
-            {
+            if !self.energy_policy.can_forward(
+                self.effective_forwarding_state(),
+                pending.message.envelope.priority,
+            ) {
                 continue;
             }
             if let Err(err) = self

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Mycelium Project
-pub mod behaviour;
 mod bearer_ble;
 mod bearer_mesh;
+pub mod behaviour;
 mod ble_transport;
 pub mod connectivity;
 mod custody;

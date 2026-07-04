@@ -194,7 +194,12 @@ impl AppStorage {
     fn remap_chat_tree(&self, old_peer_id: &str, new_peer_id: &str) -> anyhow::Result<()> {
         let old_name = format!("chat:{old_peer_id}");
         let new_name = format!("chat:{new_peer_id}");
-        if !self.db.tree_names().iter().any(|n| n.as_ref() == old_name.as_bytes()) {
+        if !self
+            .db
+            .tree_names()
+            .iter()
+            .any(|n| n.as_ref() == old_name.as_bytes())
+        {
             return Ok(());
         }
         let old_tree = self.db.open_tree(&old_name)?;

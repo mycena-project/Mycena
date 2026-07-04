@@ -3,7 +3,7 @@
 use crate::clock::{DeterministicClock, VirtualClock};
 use crate::scheduler::{EventScheduler, LinkProfile};
 use crate::transport::{SimAction, SimTransport};
-use mycelium_core::transport::{TransportEvent, WireMessage, Scope};
+use mycelium_core::transport::{Scope, TransportEvent, WireMessage};
 use mycelium_node::{IdentityBootstrap, NodeConfig, NodeHandle, NodeRunner};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;

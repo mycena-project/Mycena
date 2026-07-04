@@ -11,8 +11,8 @@ pub mod secrets;
 
 pub use mycelium_core::account_identity;
 pub use mycelium_core::at_rest::{clear_keyring_master, parse_storage_key_hex};
-pub use mycelium_core::ble_mesh;
 pub use mycelium_core::bearer_transport;
+pub use mycelium_core::ble_mesh;
 pub use mycelium_core::bootstrap;
 pub use mycelium_core::consistency;
 pub use mycelium_core::contact_hello;
