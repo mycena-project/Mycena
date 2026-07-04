@@ -889,7 +889,7 @@ async fn send_chat_encrypted(
         .as_ref()
         .ok_or_else(|| "node not started".to_string())?;
     s.app_node
-        .send_chat_encrypted(to_peer, body)
+        .send_chat_encrypted(to_peer, body, mycelium_l0_facade::data::Priority::Normal)
         .await
         .map(|_| "encrypted".to_string())
         .map_err(|e| e.to_string())

@@ -182,6 +182,13 @@
     <string name="peers_connect_via_relay">Via relay</string>
     <string name="peers_connected">%1$d connected</string>
     <string name="peers_connected_count">%1$d connected</string>
+    <string name="peers_endorse_button">Endorse</string>
+    <string name="peers_endorse_title">Endorse peer</string>
+    <string name="peers_endorse_body">Local endorsement boosts this peer in relay routing. Strength 1–5 (not transferable).</string>
+    <string name="peers_endorse_strength">Strength: %1$d</string>
+    <string name="peers_endorse_confirm">Save endorsement</string>
+    <string name="peers_endorse_success">Endorsement saved</string>
+    <string name="peers_reputation_relay">Relay trust: %1$d%%</string>
     <string name="peers_delivered">Delivered</string>
     <string name="peers_forwarded">Forwarded</string>
     <string name="peers_my_id">My Peer ID</string>

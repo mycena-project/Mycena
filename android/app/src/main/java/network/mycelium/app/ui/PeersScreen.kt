@@ -67,8 +67,12 @@ import network.mycelium.app.PortraitQrScanActivity
 import network.mycelium.app.R
 import network.mycelium.app.bootstrap.InviteConnect
 import network.mycelium.app.bootstrap.PeerInvite
-import network.mycelium.app.util.sharePlainText
 import network.mycelium.app.viewmodel.PeersViewModel
+import network.mycelium.app.util.sharePlainText
+import androidx.compose.material3.Slider
+import androidx.compose.material.icons.filled.ThumbUp
+import androidx.compose.ui.Alignment
+import network.mycelium.bindings.PeerReputationData
 import network.mycelium.bindings.mycelium
 
 private data class RelayStatus(val online: Boolean, val reachable: Long)
@@ -477,10 +481,104 @@ fun PeersScreen(navController: NavController, vm: PeersViewModel = viewModel()) 
                 }
             } else {
                 items(networkPeers, key = { it }) { peer ->
-                    Text(peer, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+                    PeerRow(
+                        peerId = peer,
+                        onEndorsed = {
+                            scope.launch {
+                                snackbar.showSnackbar(context.getString(R.string.peers_endorse_success))
+                            }
+                        },
+                        onEndorse = { id, strength -> vm.endorsePeer(id, strength) },
+                    )
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun PeerRow(
+    peerId: String,
+    onEndorsed: () -> Unit,
+    onEndorse: (String, UByte) -> Unit,
+) {
+    var showEndorse by remember { mutableStateOf(false) }
+    var strength by remember { mutableStateOf(3f) }
+    var reputation by remember { mutableStateOf<PeerReputationData?>(null) }
+
+    LaunchedEffect(peerId) {
+        reputation =
+            withContext(Dispatchers.IO) {
+                mycelium.peerReputation(peerId)
+            }
+    }
+
+    Card(
+        modifier =
+            Modifier
+                .padding(horizontal = 16.dp)
+                .fillMaxWidth(),
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(peerId.take(20) + "…", style = MaterialTheme.typography.bodyMedium)
+                reputation?.let { rep ->
+                    Text(
+                        stringResource(
+                            R.string.peers_reputation_relay,
+                            (rep.relaySuccessRate * 100).toInt(),
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            OutlinedButton(onClick = { showEndorse = true }) {
+                Icon(Icons.Default.ThumbUp, contentDescription = null, modifier = Modifier.size(16.dp))
+                Text(stringResource(R.string.peers_endorse_button), modifier = Modifier.padding(start = 4.dp))
+            }
+        }
+    }
+
+    if (showEndorse) {
+        AlertDialog(
+            onDismissRequest = { showEndorse = false },
+            title = { Text(stringResource(R.string.peers_endorse_title)) },
+            text = {
+                Column {
+                    Text(stringResource(R.string.peers_endorse_body))
+                    Text(
+                        stringResource(R.string.peers_endorse_strength, strength.toInt()),
+                        modifier = Modifier.padding(top = 12.dp),
+                    )
+                    Slider(
+                        value = strength,
+                        onValueChange = { strength = it },
+                        valueRange = 1f..5f,
+                        steps = 3,
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onEndorse(peerId, strength.toInt().toUByte())
+                        showEndorse = false
+                        onEndorsed()
+                    },
+                ) {
+                    Text(stringResource(R.string.peers_endorse_confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEndorse = false }) {
+                    Text(stringResource(R.string.wallet_dismiss))
+                }
+            },
+        )
     }
 }
 

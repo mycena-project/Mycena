@@ -3,7 +3,7 @@
 //! E2E decrypt must not attach a misleading libp2p envelope signature.
 
 use mycelium_core::crypto::{decrypt_with, encrypt_for, EncryptionKeypair};
-use mycelium_core::data::Envelope;
+use mycelium_core::data::{Envelope, Priority};
 use mycelium_core::e2e_direct_wrap;
 use mycelium_core::transport::{DirectMessage, WireMessage};
 
@@ -25,6 +25,7 @@ fn encrypted_direct_decrypt_has_no_mesh_signature() {
         hop_count: 0,
         max_hops: 8,
         e2e_version: 0,
+        priority: Priority::Normal,
     };
 
     let relay_from = "12D3KooWRelayHop";

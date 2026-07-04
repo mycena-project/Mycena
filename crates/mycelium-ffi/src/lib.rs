@@ -1022,10 +1022,10 @@ pub fn send_chat_priority(
                     detail: e.to_string(),
                 })?;
         }
-        let _priority = priority_for_deposit(deposit_muon);
+        let priority = priority_for_deposit(deposit_muon);
         state
             .app_node
-            .send_chat(Some(to_peer), body)
+            .send_chat_with_priority(Some(to_peer), body, priority)
             .await
             .map(|_| ())
             .map_err(|e| MyceliumException::ChatError {
@@ -1078,7 +1078,7 @@ pub fn send_chat_encrypted(to_peer: String, body: String) -> Result<(), Mycelium
         let state = state.read().await;
         state
             .app_node
-            .send_chat_encrypted(to_peer, body)
+            .send_chat_encrypted(to_peer, body, Priority::Normal)
             .await
             .map(|_| ())
             .map_err(|e| MyceliumException::ChatError {

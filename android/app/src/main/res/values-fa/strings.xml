@@ -95,7 +95,7 @@
     <string name="miniapp_no_apps">هنوز برنامهٔ کوچکی نصب نشده است.</string>
     <string name="miniapp_no_listings">فهرستی در این دستگاه ذخیره نشده است.</string>
     <string name="miniapp_open">باز کردن</string>
-    <string name="miniapp_payment_confirm_message">برنامه درخواست پرداخت %1$d میون را دارد. یادداشت: %2$s</string>
+    <string name="miniapp_payment_confirm_message">برنامه درخواست پرداخت %1$d اعتبار را دارد. یادداشت: %2$s</string>
     <string name="miniapp_payment_confirm_message_detailed">%1$s می‌خواهد شارژ کند:\n\n%2$s\n\nبه: %3$s%4$s</string>
     <string name="miniapp_payment_confirm_title">درخواست پرداخت</string>
     <string name="miniapp_payment_confirm_yes">تایید پرداخت</string>
@@ -120,7 +120,13 @@
     <string name="nav_mail">نامه</string>
     <string name="nav_peers">همتایان</string>
     <string name="nav_settings">تنظیمات</string>
-    <string name="nav_wallet">کیف پول</string>
+    <string name="nav_wallet">اعتبار اضطراری</string>
+    <string name="nav_emergency_credits">اعتبار اضطراری</string>
+    <string name="more_emergency_credits_sub">اعتبار کاربردی آفلاین برای سرویس‌های mesh</string>
+    <string name="network_contribution_title">مشارکت شبکه</string>
+    <string name="network_contribution_loading">در حال اندازه‌گیری…</string>
+    <string name="network_contribution_hint">پیام‌ها را relay کنید، آنلاین بمانید و همسایگان مفید را تأیید کنید.</string>
+    <string name="network_contribution_stats">Relay: %1$d · تحویل: %2$d · آپ‌تایم: %3$s · تأییدها: %4$d</string>
     <string name="notification_channel_name">شبکه میسلیوم</string>
     <string name="notification_peers">%1$d همتا متصل شد</string>
     <string name="notification_running">شبکه میسلیوم فعال است</string>
@@ -176,7 +182,7 @@
     <string name="settings_language">زبان</string>
     <string name="settings_mini_apps">برنامه‌های کوچک</string>
     <string name="settings_network_section">شبکه</string>
-    <string name="settings_open_wallet">باز کردن کیف پول</string>
+    <string name="settings_open_wallet">باز کردن اعتبار اضطراری</string>
     <string name="settings_panic_button">Panic wipe — حذف همه داده‌ها</string>
     <string name="settings_panic_confirm_body">این کار همه پیام‌ها، کلید هویت و داده‌های کیف پول را برای همیشه حذف می‌کند. قابل بازگشت نیست.</string>
     <string name="settings_panic_confirm_no">لغو</string>
@@ -213,7 +219,7 @@
     <string name="wallet_cold_wallet_address">آدرس کیف سرد</string>
     <string name="wallet_cold_wallet_hint">mxc1… (کیف اصلی)</string>
     <string name="wallet_dismiss">بستن</string>
-    <string name="wallet_experimental_notice">MeshCoin آزمایشی است. برای تراکنش‌های واقعی استفاده نکنید. مدل اجماع در حال توسعه است و هنوز در برابر حملات امن نیست.</string>
+    <string name="wallet_experimental_notice">اعتبار اضطراری محلی برای تاب‌آوری آفلاین. پول نیست، سرمایه‌گذاری نیست، برای پس‌انداز نیست. موجودی محدود است — فقط برای تداوم محلی در قطعی‌ها.</string>
     <string name="wallet_faucet">درخواست اعتبار پیش نمایش</string>
     <string name="wallet_fee">هزینه شبکه</string>
     <string name="wallet_history">تاریخچه معاملات</string>
@@ -233,7 +239,7 @@
     <string name="wallet_share_request">اشتراک درخواست</string>
     <string name="wallet_status_confirmed">تایید شد</string>
     <string name="wallet_status_witnesses">%1$d/3 شاهد</string>
-    <string name="wallet_title">کیف پول</string>
+    <string name="wallet_title">اعتبار اضطراری</string>
     <string name="wallet_to_hint">به (آدرس یا شناسه همتا)</string>
     <string name="wallet_tx_pending">تراکنش در انتظار (آفلاین)</string>
     <string name="wallet_tx_sent">پخش تراکنش</string>

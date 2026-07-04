@@ -47,7 +47,7 @@ score = peer_trust.relay_selection_score(now)
 - Credits are destroyed on use (anti-spam economic cost)
 - FFI: `send_chat_priority(to, body, deposit_muon)`
 
-**Note:** Encrypted chat currently uses the wire transport path; envelope priority applies fully to `SendDirectPayload` / bulletin paths. The burn still deters spam even when wire priority is phase-2.
+**Note:** Encrypted chat carries `priority` on `WireMessage::EncryptedDirect`. High-priority wire frames use bounded relay fanout (same as envelope path) instead of flooding all peers.
 
 ---
 

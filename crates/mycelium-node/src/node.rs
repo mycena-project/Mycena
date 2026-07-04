@@ -1788,7 +1788,7 @@ impl NodeRunner {
         let mut sent = 0usize;
         let mut failed = Vec::new();
         for to_peer in recipients {
-            match self.send_encrypted_direct_internal(&to_peer, &inner).await {
+            match self.send_encrypted_direct_internal(&to_peer, &inner, Priority::Normal).await {
                 Ok(()) => sent += 1,
                 Err(e) => {
                     warn!("identity rotation E2E to {to_peer}: {e:#}");
@@ -1819,7 +1819,7 @@ impl NodeRunner {
                 return;
             }
         };
-        match self.send_encrypted_direct_internal(peer_id, &inner).await {
+        match self.send_encrypted_direct_internal(peer_id, &inner, Priority::Normal).await {
             Ok(()) => {
                 self.identity_rotation_pending_peers.remove(peer_id);
                 if self.identity_rotation_pending_peers.is_empty() {
@@ -1854,6 +1854,7 @@ impl NodeRunner {
         &mut self,
         to_peer: &str,
         inner_plaintext: &[u8],
+        priority: Priority,
     ) -> anyhow::Result<()> {
         let wrapped =
             mycelium_core::e2e_direct_wrap::wrap_inner(&self.local_peer_id, inner_plaintext);
@@ -1869,6 +1870,7 @@ impl NodeRunner {
             hop_count: 0,
             max_hops: 8,
             e2e_version,
+            priority,
         };
         if let Some(keypair) = &self.keypair {
             mycelium_core::transport::sign_encrypted_direct(&mut wire, keypair)?;
@@ -2618,6 +2620,7 @@ impl NodeRunner {
                 hop_count,
                 max_hops,
                 e2e_version,
+                priority,
             } => {
                 if to_peer == self.local_peer_id {
                     let logical =
@@ -2683,6 +2686,7 @@ impl NodeRunner {
                         hop_count: hop_count.saturating_add(1),
                         max_hops,
                         e2e_version,
+                        priority,
                     };
                     let relay_kp = self.relay_identity.signing_keypair();
                     let _ =
@@ -3065,7 +3069,27 @@ impl NodeRunner {
     ) -> anyhow::Result<()> {
         let mut peers = self.transport.known_peers();
         peers.retain(|p| p != from_peer);
-        for p in peers {
+        let targets = match message {
+            WireMessage::EncryptedDirect {
+                priority: Priority::High,
+                to_peer,
+                ..
+            } if !peers.is_empty() => {
+                let now = now_ms();
+                let peer_trust = self.peer_trust.load_all();
+                let boosts = self.local_endorsements.read().await.clone();
+                security::select_relay_candidates(
+                    &peers,
+                    to_peer,
+                    &peer_trust,
+                    Some(&boosts),
+                    now,
+                    self.effective_max_relay_fanout(),
+                )
+            }
+            _ => peers,
+        };
+        for p in targets {
             let dest = p.clone();
             if let Err(e) = self.transport.send_direct(p, message.clone()).await {
                 warn!("wire forward failed to {dest}: {e}");

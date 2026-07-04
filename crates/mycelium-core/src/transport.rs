@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Mycelium Project
-use crate::data::Envelope;
+use crate::data::{Envelope, Priority};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
@@ -47,6 +47,9 @@ pub enum WireMessage {
         /// 0 = legacy static ECDH; 1 = Double Ratchet ([`crate::crypto::ratchet`]).
         #[serde(default)]
         e2e_version: u8,
+        /// Mesh forwarding priority (not part of mesh signature).
+        #[serde(default = "default_wire_priority")]
+        priority: Priority,
     },
     /// Symmetrisch verschlüsselte Gruppenlast; `group_id` ist öffentlicher Identifier (kein Key).
     EncryptedGroup {
@@ -82,6 +85,10 @@ pub enum WireMessage {
 
 fn default_max_hops() -> u8 {
     8
+}
+
+fn default_wire_priority() -> Priority {
+    Priority::Normal
 }
 
 /// Canonical bytes signed by the libp2p peer that forwards this wire frame.
@@ -126,6 +133,7 @@ pub fn sign_encrypted_direct(
         max_hops,
         e2e_version,
         mesh_signature,
+        ..
     } = message
     else {
         anyhow::bail!("not EncryptedDirect");
@@ -155,6 +163,7 @@ pub fn verify_encrypted_direct(message: &WireMessage, sender_peer_id: &libp2p::P
         hop_count,
         max_hops,
         e2e_version,
+        ..
     } = message
     else {
         return false;

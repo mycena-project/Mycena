@@ -5,6 +5,7 @@
 use async_trait::async_trait;
 use libp2p::identity;
 use mycelium_core::crypto::ratchet::{self, E2E_VERSION_RATCHET};
+use mycelium_core::data::Priority;
 use mycelium_core::e2e_direct_wrap;
 use mycelium_core::invite::{parse_invite, InviteTarget};
 use mycelium_core::transport::{MeshTransport, TransportEvent, WireMessage};
@@ -210,6 +211,7 @@ async fn invite_ratchet_bundle_enables_v1_first_e2e_between_two_nodes() {
         hop_count: 0,
         max_hops: 8,
         e2e_version,
+        priority: Priority::Normal,
     };
 
     alice_handle

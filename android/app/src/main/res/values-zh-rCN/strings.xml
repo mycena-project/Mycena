@@ -95,7 +95,7 @@
     <string name="miniapp_no_apps">尚未安装迷你应用。</string>
     <string name="miniapp_no_listings">此设备上没有缓存的目录条目。</string>
     <string name="miniapp_open">打开</string>
-    <string name="miniapp_payment_confirm_message">应用程序请求支付 %1$d muon。备注：%2$s</string>
+    <string name="miniapp_payment_confirm_message">应用程序请求支付 %1$d 积分。备注：%2$s</string>
     <string name="miniapp_payment_confirm_message_detailed">%1$s 想要收费：\n\n%2$s\n\n收件人：%3$s%4$s</string>
     <string name="miniapp_payment_confirm_title">付款请求</string>
     <string name="miniapp_payment_confirm_yes">确认付款</string>
@@ -120,7 +120,13 @@
     <string name="nav_mail">邮件</string>
     <string name="nav_peers">节点</string>
     <string name="nav_settings">设置</string>
-    <string name="nav_wallet">钱包</string>
+    <string name="nav_wallet">应急积分</string>
+    <string name="nav_emergency_credits">应急积分</string>
+    <string name="more_emergency_credits_sub">离线实用积分，用于网格服务</string>
+    <string name="network_contribution_title">网络贡献</string>
+    <string name="network_contribution_loading">测量中…</string>
+    <string name="network_contribution_hint">转发消息、保持在线并认可有帮助的对等节点。</string>
+    <string name="network_contribution_stats">中继: %1$d · 送达: %2$d · 在线: %3$s · 认可: %4$d</string>
     <string name="notification_channel_name">菌丝体网络</string>
     <string name="notification_peers">%1$d 个对等点已连接</string>
     <string name="notification_running">菌丝网络运行中</string>
@@ -176,7 +182,7 @@
     <string name="settings_language">语言</string>
     <string name="settings_mini_apps">迷你应用</string>
     <string name="settings_network_section">网络</string>
-    <string name="settings_open_wallet">打开钱包</string>
+    <string name="settings_open_wallet">打开应急积分</string>
     <string name="settings_panic_button">Panic wipe — 删除所有数据</string>
     <string name="settings_panic_confirm_body">这将永久删除所有消息、身份密钥和钱包数据，无法撤销。</string>
     <string name="settings_panic_confirm_no">取消</string>
@@ -213,7 +219,7 @@
     <string name="wallet_cold_wallet_address">冷钱包地址</string>
     <string name="wallet_cold_wallet_hint">mxc1…（主钱包）</string>
     <string name="wallet_dismiss">关闭</string>
-    <string name="wallet_experimental_notice">MeshCoin 为实验功能，请勿用于真实交易。共识机制仍在开发中，尚不能抵御攻击。</string>
+    <string name="wallet_experimental_notice">本地应急积分，用于离线韧性。不是货币，不是投资，不可储蓄。余额有上限；仅用于断网期间的邻里互助。</string>
     <string name="wallet_faucet">请求预览积分</string>
     <string name="wallet_fee">网络费</string>
     <string name="wallet_history">交易记录</string>
@@ -233,7 +239,7 @@
     <string name="wallet_share_request">分享收款请求</string>
     <string name="wallet_status_confirmed">确认的</string>
     <string name="wallet_status_witnesses">%1$d/3 个见证人</string>
-    <string name="wallet_title">钱包</string>
+    <string name="wallet_title">应急积分</string>
     <string name="wallet_to_hint">收件人（地址或对等 ID）</string>
     <string name="wallet_tx_pending">交易待处理（离线）</string>
     <string name="wallet_tx_sent">交易广播</string>

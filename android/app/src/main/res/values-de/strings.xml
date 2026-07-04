@@ -154,6 +154,13 @@
     <string name="peers_connect_via_relay">Über Relay</string>
     <string name="peers_connected">%1$d verbunden</string>
     <string name="peers_connected_count">%1$d verbunden</string>
+    <string name="peers_endorse_button">Bestätigen</string>
+    <string name="peers_endorse_title">Peer bestätigen</string>
+    <string name="peers_endorse_body">Lokale Bestätigung verbessert Relay-Routing. Stärke 1–5 (nicht übertragbar).</string>
+    <string name="peers_endorse_strength">Stärke: %1$d</string>
+    <string name="peers_endorse_confirm">Speichern</string>
+    <string name="peers_endorse_success">Bestätigung gespeichert</string>
+    <string name="peers_reputation_relay">Relay-Vertrauen: %1$d%%</string>
     <string name="peers_delivered">Geliefert</string>
     <string name="peers_forwarded">Weitergeleitet</string>
     <string name="peers_my_id">Meine Peer-ID</string>

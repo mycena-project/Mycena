@@ -4,6 +4,7 @@
 
 use libp2p::identity;
 use mycelium_core::crypto::{encrypt_for, EncryptionKeypair};
+use mycelium_core::data::Priority;
 use mycelium_core::e2e_direct_wrap;
 use mycelium_core::transport::{sign_encrypted_direct, verify_encrypted_direct, WireMessage};
 
@@ -17,6 +18,7 @@ fn unsigned_encrypted_direct_fails_verify() {
         hop_count: 0,
         max_hops: 8,
         e2e_version: 0,
+        priority: Priority::Normal,
     };
     let kp = identity::Keypair::generate_ed25519();
     let peer_id = kp.public().to_peer_id();
@@ -40,6 +42,7 @@ fn signed_encrypted_direct_roundtrip() {
         hop_count: 0,
         max_hops: 8,
         e2e_version: 0,
+        priority: Priority::Normal,
     };
     sign_encrypted_direct(&mut wire, &sender_kp).unwrap();
     assert!(verify_encrypted_direct(&wire, &sender_id));

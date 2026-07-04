@@ -95,7 +95,7 @@
     <string name="miniapp_no_apps">Мини-приложений пока нет.</string>
     <string name="miniapp_no_listings">Нет сохранённых записей каталога.</string>
     <string name="miniapp_open">Открыть</string>
-    <string name="miniapp_payment_confirm_message">Приложение запрашивает оплату в размере %1$d мюона. Памятка: %2$s</string>
+    <string name="miniapp_payment_confirm_message">Приложение запрашивает оплату %1$d кредитов. Памятка: %2$s</string>
     <string name="miniapp_payment_confirm_message_detailed">%1$s хочет снять плату:\n\n%2$s\n\nКому: %3$s%4$s</string>
     <string name="miniapp_payment_confirm_title">Запрос платежа</string>
     <string name="miniapp_payment_confirm_yes">Подтвердить платеж</string>
@@ -120,7 +120,13 @@
     <string name="nav_mail">Почта</string>
     <string name="nav_peers">Узлы</string>
     <string name="nav_settings">Настройки</string>
-    <string name="nav_wallet">Кошелек</string>
+    <string name="nav_wallet">Аварийные кредиты</string>
+    <string name="nav_emergency_credits">Аварийные кредиты</string>
+    <string name="more_emergency_credits_sub">Офлайн-кредиты для mesh-сервисов</string>
+    <string name="network_contribution_title">Вклад в сеть</string>
+    <string name="network_contribution_loading">Измерение…</string>
+    <string name="network_contribution_hint">Пересылайте сообщения, оставайтесь онлайн и подтверждайте полезных пиров.</string>
+    <string name="network_contribution_stats">Реле: %1$d · Доставки: %2$d · Аптайм: %3$s · Подтверждения: %4$d</string>
     <string name="notification_channel_name">Сеть мицелия</string>
     <string name="notification_peers">Подключено %1$d одноранговых узлов</string>
     <string name="notification_running">Сеть Мицелий активна</string>
@@ -176,7 +182,7 @@
     <string name="settings_language">Язык</string>
     <string name="settings_mini_apps">Мини-приложения</string>
     <string name="settings_network_section">Сеть</string>
-    <string name="settings_open_wallet">Открыть кошелек</string>
+    <string name="settings_open_wallet">Открыть аварийные кредиты</string>
     <string name="settings_panic_button">Panic wipe — удалить все данные</string>
     <string name="settings_panic_confirm_body">Это навсегда удалит все сообщения, ключ идентичности и данные кошелька. Отменить нельзя.</string>
     <string name="settings_panic_confirm_no">Отмена</string>
@@ -213,7 +219,7 @@
     <string name="wallet_cold_wallet_address">Адрес холодного кошелька</string>
     <string name="wallet_cold_wallet_hint">mxc1… (основной кошелёк)</string>
     <string name="wallet_dismiss">Закрывать</string>
-    <string name="wallet_experimental_notice">MeshCoin экспериментален. Не используйте для реальных платежей. Модель консенсуса в разработке и пока не защищена от атак.</string>
+    <string name="wallet_experimental_notice">Локальные аварийные кредиты для офлайн-устойчивости. Не деньги, не инвестиция, не для сбережений. Баланс ограничен — только для соседской связи при сбоях.</string>
     <string name="wallet_faucet">Запросить кредиты на предварительный просмотр</string>
     <string name="wallet_fee">Сетевая плата</string>
     <string name="wallet_history">История транзакций</string>
@@ -233,7 +239,7 @@
     <string name="wallet_share_request">Поделиться запросом</string>
     <string name="wallet_status_confirmed">Подтвержденный</string>
     <string name="wallet_status_witnesses">%1$d/3 свидетеля</string>
-    <string name="wallet_title">Кошелёк</string>
+    <string name="wallet_title">Аварийные кредиты</string>
     <string name="wallet_to_hint">Кому (адрес или идентификатор узла)</string>
     <string name="wallet_tx_pending">Ожидаемая транзакция (офлайн)</string>
     <string name="wallet_tx_sent">Трансляция транзакции</string>

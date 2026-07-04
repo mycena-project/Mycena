@@ -6,6 +6,7 @@ use crate::envelope::{
 };
 use crate::groups::Group;
 use crate::miniapp::store::AppStoreListing;
+use crate::miniapp_epidemic::{self, BundleReassembly};
 use crate::notify::NotificationSink;
 use crate::proximity::{
     PresenceProfile, PresenceSignal, ProximityDirectMessage, ProximityInbox, ProximityMatchIntent,
@@ -22,6 +23,7 @@ use mycelium_l0_facade::data::now_ms;
 use mycelium_l0_facade::{
     decrypt_group, encrypt_for, encrypt_group, parse_x25519_public_hex, EncKey,
 };
+use mycelium_l0_facade::data::Priority;
 use mycelium_l1_facade::{DirectMessage, NodeCommand, NodeHandle, WireMessage};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -48,6 +50,7 @@ pub struct AppNode {
     my_presence: Arc<RwLock<Option<PresenceSignal>>>,
     my_proximity_profile: Arc<RwLock<PresenceProfile>>,
     listen_sos: Arc<AtomicBool>,
+    bundle_reassembly: Arc<Mutex<BundleReassembly>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -104,6 +107,7 @@ impl AppNode {
             my_presence: Arc::new(RwLock::new(None)),
             my_proximity_profile: Arc::new(RwLock::new(PresenceProfile::default())),
             listen_sos: Arc::new(AtomicBool::new(false)),
+            bundle_reassembly: Arc::new(Mutex::new(BundleReassembly::default())),
         };
         let inbox = AppInbox {
             chat_rx,
@@ -504,6 +508,23 @@ impl AppNode {
                         Err(e) => warn!("signature verification error: {e}"),
                     }
                 }
+                AppPayload::MiniAppBundleChunk(chunk) => {
+                    let chunk = chunk.as_ref();
+                    if let Some(ref store) = self.app_store {
+                        let mut reassembly = self.bundle_reassembly.lock().await;
+                        if let Some(bytes) =
+                            miniapp_epidemic::ingest_chunk(&mut reassembly, chunk.clone())
+                        {
+                            if let Err(e) = miniapp_epidemic::try_install_epidemic_bundle(
+                                store,
+                                &bytes,
+                                &chunk.bundle_hash,
+                            ) {
+                                warn!("epidemic install failed for {}: {e}", chunk.app_id);
+                            }
+                        }
+                    }
+                }
             },
             Err(err) => {
                 if msg.body == "[encrypted]" {
@@ -519,6 +540,16 @@ impl AppNode {
         &self,
         to_peer: Option<String>,
         body: String,
+    ) -> anyhow::Result<ChatSendResult> {
+        self.send_chat_with_priority(to_peer, body, Priority::Normal)
+            .await
+    }
+
+    pub async fn send_chat_with_priority(
+        &self,
+        to_peer: Option<String>,
+        body: String,
+        priority: Priority,
     ) -> anyhow::Result<ChatSendResult> {
         match to_peer {
             None => {
@@ -548,7 +579,7 @@ impl AppNode {
             Some(to) => {
                 self.ensure_contact_accepted_for_send(&to, "")?;
                 if self.handle.has_enc_key_for(&to).await {
-                    self.send_chat_encrypted(to, body).await?;
+                    self.send_chat_encrypted(to, body, priority).await?;
                     Ok(ChatSendResult::SentEncrypted)
                 } else {
                     warn!(
@@ -586,6 +617,7 @@ impl AppNode {
         &self,
         to_peer: String,
         body: String,
+        priority: Priority,
     ) -> anyhow::Result<EncryptionResult> {
         self.ensure_contact_accepted_for_send(&to_peer, "")?;
         let display_name = self.display_name.read().await.clone();
@@ -628,6 +660,7 @@ impl AppNode {
                 hop_count: 0,
                 max_hops: 8,
                 e2e_version,
+                priority,
             };
             match self
                 .handle
@@ -1558,6 +1591,68 @@ impl AppNode {
         }
         tracing::info!("published revocation for {}", entry.app_id);
         Ok(())
+    }
+
+    /// Bootstrap sidecar for phone-to-phone APK sharing (mesh auto-join after sideload).
+    pub async fn build_offline_share_bootstrap(
+        &self,
+        install_url: String,
+    ) -> anyhow::Result<crate::offline_share::OfflineShareBootstrap> {
+        let listen = self.handle.listen_addrs().await;
+        let enc = self.handle.local_enc_pubkey_hex();
+        let direct = self
+            .handle
+            .stable_direct_multiaddr(&self.local_peer_id)
+            .await;
+        let signed_invite = self
+            .handle
+            .encode_signed_invite_v3(&self.local_peer_id, direct.as_deref())
+            .await
+            .ok();
+        let invite_uri = mycelium_l0_facade::bootstrap::shareable_dial_multiaddrs(
+            &self.local_peer_id,
+            &enc,
+            &listen,
+            signed_invite.as_deref(),
+        )
+        .into_iter()
+        .find(|a| a.starts_with("mycelium://"))
+        .unwrap_or_else(|| format!("mycelium://invite/v1#{}", self.local_peer_id));
+        Ok(crate::offline_share::OfflineShareBootstrap::new(
+            invite_uri,
+            self.local_peer_id.clone(),
+            install_url,
+        ))
+    }
+
+    /// Subscribe to epidemic gossip scopes (idempotent).
+    pub async fn ensure_epidemic_subscriptions(&self) -> anyhow::Result<()> {
+        self.handle
+            .send(NodeCommand::SubscribeBulletinScope(
+                miniapp_epidemic::BUNDLE_GOSSIP_SCOPE.into(),
+            ))
+            .await?;
+        self.handle
+            .send(NodeCommand::SubscribeBulletinScope(
+                "mycelium/appstore/v1".into(),
+            ))
+            .await?;
+        Ok(())
+    }
+
+    /// Gossip signed listings + bundle chunks for installed miniapps (cluster seeding).
+    pub async fn propagate_installed_miniapps(&self) -> anyhow::Result<u32> {
+        let Some(ref store) = self.app_store else {
+            return Ok(0);
+        };
+        self.ensure_epidemic_subscriptions().await?;
+        let n = miniapp_epidemic::propagate_installed_miniapps(
+            &self.handle,
+            store,
+            &self.local_peer_id,
+        )
+        .await?;
+        Ok(n as u32)
     }
 
     pub fn mark_mail_read(&self, mail_id: &uuid::Uuid) -> anyhow::Result<()> {

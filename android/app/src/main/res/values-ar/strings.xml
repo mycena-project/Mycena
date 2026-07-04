@@ -96,7 +96,7 @@
     <string name="miniapp_no_apps">لا توجد تطبيقات مصغّرة بعد.</string>
     <string name="miniapp_no_listings">لا توجد قوائم مخبأة على هذا الجهاز.</string>
     <string name="miniapp_open">فتح</string>
-    <string name="miniapp_payment_confirm_message">يطلب التطبيق دفع %1$d ميون. المذكرة: %2$s</string>
+    <string name="miniapp_payment_confirm_message">يطلب التطبيق دفع %1$d رصيد. المذكرة: %2$s</string>
     <string name="miniapp_payment_confirm_message_detailed">%1$s يريد تحصيل الرسوم:\n\n%2$s\n\nإلى: %3$s%4$s</string>
     <string name="miniapp_payment_confirm_title">طلب الدفع</string>
     <string name="miniapp_payment_confirm_yes">تأكيد الدفع</string>
@@ -121,7 +121,13 @@
     <string name="nav_mail">بريد</string>
     <string name="nav_peers">الأقران</string>
     <string name="nav_settings">الإعدادات</string>
-    <string name="nav_wallet">محفظة</string>
+    <string name="nav_wallet">رصيد الطوارئ</string>
+    <string name="nav_emergency_credits">رصيد الطوارئ</string>
+    <string name="more_emergency_credits_sub">رصيد محلي للخدمات — ليس للادخار أو التداول</string>
+    <string name="network_contribution_title">مساهمة الشبكة</string>
+    <string name="network_contribution_loading">جارٍ القياس…</string>
+    <string name="network_contribution_hint">أعد توجيه الرسائل، ابقَ متصلاً، واعتمد الأقران المفيدين.</string>
+    <string name="network_contribution_stats">Relays: %1$d · تسليم: %2$d · وقت التشغيل: %3$s · اعتمادات: %4$d</string>
     <string name="notification_channel_name">شبكة الميسليوم</string>
     <string name="notification_peers">تم توصيل %1$d من النظراء</string>
     <string name="notification_running">شبكة مايسيليوم نشطة</string>
@@ -177,7 +183,7 @@
     <string name="settings_language">لغة</string>
     <string name="settings_mini_apps">تطبيقات مصغّرة</string>
     <string name="settings_network_section">شبكة</string>
-    <string name="settings_open_wallet">افتح المحفظة</string>
+    <string name="settings_open_wallet">فتح رصيد الطوارئ</string>
     <string name="settings_panic_button">Panic wipe — حذف كل البيانات</string>
     <string name="settings_panic_confirm_body">سيحذف هذا جميع الرسائل ومفتاح الهوية وبيانات المحفظة نهائيًا. لا يمكن التراجع.</string>
     <string name="settings_panic_confirm_no">إلغاء</string>
@@ -214,7 +220,7 @@
     <string name="wallet_cold_wallet_address">عنوان المحفظة الباردة</string>
     <string name="wallet_cold_wallet_hint">mxc1… (محفظتك الرئيسية)</string>
     <string name="wallet_dismiss">يغلق</string>
-    <string name="wallet_experimental_notice">MeshCoin تجريبي. لا تستخدمه للمعاملات الحقيقية. نموذج الإجماع قيد التطوير وغير آمن بعد ضد الهجمات.</string>
+    <string name="wallet_experimental_notice">رصيد طوارئ محلي للمرونة دون اتصال. ليس مالاً ولا استثماراً ولا للادخار. الأرصدة محدودة — للاستمرارية المحلية أثناء الانقطاعات فقط.</string>
     <string name="wallet_faucet">طلب اعتمادات المعاينة</string>
     <string name="wallet_fee">رسوم الشبكة</string>
     <string name="wallet_history">تاريخ المعاملات</string>
@@ -234,7 +240,7 @@
     <string name="wallet_share_request">مشاركة الطلب</string>
     <string name="wallet_status_confirmed">مؤكد</string>
     <string name="wallet_status_witnesses">%1$d/3 شهود</string>
-    <string name="wallet_title">المحفظة</string>
+    <string name="wallet_title">رصيد الطوارئ</string>
     <string name="wallet_to_hint">إلى (العنوان أو معرف النظير)</string>
     <string name="wallet_tx_pending">المعاملة معلقة (غير متصل)</string>
     <string name="wallet_tx_sent">بث المعاملات</string>
