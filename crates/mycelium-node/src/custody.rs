@@ -2,7 +2,9 @@
 // Copyright (C) 2026 Mycelium Project
 //! Store-and-forward custody queue — spray-and-wait with bounded network copies.
 
-use crate::encounter_log::{EncounterLogStore, ENCOUNTER_LOG_TTL_MS};
+use crate::encounter_log::{
+    CustodyCandidateQuery, CustodyCandidateScoring, EncounterLogStore, ENCOUNTER_LOG_TTL_MS,
+};
 use crate::peer_trust::PeerTrust;
 use crate::security::{
     apply_peer_diversity, build_routing_meta_map, peer_routing_meta, PeerDiversityConfig,
@@ -25,10 +27,14 @@ pub struct CustodyRoutingContext {
     pub routing_meta: HashMap<String, PeerRoutingMeta>,
     pub diversity: PeerDiversityConfig,
     pub negotiated_caps: HashMap<String, NegotiatedProtocol>,
+    pub candidate_scoring: CustodyCandidateScoring,
 }
 
 impl CustodyRoutingContext {
     pub fn diversity_for_dest(&self, dest_peer: Option<&str>) -> PeerDiversityConfig {
+        if self.negotiated_caps.is_empty() {
+            return PeerDiversityConfig::score_only();
+        }
         let Some(dest) = dest_peer.filter(|d| !d.is_empty()) else {
             return self.diversity;
         };
@@ -57,8 +63,9 @@ impl CustodyRoutingContext {
         Ok(Self {
             peer_trust: HashMap::new(),
             routing_meta: build_routing_meta_map(connected, &HashMap::new(), &encounter_first, &HashMap::new()),
-            diversity: PeerDiversityConfig::default(),
+            diversity: PeerDiversityConfig::score_only(),
             negotiated_caps: HashMap::new(),
+            candidate_scoring: CustodyCandidateScoring::RecencyOnly,
         })
     }
 }
@@ -210,8 +217,16 @@ impl CustodyQueue {
                 continue;
             }
             let tried: Vec<String> = stored.targets_tried.iter().cloned().collect();
-            let candidates =
-                encounter_log.custody_candidates_at(connected_peers, local_peer, &tried, 8, now)?;
+            let dest = stored.message.envelope.to_peer.as_deref();
+            let candidates = encounter_log.custody_candidates_at(&CustodyCandidateQuery {
+                connected: connected_peers,
+                exclude: local_peer,
+                tried: &tried,
+                limit: 8,
+                now,
+                dest_peer: dest,
+                scoring: routing_ctx.candidate_scoring,
+            })?;
             let peer = Self::pick_custody_carrier(
                 &candidates,
                 local_peer,
@@ -346,6 +361,16 @@ impl CustodyQueue {
             return None;
         }
 
+        // Cold DTN start (no trust map): stable peer order (legacy spray behaviour).
+        // Production nodes with co-encounter history use DeliveryProbabilityAndRecency instead.
+        if routing.peer_trust.is_empty()
+            && routing.candidate_scoring == CustodyCandidateScoring::RecencyOnly
+        {
+            let mut picks = allowed;
+            picks.sort();
+            return picks.into_iter().next();
+        }
+
         let mut meta_map = routing.routing_meta.clone();
         for p in &allowed {
             if meta_map.contains_key(p) {
@@ -376,6 +401,13 @@ impl CustodyQueue {
                     let recency = now.saturating_sub(rec.last_seen_ms);
                     score += 0.15
                         * (1.0 - recency as f64 / ENCOUNTER_LOG_TTL_MS as f64).clamp(0.0, 1.0);
+                }
+                if routing.candidate_scoring == CustodyCandidateScoring::DeliveryProbabilityAndRecency {
+                    if let Some(dest) = stored.message.envelope.to_peer.as_deref() {
+                        if let Ok(est) = encounter_log.delivery_probability(p, dest, now) {
+                            score += 0.35 * est.combined;
+                        }
+                    }
                 }
                 (p.clone(), score)
             })

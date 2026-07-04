@@ -12,6 +12,7 @@ use libp2p::{
     swarm::{Swarm, SwarmEvent},
     tcp, yamux, Multiaddr, PeerId, SwarmBuilder,
 };
+use mycelium_core::data::now_ms;
 use mycelium_core::ble_multiaddr::is_ble_multiaddr;
 use mycelium_core::bootstrap::peer_id_from_parsed_multiaddr;
 use mycelium_core::mesh_profile::MeshProfile;
@@ -20,6 +21,10 @@ use mycelium_core::relay_pool::RelayPool;
 use mycelium_core::relay_registry::{include_catalog_relays, load_relay_manifest};
 use mycelium_core::transport::{
     ConnectivityMode, MeshTransport, MessageAck, ScopeId, TransportEvent, WireMessage,
+};
+use mycelium_core::transport_score::{
+    decide_transport_path, TransportAvailability, TransportBearer, TransportPath,
+    TransportScoreSample,
 };
 use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
@@ -172,6 +177,7 @@ pub struct Libp2pTransport {
     mdns_window_start: Option<Instant>,
     kad_query_limiter: FixedWindowRateLimiter,
     bearer: BearerMeshRouter,
+    connectivity_mode: ConnectivityMode,
     /// Throttle redials to stale LAN addrs (e.g. phone in flight mode).
     last_lan_dial: HashMap<String, Instant>,
 }
@@ -260,6 +266,11 @@ impl Libp2pTransport {
             max_peers
         };
 
+        let initial_connectivity = connectivity_rx
+            .as_ref()
+            .map(|rx| *rx.borrow())
+            .unwrap_or(ConnectivityMode::MeshOnly);
+
         let mut transport = Self {
             swarm,
             local_peer_id,
@@ -284,6 +295,7 @@ impl Libp2pTransport {
                 KAD_QUERY_WINDOW.as_millis() as u64,
             ),
             bearer: BearerMeshRouter::new(),
+            connectivity_mode: initial_connectivity,
             last_lan_dial: HashMap::new(),
         };
         if transport.internet_dials_enabled() {
@@ -743,6 +755,7 @@ impl Libp2pTransport {
     }
 
     fn handle_connectivity_change(&mut self, mode: ConnectivityMode) {
+        self.connectivity_mode = mode;
         let action = kad_action_for_mode(mode);
         self.apply_kad_connectivity(action);
         match mode {
@@ -820,6 +833,49 @@ impl MeshTransport for Libp2pTransport {
         self.peer_cap.rejections()
     }
 
+    fn connectivity_mode(&self) -> ConnectivityMode {
+        self.connectivity_mode
+    }
+
+    fn internet_relay_available(&self) -> bool {
+        self.internet_dials_enabled() && self.connectivity_mode == ConnectivityMode::Internet
+    }
+
+    fn bearer_is_connected(&self, peer_id: &str) -> bool {
+        self.bearer.is_connected(peer_id)
+    }
+
+    fn transport_availability_for_peer(
+        &self,
+        peer_id: &str,
+        wifi_direct_cap: bool,
+        mesh_peers_nonempty: bool,
+    ) -> TransportAvailability {
+        let bearer_up = self.bearer.is_connected(peer_id);
+        TransportAvailability {
+            internet: self.internet_relay_available(),
+            wifi_direct: wifi_direct_cap,
+            ble: bearer_up || mesh_peers_nonempty,
+            lora: false,
+        }
+    }
+
+    fn decide_outbound_path(
+        &self,
+        availability: &TransportAvailability,
+        payload_bytes: usize,
+        force_bulk: bool,
+        now: u64,
+    ) -> TransportPath {
+        decide_transport_path(
+            availability,
+            self.bearer.transport_scores(),
+            payload_bytes,
+            force_bulk,
+            now,
+        )
+    }
+
     async fn dial_peer(&mut self, multiaddr: String) -> anyhow::Result<()> {
         self.queue_dial_target(multiaddr)
     }
@@ -860,6 +916,21 @@ impl MeshTransport for Libp2pTransport {
         if self.bearer.is_connected(&to_peer) {
             return self.bearer.send_direct(&to_peer, message);
         }
+        let bytes = wire_message_bytes(&message);
+        let now = now_ms();
+        let latency = self
+            .bearer
+            .transport_scores()
+            .estimated_latency_ms(TransportBearer::InternetRelay, bytes);
+        self.bearer.record_observation(
+            TransportBearer::InternetRelay,
+            TransportScoreSample {
+                latency_ms: latency,
+                bytes: bytes.min(u32::MAX as usize) as u32,
+                success: true,
+                at_ms: now,
+            },
+        );
         let peer = PeerId::from_str(&to_peer)?;
         self.peer_cap.touch(peer);
         let request = DirectMessageRequest { message };
@@ -1332,5 +1403,12 @@ fn message_id_for_wire(message: &WireMessage) -> String {
                 blake3::hash(enc_pubkey_hex.as_bytes()).to_hex()
             )
         }
+    }
+}
+
+fn wire_message_bytes(message: &WireMessage) -> usize {
+    match message {
+        WireMessage::Data(msg) => msg.envelope.payload.len().saturating_add(msg.body.len()),
+        other => bincode::serialize(other).map(|v| v.len()).unwrap_or(256),
     }
 }

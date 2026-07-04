@@ -9,7 +9,12 @@ use mycelium_core::bearer_transport::{
     self, BearerMedium, BearerPayloadKind, BearerTransport, BearerWireVersion, ReliabilityClass,
 };
 use mycelium_core::ble_stream::encode_stream_frame_with_version;
+use mycelium_core::data::now_ms;
 use mycelium_core::transport::{TransportEvent, WireMessage};
+use mycelium_core::transport_score::{
+    bearer_medium_to_transport, decide_transport_path, TransportAvailability, TransportBearer,
+    TransportPath, TransportScoreSample, TransportScoreStore,
+};
 use std::collections::{HashMap, VecDeque};
 
 const WIFI_QUEUE_CAP: usize = 64;
@@ -27,6 +32,7 @@ pub struct BearerMeshRouter {
     ble: BearerBleRouter,
     wifi_outbound: HashMap<String, VecDeque<Vec<u8>>>,
     peer_caps: HashMap<String, PeerBearerCaps>,
+    scores: TransportScoreStore,
 }
 
 impl Default for BearerMeshRouter {
@@ -41,7 +47,25 @@ impl BearerMeshRouter {
             ble: BearerBleRouter::new(),
             wifi_outbound: HashMap::new(),
             peer_caps: HashMap::new(),
+            scores: TransportScoreStore::default(),
         }
+    }
+
+    pub fn transport_scores(&self) -> &TransportScoreStore {
+        &self.scores
+    }
+
+    #[allow(dead_code)]
+    pub fn transport_scores_mut(&mut self) -> &mut TransportScoreStore {
+        &mut self.scores
+    }
+
+    pub fn record_observation(
+        &mut self,
+        bearer: TransportBearer,
+        sample: TransportScoreSample,
+    ) {
+        self.scores.record(bearer, sample);
     }
 
     pub fn set_peer_caps(&mut self, peer: &str, wire_version: BearerWireVersion, wifi_direct: bool) {
@@ -71,6 +95,31 @@ impl BearerMeshRouter {
         self.peer_caps(peer).wifi_direct
     }
 
+    fn mesh_availability(&self, peer: &str) -> TransportAvailability {
+        TransportAvailability {
+            internet: false,
+            wifi_direct: self.peer_wifi_allowed(peer),
+            ble: self.ble.is_connected(peer),
+            lora: false,
+        }
+    }
+
+    fn select_mesh_path(
+        &self,
+        peer: &str,
+        payload_bytes: usize,
+        force_bulk: bool,
+        now: u64,
+    ) -> TransportPath {
+        decide_transport_path(
+            &self.mesh_availability(peer),
+            &self.scores,
+            payload_bytes,
+            force_bulk,
+            now,
+        )
+    }
+
     #[allow(dead_code)]
     pub fn decode_ingest(bytes: &[u8]) -> anyhow::Result<BearerIngestAction> {
         BearerBleRouter::decode_ingest(bytes)
@@ -83,10 +132,11 @@ impl BearerMeshRouter {
     ) -> anyhow::Result<()> {
         let payload = bincode::serialize(wire)?;
         let style = self.peer_wire_version(&to_peer);
-        let wifi_ok = self.peer_wifi_allowed(&to_peer);
-        let max_len = if wifi_ok
-            && bearer_transport::should_upgrade_to_wifi_direct(payload.len(), false)
-        {
+        let now = now_ms();
+        let wifi_cap = self.peer_wifi_allowed(&to_peer);
+        let prefer_wifi =
+            wifi_cap && self.scores.prefer_wifi_over_ble(payload.len(), false, now);
+        let max_len = if prefer_wifi {
             bearer_transport::WIFI_DIRECT_MAX_FRAME_LEN
         } else {
             bearer_transport::MAX_FRAME_LEN
@@ -97,27 +147,46 @@ impl BearerMeshRouter {
             style,
             max_len,
         )?;
-        self.route_outbound_frame(&to_peer, encoded, false)
+        self.route_outbound_frame(&to_peer, encoded, false, now)
     }
 
     /// Force Wi‑Fi Direct (mini-app bundles, explicit bulk).
     pub fn queue_bulk_frame(&mut self, to_peer: String, frame: Vec<u8>) -> anyhow::Result<()> {
-        self.route_outbound_frame(&to_peer, frame, true)
+        self.route_outbound_frame(&to_peer, frame, true, now_ms())
     }
 
     fn route_outbound_frame(
         &mut self,
         peer: &str,
         frame: Vec<u8>,
-        force_wifi: bool,
+        force_bulk: bool,
+        now: u64,
     ) -> anyhow::Result<()> {
-        let wifi_ok = self.peer_wifi_allowed(peer);
-        if wifi_ok && bearer_transport::should_upgrade_to_wifi_direct(frame.len(), force_wifi) {
-            self.queue_wifi_frame(peer, frame);
-        } else {
-            BearerTransport::send_frame(&mut self.ble, peer, &frame)?;
+        let path = self.select_mesh_path(peer, frame.len(), force_bulk, now);
+        match path {
+            TransportPath::WifiDirect => {
+                self.note_outbound(TransportBearer::WifiDirect, frame.len(), now);
+                self.queue_wifi_frame(peer, frame);
+            }
+            TransportPath::BleTrickle | TransportPath::InternetRelay | TransportPath::CustodyQueue => {
+                self.note_outbound(TransportBearer::Ble, frame.len(), now);
+                BearerTransport::send_frame(&mut self.ble, peer, &frame)?;
+            }
         }
         Ok(())
+    }
+
+    fn note_outbound(&mut self, bearer: TransportBearer, bytes: usize, now: u64) {
+        let latency = self.scores.estimated_latency_ms(bearer, bytes);
+        self.scores.record(
+            bearer,
+            TransportScoreSample {
+                latency_ms: latency,
+                bytes: bytes.min(u32::MAX as usize) as u32,
+                success: true,
+                at_ms: now,
+            },
+        );
     }
 
     fn queue_wifi_frame(&mut self, peer: &str, frame: Vec<u8>) {
@@ -181,8 +250,8 @@ impl BearerMeshRouter {
         self.ble.known_peers()
     }
 
-    pub fn queue_dial(&mut self, multiaddr: &str) -> anyhow::Result<()> {
-        self.ble.queue_dial(multiaddr)
+    pub fn queue_dial(&mut self, to_peer: &str) -> anyhow::Result<()> {
+        self.ble.queue_dial(to_peer)
     }
 
     pub fn send_direct(&mut self, to_peer: &str, message: WireMessage) -> anyhow::Result<()> {
@@ -190,9 +259,12 @@ impl BearerMeshRouter {
         let cbor = serde_cbor::to_vec(&request)?;
         let style = self.peer_wire_version(to_peer);
         let frame = encode_stream_frame_with_version(&cbor, style)?;
+        let now = now_ms();
         let force = self.peer_wifi_allowed(to_peer)
-            && frame.len() >= bearer_transport::bearer_wifi_upgrade_threshold();
-        self.route_outbound_frame(to_peer, frame, force)
+            && self
+                .scores
+                .prefer_wifi_over_ble(frame.len(), false, now);
+        self.route_outbound_frame(to_peer, frame, force, now)
     }
 
     pub fn try_recv_event(&mut self) -> Option<TransportEvent> {
@@ -200,6 +272,18 @@ impl BearerMeshRouter {
     }
 
     pub fn ingest_stream_frame(&mut self, from_peer: &str, frame: &[u8]) -> anyhow::Result<()> {
+        let now = now_ms();
+        self.scores.record(
+            bearer_medium_to_transport(BearerMedium::Ble),
+            TransportScoreSample {
+                latency_ms: self
+                    .scores
+                    .estimated_latency_ms(TransportBearer::Ble, frame.len()),
+                bytes: frame.len().min(u32::MAX as usize) as u32,
+                success: true,
+                at_ms: now,
+            },
+        );
         self.ble.ingest_stream_frame(from_peer, frame)
     }
 
@@ -217,6 +301,19 @@ impl BearerMeshRouter {
 
     pub fn drain_ble_stream_outbound(&mut self, to_peer: &str, max: usize) -> Vec<Vec<u8>> {
         self.ble.drain_stream_outbound(to_peer, max)
+    }
+
+    #[allow(dead_code)]
+    pub fn note_wifi_observation(&mut self, bytes: usize, latency_ms: u64, success: bool) {
+        self.scores.record(
+            TransportBearer::WifiDirect,
+            TransportScoreSample {
+                latency_ms,
+                bytes: bytes.min(u32::MAX as usize) as u32,
+                success,
+                at_ms: now_ms(),
+            },
+        );
     }
 }
 
@@ -250,7 +347,7 @@ impl BearerTransport for BearerMeshRouter {
     }
 
     fn send_frame(&mut self, peer: &str, frame: &[u8]) -> anyhow::Result<()> {
-        self.route_outbound_frame(peer, frame.to_vec(), false)
+        self.route_outbound_frame(peer, frame.to_vec(), false, now_ms())
     }
 
     fn recv_frame(&mut self, _peer: &str) -> anyhow::Result<Option<Vec<u8>>> {
@@ -318,6 +415,42 @@ mod tests {
             .unwrap();
         let drained = router.drain_bearer_outbound(None, 4);
         assert_eq!(drained.len(), 1);
+        assert_eq!(drained[0].2, BearerMedium::Ble);
+    }
+
+    #[test]
+    fn score_prefers_ble_for_tiny_payload_even_with_wifi_cap() {
+        let mut router = BearerMeshRouter::new();
+        router.set_peer_caps("peerC", BearerWireVersion::V1, true);
+        let base = 1_700_000_000_000u64;
+        for i in 0..8 {
+            router.record_observation(
+                TransportBearer::Ble,
+                TransportScoreSample {
+                    latency_ms: 30,
+                    bytes: 128,
+                    success: true,
+                    at_ms: base + i,
+                },
+            );
+            router.record_observation(
+                TransportBearer::WifiDirect,
+                TransportScoreSample {
+                    latency_ms: 200,
+                    bytes: 128,
+                    success: true,
+                    at_ms: base + i,
+                },
+            );
+        }
+        let wire = WireMessage::Data(DirectMessage {
+            envelope: Envelope::new("p".into(), None, vec![]),
+            body: "ping".into(),
+        });
+        router
+            .queue_side_channel_wire("peerC".into(), &wire)
+            .unwrap();
+        let drained = router.drain_bearer_outbound(None, 4);
         assert_eq!(drained[0].2, BearerMedium::Ble);
     }
 

@@ -34,4 +34,5 @@ pub mod rendezvous_dial;
 pub mod sos;
 pub mod sync;
 pub mod topic_shard;
+pub mod transport_score;
 pub mod transport;

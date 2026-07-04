@@ -4,15 +4,20 @@
 
 use crate::lab::battery::{BatteryTotals, NodeBattery};
 use crate::lab::mobility::{MobilityModel, Vec2};
-use crate::lab::radio::{bearer_for_link, BearerKind, RadioConfig};
+use crate::lab::radio::{BearerKind, RadioConfig};
 use crate::lab::report::LabReport;
 use crate::lab::rng::SimRng;
+use crate::lab::transport_score::{bearer_for_link_scored, record_lab_transfer, LabBearerQuery};
 use crate::runner::SimulationRunner;
 use crate::scheduler::LinkProfile;
 use crate::transport::SimAction;
 use mycelium_core::data::Envelope;
 use mycelium_core::transport::{DirectMessage, WireMessage};
-use std::collections::HashMap;
+use mycelium_core::transport_score::TransportScoreStore;
+use std::collections::{HashMap, HashSet};
+
+/// Typical lab direct-message size for bearer scoring (matches chat-scale frames).
+const LAB_LINK_PAYLOAD_BYTES: usize = 2048;
 
 #[derive(Debug, Clone)]
 pub enum LabEvent {
@@ -74,6 +79,7 @@ pub struct LabRunner {
     split_applied: bool,
     pending_events: Vec<LabEvent>,
     static_centers: Vec<Vec2>,
+    transport_scores: TransportScoreStore,
 }
 
 impl LabRunner {
@@ -91,12 +97,61 @@ impl LabRunner {
             pending_events,
             static_centers: Vec::new(),
             config,
+            transport_scores: TransportScoreStore::default(),
+        }
+    }
+
+    fn pick_bearer(
+        &self,
+        dist: f64,
+        a: &LabNode,
+        b: &LabNode,
+        same_cluster: bool,
+        now_ms: u64,
+    ) -> Option<BearerKind> {
+        bearer_for_link_scored(
+            &LabBearerQuery {
+                distance_m: dist,
+                radio: &self.config.radio,
+                a_online: a.online,
+                b_online: b.online,
+                a_internet: a.has_internet,
+                b_internet: b.has_internet,
+                same_cluster,
+                payload_bytes: LAB_LINK_PAYLOAD_BYTES,
+                now: now_ms,
+            },
+            &self.transport_scores,
+        )
+    }
+
+    fn record_bearer_observations(&mut self, now_ms: u64) {
+        for node in &self.nodes {
+            if !node.online {
+                continue;
+            }
+            let mut seen = HashSet::new();
+            for bearer in &node.bearers_in_use {
+                if !seen.insert(*bearer) {
+                    continue;
+                }
+                let profile = bearer.link_profile();
+                let success = self.rng.gen_bool(1.0 - profile.loss_per_mille as f64 / 1000.0);
+                record_lab_transfer(
+                    &mut self.transport_scores,
+                    *bearer,
+                    profile.latency_ms,
+                    1024,
+                    success,
+                    now_ms,
+                );
+            }
         }
     }
 
     pub fn run(&mut self) -> LabReport {
         self.bootstrap_nodes();
-        self.rebuild_links();
+        self.rebuild_links(0);
 
         let tick_ms = self.config.tick_ms.max(1);
         let ticks = self.config.duration_ms / tick_ms;
@@ -105,9 +160,10 @@ impl LabRunner {
             self.apply_due_events(now_ms);
             self.mobility_tick(now_ms, tick_ms);
             self.churn_tick(tick_ms);
-            self.rebuild_links();
-            self.inject_messages(tick);
+            self.rebuild_links(now_ms);
+            self.inject_messages(tick, now_ms);
             self.sim.run_for(tick_ms);
+            self.record_bearer_observations(now_ms);
             self.battery_tick(tick_ms);
         }
 
@@ -198,19 +254,19 @@ impl LabRunner {
         }
     }
 
-    fn rebuild_links(&mut self) {
+    fn rebuild_links(&mut self, now_ms: u64) {
         let n = self.nodes.len();
         if n == 0 {
             return;
         }
         if n <= 2_500 {
-            self.rebuild_links_pairwise();
+            self.rebuild_links_pairwise(now_ms);
         } else {
-            self.rebuild_links_grid();
+            self.rebuild_links_grid(now_ms);
         }
     }
 
-    fn rebuild_links_pairwise(&mut self) {
+    fn rebuild_links_pairwise(&mut self, now_ms: u64) {
         let mut pairs: Vec<(String, String, LinkProfile)> = Vec::new();
         let mut bearer_usage: HashMap<usize, Vec<BearerKind>> = HashMap::new();
         for i in 0..self.nodes.len() {
@@ -222,15 +278,7 @@ impl LabRunner {
                 let b = &self.nodes[j];
                 let same_cluster = !self.network_split_active || a.cluster == b.cluster;
                 let dist = a.position.distance(&b.position);
-                let Some(bearer) = bearer_for_link(
-                    dist,
-                    &self.config.radio,
-                    a.online,
-                    b.online,
-                    a.has_internet,
-                    b.has_internet,
-                    same_cluster,
-                ) else {
+                let Some(bearer) = self.pick_bearer(dist, a, b, same_cluster, now_ms) else {
                     continue;
                 };
                 let mut profile = bearer.link_profile();
@@ -249,7 +297,7 @@ impl LabRunner {
         self.sim.replace_links(&pairs);
     }
 
-    fn rebuild_links_grid(&mut self) {
+    fn rebuild_links_grid(&mut self, now_ms: u64) {
         let cell_size = self
             .config
             .radio
@@ -290,15 +338,7 @@ impl LabRunner {
                             let b = &self.nodes[j];
                             let same_cluster = !self.network_split_active || a.cluster == b.cluster;
                             let dist = a.position.distance(&b.position);
-                            let Some(bearer) = bearer_for_link(
-                                dist,
-                                &self.config.radio,
-                                a.online,
-                                b.online,
-                                a.has_internet,
-                                b.has_internet,
-                                same_cluster,
-                            ) else {
+                            let Some(bearer) = self.pick_bearer(dist, a, b, same_cluster, now_ms) else {
                                 continue;
                             };
                             let mut profile = bearer.link_profile();
@@ -353,7 +393,7 @@ impl LabRunner {
         }
     }
 
-    fn inject_messages(&mut self, tick: u64) {
+    fn inject_messages(&mut self, tick: u64, now_ms: u64) {
         if self.nodes.len() < 2 {
             return;
         }
@@ -369,23 +409,20 @@ impl LabRunner {
         let from_id = self.nodes[from_idx].id.clone();
         let from_pos = self.nodes[from_idx].position;
         let from_cluster = self.nodes[from_idx].cluster;
+        let from_node = &self.nodes[from_idx];
         let candidates: Vec<usize> = self
             .nodes
             .iter()
             .enumerate()
             .filter(|(j, n)| {
-                *j != from_idx
-                    && n.online
-                    && (!self.network_split_active || n.cluster == from_cluster)
-                    && bearer_for_link(
-                        from_pos.distance(&n.position),
-                        &self.config.radio,
-                        true,
-                        true,
-                        self.nodes[from_idx].has_internet,
-                        n.has_internet,
-                        true,
-                    )
+                if *j == from_idx || !n.online {
+                    return false;
+                }
+                if self.network_split_active && n.cluster != from_cluster {
+                    return false;
+                }
+                let dist = from_pos.distance(&n.position);
+                self.pick_bearer(dist, from_node, n, true, now_ms)
                     .is_some()
             })
             .map(|(j, _)| j)
@@ -491,12 +528,7 @@ use crate::lab::preset::LabPreset;
 
 /// CI regression gates — minimum delivery rates per preset (seed=42, ci_mode).
 pub fn ci_gates() -> Vec<(LabPreset, f64)> {
-    vec![
-        (LabPreset::CityWalk, 0.85),
-        (LabPreset::Stadium, 0.70),
-        (LabPreset::Earthquake, 0.50),
-        (LabPreset::NetworkSplit, 0.60),
-    ]
+    crate::lab::gates::lab_delivery_thresholds().to_vec()
 }
 
 pub fn run_ci_gates() -> anyhow::Result<Vec<LabReport>> {

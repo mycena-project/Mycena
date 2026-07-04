@@ -35,8 +35,10 @@ Set `MYCELIUM_BEARER_WIRE_V1=1` to emit `MYBR` on the wire (requires peer suppor
 
 ## BLE + Wi‑Fi Direct implementation
 
-[`BearerMeshRouter`](../crates/mycelium-node/src/bearer_mesh.rs) routes outbound frames by size: BLE for idle/small, Wi‑Fi Direct for bulk (≥16 KiB default). [`BearerBleRouter`](../crates/mycelium-node/src/bearer_ble.rs) provides unified ingest (`decode_ingest`).
+[`BearerMeshRouter`](../crates/mycelium-node/src/bearer_mesh.rs) selects the live bearer via [`TransportScoreStore`](../crates/mycelium-core/src/transport_score.rs) (rolling latency, loss, throughput, energy) and [`decide_transport_path`](../crates/mycelium-core/src/transport_score.rs): **Internet relay → Wi‑Fi Direct → BLE trickle → custody queue**. The legacy byte threshold (`MYCELIUM_BEARER_WIFI_UPGRADE_BYTES`, default 16 KiB) is only a fallback when scores are cold. [`BearerBleRouter`](../crates/mycelium-node/src/bearer_ble.rs) provides unified ingest (`decode_ingest`).
 
 **Host API:** `drain_bearer_outbound` returns `medium` (`0`=BLE, `1`=Wi‑Fi Direct). See [ADR 007](./adr/007-wifi-direct-bulk-bearer.md).
+
+MyceliumLab uses the same scoring via [`lab/transport_score`](../crates/mycelium-sim/src/lab/transport_score.rs) (CI-gated in `sim_ci_gates`).
 
 Related: [ADR 002](./adr/002-ble-mesh-transport.md)

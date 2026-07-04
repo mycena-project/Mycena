@@ -67,7 +67,13 @@ impl BearerKind {
     }
 }
 
-/// Pick the best local bearer for a given distance; relay requires internet on both ends.
+/// Legacy distance-only bearer pick (BLE → Wi‑Fi → relay).
+///
+/// Prefer [`crate::lab::transport_score::bearer_for_link_scored`] in MyceliumLab;
+/// production nodes use [`mycelium_core::transport_score::decide_transport_path`].
+#[deprecated(
+    note = "use lab/transport_score::bearer_for_link_scored or core transport_score in new code"
+)]
 pub fn bearer_for_link(
     distance_m: f64,
     radio: &RadioConfig,

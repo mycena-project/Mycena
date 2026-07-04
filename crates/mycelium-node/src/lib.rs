@@ -28,13 +28,20 @@ pub use transport::{DirectPeerCap, PeerAdmitAction};
 
 pub use connectivity::{kad_action_for_mode, ConnectivityMonitor, KadConnectivityAction};
 pub use custody::{CustodyConfig, CustodyForwardPlan, CustodyQueue, CustodyRoutingContext, DEFAULT_MAX_CUSTODY_SPRAY};
-pub use encounter_log::{EncounterLogStore, EncounterRecord, ENCOUNTER_LOG_TTL_MS};
+pub use encounter_log::{
+    CoEncounterRecord, CustodyCandidateQuery, CustodyCandidateScoring, DeliveryProbabilityEstimate,
+    EncounterLogStore, EncounterRecord, ENCOUNTER_LOG_TTL_MS,
+};
 pub use error::{
     decode_peer_bearer_frame, decode_peer_ble_stream_frame, decode_peer_ble_wire_frame,
     decode_peer_wire_message, NodeError, NodeResult,
 };
 pub use mycelium_core::at_rest::parse_storage_key_hex;
 pub use mycelium_core::transport::{ConnectivityMode, DirectMessage, StoreStats, WireMessage};
+pub use mycelium_core::transport_score::{
+    decide_transport_path, TransportAvailability, TransportBearer, TransportPath, TransportScore,
+    TransportScoreSample, TransportScoreStore,
+};
 pub use mycelium_l0_facade::EncKey;
 pub use node::{BroadcastPeerFilter, NodeCommand, NodeConfig, NodeHandle, NodeMetrics, NodeRunner, SYSTEM_SCOPES};
 pub use peer_trust::PeerReputationSnapshot;

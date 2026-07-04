@@ -466,8 +466,8 @@ mod tests {
         let report = city_custody_delivery(1, 80);
         assert!(
             report.delivered,
-            "message should reach receiver via carriers (steps={})",
-            report.steps
+            "message should reach receiver via carriers (steps={} holders={})",
+            report.steps, report.custody_holders_at_end
         );
         assert_eq!(
             report.sender_receiver_direct_links, 0,

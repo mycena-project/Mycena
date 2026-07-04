@@ -380,6 +380,49 @@ pub trait MeshTransport: Send {
     fn kad_on_connectivity_changed(&mut self, _mode: ConnectivityMode) {}
     /// Tighten peer/mDNS caps when local peer density exceeds threshold (AR-06).
     fn set_density_backoff(&mut self, _active: bool, _max_direct_peers: usize) {}
+    /// Current wide-area reachability (Internet vs mesh-only).
+    fn connectivity_mode(&self) -> ConnectivityMode {
+        ConnectivityMode::MeshOnly
+    }
+    /// Whether libp2p relay / circuit paths may be used now.
+    fn internet_relay_available(&self) -> bool {
+        false
+    }
+    /// BLE bearer link to `peer_id` (distinct from libp2p TCP/QUIC).
+    fn bearer_is_connected(&self, peer_id: &str) -> bool {
+        let _ = peer_id;
+        false
+    }
+    /// Reachable bearers toward a peer for automatic path selection.
+    fn transport_availability_for_peer(
+        &self,
+        peer_id: &str,
+        wifi_direct_cap: bool,
+        mesh_peers_nonempty: bool,
+    ) -> crate::transport_score::TransportAvailability {
+        crate::transport_score::TransportAvailability {
+            internet: self.internet_relay_available(),
+            wifi_direct: wifi_direct_cap && self.bearer_is_connected(peer_id),
+            ble: self.bearer_is_connected(peer_id) || mesh_peers_nonempty,
+            lora: false,
+        }
+    }
+    /// Score-aware outbound path (Internet → Wi‑Fi Direct → BLE → custody).
+    fn decide_outbound_path(
+        &self,
+        availability: &crate::transport_score::TransportAvailability,
+        payload_bytes: usize,
+        force_bulk: bool,
+        now: u64,
+    ) -> crate::transport_score::TransportPath {
+        crate::transport_score::decide_transport_path(
+            availability,
+            &crate::transport_score::TransportScoreStore::default(),
+            payload_bytes,
+            force_bulk,
+            now,
+        )
+    }
 }
 
 #[async_trait]

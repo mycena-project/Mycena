@@ -109,8 +109,10 @@ pub fn bearer_wifi_upgrade_threshold() -> usize {
 }
 
 /// True when payload should use Wi‑Fi Direct (bulk / mini-app bundle / large bulletin).
+/// Prefer [`TransportScoreStore::prefer_wifi_over_ble`] when measured scores exist.
 pub fn should_upgrade_to_wifi_direct(encoded_len: usize, force_bulk: bool) -> bool {
-    force_bulk || encoded_len >= bearer_wifi_upgrade_threshold()
+    let store = crate::transport_score::TransportScoreStore::default();
+    store.prefer_wifi_over_ble(encoded_len, force_bulk, 0)
 }
 
 /// On-the-wire encoding style for outbound frames.
@@ -394,9 +396,10 @@ mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
     }
 
     #[test]
-    fn wifi_upgrade_threshold() {
-        assert!(!should_upgrade_to_wifi_direct(1024, false));
-        assert!(should_upgrade_to_wifi_direct(32 * 1024, false));
+    fn wifi_upgrade_uses_score_not_static_threshold_only() {
+        let store = crate::transport_score::TransportScoreStore::default();
+        assert!(!store.prefer_wifi_over_ble(1024, false, 0));
+        assert!(store.prefer_wifi_over_ble(32 * 1024, false, 0));
         assert!(should_upgrade_to_wifi_direct(64, true));
     }
 

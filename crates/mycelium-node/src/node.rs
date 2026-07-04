@@ -24,6 +24,7 @@ use mycelium_core::privacy_shaping::{
 use mycelium_core::protocol_capabilities::{NegotiatedProtocol, ProtocolCapabilities};
 use mycelium_core::sync::BloomFilter;
 use mycelium_core::topic_shard;
+use mycelium_core::transport_score::TransportPath;
 use mycelium_core::transport::{
     ConnectivityMode, DirectMessage, MeshTransport, MessageStore, Scope, StoreStats,
     TransportEvent, WireMessage,
@@ -1912,45 +1913,32 @@ impl NodeRunner {
             .ingest(&mut self.seen_cache, &msg, false)
             .await?;
         let peers = self.transport.known_peers();
-        if peers.iter().any(|p| p == &to_peer) {
-            self.enqueue(to_peer.clone(), msg.clone()).await?;
-            info!("direct message queued for {}", to_peer);
-        } else if peers.is_empty() {
-            warn!("no relay candidates available for {}", to_peer);
-            self.queue_ble_wire(to_peer.clone(), wire);
-        } else {
-            let now = now_ms();
-            let peer_trust = self.peer_trust.load_all();
-            let endorsement_boosts = self.local_endorsements.read().await.clone();
-            let routing_meta = self.build_routing_meta(&peers, &peer_trust)?;
-            let diversity = self.relay_diversity_config_for(&to_peer);
-            let relay_candidates = security::select_relay_candidates_with_diversity(
-                &security::RelaySelectionRequest {
-                    peers: &peers,
-                    to_peer: &to_peer,
-                    peer_trust: &peer_trust,
-                    endorsement_boost: Some(&endorsement_boosts),
-                    now_ms: now,
-                    max_fanout: self.effective_max_relay_fanout(),
-                    routing_meta: Some(&routing_meta),
-                    diversity: Some(&diversity),
-                },
-            );
-            if relay_candidates.is_empty() {
-                warn!("SD-031: no suitable relay candidates for {}", to_peer);
-            } else {
-                info!(
-                    "SD-031: relaying to {} candidate(s) toward {}",
-                    relay_candidates.len(),
-                    to_peer
-                );
-                for peer in relay_candidates {
-                    self.enqueue(peer, msg.clone()).await?;
-                }
+        let now = now_ms();
+        let payload_len = msg.envelope.payload.len().saturating_add(body.len());
+        let wifi_cap = self
+            .peer_protocol_caps
+            .get(&to_peer)
+            .is_some_and(|n| n.wifi_direct_allowed());
+        let availability = self.transport.transport_availability_for_peer(
+            &to_peer,
+            wifi_cap,
+            !peers.is_empty(),
+        );
+        let path = self
+            .transport
+            .decide_outbound_path(&availability, payload_len, false, now);
+
+        match path {
+            TransportPath::CustodyQueue => {
+                debug!("no live bearer toward {to_peer}, relying on custody queue");
             }
-            info!("message queued for relay toward {}", to_peer);
-            if !self.transport.is_peer_connected(&to_peer) {
-                self.queue_ble_wire(to_peer.clone(), wire);
+            TransportPath::InternetRelay => {
+                self.forward_direct_internet(&to_peer, &msg, &wire, &peers)
+                    .await?;
+            }
+            TransportPath::WifiDirect | TransportPath::BleTrickle => {
+                self.forward_direct_mesh_bearer(&to_peer, &msg, &wire, &peers)
+                    .await?;
             }
         }
         if self.custody_enabled
@@ -1958,6 +1946,102 @@ impl NodeRunner {
             && self.peer_custody_allowed(&to_peer)
         {
             self.enqueue_outbound_custody(&to_peer, &msg, &body).await?;
+        }
+        Ok(())
+    }
+
+    async fn forward_direct_internet(
+        &mut self,
+        to_peer: &str,
+        msg: &DirectMessage,
+        wire: &WireMessage,
+        peers: &[String],
+    ) -> anyhow::Result<()> {
+        if peers.iter().any(|p| p == to_peer) {
+            self.enqueue(to_peer.to_string(), msg.clone()).await?;
+            info!("direct message queued for {to_peer} (internet path)");
+            return Ok(());
+        }
+        if peers.is_empty() {
+            warn!("internet path unavailable: no relay candidates for {to_peer}");
+            return Ok(());
+        }
+        let now = now_ms();
+        let peer_trust = self.peer_trust.load_all();
+        let endorsement_boosts = self.local_endorsements.read().await.clone();
+        let routing_meta = self.build_routing_meta(peers, &peer_trust)?;
+        let diversity = self.relay_diversity_config_for(to_peer);
+        let relay_candidates = security::select_relay_candidates_with_diversity(
+            &security::RelaySelectionRequest {
+                peers,
+                to_peer,
+                peer_trust: &peer_trust,
+                endorsement_boost: Some(&endorsement_boosts),
+                now_ms: now,
+                max_fanout: self.effective_max_relay_fanout(),
+                routing_meta: Some(&routing_meta),
+                diversity: Some(&diversity),
+            },
+        );
+        if relay_candidates.is_empty() {
+            warn!("SD-031: no suitable relay candidates for {to_peer}");
+        } else {
+            info!(
+                "SD-031: relaying to {} candidate(s) toward {to_peer} (internet path)",
+                relay_candidates.len()
+            );
+            for peer in relay_candidates {
+                self.enqueue(peer, msg.clone()).await?;
+            }
+        }
+        info!("message queued for relay toward {to_peer}");
+        let _ = wire;
+        Ok(())
+    }
+
+    async fn forward_direct_mesh_bearer(
+        &mut self,
+        to_peer: &str,
+        msg: &DirectMessage,
+        wire: &WireMessage,
+        peers: &[String],
+    ) -> anyhow::Result<()> {
+        if peers.iter().any(|p| p == to_peer) {
+            self.enqueue(to_peer.to_string(), msg.clone()).await?;
+            info!("direct message queued for {to_peer} (mesh bearer)");
+            return Ok(());
+        }
+        if peers.is_empty() {
+            warn!("no mesh peers available for {to_peer}");
+            self.queue_ble_wire(to_peer.to_string(), wire.clone());
+            return Ok(());
+        }
+        let now = now_ms();
+        let peer_trust = self.peer_trust.load_all();
+        let endorsement_boosts = self.local_endorsements.read().await.clone();
+        let routing_meta = self.build_routing_meta(peers, &peer_trust)?;
+        let diversity = self.relay_diversity_config_for(to_peer);
+        let relay_candidates = security::select_relay_candidates_with_diversity(
+            &security::RelaySelectionRequest {
+                peers,
+                to_peer,
+                peer_trust: &peer_trust,
+                endorsement_boost: Some(&endorsement_boosts),
+                now_ms: now,
+                max_fanout: self.effective_max_relay_fanout(),
+                routing_meta: Some(&routing_meta),
+                diversity: Some(&diversity),
+            },
+        );
+        if relay_candidates.is_empty() {
+            warn!("SD-031: no suitable relay candidates for {to_peer}");
+        } else {
+            for peer in relay_candidates {
+                self.enqueue(peer, msg.clone()).await?;
+            }
+        }
+        if !self.transport.is_peer_connected(to_peer) {
+            self.queue_ble_wire(to_peer.to_string(), wire.clone());
         }
         Ok(())
     }
@@ -2329,8 +2413,21 @@ impl NodeRunner {
                 }
                 info!("discovered peer={peer_id}");
                 let now = now_ms();
+                let connected_others: Vec<String> = {
+                    let peers = self.peers.read().await;
+                    peers
+                        .iter()
+                        .filter(|p| *p != &peer_id)
+                        .cloned()
+                        .collect()
+                };
                 if let Err(e) = self.encounter_log.begin_encounter(&peer_id, now) {
                     warn!("encounter log begin failed for {peer_id}: {e:#}");
+                }
+                for other in &connected_others {
+                    if let Err(e) = self.encounter_log.begin_co_encounter(other, &peer_id, now) {
+                        warn!("co-encounter begin failed for {other}/{peer_id}: {e:#}");
+                    }
                 }
                 let transport_hint = self.transport.peer_transport_hint(&peer_id);
                 let _ = self.peer_trust.with_peer(&peer_id, now, |t| {
@@ -2352,6 +2449,19 @@ impl NodeRunner {
             TransportEvent::PeerDown { peer_id } => {
                 info!("expired peer={peer_id}");
                 let now = now_ms();
+                let connected_others: Vec<String> = {
+                    let peers = self.peers.read().await;
+                    peers
+                        .iter()
+                        .filter(|p| *p != &peer_id)
+                        .cloned()
+                        .collect()
+                };
+                for other in &connected_others {
+                    if let Err(e) = self.encounter_log.end_co_encounter(other, &peer_id, now) {
+                        warn!("co-encounter end failed for {other}/{peer_id}: {e:#}");
+                    }
+                }
                 if let Err(e) = self.encounter_log.end_encounter(&peer_id, now) {
                     warn!("encounter log end failed for {peer_id}: {e:#}");
                 }
@@ -3233,6 +3343,7 @@ impl NodeRunner {
             routing_meta,
             diversity: PeerDiversityConfig::default(),
             negotiated_caps: self.peer_protocol_caps.clone(),
+            candidate_scoring: Default::default(),
         };
         if let Some(plan) = self.custody_queue.next_forward_plan_at(
             &self.local_peer_id,

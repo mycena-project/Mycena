@@ -4,12 +4,14 @@
 
 pub mod battery;
 pub mod csv;
+pub mod gates;
 pub mod mobility;
 pub mod preset;
 pub mod radio;
 pub mod report;
 pub mod rng;
 pub mod runner;
+pub mod transport_score;
 
 pub use preset::LabPreset;
 pub use report::LabReport;

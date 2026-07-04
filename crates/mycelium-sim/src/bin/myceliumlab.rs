@@ -5,7 +5,8 @@
 use clap::{Parser, Subcommand};
 use mycelium_sim::lab::csv::{append_csv, write_csv};
 use mycelium_sim::lab::preset::{preset_config, LabPreset};
-use mycelium_sim::lab::runner::{run_ci_gates, LabRunner};
+use mycelium_sim::lab::runner::LabRunner;
+use mycelium_sim::run_all_sim_ci_gates;
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -64,7 +65,7 @@ fn main() -> anyhow::Result<()> {
             eprintln!("nodes={node_count} duration_ms={}", report.duration_ms);
         }
         Commands::CiGate { csv } => {
-            let reports = run_ci_gates()?;
+            let reports = run_all_sim_ci_gates()?;
             for report in &reports {
                 print_report(report);
             }
@@ -76,7 +77,7 @@ fn main() -> anyhow::Result<()> {
         }
         Commands::List => {
             for p in LabPreset::all() {
-                println!("{}", p.name());
+                println!("{} ({})", p.name(), p.german_alias());
             }
         }
     }
