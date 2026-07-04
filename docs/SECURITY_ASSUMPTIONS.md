@@ -70,7 +70,7 @@ We **do not** claim protection against:
 
 | Property | Assumption |
 |----------|------------|
-| libp2p PeerId | Long-lived; **not** rotated by default |
+| libp2p transport PeerId | Rotates on cold start (default) and/or every 24h; stable account id for contacts |
 | X25519 enc keys | Static until rotated manually; **no forward secrecy** on 1:1 |
 | Ed25519 envelope sig | **Required on direct `Data` frames** (SD-030 mitigated); gossip relay bodies remain unsigned with inner auth |
 | Group keys | PSK in QR; leak of QR = full group history compromise |

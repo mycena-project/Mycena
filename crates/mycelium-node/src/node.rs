@@ -305,6 +305,11 @@ pub enum NodeCommand {
         reply: Option<BleStreamOutboundReply>,
     },
     SetCrowdMode(bool),
+    /// Follow a contact's signed transport PeerId rotation (SD-190).
+    RemapTransportPeer {
+        old_peer_id: String,
+        new_peer_id: String,
+    },
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
@@ -554,6 +559,14 @@ impl NodeHandle {
         self.tx.send(NodeCommand::GcNow { reply: Some(tx) }).await?;
         rx.await
             .map_err(|_| anyhow::anyhow!("gc response channel closed"))
+    }
+
+    pub async fn remap_transport_peer(&self, old_peer_id: &str, new_peer_id: &str) -> anyhow::Result<()> {
+        self.send(NodeCommand::RemapTransportPeer {
+            old_peer_id: old_peer_id.to_string(),
+            new_peer_id: new_peer_id.to_string(),
+        })
+        .await
     }
 }
 
@@ -941,8 +954,8 @@ impl NodeRunner {
 
         self.transport.redial_stored_targets();
         if let Some(rot) = self.pending_identity_rotation.take() {
-            if let Err(e) = self.publish_identity_rotation(rot).await {
-                warn!("failed to publish identity rotation: {e}");
+            if let Err(e) = self.announce_identity_rotation_e2e(rot).await {
+                warn!("failed to announce identity rotation over E2E: {e}");
             }
         }
         let mut dial_tick = interval(Duration::from_secs(15));
@@ -1395,6 +1408,14 @@ impl NodeRunner {
                     if enabled { "enabled" } else { "disabled" }
                 );
             }
+            NodeCommand::RemapTransportPeer {
+                old_peer_id,
+                new_peer_id,
+            } => {
+                if let Err(e) = self.remap_transport_peer(&old_peer_id, &new_peer_id) {
+                    warn!("remap transport peer {old_peer_id} -> {new_peer_id}: {e:#}");
+                }
+            }
         }
         Ok(())
     }
@@ -1537,17 +1558,130 @@ impl NodeRunner {
             .is_some_and(|t| t.mutual_contacts > 0)
     }
 
-    async fn publish_identity_rotation(
+    fn identity_rotation_recipients(&self) -> Vec<String> {
+        let mut targets = HashSet::new();
+        if let Ok(map) = self.peer_x25519.try_read() {
+            targets.extend(map.keys().cloned());
+        }
+        if let Ok(ids) = self.ratchet_store.session_peer_ids() {
+            targets.extend(ids);
+        }
+        for (peer, trust) in self.peer_trust.load_all() {
+            if trust.mutual_contacts > 0 {
+                targets.insert(peer);
+            }
+        }
+        targets.retain(|p| p != &self.local_peer_id);
+        targets.into_iter().collect()
+    }
+
+    /// Signed re-announce to contacts over E2E direct (opaque to LAN/relay observers).
+    async fn announce_identity_rotation_e2e(
         &mut self,
         rot: mycelium_core::identity_rotation::IdentityRotationGossip,
     ) -> anyhow::Result<()> {
-        let payload = rot.encode()?;
-        self.broadcast_scoped(
-            "mycelium/identity/v1".into(),
-            format!("[identity:{}]", rot.account_id),
-            payload,
-        )
-        .await
+        let inner = rot.encode_e2e_announce()?;
+        let recipients = self.identity_rotation_recipients();
+        if recipients.is_empty() {
+            info!(
+                "transport rotated to {} — no E2E contacts to announce (epoch {})",
+                rot.new_peer_id, rot.epoch
+            );
+            return Ok(());
+        }
+        let mut sent = 0usize;
+        for to_peer in recipients {
+            match self
+                .send_encrypted_direct_internal(&to_peer, &inner)
+                .await
+            {
+                Ok(()) => sent += 1,
+                Err(e) => warn!("identity rotation E2E to {to_peer}: {e:#}"),
+            }
+        }
+        info!(
+            "transport identity rotation epoch={} announced to {sent} contact(s) via E2E",
+            rot.epoch
+        );
+        Ok(())
+    }
+
+    async fn send_encrypted_direct_internal(
+        &mut self,
+        to_peer: &str,
+        inner_plaintext: &[u8],
+    ) -> anyhow::Result<()> {
+        let wrapped =
+            mycelium_core::e2e_direct_wrap::wrap_inner(&self.local_peer_id, inner_plaintext);
+        let legacy_pk = self.peer_x25519.read().await.get(to_peer).copied();
+        let (encrypted_payload, e2e_version) =
+            self.encrypt_e2e_for_peer_sync(to_peer, &wrapped, legacy_pk)?;
+        let sender_enc_pubkey = self.enc_keypair.public_hex();
+        let mut wire = WireMessage::EncryptedDirect {
+            to_peer: to_peer.to_string(),
+            sender_enc_pubkey,
+            encrypted_payload,
+            mesh_signature: None,
+            hop_count: 0,
+            max_hops: 8,
+            e2e_version,
+        };
+        if let Some(keypair) = &self.keypair {
+            mycelium_core::transport::sign_encrypted_direct(&mut wire, keypair)?;
+        } else {
+            anyhow::bail!("cannot send EncryptedDirect without local keypair");
+        }
+        if self.transport.is_peer_connected(to_peer) {
+            self.transport.send_direct(to_peer.to_string(), wire).await?;
+        } else {
+            let peers = self.transport.known_peers();
+            let now = now_ms();
+            let peer_trust = self.peer_trust.load_all();
+            let relay_candidates = security::select_relay_candidates(
+                &peers,
+                to_peer,
+                &peer_trust,
+                now,
+                self.max_relay_fanout,
+            );
+            if relay_candidates.is_empty() && peers.is_empty() {
+                anyhow::bail!("no path to {to_peer}");
+            }
+            for relay in &relay_candidates {
+                self.transport
+                    .send_direct(relay.clone(), wire.clone())
+                    .await?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Remap node-side peer state after a contact rotates transport PeerId.
+    fn remap_transport_peer(&mut self, old_peer_id: &str, new_peer_id: &str) -> anyhow::Result<()> {
+        if old_peer_id.is_empty() || new_peer_id.is_empty() || old_peer_id == new_peer_id {
+            return Ok(());
+        }
+        if let Ok(mut map) = self.peer_x25519.try_write() {
+            if let Some(key) = map.remove(old_peer_id) {
+                map.insert(new_peer_id.to_string(), key);
+                if let Err(e) = self.peer_enc_store.save(new_peer_id, &key) {
+                    warn!("persist remapped enc key: {e}");
+                }
+            }
+        }
+        if let Err(e) = self.ratchet_store.remap_peer_id(old_peer_id, new_peer_id) {
+            warn!("ratchet remap {old_peer_id} -> {new_peer_id}: {e}");
+        }
+        if let Some(scopes) = self.peer_scopes.remove(old_peer_id) {
+            self.peer_scopes.insert(new_peer_id.to_string(), scopes);
+        }
+        let now = now_ms();
+        if let Some(trust) = self.peer_trust.load_all().get(old_peer_id).cloned() {
+            let _ = self.peer_trust.with_peer(new_peer_id, now, |t| {
+                *t = trust.clone();
+            });
+        }
+        Ok(())
     }
 
     async fn broadcast_scoped(

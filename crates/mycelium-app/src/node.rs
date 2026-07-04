@@ -230,7 +230,6 @@ impl AppNode {
         }
     }
 
-    /// Replace peer-id placeholder labels once we learn a human display name (ContactHello or chat).
     fn maybe_update_stub_display_name(&self, peer: &str, display_name: &str) -> bool {
         let name = display_name.trim();
         if name.is_empty() {
@@ -262,6 +261,51 @@ impl AppNode {
                 warn!("update stub display name for {peer}: {e}");
                 false
             }
+        }
+    }
+
+    async fn apply_identity_rotation(
+        &self,
+        rot: mycelium_l0_facade::identity_rotation::IdentityRotationGossip,
+        transport_from: &str,
+    ) {
+        if !rot.verify() {
+            warn!("rejected identity rotation from {transport_from}");
+            return;
+        }
+        let old_peer_id = if !rot.previous_peer_id.is_empty() {
+            rot.previous_peer_id.clone()
+        } else if let Ok(Some(c)) = self.storage.contact_by_account_id(&rot.account_id) {
+            c.peer_id
+        } else {
+            transport_from.to_string()
+        };
+        if let Err(e) = self
+            .handle
+            .remap_transport_peer(&old_peer_id, &rot.new_peer_id)
+            .await
+        {
+            warn!("node remap {old_peer_id} -> {}: {e}", rot.new_peer_id);
+        }
+        match self
+            .storage
+            .remap_contact_peer(&rot.account_id, &rot.new_peer_id)
+        {
+            Ok(Some(c)) => {
+                info!(
+                    "contact account {} transport {} -> {}",
+                    rot.account_id, old_peer_id, rot.new_peer_id
+                );
+                self.notifier.on_contact_added(&c.peer_id, &c.display_name);
+            }
+            Ok(None) => {}
+            Err(e) => warn!("identity rotation remap failed: {e}"),
+        }
+        if let Err(e) = self
+            .storage
+            .group_remap_member_peer(&old_peer_id, &rot.new_peer_id)
+        {
+            warn!("group member remap failed: {e}");
         }
     }
 
@@ -309,25 +353,22 @@ impl AppNode {
             self.handle_proximity_payload(&msg.envelope.payload).await;
             return;
         }
-        if msg.body.starts_with("[identity:") {
-            match mycelium_l0_facade::identity_rotation::IdentityRotationGossip::decode(
-                &msg.envelope.payload,
-            ) {
-                Ok(rot) if rot.verify() => {
-                    match self
-                        .storage
-                        .remap_contact_peer(&rot.account_id, &rot.new_peer_id)
-                    {
-                        Ok(Some(c)) => {
-                            self.notifier.on_contact_added(&c.peer_id, &c.display_name);
-                        }
-                        Ok(None) => {}
-                        Err(e) => warn!("identity rotation remap failed: {e}"),
-                    }
-                }
-                Ok(_) => warn!("rejected identity rotation with invalid signature"),
-                Err(e) => warn!("identity rotation decode failed: {e}"),
+        if msg.body == "[encrypted]" {
+            if let Some(rot) =
+                mycelium_l0_facade::identity_rotation::IdentityRotationGossip::decode_e2e_announce(
+                    &msg.envelope.payload,
+                )
+            {
+                self.apply_identity_rotation(rot, &msg.envelope.from_peer)
+                    .await;
+                return;
             }
+        }
+        if msg.body.starts_with("[identity:") {
+            warn!(
+                "legacy plaintext identity rotation gossip from {} — ignored (use E2E announce)",
+                msg.envelope.from_peer
+            );
             return;
         }
         if msg.body == "[contact:hello]" {

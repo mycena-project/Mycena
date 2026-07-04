@@ -16,6 +16,14 @@ pub fn rotation_interval_ms() -> u64 {
         .saturating_mul(1000)
 }
 
+/// When true (default), rotate transport PeerId on every process start after the first boot.
+pub fn rotate_on_cold_start() -> bool {
+    match std::env::var("MYCELIUM_TRANSPORT_ROTATE_ON_START").as_deref() {
+        Ok("0") | Ok("false") | Ok("FALSE") => false,
+        _ => true,
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
 pub struct TransportMeta {
     pub epoch: u64,
@@ -47,9 +55,13 @@ impl TransportMetaStore {
         Ok(())
     }
 
+    /// Returns true when transport keys should be regenerated at node bootstrap.
     pub fn should_rotate(&self, meta: &TransportMeta) -> bool {
         if meta.rotated_at_ms == 0 {
             return false;
+        }
+        if rotate_on_cold_start() {
+            return true;
         }
         now_ms().saturating_sub(meta.rotated_at_ms) >= rotation_interval_ms()
     }
@@ -83,5 +95,24 @@ mod tests {
         meta.epoch = 4;
         store.save(&meta).unwrap();
         assert_eq!(store.load().unwrap().epoch, 4);
+    }
+
+    #[test]
+    fn cold_start_rotation_env() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = TransportMetaStore::open(dir.path().to_str().unwrap()).unwrap();
+        let meta = TransportMeta {
+            epoch: 1,
+            rotated_at_ms: now_ms(),
+            previous_peer_ids: vec![],
+        };
+        store.save(&meta).unwrap();
+        std::env::remove_var("MYCELIUM_TRANSPORT_ROTATE_ON_START");
+        assert!(rotate_on_cold_start());
+        assert!(store.should_rotate(&meta));
+        std::env::set_var("MYCELIUM_TRANSPORT_ROTATE_ON_START", "0");
+        assert!(!rotate_on_cold_start());
+        assert!(!store.should_rotate(&meta));
+        std::env::remove_var("MYCELIUM_TRANSPORT_ROTATE_ON_START");
     }
 }

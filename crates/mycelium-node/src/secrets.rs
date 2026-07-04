@@ -69,13 +69,14 @@ pub fn bootstrap_identities(
         meta.epoch = meta.epoch.saturating_add(1);
         meta.rotated_at_ms = mycelium_core::data::now_ms();
         if !meta.previous_peer_ids.contains(&old_peer_id) {
-            meta.previous_peer_ids.push(old_peer_id);
+            meta.previous_peer_ids.push(old_peer_id.clone());
         }
         meta_store.save(&meta)?;
         let new_kp = load_or_create_keypair(keypair_path, storage_key)?;
         let new_peer_id = new_kp.public().to_peer_id().to_string();
         pending_rotation = Some(IdentityRotationGossip::sign(
             &account_id,
+            &old_peer_id,
             &new_peer_id,
             meta.epoch,
             &account_keypair,

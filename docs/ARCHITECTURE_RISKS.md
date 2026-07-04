@@ -49,7 +49,7 @@ This ledger describes **systemic** risks arising from architectural choices—no
 |---------|--------|-------------|--------------|---------------|--------------------------------------|
 | AR-01 | **Concentration** | Federated relay registry + client failover (was: single Fly.io bootstrap) | Global Internet path if all listed relays fail | Outage obvious; per-relay failure triggers rotation | **Medium** — mesh LAN still works; production still relies on one primary relay until community relays ship |
 | AR-02 | **Amplification** | Store-and-forward without authenticated routing | Network-wide flood | Metrics queue growth | High until SD-031 fixed |
-| AR-03 | **Identity binding** | libp2p PeerId == user identity forever | Lifetime tracking | Passive | Critical for activists |
+| AR-03 | **Identity binding** | Transport PeerId rotated (cold start + interval); stable account id for contacts; E2E re-announce | Relay/LAN see ephemeral ids per epoch | Passive correlation harder | **Medium** — account id + enc key timing still observable |
 | AR-04 | **E2E model** | v1 Double Ratchet + v0 legacy fallback ([ADR 004](./adr/004-double-ratchet-e2e.md)) | Message content | User mistake / pre-bootstrap v0 | Medium |
 | AR-05 | **Group model** | One PSK per group in QR | All group history | Invite leak | Critical |
 | AR-06 | **Economic layer** | MeshCoin is local-ledger gossip, not BFT | Fake money / scams | User education | Critical if marketed as currency |
@@ -94,7 +94,7 @@ This ledger describes **systemic** risks arising from architectural choices—no
 
 | Mode | Trigger | Outcome |
 |------|---------|---------|
-| Permanent PeerId | Any use | Long-term tracking |
+| Permanent PeerId | Any use | Long-term tracking (**mitigated:** transport rotation SD-190; account id remains stable) |
 | Display name spoof | Social eng. | User trusts wrong party |
 | No forward secrecy | Key leak | Retroactive exposure |
 

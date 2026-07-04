@@ -58,6 +58,15 @@ impl AppStorage {
         })
     }
 
+    pub fn contact_by_account_id(&self, account_id: &str) -> anyhow::Result<Option<Contact>> {
+        let idx = self.db.open_tree("contacts:accounts")?;
+        let Some(peer_bytes) = idx.get(account_id.as_bytes())? else {
+            return Ok(None);
+        };
+        let peer_id = String::from_utf8_lossy(&peer_bytes).to_string();
+        self.contact_by_id(&peer_id)
+    }
+
     pub fn all_contacts(&self) -> anyhow::Result<Vec<Contact>> {
         let tree = self.db.open_tree("contacts:data")?;
         let mut out: Vec<Contact> = Vec::new();
@@ -153,7 +162,61 @@ impl AppStorage {
         contact.account_id = Some(account_id.to_string());
         tree.insert(new_peer_id.as_bytes(), bincode::serialize(&contact)?)?;
         idx.insert(account_id.as_bytes(), new_peer_id.as_bytes())?;
+        if old_peer_id != new_peer_id {
+            self.remap_chat_tree(&old_peer_id, new_peer_id)?;
+        }
         Ok(Some(contact))
+    }
+
+    fn remap_chat_tree(&self, old_peer_id: &str, new_peer_id: &str) -> anyhow::Result<()> {
+        let old_name = format!("chat:{old_peer_id}");
+        let new_name = format!("chat:{new_peer_id}");
+        if !self.db.tree_names().iter().any(|n| n.as_ref() == old_name.as_bytes()) {
+            return Ok(());
+        }
+        let old_tree = self.db.open_tree(&old_name)?;
+        let new_tree = self.db.open_tree(&new_name)?;
+        for item in old_tree.iter() {
+            let (k, v) = item?;
+            new_tree.insert(k, v)?;
+        }
+        self.db.drop_tree(old_name)?;
+        Ok(())
+    }
+
+    /// Replace a member's transport peer id in all groups (SD-190 rotation follow).
+    pub fn group_remap_member_peer(
+        &self,
+        old_peer_id: &str,
+        new_peer_id: &str,
+    ) -> anyhow::Result<usize> {
+        if old_peer_id == new_peer_id {
+            return Ok(0);
+        }
+        let tree = self.db.open_tree("groups:data")?;
+        let keys: Vec<Vec<u8>> = tree
+            .iter()
+            .filter_map(|r| r.ok().map(|(k, _)| k.to_vec()))
+            .collect();
+        let mut updated = 0usize;
+        for key in keys {
+            let Some(v) = tree.get(&key)? else {
+                continue;
+            };
+            let mut group: crate::groups::Group = bincode::deserialize(&v)?;
+            let mut changed = false;
+            for member in group.members.iter_mut() {
+                if member == old_peer_id {
+                    *member = new_peer_id.to_string();
+                    changed = true;
+                }
+            }
+            if changed {
+                tree.insert(key, bincode::serialize(&group)?)?;
+                updated += 1;
+            }
+        }
+        Ok(updated)
     }
 
     pub fn save_bulletin(&self, post: &BulletinPost) -> anyhow::Result<()> {

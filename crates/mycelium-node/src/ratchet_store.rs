@@ -87,4 +87,27 @@ impl RatchetSessionStore {
         }
         Ok(out)
     }
+
+    pub fn session_peer_ids(&self) -> anyhow::Result<Vec<String>> {
+        let mut out = Vec::new();
+        for item in self.sessions.iter() {
+            let (k, _) = item?;
+            out.push(String::from_utf8(k.to_vec()).context("session peer id utf8")?);
+        }
+        Ok(out)
+    }
+
+    /// Move ratchet state when a contact rotates transport PeerId (SD-190).
+    pub fn remap_peer_id(&self, old_peer_id: &str, new_peer_id: &str) -> anyhow::Result<()> {
+        if old_peer_id == new_peer_id {
+            return Ok(());
+        }
+        if let Some(bytes) = self.sessions.remove(old_peer_id.as_bytes())? {
+            self.sessions.insert(new_peer_id.as_bytes(), bytes)?;
+        }
+        if let Some(bytes) = self.bundles.remove(old_peer_id.as_bytes())? {
+            self.bundles.insert(new_peer_id.as_bytes(), bytes)?;
+        }
+        Ok(())
+    }
 }

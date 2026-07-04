@@ -65,12 +65,15 @@ pub fn contact_hello_signable_bytes(
 
 pub fn identity_rotation_signable_bytes(
     account_id: &str,
+    previous_peer_id: &str,
     new_peer_id: &str,
     epoch: u64,
 ) -> Vec<u8> {
     let mut bytes = Vec::new();
-    bytes.extend_from_slice(b"MYCEL/IDENTITY/v1\0");
+    bytes.extend_from_slice(b"MYCEL/IDENTITY/v2\0");
     bytes.extend_from_slice(account_id.as_bytes());
+    bytes.push(0);
+    bytes.extend_from_slice(previous_peer_id.as_bytes());
     bytes.push(0);
     bytes.extend_from_slice(new_peer_id.as_bytes());
     bytes.push(0);

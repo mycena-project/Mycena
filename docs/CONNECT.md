@@ -37,7 +37,7 @@ mycelium://invite/v2#<peerId>|<encPubkeyHex>[|<directMultiaddr>]   (legacy; stil
 
 E2E encryption uses the peer’s X25519 key from **`PeerInfo`** on connect (v1). v2 seeds the key immediately from the QR (trust-on-first-use). **v3** binds account id, transport peer id, enc key, and epoch with an Ed25519 signature — malformed or tampered invites are rejected at parse time.
 
-**Identity rotation (SD-190 spike):** each device has a stable **account id** and a **transport PeerId** that may rotate every 24h. Contacts store `account_id` and follow signed rotation gossip on `mycelium/identity/v1`.
+**Identity rotation (SD-190):** each device has a stable **account id** and a **transport PeerId** that rotates on every app cold start (default) and/or every 24h. Contacts store `account_id` and follow **E2E encrypted** signed re-announce — not public gossip. See [TRANSPORT_IDENTITY.md](./TRANSPORT_IDENTITY.md).
 
 Dial target (relay): `/ip4/<relay-ip>/tcp/4001/p2p/<relay>/p2p-circuit/p2p/<peerId>` (see `bootstrap.rs`)
 
