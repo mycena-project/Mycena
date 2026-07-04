@@ -54,6 +54,19 @@ class MeshService : Service() {
     private val notifiedAddresses = mutableSetOf<String>()
     private var nodeInitialized = false
     private var wifiMulticastLock: WifiMulticastLock? = null
+    private var crisisRefreshJob: kotlinx.coroutines.Job? = null
+
+    private fun startCrisisAutoRefreshLoop() {
+        crisisRefreshJob?.cancel()
+        crisisRefreshJob = serviceScope.launch {
+            while (true) {
+                delay(30_000)
+                withContext(Dispatchers.IO) {
+                    runCatching { SosViewModel.refreshCrisisAutoFromPrefs(this@MeshService) }
+                }
+            }
+        }
+    }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForeground(NOTIFICATION_ID, buildNotification())
@@ -115,6 +128,11 @@ class MeshService : Service() {
         if (prefs.getBoolean(SosViewModel.KEY_LISTEN_SOS, false)) {
             mycelium.setListenSos(true)
         }
+        mycelium.setCrisisManualMode(
+            prefs.getInt(SosViewModel.KEY_CRISIS_MANUAL_MODE, SosViewModel.CRISIS_FOLLOW_AUTO).toUByte(),
+        )
+        SosViewModel.refreshCrisisAutoFromPrefs(this)
+        startCrisisAutoRefreshLoop()
         PrivacyShapingPrefs.applyFromPrefs(prefs)
         mycelium.setEventCallback(
             object : NodeEventCallback {
@@ -163,6 +181,9 @@ class MeshService : Service() {
                             mode == ConnectivityMode.INTERNET,
                         ),
                     )
+                    serviceScope.launch(Dispatchers.IO) {
+                        SosViewModel.refreshCrisisAutoFromPrefs(this@MeshService)
+                    }
                 }
 
                 override fun onContactRequest(peerId: String, displayName: String) {
@@ -406,6 +427,7 @@ class MeshService : Service() {
     }
 
     override fun onDestroy() {
+        crisisRefreshJob?.cancel()
         stopBleBootstrap()
         wifiMulticastLock?.release()
         wifiMulticastLock = null

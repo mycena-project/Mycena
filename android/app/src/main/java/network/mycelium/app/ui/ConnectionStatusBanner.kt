@@ -40,6 +40,7 @@ private const val CONNECTED_BANNER_MS = 4_000L
 fun ConnectionStatusBanner(vm: StatusViewModel = viewModel()) {
     val peerCount by vm.peerCount.collectAsState()
     val connectivityMode by vm.connectivityMode.collectAsState()
+    val crisisActive by vm.crisisActive.collectAsState()
     val showSearchingBanner by vm.showSearchingBanner.collectAsState()
     var showConnectedBanner by remember { mutableStateOf(false) }
 
@@ -50,6 +51,24 @@ fun ConnectionStatusBanner(vm: StatusViewModel = viewModel()) {
             showConnectedBanner = false
         } else {
             showConnectedBanner = false
+        }
+    }
+
+    AnimatedVisibility(
+        visible = crisisActive,
+        enter = slideInVertically(),
+        exit = slideOutVertically(),
+    ) {
+        Surface(
+            color = MaterialTheme.colorScheme.errorContainer,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(
+                text = stringResource(R.string.status_crisis_active),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onErrorContainer,
+            )
         }
     }
 

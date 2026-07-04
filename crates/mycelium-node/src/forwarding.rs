@@ -5,6 +5,32 @@ use mycelium_core::energy::NodeState;
 use mycelium_core::transport::{DirectMessage, MessageStore};
 use std::sync::Arc;
 
+/// Mesh traffic class for crisis prioritization (distinct from envelope [`Priority`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TrafficClass {
+    /// Coin gossip, app store, non-emergency bulletins.
+    Background,
+    Normal,
+    /// SOS, resource map, custody DTN.
+    Essential,
+}
+
+pub fn traffic_class_for_direct(msg: &DirectMessage) -> TrafficClass {
+    if msg.body.starts_with("[bulletin:mycelium/sos/v1")
+        || msg.body.starts_with("[bulletin:mycelium/resource-map/v1")
+    {
+        return TrafficClass::Essential;
+    }
+    if msg.body.starts_with("[bulletin:mycelium/coin/v1") || msg.body.contains("mycelium/appstore")
+    {
+        return TrafficClass::Background;
+    }
+    if msg.envelope.custody {
+        return TrafficClass::Essential;
+    }
+    TrafficClass::Normal
+}
+
 pub trait SeenCache: Send {
     fn contains(&self, message_id: &str) -> bool;
     fn insert(&mut self, message_id: String);
@@ -54,6 +80,23 @@ impl ForwardingPolicy for ProbabilisticForwardingPolicy {
         known_peers: &[String],
         node_state: NodeState,
     ) -> ForwardDecision {
+        self.decide_crisis_aware(message, local_peer, known_peers, node_state, false)
+    }
+}
+
+impl ProbabilisticForwardingPolicy {
+    pub fn decide_crisis_aware(
+        &self,
+        message: &DirectMessage,
+        local_peer: &str,
+        known_peers: &[String],
+        node_state: NodeState,
+        crisis_active: bool,
+    ) -> ForwardDecision {
+        let traffic = traffic_class_for_direct(message);
+        if crisis_active && traffic == TrafficClass::Background {
+            return ForwardDecision::Hold;
+        }
         if message
             .envelope
             .to_peer
@@ -65,7 +108,7 @@ impl ForwardingPolicy for ProbabilisticForwardingPolicy {
         if message.is_expired(now_ms()) {
             return ForwardDecision::Drop("expired");
         }
-        let fanout = base_fanout(node_state, message.envelope.priority);
+        let fanout = base_fanout(node_state, message.envelope.priority, crisis_active, traffic);
         if fanout == 0 || known_peers.is_empty() {
             return ForwardDecision::Hold;
         }
@@ -87,8 +130,16 @@ impl ForwardingPolicy for ProbabilisticForwardingPolicy {
     }
 }
 
-fn base_fanout(state: NodeState, priority: Priority) -> usize {
-    match state {
+fn base_fanout(
+    state: NodeState,
+    priority: Priority,
+    crisis_active: bool,
+    traffic: TrafficClass,
+) -> usize {
+    if crisis_active && traffic == TrafficClass::Background {
+        return 0;
+    }
+    let base: usize = match state {
         NodeState::Active => match priority {
             Priority::High => 4,
             Priority::Normal => 3,
@@ -103,6 +154,11 @@ fn base_fanout(state: NodeState, priority: Priority) -> usize {
             Priority::High => 1,
             _ => 0,
         },
+    };
+    if crisis_active && traffic == TrafficClass::Essential {
+        base.saturating_add(2).min(6)
+    } else {
+        base
     }
 }
 
@@ -251,6 +307,30 @@ mod tests {
         msg.envelope.to_peer = Some("local".to_string());
         let d = policy.decide(&msg, "local", &["p1".to_string()], NodeState::Active);
         assert!(matches!(d, ForwardDecision::DeliverLocal));
+    }
+
+    #[test]
+    fn crisis_holds_background_traffic() {
+        let policy = ProbabilisticForwardingPolicy;
+        let msg = mk_msg("[bulletin:mycelium/coin/v1] gossip");
+        let peers: Vec<String> = (0..5).map(|i| format!("p{i}")).collect();
+        let d = policy.decide_crisis_aware(&msg, "local", &peers, NodeState::Active, true);
+        assert!(matches!(d, ForwardDecision::Hold));
+    }
+
+    #[test]
+    fn crisis_boosts_essential_fanout() {
+        let policy = ProbabilisticForwardingPolicy;
+        let mut msg = mk_msg("[bulletin:mycelium/sos/v1] sos");
+        msg.envelope.priority = Priority::High;
+        let peers: Vec<String> = (0..10).map(|i| format!("p{i}")).collect();
+        let normal = policy.decide_crisis_aware(&msg, "local", &peers, NodeState::Active, false);
+        let crisis = policy.decide_crisis_aware(&msg, "local", &peers, NodeState::Active, true);
+        let count = |d: ForwardDecision| match d {
+            ForwardDecision::ForwardTo(v) => v.len(),
+            _ => 0,
+        };
+        assert!(count(crisis) >= count(normal));
     }
 
     #[tokio::test]

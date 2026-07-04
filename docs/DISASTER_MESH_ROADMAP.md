@@ -5,7 +5,7 @@
 
 This document is the **long-horizon plan** beyond Level 0 LAN + Android BLE (ADR 002). Phases are ordered by user value and engineering risk.
 
-See also: [CONNECTIVITY_MODES.md](./CONNECTIVITY_MODES.md), [LEVEL0_ROADMAP.md](./LEVEL0_ROADMAP.md), [ADR 002](./adr/002-ble-mesh-transport.md), [ADR 003](./adr/003-desktop-ble-and-disaster-mesh.md), [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md).
+See also: [CONNECTIVITY_MODES.md](./CONNECTIVITY_MODES.md), [LEVEL0_ROADMAP.md](./LEVEL0_ROADMAP.md), [ADR 002](./adr/002-ble-mesh-transport.md), [ADR 003](./adr/003-desktop-ble-and-disaster-mesh.md), [ADR 008](./adr/008-resource-map-crisis-mode.md), [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md).
 
 ---
 
@@ -23,8 +23,29 @@ See also: [CONNECTIVITY_MODES.md](./CONNECTIVITY_MODES.md), [LEVEL0_ROADMAP.md](
 | Multi-hop epidemic routing at city scale | **Not supported** |
 | Store-and-forward DTN custody | **Phase 3 shipped (core)** — see [CUSTODY_DTN.md](./CUSTODY_DTN.md) |
 | Configurable hop limits > 8 for disaster profile | **Custody messages default 64 hops** |
+| **Crisis Mode** (essential traffic priority, background sync pause) | **Core shipped** — [ADR 008](./adr/008-resource-map-crisis-mode.md) |
+| **Resource map v1** (geohash pins, TTL, mesh gossip) | **Core shipped** — UI pending |
 
 **Honest limit:** Pocket-to-pocket mesh between **Android phones** in BLE range is the near-term disaster story. Laptops without BLE transport do not extend the mesh yet. Hundreds of hops across a city is **out of scope** until routing, custody, and battery policies are designed (Phase 3–4).
+
+---
+
+## Phase 2.5 — Crisis Mode + resource map (current)
+
+**Goal:** When infrastructure fails, mesh bandwidth serves SOS and resource pins first; operators can opt in manually or auto-activate on internet loss + nearby SOS.
+
+| ID | Task | Status |
+|----|------|--------|
+| 2.5.1 | `crisis_mode` runtime + manual/auto activation | Done (core) |
+| 2.5.2 | Forwarding `TrafficClass` + crisis-aware fanout / hold background | Done (core) |
+| 2.5.3 | Pause bloom sync + background gossip ingest in crisis | Done (core) |
+| 2.5.4 | `ResourceMapEntry` + `OP_RESOURCE_MAP_BROADCAST` (Local consistency) | Done (core) |
+| 2.5.5 | App/FFI: `post_resource_map`, crisis APIs | Done (core) |
+| 2.5.6 | Android/Desktop crisis toggle + resource map UI | Done |
+| 2.5.7 | Connectivity background: `refresh_crisis_auto` tick | Done (Android service + Desktop interval) |
+| 2.5.8 | Field metrics: crisis_active, essential vs background drops | Backlog |
+
+**Exit criteria:** Two phones in airplane mode + BLE; manual crisis on; SOS and resource pin propagate while coin/appstore gossip is deferred; UI shows non-expired pins on map/list.
 
 ---
 

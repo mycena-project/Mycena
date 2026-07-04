@@ -62,6 +62,12 @@ namespace mycelium {
   void set_listen_sos(boolean enabled);
   boolean is_listen_sos_enabled();
 
+  void set_crisis_manual_mode(u8 mode);
+  boolean is_crisis_mode_active();
+  void refresh_crisis_auto(boolean internet_reachable, string? local_geohash_prefix);
+  void post_resource_map(string geohash, string category, string description, u64 ttl_secs);
+  sequence<ResourceMapEntry> list_resource_map_entries();
+
   sequence<ScopeKeyInfo> list_scope_keys();
   [Throws=MyceliumException]
   void add_scope_key(string invite_json);
@@ -222,6 +228,7 @@ dictionary NodeMetrics {
   u64 connected_peers;
   u64 max_peers;
   u64 peer_cap_rejections;
+  boolean crisis_active;
 };
 
 dictionary UserTrustSummary {
@@ -278,6 +285,15 @@ dictionary SosPost {
   string geohash;
   string message;
   u64 created_at_ms;
+};
+
+dictionary ResourceMapEntry {
+  string geohash;
+  string category;
+  string description;
+  u64 created_at_ms;
+  u64 ttl_secs;
+  u64 expires_at_ms;
 };
 
 dictionary MailMessage {

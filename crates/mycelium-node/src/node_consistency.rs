@@ -4,7 +4,7 @@
 
 use mycelium_core::consistency::{
     Consistency, EventuallyConsistentModel, LocalModel, StateOp, OP_DIRECT_MESSAGE_SEND,
-    OP_GOSSIP_BULLETIN_PUBLISH, OP_INVITE_PARSE, OP_SOS_BROADCAST,
+    OP_GOSSIP_BULLETIN_PUBLISH, OP_INVITE_PARSE, OP_RESOURCE_MAP_BROADCAST, OP_SOS_BROADCAST,
 };
 use mycelium_core::transport::WireMessage;
 
@@ -20,7 +20,9 @@ impl NodeCommand {
             | NodeCommand::SendWire { .. }
             | NodeCommand::SendWireOrQueueBle { .. } => Some(Consistency::EventuallyConsistent),
             NodeCommand::Broadcast { scope, .. } | NodeCommand::BroadcastPayload { scope, .. } => {
-                if ingest_guard::is_sos_scope(scope) {
+                if ingest_guard::is_sos_scope(scope)
+                    || scope.starts_with(mycelium_core::resource_map::RESOURCE_MAP_SCOPE)
+                {
                     Some(Consistency::Local)
                 } else {
                     Some(Consistency::EventuallyConsistent)
@@ -110,6 +112,23 @@ impl crate::NodeHandle {
         .await
     }
 
+    /// Resource-map pin with local compose + propagation cap ([`OP_RESOURCE_MAP_BROADCAST`]).
+    pub async fn mesh_broadcast_resource_map(
+        &self,
+        scope: String,
+        body: String,
+        payload: Vec<u8>,
+        _op: StateOp<LocalModel>,
+    ) -> anyhow::Result<()> {
+        debug_assert_eq!(_op.name, OP_RESOURCE_MAP_BROADCAST.name);
+        self.send(NodeCommand::BroadcastPayload {
+            scope,
+            body,
+            payload,
+        })
+        .await
+    }
+
     /// Direct wire frame (libp2p or BLE queue) ([`OP_DIRECT_MESSAGE_SEND`]).
     pub async fn mesh_send_wire(
         &self,
@@ -172,6 +191,13 @@ mod tests {
         };
         assert_eq!(sos.mesh_consistency(), Some(Consistency::Local));
 
+        let resource = NodeCommand::BroadcastPayload {
+            scope: "mycelium/resource-map/v1".into(),
+            body: "water".into(),
+            payload: vec![],
+        };
+        assert_eq!(resource.mesh_consistency(), Some(Consistency::Local));
+
         let chat = NodeCommand::BroadcastPayload {
             scope: "mycelium/chat".into(),
             body: "chat".into(),
@@ -209,6 +235,10 @@ mod tests {
             Consistency::EventuallyConsistent
         );
         assert_eq!(OP_SOS_BROADCAST.consistency(), Consistency::Local);
+        assert_eq!(
+            OP_RESOURCE_MAP_BROADCAST.consistency(),
+            Consistency::Local
+        );
         assert_eq!(
             OP_COIN_TRANSFER.consistency(),
             Consistency::SettlementRequired

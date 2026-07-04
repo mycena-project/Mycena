@@ -6,6 +6,7 @@ typealias NodeConfig = uniffi.mycelium.NodeConfig
 typealias ChatMessage = uniffi.mycelium.ChatMessage
 typealias BulletinPost = uniffi.mycelium.BulletinPost
 typealias SosPost = uniffi.mycelium.SosPost
+typealias ResourceMapEntry = uniffi.mycelium.ResourceMapEntry
 typealias MailMessage = uniffi.mycelium.MailMessage
 typealias NodeMetrics = uniffi.mycelium.NodeMetrics
 typealias WalletBalance = uniffi.mycelium.WalletBalance
@@ -83,6 +84,13 @@ object mycelium {
     fun listSosPosts(): List<SosPost> = uniffi.mycelium.listSosPosts()
     fun setListenSos(enabled: Boolean) = uniffi.mycelium.setListenSos(enabled)
     fun isListenSosEnabled(): Boolean = uniffi.mycelium.isListenSosEnabled()
+    fun setCrisisManualMode(mode: UByte) = uniffi.mycelium.setCrisisManualMode(mode)
+    fun isCrisisModeActive(): Boolean = uniffi.mycelium.isCrisisModeActive()
+    fun refreshCrisisAuto(internetReachable: Boolean, localGeohashPrefix: String?) =
+        uniffi.mycelium.refreshCrisisAuto(internetReachable, localGeohashPrefix)
+    fun postResourceMap(geohash: String, category: String, description: String, ttlSecs: ULong) =
+        uniffi.mycelium.postResourceMap(geohash, category, description, ttlSecs)
+    fun listResourceMapEntries(): List<ResourceMapEntry> = uniffi.mycelium.listResourceMapEntries()
     fun sendMail(toPeer: String, subject: String, body: String) = uniffi.mycelium.sendMail(toPeer, subject, body)
     fun mailInbox(limit: UInt): List<MailMessage> = uniffi.mycelium.mailInbox(limit)
     fun mailSent(limit: UInt): List<MailMessage> = uniffi.mycelium.mailSent(limit)

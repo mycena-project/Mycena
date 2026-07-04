@@ -22,6 +22,8 @@ pub enum MeshProfile {
     Dense,
     /// Tighter mesh for auto density backoff (AR-06).
     Crowd,
+    /// Disaster / crisis: wider mesh, faster heartbeats (pair with [`crate::crisis_mode`]).
+    Disaster,
 }
 
 impl MeshProfile {
@@ -36,6 +38,7 @@ impl MeshProfile {
         {
             Some("dense") => Self::Dense,
             Some("crowd") => Self::Crowd,
+            Some("disaster") => Self::Disaster,
             _ => Self::Default,
         }
     }
@@ -68,6 +71,15 @@ impl MeshProfile {
                 heartbeat_interval_secs: 3,
                 history_length: 4,
                 history_gossip: 2,
+            },
+            Self::Disaster => MeshProfileParams {
+                mesh_n: 10,
+                mesh_n_low: 8,
+                mesh_n_high: 16,
+                mesh_outbound_min: 3,
+                heartbeat_interval_secs: 1,
+                history_length: 10,
+                history_gossip: 5,
             },
         }
     }

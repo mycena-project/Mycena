@@ -37,6 +37,9 @@ class StatusViewModel(app: Application) : AndroidViewModel(app) {
     private val _showSearchingBanner = MutableStateFlow(false)
     val showSearchingBanner: StateFlow<Boolean> = _showSearchingBanner.asStateFlow()
 
+    private val _crisisActive = MutableStateFlow(false)
+    val crisisActive: StateFlow<Boolean> = _crisisActive.asStateFlow()
+
     private var hideSearchingJob: Job? = null
 
     init {
@@ -45,6 +48,7 @@ class StatusViewModel(app: Application) : AndroidViewModel(app) {
                 delay(50)
             }
             refreshPeerCount()
+            refreshCrisisActive()
             runCatching { mycelium.currentConnectivityMode() }.getOrNull()?.let {
                 _connectivityMode.value = it
             }
@@ -60,12 +64,18 @@ class StatusViewModel(app: Application) : AndroidViewModel(app) {
                     }
                     is MeshEvent.Connectivity -> {
                         _connectivityMode.value = event.mode
+                        refreshCrisisActive()
                         pulseSearchingBanner()
                     }
+                    MeshEvent.Sos -> refreshCrisisActive()
                     else -> Unit
                 }
             }
         }
+    }
+
+    private fun refreshCrisisActive() {
+        _crisisActive.value = runCatching { mycelium.isCrisisModeActive() }.getOrDefault(false)
     }
 
     private fun refreshPeerCount() {

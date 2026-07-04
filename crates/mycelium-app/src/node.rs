@@ -17,7 +17,11 @@ use crate::scope_key::ScopeKey;
 use crate::storage::AppStorage;
 use mycelium_coin::CoinNode;
 use mycelium_l0_facade::consistency::{
-    OP_DIRECT_MESSAGE_SEND, OP_GOSSIP_BULLETIN_PUBLISH, OP_SOS_BROADCAST,
+    OP_DIRECT_MESSAGE_SEND, OP_GOSSIP_BULLETIN_PUBLISH, OP_RESOURCE_MAP_BROADCAST, OP_SOS_BROADCAST,
+};
+use mycelium_l0_facade::crisis_mode::{geohash_nearby, CrisisAutoConfig, CrisisManualMode};
+use mycelium_l0_facade::resource_map::{
+    ResourceCategory, ResourceMapEntry, RESOURCE_DEFAULT_TTL_SECS, RESOURCE_MAP_SCOPE,
 };
 use mycelium_l0_facade::data::now_ms;
 use mycelium_l0_facade::{
@@ -399,6 +403,16 @@ impl AppNode {
                                 self.notifier.on_sos_received(&payload);
                             }
                         }
+                    } else if post.scope.starts_with(RESOURCE_MAP_SCOPE)
+                    {
+                        if self.listen_sos.load(Ordering::Relaxed) {
+                            if let Ok(entry) = ResourceMapEntry::decode_json(&post.body)
+                            {
+                                if !entry.is_expired(now_ms()) {
+                                    self.notifier.on_resource_map_received(&entry);
+                                }
+                            }
+                        }
                     } else {
                         self.notifier.on_bulletin_posted(&post.scope, &post.title);
                     }
@@ -766,6 +780,15 @@ impl AppNode {
         if scope == crate::sos::SOS_SCOPE {
             self.handle
                 .mesh_broadcast_sos(scope.clone(), body_tag, payload, OP_SOS_BROADCAST)
+                .await?;
+        } else if scope.starts_with(RESOURCE_MAP_SCOPE) {
+            self.handle
+                .mesh_broadcast_resource_map(
+                    scope.clone(),
+                    body_tag,
+                    payload,
+                    OP_RESOURCE_MAP_BROADCAST,
+                )
                 .await?;
         } else {
             self.handle
@@ -1501,6 +1524,81 @@ impl AppNode {
         Ok(out)
     }
 
+    pub async fn post_resource_map(
+        &self,
+        geohash: &str,
+        category: &str,
+        description: &str,
+        ttl_secs: u64,
+    ) -> anyhow::Result<()> {
+        let category = ResourceCategory::parse(category)
+            .ok_or_else(|| anyhow::anyhow!("unknown resource category: {category}"))?;
+        let ttl = if ttl_secs == 0 {
+            RESOURCE_DEFAULT_TTL_SECS
+        } else {
+            ttl_secs
+        };
+        let entry = ResourceMapEntry {
+            geohash: geohash.trim().to_string(),
+            category,
+            description: description.trim().to_string(),
+            created_at_ms: now_ms(),
+            ttl_secs: ttl,
+        };
+        entry.validate()?;
+        let body = entry.encode_json()?;
+        self.post_bulletin(
+            RESOURCE_MAP_SCOPE.to_string(),
+            format!("{} @ {}", category.as_str(), entry.geohash),
+            body,
+            ttl,
+        )
+        .await
+    }
+
+    pub fn list_resource_map_entries(&self) -> anyhow::Result<Vec<ResourceMapEntry>> {
+        let now = now_ms();
+        let posts = self.storage.bulletins_for_scope(RESOURCE_MAP_SCOPE)?;
+        let mut out = Vec::new();
+        for post in posts {
+            if let Ok(entry) = ResourceMapEntry::decode_json(&post.body) {
+                if !entry.is_expired(now) {
+                    out.push(entry);
+                }
+            }
+        }
+        Ok(out)
+    }
+
+    pub async fn set_crisis_manual(&self, manual: CrisisManualMode) -> anyhow::Result<()> {
+        self.handle.set_crisis_manual(manual).await
+    }
+
+    pub async fn refresh_crisis_auto(
+        &self,
+        internet_reachable: bool,
+        local_geohash_prefix: Option<&str>,
+    ) -> anyhow::Result<()> {
+        let listen = self.listen_sos.load(Ordering::Relaxed);
+        let cfg = CrisisAutoConfig::default();
+        let nearby = local_geohash_prefix
+            .filter(|p| !p.is_empty())
+            .map(|prefix| {
+                self.list_sos_posts()
+                    .unwrap_or_default()
+                    .into_iter()
+                    .any(|s| geohash_nearby(prefix, &s.geohash, cfg.geohash_prefix_len))
+            })
+            .unwrap_or(false);
+        self.handle
+            .update_crisis_auto(internet_reachable, listen, nearby)
+            .await
+    }
+
+    pub async fn is_crisis_active(&self) -> bool {
+        self.handle.metrics().await.crisis_active
+    }
+
     pub async fn set_listen_sos(&self, enabled: bool) -> anyhow::Result<()> {
         self.listen_sos.store(enabled, Ordering::Relaxed);
         if enabled {
@@ -1509,10 +1607,20 @@ impl AppNode {
                     crate::sos::SOS_SCOPE.into(),
                 ))
                 .await?;
+            self.handle
+                .send(NodeCommand::SubscribeBulletinScope(
+                    RESOURCE_MAP_SCOPE.into(),
+                ))
+                .await?;
         } else {
             self.handle
                 .send(NodeCommand::UnsubscribeBulletinScope(
                     crate::sos::SOS_SCOPE.into(),
+                ))
+                .await?;
+            self.handle
+                .send(NodeCommand::UnsubscribeBulletinScope(
+                    RESOURCE_MAP_SCOPE.into(),
                 ))
                 .await?;
         }

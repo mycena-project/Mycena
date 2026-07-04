@@ -4,7 +4,7 @@ use crate::custody::{CustodyConfig, CustodyQueue, DEFAULT_MAX_CUSTODY_SPRAY};
 use crate::encounter_log::EncounterLogStore;
 use crate::forwarding::{
     EnergyPolicy, ForwardDecision, ForwardingPolicy, IngestPipeline, ProbabilisticForwardingPolicy,
-    SeenCache, SimpleEnergyPolicy,
+    SeenCache, SimpleEnergyPolicy, TrafficClass, traffic_class_for_direct,
 };
 use crate::ingest_guard::{IngestGuard, IngestReject};
 use crate::security::{self, Sd030DropReason};
@@ -363,6 +363,14 @@ pub enum NodeCommand {
     SetPrivacyShaping(PrivacyShapingConfig),
     /// Local endorsement boosts for relay selection (from UserTrustStore).
     SetLocalEndorsements(HashMap<String, f32>),
+    /// Manual crisis mode override (auto when [`CrisisManualMode::FollowAuto`]).
+    SetCrisisManual(mycelium_core::crisis_mode::CrisisManualMode),
+    /// Auto crisis signals from app (internet + nearby SOS).
+    UpdateCrisisAuto {
+        internet_reachable: bool,
+        listen_sos: bool,
+        nearby_sos_recent: bool,
+    },
     /// Follow a contact's signed transport PeerId rotation (SD-190).
     RemapTransportPeer {
         old_peer_id: String,
@@ -390,6 +398,7 @@ pub struct NodeMetrics {
     pub custody_queue_depth: usize,
     pub custody_forwards: u64,
     pub privacy_shaping_stats: PrivacyShapingStats,
+    pub crisis_active: bool,
 }
 
 use crate::peer_trust::PeerReputationSnapshot;
@@ -504,6 +513,27 @@ impl NodeHandle {
 
     pub async fn is_bulletin_enabled(&self) -> bool {
         !self.bulletin_subscriptions.read().await.is_empty()
+    }
+
+    pub async fn set_crisis_manual(
+        &self,
+        manual: mycelium_core::crisis_mode::CrisisManualMode,
+    ) -> anyhow::Result<()> {
+        self.send(NodeCommand::SetCrisisManual(manual)).await
+    }
+
+    pub async fn update_crisis_auto(
+        &self,
+        internet_reachable: bool,
+        listen_sos: bool,
+        nearby_sos_recent: bool,
+    ) -> anyhow::Result<()> {
+        self.send(NodeCommand::UpdateCrisisAuto {
+            internet_reachable,
+            listen_sos,
+            nearby_sos_recent,
+        })
+        .await
     }
 
     pub fn local_enc_pubkey_hex(&self) -> String {
@@ -687,6 +717,11 @@ pub struct NodeRunner {
     privacy_stats: PrivacyShapingStats,
     last_cover_at: Option<Instant>,
     local_endorsements: Arc<RwLock<HashMap<String, f32>>>,
+    crisis_state: mycelium_core::crisis_mode::CrisisModeState,
+    crisis_params: mycelium_core::crisis_mode::CrisisRuntimeParams,
+    crisis_auto_config: mycelium_core::crisis_mode::CrisisAutoConfig,
+    last_forward_at: Instant,
+    last_sync_at: Instant,
 }
 
 async fn resolve_logical_sender(
@@ -902,6 +937,17 @@ impl NodeRunner {
                 privacy_stats: PrivacyShapingStats::default(),
                 last_cover_at: None,
                 local_endorsements: Arc::new(RwLock::new(HashMap::new())),
+                crisis_state: mycelium_core::crisis_mode::CrisisModeState::default(),
+                crisis_params: mycelium_core::crisis_mode::CrisisRuntimeParams::from_baseline(
+                    mycelium_core::crisis_mode::CrisisBaseline {
+                        forwarding_interval_ms: config.forwarding_interval_ms,
+                        sync_interval_secs: config.sync_interval_secs,
+                        max_relay_fanout: baseline_max_relay_fanout,
+                    },
+                ),
+                crisis_auto_config: mycelium_core::crisis_mode::CrisisAutoConfig::default(),
+                last_forward_at: Instant::now(),
+                last_sync_at: Instant::now(),
             },
             NodeHandle {
                 tx,
@@ -961,6 +1007,40 @@ impl NodeRunner {
         message.envelope.from_peer = relay_id;
     }
 
+    fn crisis_active(&self) -> bool {
+        self.crisis_state.is_active()
+    }
+
+    fn effective_forwarding_interval_ms(&self) -> u64 {
+        if self.crisis_active() {
+            self.crisis_params.forwarding_interval_ms
+        } else {
+            self.forwarding_interval_ms
+        }
+    }
+
+    fn effective_sync_interval_secs(&self) -> u64 {
+        if self.crisis_active() {
+            self.crisis_params.sync_interval_secs
+        } else {
+            self.sync_interval_secs
+        }
+    }
+
+    fn effective_crisis_batch_window(&self) -> (u64, u64) {
+        if self.crisis_active() {
+            (
+                self.crisis_params.batch_min_ms,
+                self.crisis_params.batch_max_ms,
+            )
+        } else {
+            (
+                self.privacy_shaping.batch_min_ms,
+                self.privacy_shaping.batch_max_ms,
+            )
+        }
+    }
+
     fn update_transport_metrics(&self, metrics: &mut NodeMetrics) {
         metrics.connected_peers = self.transport.connected_peer_count();
         metrics.max_peers = self.transport.max_direct_peers();
@@ -976,12 +1056,17 @@ impl NodeRunner {
     }
 
     fn effective_max_relay_fanout(&self) -> usize {
-        if self.crowd_density_active {
+        let base = if self.crowd_density_active {
             self.crowd_density_config
                 .max_relay_fanout
                 .min(self.baseline_max_relay_fanout)
         } else {
             self.baseline_max_relay_fanout
+        };
+        if self.crisis_active() {
+            self.crisis_params.effective_relay_fanout(base)
+        } else {
+            base
         }
     }
 
@@ -1058,11 +1143,8 @@ impl NodeRunner {
             }
         }
         self.update_crowd_density_backoff();
-        let mut forward_tick =
-            interval(Duration::from_millis(self.config_forwarding_interval_ms()));
-        forward_tick.set_missed_tick_behavior(MissedTickBehavior::Skip);
-        let mut sync_tick = interval(Duration::from_secs(self.config_sync_interval_secs()));
-        sync_tick.set_missed_tick_behavior(MissedTickBehavior::Skip);
+        let mut fast_tick = interval(Duration::from_millis(50));
+        fast_tick.set_missed_tick_behavior(MissedTickBehavior::Skip);
         let mut gc_tick = interval(Duration::from_secs(6 * 60 * 60));
         gc_tick.set_missed_tick_behavior(MissedTickBehavior::Skip);
         let (rendezvous_tx, mut rendezvous_rx) = mpsc::channel::<Vec<String>>(8);
@@ -1126,14 +1208,24 @@ impl NodeRunner {
                 Some(remote_ids) = rendezvous_rx.recv() => {
                     self.dial_rendezvous_list(remote_ids).await;
                 }
-                _ = forward_tick.tick() => {
-                    if let Err(e) = self.forward_once().await {
-                        warn!("forward tick error: {e:#}");
+                _ = fast_tick.tick() => {
+                    let now = Instant::now();
+                    if now.duration_since(self.last_forward_at)
+                        >= Duration::from_millis(self.effective_forwarding_interval_ms())
+                    {
+                        self.last_forward_at = now;
+                        if let Err(e) = self.forward_once().await {
+                            warn!("forward tick error: {e:#}");
+                        }
                     }
-                }
-                _ = sync_tick.tick() => {
-                    if let Err(e) = self.sync_known_peers().await {
-                        warn!("sync tick error: {e:#}");
+                    if !self.crisis_active()
+                        && now.duration_since(self.last_sync_at)
+                            >= Duration::from_secs(self.effective_sync_interval_secs())
+                    {
+                        self.last_sync_at = now;
+                        if let Err(e) = self.sync_known_peers().await {
+                            warn!("sync tick error: {e:#}");
+                        }
                     }
                 }
                 _ = gc_tick.tick() => {
@@ -1586,6 +1678,28 @@ impl NodeRunner {
             NodeCommand::SetLocalEndorsements(map) => {
                 *self.local_endorsements.write().await = map;
             }
+            NodeCommand::SetCrisisManual(manual) => {
+                self.crisis_state.manual = manual;
+                let active = self.crisis_state.is_active();
+                info!(
+                    "crisis mode manual={manual:?} active={active}"
+                );
+                self.metrics.write().await.crisis_active = active;
+            }
+            NodeCommand::UpdateCrisisAuto {
+                internet_reachable,
+                listen_sos,
+                nearby_sos_recent,
+            } => {
+                self.crisis_state.auto_active = mycelium_core::crisis_mode::evaluate_auto_activation(
+                    &self.crisis_auto_config,
+                    internet_reachable,
+                    listen_sos,
+                    nearby_sos_recent,
+                );
+                let active = self.crisis_state.is_active();
+                self.metrics.write().await.crisis_active = active;
+            }
             NodeCommand::RemapTransportPeer {
                 old_peer_id,
                 new_peer_id,
@@ -1958,6 +2072,13 @@ impl NodeRunner {
                 None,
                 payload.clone(),
             );
+            let essential = mycelium_core::resource_map::is_essential_gossip_scope(&scope);
+            if essential {
+                envelope.priority = Priority::High;
+                if self.crisis_active() {
+                    envelope.max_hops = self.crisis_params.emergency_max_hops;
+                }
+            }
             if let Some(keypair) = &self.keypair {
                 let _ = envelope.sign(keypair);
             }
@@ -2104,8 +2225,19 @@ impl NodeRunner {
                     return Ok(());
                 }
                 let now = now_ms();
-                if crate::ingest_guard::is_sos_scope(&scope) {
-                    let geohash = mycelium_core::sos::geohash_from_payload_bytes(&payload);
+                if self.crisis_active()
+                    && mycelium_core::resource_map::is_background_gossip_scope(&scope)
+                {
+                    return Ok(());
+                }
+                if crate::ingest_guard::is_sos_scope(&scope)
+                    || scope.starts_with(mycelium_core::resource_map::RESOURCE_MAP_SCOPE)
+                {
+                    let geohash = if crate::ingest_guard::is_sos_scope(&scope) {
+                        mycelium_core::sos::geohash_from_payload_bytes(&payload)
+                    } else {
+                        mycelium_core::resource_map::geohash_from_resource_payload_bytes(&payload)
+                    };
                     if let Err(reason) =
                         self.ingest_guard
                             .check_sos_gossip(&from_peer, geohash.as_deref(), now)
@@ -2391,9 +2523,12 @@ impl NodeRunner {
                     metrics.messages_dropped_ttl += 1;
                     return Ok(());
                 }
-                if !self
-                    .energy_policy
-                    .can_forward(self.effective_forwarding_state(), message.envelope.priority)
+                let essential =
+                    traffic_class_for_direct(&message) == TrafficClass::Essential;
+                if !(self.crisis_active() && essential)
+                    && !self
+                        .energy_policy
+                        .can_forward(self.effective_forwarding_state(), message.envelope.priority)
                 {
                     return Ok(());
                 }
@@ -2423,11 +2558,12 @@ impl NodeRunner {
                     let _ = self.maybe_enqueue_custody(&message).await;
                     return Ok(());
                 }
-                let decision = self.forwarding_policy.decide(
+                let decision = self.forwarding_policy.decide_crisis_aware(
                     &message,
                     &self.local_peer_id,
                     &peers,
                     self.effective_forwarding_state(),
+                    self.crisis_active(),
                 );
                 debug!(
                     "forward decision for message_id={} is {:?}",
@@ -2456,6 +2592,9 @@ impl NodeRunner {
                 }
             }
             WireMessage::SyncBloom { bloom, count } => {
+                if self.crisis_active() {
+                    return Ok(());
+                }
                 let Some(remote_bloom) = BloomFilter::from_bytes(&bloom) else {
                     return Ok(());
                 };
@@ -2725,11 +2864,21 @@ impl NodeRunner {
         self.maybe_rotate_relay_keypair();
         self.evict_expired();
         self.flush_privacy_batch_if_due().await?;
-        self.maybe_send_cover_traffic().await?;
-        let budget = match self.effective_forwarding_state() {
-            NodeState::Active => 10,
-            NodeState::Intermittent => 4,
-            NodeState::Passive => 1,
+        if !self.crisis_active() {
+            self.maybe_send_cover_traffic().await?;
+        }
+        let budget = if self.crisis_active() {
+            match self.effective_forwarding_state() {
+                NodeState::Active => self.crisis_params.forward_budget_active,
+                NodeState::Intermittent => (self.crisis_params.forward_budget_active / 2).max(2),
+                NodeState::Passive => 2,
+            }
+        } else {
+            match self.effective_forwarding_state() {
+                NodeState::Active => 10,
+                NodeState::Intermittent => 4,
+                NodeState::Passive => 1,
+            }
         };
         for _ in 0..budget {
             let Some(pending) = self.pending.pop_front() else {
@@ -2738,10 +2887,14 @@ impl NodeRunner {
             if pending.message.is_expired(now_ms()) {
                 continue;
             }
-            if !self.energy_policy.can_forward(
-                self.effective_forwarding_state(),
-                pending.message.envelope.priority,
-            ) {
+            let essential =
+                traffic_class_for_direct(&pending.message) == TrafficClass::Essential;
+            if !(self.crisis_active() && essential)
+                && !self.energy_policy.can_forward(
+                    self.effective_forwarding_state(),
+                    pending.message.envelope.priority,
+                )
+            {
                 continue;
             }
             let mut outbound = pending.message.clone();
@@ -2767,6 +2920,7 @@ impl NodeRunner {
         metrics.seen_cache_size = self.seen_cache.len();
         metrics.custody_queue_depth = self.custody_queue.len().unwrap_or(0);
         metrics.privacy_shaping_stats = self.privacy_stats.clone();
+        metrics.crisis_active = self.crisis_active();
         self.update_transport_metrics(&mut metrics);
         drop(metrics);
         self.update_crowd_density_backoff();
@@ -3102,7 +3256,11 @@ impl NodeRunner {
         if message.is_expired(now_ms()) {
             return Ok(());
         }
-        if privacy_shaping::should_batch(message.envelope.priority, &self.privacy_shaping) {
+        let essential =
+            self.crisis_active() && traffic_class_for_direct(&message) == TrafficClass::Essential;
+        if !essential
+            && privacy_shaping::should_batch(message.envelope.priority, &self.privacy_shaping)
+        {
             self.batch_scheduler.push(to_peer, message);
             if !self.batch_scheduler.has_deadline() {
                 self.batch_scheduler.reschedule_flush(&self.privacy_shaping);
@@ -3136,13 +3294,16 @@ impl NodeRunner {
         }
 
         let mut candidate_idx = None;
-        let mut candidate_rank = 3u8;
+        let mut candidate_rank = (u8::MAX, u8::MAX);
         for (idx, item) in self.pending.iter().enumerate() {
-            let rank = priority_rank(item.message.envelope.priority);
+            let rank = (
+                traffic_eviction_rank(&item.message),
+                priority_rank(item.message.envelope.priority),
+            );
             if rank < candidate_rank {
                 candidate_rank = rank;
                 candidate_idx = Some(idx);
-                if rank == 0 {
+                if rank == (0, 0) {
                     break;
                 }
             }
@@ -3257,5 +3418,13 @@ fn priority_rank(priority: Priority) -> u8 {
         Priority::Low => 0,
         Priority::Normal => 1,
         Priority::High => 2,
+    }
+}
+
+fn traffic_eviction_rank(msg: &DirectMessage) -> u8 {
+    match traffic_class_for_direct(msg) {
+        TrafficClass::Background => 0,
+        TrafficClass::Normal => 1,
+        TrafficClass::Essential => 2,
     }
 }

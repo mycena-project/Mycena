@@ -134,6 +134,11 @@ pub const OP_BLOOM_SYNC: StateOp<EventuallyConsistentModel> = StateOp::new(
     "Bloom filter exchange; anti-entropy, not authoritative inventory",
 );
 
+pub const OP_RESOURCE_MAP_BROADCAST: StateOp<LocalModel> = StateOp::new(
+    "resource_map.broadcast",
+    "Local compose + MaximumPropagation; ephemeral geohash resource pins",
+);
+
 pub const OP_SOS_BROADCAST: StateOp<LocalModel> = StateOp::new(
     "sos.broadcast",
     "Local compose + MaximumPropagation policy; no settlement",

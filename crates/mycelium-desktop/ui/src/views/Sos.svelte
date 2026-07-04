@@ -5,23 +5,62 @@
   import { listen } from '@tauri-apps/api/event';
   import { onMount } from 'svelte';
 
+  const CRISIS_MODES = [
+    { value: 0, label: 'Follow auto (internet + nearby SOS)' },
+    { value: 1, label: 'Force on' },
+    { value: 2, label: 'Force off' },
+  ];
+
+  const RESOURCE_CATEGORIES = [
+    { value: 'water', label: 'Water' },
+    { value: 'food', label: 'Food' },
+    { value: 'shelter', label: 'Shelter' },
+    { value: 'medicine', label: 'Medicine' },
+    { value: 'power', label: 'Power' },
+  ];
+
   let listenSos = $state(false);
+  let crisisMode = $state(0);
+  let crisisActive = $state(false);
   let geohash = $state('');
   let message = $state('');
+  let resourceCategory = $state('water');
+  let resourceDescription = $state('');
   let posts = $state([]);
+  let resources = $state([]);
   let saved = $state(false);
   let posting = $state(false);
 
+  async function refreshCrisisAuto() {
+    const settings = await invoke('get_settings');
+    const internet = settings.internet_enabled !== false;
+    const prefix = geohash.trim().length >= 4 ? geohash.trim().slice(0, 4) : null;
+    await invoke('refresh_crisis_auto', {
+      internetReachable: internet,
+      localGeohashPrefix: prefix,
+    });
+    crisisActive = await invoke('is_crisis_mode_active');
+  }
+
   async function refresh() {
     posts = await invoke('list_sos_posts');
+    resources = await invoke('list_resource_map_entries');
     const settings = await invoke('get_settings');
     listenSos = settings.listen_sos ?? false;
+    crisisActive = await invoke('is_crisis_mode_active');
+    await refreshCrisisAuto();
   }
 
   async function saveListen() {
     await invoke('set_listen_sos', { enabled: listenSos });
     saved = true;
     setTimeout(() => (saved = false), 1500);
+    await refreshCrisisAuto();
+  }
+
+  async function saveCrisisMode() {
+    await invoke('set_crisis_manual_mode', { mode: crisisMode });
+    crisisActive = await invoke('is_crisis_mode_active');
   }
 
   async function postSos() {
@@ -40,6 +79,23 @@
     }
   }
 
+  async function postResource() {
+    if (!geohash.trim() || !resourceDescription.trim()) return;
+    posting = true;
+    try {
+      await invoke('post_resource_map', {
+        geohash: geohash.trim(),
+        category: resourceCategory,
+        description: resourceDescription.trim(),
+        ttlSecs: 21600,
+      });
+      resourceDescription = '';
+      await refresh();
+    } finally {
+      posting = false;
+    }
+  }
+
   function openMeshAid() {
     window.dispatchEvent(
       new CustomEvent('mycelium-open-miniapp', {
@@ -52,7 +108,12 @@
     refresh();
     const unsubs = [];
     listen('sos-updated', refresh).then((fn) => unsubs.push(fn));
-    return () => unsubs.forEach((fn) => fn());
+    listen('settings-updated', refresh).then((fn) => unsubs.push(fn));
+    const interval = setInterval(refreshCrisisAuto, 30_000);
+    return () => {
+      unsubs.forEach((fn) => fn());
+      clearInterval(interval);
+    };
   });
 </script>
 
@@ -65,10 +126,24 @@
   </header>
 
   <section>
+    <h4>Crisis mode</h4>
+    {#if crisisActive}
+      <p class="hint crisis-active">Crisis mode active — emergency traffic prioritized; background sync paused.</p>
+    {/if}
+    <label for="crisis-mode">Mode</label>
+    <select id="crisis-mode" bind:value={crisisMode} onchange={saveCrisisMode}>
+      {#each CRISIS_MODES as m}
+        <option value={m.value}>{m.label}</option>
+      {/each}
+    </select>
+    <p class="hint">Auto activates when internet is down, SOS listening is on, and nearby SOS posts exist.</p>
+  </section>
+
+  <section>
     <h4>Listen for nearby SOS</h4>
     <label class="checkbox-row">
       <input type="checkbox" bind:checked={listenSos} onchange={saveListen} />
-      Opt in to receive SOS posts (default off)
+      Opt in to receive SOS and resource-map posts (default off)
     </label>
     {#if saved}
       <p class="hint ok">Listening preference saved.</p>
@@ -104,6 +179,47 @@
           <li>
             <strong>{p.geohash}</strong>
             <span>{p.message}</span>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+  </section>
+
+  <section>
+    <h4>Resource map</h4>
+    <p class="hint">Report water, food, shelter, medicine, or power nearby (6 h TTL).</p>
+    <label for="resource-category">Category</label>
+    <select id="resource-category" bind:value={resourceCategory}>
+      {#each RESOURCE_CATEGORIES as c}
+        <option value={c.value}>{c.label}</option>
+      {/each}
+    </select>
+    <label for="resource-desc">Description</label>
+    <textarea
+      id="resource-desc"
+      bind:value={resourceDescription}
+      placeholder="Fountain at plaza, open shelter, etc."
+      maxlength="200"
+      rows="2"
+    ></textarea>
+    <button type="button" class="primary" disabled={posting} onclick={postResource}>
+      {posting ? 'Posting…' : 'Report resource (6 hours)'}
+    </button>
+  </section>
+
+  <section>
+    <h4>Nearby resources ({resources.length})</h4>
+    {#if !listenSos}
+      <p class="hint">Enable listening above to receive resource pins.</p>
+    {:else if resources.length === 0}
+      <p class="hint">No resource pins stored yet.</p>
+    {:else}
+      <ul class="posts">
+        {#each resources as r}
+          <li>
+            <strong>{r.category} @ {r.geohash}</strong>
+            <span>{r.description}</span>
+            <span class="hint">Expires {new Date(Number(r.expires_at_ms)).toLocaleString()}</span>
           </li>
         {/each}
       </ul>
@@ -164,7 +280,8 @@
     gap: 8px;
   }
   input,
-  textarea {
+  textarea,
+  select {
     padding: 8px 10px;
     border-radius: 6px;
     border: 1px solid var(--border);
@@ -179,6 +296,10 @@
   }
   .hint.ok {
     color: var(--accent);
+  }
+  .hint.crisis-active {
+    color: #dc2626;
+    font-weight: 600;
   }
   button {
     align-self: flex-start;

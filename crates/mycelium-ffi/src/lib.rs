@@ -163,6 +163,7 @@ pub struct NodeMetrics {
     pub connected_peers: u64,
     pub max_peers: u64,
     pub peer_cap_rejections: u64,
+    pub crisis_active: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -265,6 +266,16 @@ pub struct SosPost {
     pub geohash: String,
     pub message: String,
     pub created_at_ms: u64,
+}
+
+#[derive(Debug, Clone)]
+pub struct ResourceMapEntry {
+    pub geohash: String,
+    pub category: String,
+    pub description: String,
+    pub created_at_ms: u64,
+    pub ttl_secs: u64,
+    pub expires_at_ms: u64,
 }
 
 #[derive(Debug, Clone)]
@@ -986,6 +997,7 @@ pub fn metrics() -> NodeMetrics {
             connected_peers: m.connected_peers as u64,
             max_peers: m.max_peers as u64,
             peer_cap_rejections: m.peer_cap_rejections,
+            crisis_active: m.crisis_active,
         }
     })
 }
@@ -1418,6 +1430,71 @@ pub fn set_listen_sos(enabled: bool) {
 
 pub fn is_listen_sos_enabled() -> bool {
     with_state(|state| state.app_node.is_listen_sos())
+}
+
+/// Crisis manual mode: 0 = follow auto, 1 = force on, 2 = force off.
+pub fn set_crisis_manual_mode(mode: u8) {
+    use mycelium_core::crisis_mode::CrisisManualMode;
+    let manual = match mode {
+        1 => CrisisManualMode::ForceOn,
+        2 => CrisisManualMode::ForceOff,
+        _ => CrisisManualMode::FollowAuto,
+    };
+    let state = state_arc();
+    runtime().block_on(async {
+        let state = state.read().await;
+        let _ = state.app_node.set_crisis_manual(manual).await;
+    });
+}
+
+pub fn is_crisis_mode_active() -> bool {
+    let state = state_arc();
+    runtime().block_on(async {
+        let state = state.read().await;
+        state.app_node.is_crisis_active().await
+    })
+}
+
+pub fn refresh_crisis_auto(internet_reachable: bool, local_geohash_prefix: Option<String>) {
+    let state = state_arc();
+    runtime().block_on(async {
+        let state = state.read().await;
+        let _ = state
+            .app_node
+            .refresh_crisis_auto(
+                internet_reachable,
+                local_geohash_prefix.as_deref(),
+            )
+            .await;
+    });
+}
+
+pub fn post_resource_map(
+    geohash: String,
+    category: String,
+    description: String,
+    ttl_secs: u64,
+) {
+    let state = state_arc();
+    runtime().block_on(async {
+        let state = state.read().await;
+        let _ = state
+            .app_node
+            .post_resource_map(&geohash, &category, &description, ttl_secs)
+            .await;
+    });
+}
+
+pub fn list_resource_map_entries() -> Vec<ResourceMapEntry> {
+    with_state(|state| {
+        state
+            .app_node
+            .list_resource_map_entries()
+            .unwrap_or_default()
+            .into_iter()
+            .map(to_resource_map_entry)
+            .collect()
+    })
 }
 
 pub fn list_scope_keys() -> Vec<ScopeKeyInfo> {
@@ -2516,6 +2593,18 @@ fn to_sos_post(p: &mycelium_core::sos::SosPayload) -> SosPost {
         geohash: p.geohash.clone(),
         message: p.message.clone(),
         created_at_ms: p.created_at_ms,
+    }
+}
+
+fn to_resource_map_entry(e: mycelium_core::resource_map::ResourceMapEntry) -> ResourceMapEntry {
+    let expires_at_ms = e.expires_at_ms();
+    ResourceMapEntry {
+        geohash: e.geohash,
+        category: e.category.as_str().to_string(),
+        description: e.description,
+        created_at_ms: e.created_at_ms,
+        ttl_secs: e.ttl_secs,
+        expires_at_ms,
     }
 }
 

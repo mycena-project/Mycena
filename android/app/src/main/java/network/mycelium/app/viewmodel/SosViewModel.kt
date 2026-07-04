@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import network.mycelium.app.MeshEvents
+import network.mycelium.bindings.ConnectivityMode
+import network.mycelium.bindings.ResourceMapEntry
 import network.mycelium.bindings.SosPost
 import network.mycelium.bindings.mycelium
 
@@ -27,24 +29,39 @@ class SosViewModel(application: Application) : AndroidViewModel(application) {
     )
     val listenEnabled: StateFlow<Boolean> = _listenEnabled.asStateFlow()
 
+    private val _crisisManualMode = MutableStateFlow(
+        prefs.getInt(KEY_CRISIS_MANUAL_MODE, CRISIS_FOLLOW_AUTO),
+    )
+    val crisisManualMode: StateFlow<Int> = _crisisManualMode.asStateFlow()
+
+    private val _crisisActive = MutableStateFlow(false)
+    val crisisActive: StateFlow<Boolean> = _crisisActive.asStateFlow()
+
     private val _posts = MutableStateFlow<List<SosPost>>(emptyList())
     val posts: StateFlow<List<SosPost>> = _posts.asStateFlow()
 
+    private val _resourceEntries = MutableStateFlow<List<ResourceMapEntry>>(emptyList())
+    val resourceEntries: StateFlow<List<ResourceMapEntry>> = _resourceEntries.asStateFlow()
+
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            if (intent?.action == MeshEvents.SOS) {
-                refreshPosts()
+            when (intent?.action) {
+                MeshEvents.SOS, MeshEvents.CONNECTIVITY -> refreshAll()
             }
         }
     }
 
     init {
         syncListenToNode()
-        refreshPosts()
+        syncCrisisManualToNode()
+        refreshAll()
         ContextCompat.registerReceiver(
             application,
             receiver,
-            IntentFilter(MeshEvents.SOS),
+            IntentFilter().apply {
+                addAction(MeshEvents.SOS)
+                addAction(MeshEvents.CONNECTIVITY)
+            },
             ContextCompat.RECEIVER_NOT_EXPORTED,
         )
     }
@@ -54,21 +71,62 @@ class SosViewModel(application: Application) : AndroidViewModel(application) {
         super.onCleared()
     }
 
+    fun refreshAll() {
+        refreshPosts()
+        refreshResourceEntries()
+        refreshCrisisActive()
+    }
+
     fun refreshPosts() {
         _posts.value = runCatching { mycelium.listSosPosts() }.getOrDefault(emptyList())
+    }
+
+    fun refreshResourceEntries() {
+        _resourceEntries.value =
+            runCatching { mycelium.listResourceMapEntries() }.getOrDefault(emptyList())
+    }
+
+    fun refreshCrisisActive() {
+        _crisisActive.value = runCatching { mycelium.isCrisisModeActive() }.getOrDefault(false)
     }
 
     fun setListenEnabled(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_LISTEN_SOS, enabled).apply()
         _listenEnabled.value = enabled
         mycelium.setListenSos(enabled)
+        triggerCrisisAutoRefresh()
+    }
+
+    fun setCrisisManualMode(mode: Int) {
+        val clamped = mode.coerceIn(CRISIS_FOLLOW_AUTO, CRISIS_FORCE_OFF)
+        prefs.edit().putInt(KEY_CRISIS_MANUAL_MODE, clamped).apply()
+        _crisisManualMode.value = clamped
+        mycelium.setCrisisManualMode(clamped.toUByte())
+        refreshCrisisActive()
     }
 
     fun postSos(geohash: String, message: String) {
         viewModelScope.launch {
-            mycelium.postSos(geohash.trim(), message.trim(), 3600u)
-            refreshPosts()
+            val gh = geohash.trim()
+            mycelium.postSos(gh, message.trim(), 3600u)
+            rememberGeohashPrefix(gh)
+            refreshAll()
+            triggerCrisisAutoRefresh()
         }
+    }
+
+    fun postResourceMap(geohash: String, category: String, description: String) {
+        viewModelScope.launch {
+            val gh = geohash.trim()
+            mycelium.postResourceMap(gh, category, description.trim(), 21_600u)
+            rememberGeohashPrefix(gh)
+            refreshAll()
+        }
+    }
+
+    private fun rememberGeohashPrefix(geohash: String) {
+        val prefix = geohash.take(4).takeIf { it.length >= 4 } ?: return
+        prefs.edit().putString(KEY_LOCAL_GEOHASH_PREFIX, prefix).apply()
     }
 
     private fun syncListenToNode() {
@@ -77,8 +135,37 @@ class SosViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    private fun syncCrisisManualToNode() {
+        mycelium.setCrisisManualMode(_crisisManualMode.value.toUByte())
+        refreshCrisisActive()
+    }
+
+    private fun triggerCrisisAutoRefresh() {
+        val internet =
+            runCatching { mycelium.currentConnectivityMode() == ConnectivityMode.INTERNET }
+                .getOrDefault(false)
+        val prefix = prefs.getString(KEY_LOCAL_GEOHASH_PREFIX, null)?.takeIf { it.isNotBlank() }
+        mycelium.refreshCrisisAuto(internet, prefix)
+        refreshCrisisActive()
+    }
+
     companion object {
         const val PREFS_NAME = SettingsViewModel.PREFS_NAME
         const val KEY_LISTEN_SOS = "listen_sos_enabled"
+        const val KEY_CRISIS_MANUAL_MODE = "crisis_manual_mode"
+        const val KEY_LOCAL_GEOHASH_PREFIX = "local_geohash_prefix"
+
+        const val CRISIS_FOLLOW_AUTO = 0
+        const val CRISIS_FORCE_ON = 1
+        const val CRISIS_FORCE_OFF = 2
+
+        fun refreshCrisisAutoFromPrefs(app: Application) {
+            val prefs = app.getSharedPreferences(PREFS_NAME, Application.MODE_PRIVATE)
+            val internet =
+                runCatching { mycelium.currentConnectivityMode() == ConnectivityMode.INTERNET }
+                    .getOrDefault(false)
+            val prefix = prefs.getString(KEY_LOCAL_GEOHASH_PREFIX, null)?.takeIf { it.isNotBlank() }
+            mycelium.refreshCrisisAuto(internet, prefix)
+        }
     }
 }

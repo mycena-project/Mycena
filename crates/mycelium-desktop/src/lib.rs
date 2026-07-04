@@ -833,6 +833,92 @@ async fn set_listen_sos(state: State<'_, SharedState>, enabled: bool) -> Result<
 }
 
 #[tauri::command]
+async fn set_crisis_manual_mode(state: State<'_, SharedState>, mode: u8) -> Result<(), String> {
+    use mycelium_l0_facade::crisis_mode::CrisisManualMode;
+    let manual = match mode {
+        1 => CrisisManualMode::ForceOn,
+        2 => CrisisManualMode::ForceOff,
+        _ => CrisisManualMode::FollowAuto,
+    };
+    let guard = state.read().await;
+    let s = guard
+        .as_ref()
+        .ok_or_else(|| "node not started".to_string())?;
+    s.app_node
+        .set_crisis_manual(manual)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn is_crisis_mode_active(state: State<'_, SharedState>) -> Result<bool, String> {
+    let guard = state.read().await;
+    let s = guard
+        .as_ref()
+        .ok_or_else(|| "node not started".to_string())?;
+    Ok(s.app_node.is_crisis_active().await)
+}
+
+#[tauri::command]
+async fn refresh_crisis_auto(
+    state: State<'_, SharedState>,
+    internet_reachable: bool,
+    local_geohash_prefix: Option<String>,
+) -> Result<(), String> {
+    let guard = state.read().await;
+    let s = guard
+        .as_ref()
+        .ok_or_else(|| "node not started".to_string())?;
+    s.app_node
+        .refresh_crisis_auto(internet_reachable, local_geohash_prefix.as_deref())
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn post_resource_map(
+    state: State<'_, SharedState>,
+    geohash: String,
+    category: String,
+    description: String,
+    ttl_secs: u64,
+) -> Result<(), String> {
+    let guard = state.read().await;
+    let s = guard
+        .as_ref()
+        .ok_or_else(|| "node not started".to_string())?;
+    s.app_node
+        .post_resource_map(&geohash, &category, &description, ttl_secs)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn list_resource_map_entries(
+    state: State<'_, SharedState>,
+) -> Result<Vec<serde_json::Value>, String> {
+    let guard = state.read().await;
+    let s = guard
+        .as_ref()
+        .ok_or_else(|| "node not started".to_string())?;
+    Ok(s.app_node
+        .list_resource_map_entries()
+        .map_err(|e| e.to_string())?
+        .into_iter()
+        .map(|e| {
+            json!({
+                "geohash": e.geohash,
+                "category": e.category.as_str(),
+                "description": e.description,
+                "created_at_ms": e.created_at_ms,
+                "ttl_secs": e.ttl_secs,
+                "expires_at_ms": e.expires_at_ms(),
+            })
+        })
+        .collect())
+}
+
+#[tauri::command]
 async fn get_metrics(state: State<'_, SharedState>) -> Result<serde_json::Value, String> {
     let guard = state.read().await;
     let Some(s) = guard.as_ref() else {
@@ -2045,6 +2131,11 @@ pub fn run() {
             post_sos,
             list_sos_posts,
             set_listen_sos,
+            set_crisis_manual_mode,
+            is_crisis_mode_active,
+            refresh_crisis_auto,
+            post_resource_map,
+            list_resource_map_entries,
             get_metrics,
             send_chat,
             peer_has_enc_key,
