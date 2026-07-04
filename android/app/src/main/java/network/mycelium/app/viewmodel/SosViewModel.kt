@@ -2,9 +2,9 @@
 // Copyright (C) 2026 Mycelium Project
 package network.mycelium.app.viewmodel
 
+import android.content.Context
 import android.app.Application
 import android.content.BroadcastReceiver
-import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import androidx.core.content.ContextCompat
@@ -159,8 +159,8 @@ class SosViewModel(application: Application) : AndroidViewModel(application) {
         const val CRISIS_FORCE_ON = 1
         const val CRISIS_FORCE_OFF = 2
 
-        fun refreshCrisisAutoFromPrefs(app: Application) {
-            val prefs = app.getSharedPreferences(PREFS_NAME, Application.MODE_PRIVATE)
+        fun refreshCrisisAutoFromPrefs(context: Context) {
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             val internet =
                 runCatching { mycelium.currentConnectivityMode() == ConnectivityMode.INTERNET }
                     .getOrDefault(false)
