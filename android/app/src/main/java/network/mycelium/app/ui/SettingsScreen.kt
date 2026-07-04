@@ -66,11 +66,13 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import network.mycelium.app.BuildConfig
 import network.mycelium.app.R
+import network.mycelium.app.PrivacyShapingPrefs
 import network.mycelium.app.performFreshIdentity
 import network.mycelium.app.performPanicWipe
 import network.mycelium.app.bootstrap.BleBootstrapPermissions
 import network.mycelium.app.viewmodel.SettingsViewModel
 import network.mycelium.bindings.EnergyState
+import network.mycelium.bindings.PrivacyShapingProfile
 import network.mycelium.bindings.mycelium
 
 private const val PREFS_NAME = "settings"
@@ -456,6 +458,37 @@ fun LegalSettingsSection() {
 fun PrivacySettingsSection(vm: SettingsViewModel = viewModel()) {
     val relayKeyAge by vm.relayKeyAgeSecs.collectAsState()
     val hoursUntilRotation = ((86400 - relayKeyAge) / 3600).coerceAtLeast(0)
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE) }
+    var shapingEnabled by remember {
+        mutableStateOf(prefs.getBoolean(PrivacyShapingPrefs.KEY_ENABLED, false))
+    }
+    var coverEnabled by remember {
+        mutableStateOf(prefs.getBoolean(PrivacyShapingPrefs.KEY_COVER, false))
+    }
+    var profile by remember {
+        mutableStateOf(
+            PrivacyShapingPrefs.profileFromName(
+                prefs.getString(PrivacyShapingPrefs.KEY_PROFILE, "Balanced"),
+            ),
+        )
+    }
+    val overhead = remember(shapingEnabled, coverEnabled, profile) {
+        val config = mycelium.defaultPrivacyShapingConfig(profile).copy(
+            enabled = shapingEnabled,
+            coverTrafficEnabled = coverEnabled,
+        )
+        mycelium.privacyShapingOverheadEstimate(config)
+    }
+
+    fun persistAndApply() {
+        prefs.edit()
+            .putBoolean(PrivacyShapingPrefs.KEY_ENABLED, shapingEnabled)
+            .putBoolean(PrivacyShapingPrefs.KEY_COVER, coverEnabled)
+            .putString(PrivacyShapingPrefs.KEY_PROFILE, PrivacyShapingPrefs.profileName(profile))
+            .apply()
+        PrivacyShapingPrefs.applyFromPrefs(prefs)
+    }
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -478,6 +511,94 @@ fun PrivacySettingsSection(vm: SettingsViewModel = viewModel()) {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
             )
+            Spacer(Modifier.height(16.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        stringResource(R.string.settings_privacy_shaping_title),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(
+                        stringResource(R.string.settings_privacy_shaping_sub),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = shapingEnabled,
+                    onCheckedChange = {
+                        shapingEnabled = it
+                        persistAndApply()
+                    },
+                )
+            }
+            if (shapingEnabled) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    stringResource(R.string.settings_privacy_shaping_profile_title),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(
+                        PrivacyShapingProfile.FAST,
+                        PrivacyShapingProfile.BALANCED,
+                        PrivacyShapingProfile.PARANOID,
+                    ).forEach { option ->
+                        TextButton(
+                            onClick = {
+                                profile = option
+                                persistAndApply()
+                            },
+                        ) {
+                            Text(
+                                PrivacyShapingPrefs.profileName(option),
+                                color = if (profile == option) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                },
+                            )
+                        }
+                    }
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            stringResource(R.string.settings_privacy_shaping_cover_title),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Text(
+                            stringResource(R.string.settings_privacy_shaping_cover_sub),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(
+                        checked = coverEnabled,
+                        onCheckedChange = {
+                            coverEnabled = it
+                            persistAndApply()
+                        },
+                    )
+                }
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    stringResource(
+                        R.string.settings_privacy_shaping_overhead,
+                        overhead.batteryImpactSummary,
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                )
+            }
         }
     }
 }

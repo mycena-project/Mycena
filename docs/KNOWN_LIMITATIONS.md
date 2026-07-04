@@ -78,7 +78,7 @@ Treat as **preview only**:
 | **Mini-app store / sideload** | HTML/JS; bridge to wallet & messaging |
 | **Bulletin boards** | Public scopes; content unmoderated |
 | **BLE / WiFi Direct mesh** | Platform-specific leaks; experimental paths |
-| **Shade / privacy experiments** | Documented in PRIVACY_EXPERIMENTS.md — not shipped |
+| **Shade / privacy experiments** | SD-070 padding+batching shipped **experimental, off by default** — see [PRIVACY_SHAPING_BENCHMARK.md](./PRIVACY_SHAPING_BENCHMARK.md) |
 | **WASM mini-apps** | Rejected at install; executor not built |
 | **Curator revocation publish** | Any node key can publish; no allowlist yet |
 

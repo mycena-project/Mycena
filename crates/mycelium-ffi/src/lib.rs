@@ -19,6 +19,11 @@ use mycelium_coin::{
     VoucherSettlementRegistry,
 };
 use mycelium_core::energy::NodeState as RustEnergyState;
+use mycelium_core::privacy_shaping::{
+    PrivacyShapingConfig as RustPrivacyShapingConfig,
+    PrivacyShapingOverheadEstimate as RustPrivacyShapingOverheadEstimate,
+    PrivacyShapingProfile as RustPrivacyShapingProfile,
+};
 use mycelium_core::transport::ConnectivityMode as NetConnectivityMode;
 use mycelium_l1_facade::consistency::{OP_DIRECT_MESSAGE_SEND, OP_GOSSIP_BULLETIN_PUBLISH};
 use mycelium_node::{
@@ -65,6 +70,85 @@ pub struct NodeConfig {
     pub internet_enabled: bool,
     pub bulletin_subscriptions: Vec<String>,
     pub crowd_mode: bool,
+}
+
+#[derive(Debug, Clone)]
+pub enum PrivacyShapingProfile {
+    Fast,
+    Balanced,
+    Paranoid,
+}
+
+#[derive(Debug, Clone)]
+pub struct PrivacyShapingConfig {
+    pub enabled: bool,
+    pub profile: PrivacyShapingProfile,
+    pub batch_min_ms: u64,
+    pub batch_max_ms: u64,
+    pub padding_enabled: bool,
+    pub scope_bucketing_enabled: bool,
+    pub cover_traffic_enabled: bool,
+    pub cover_interval_secs: u64,
+}
+
+#[derive(Debug, Clone)]
+pub struct PrivacyShapingOverheadEstimate {
+    pub padding_overhead_pct_typical: f64,
+    pub batch_latency_ms_min: u64,
+    pub batch_latency_ms_max: u64,
+    pub cover_bytes_per_hour_active: u64,
+    pub cover_bytes_per_hour_intermittent: u64,
+    pub battery_impact_summary: String,
+}
+
+fn ffi_profile_to_rust(profile: PrivacyShapingProfile) -> RustPrivacyShapingProfile {
+    match profile {
+        PrivacyShapingProfile::Fast => RustPrivacyShapingProfile::Fast,
+        PrivacyShapingProfile::Balanced => RustPrivacyShapingProfile::Balanced,
+        PrivacyShapingProfile::Paranoid => RustPrivacyShapingProfile::Paranoid,
+    }
+}
+
+fn privacy_config_to_rust(config: PrivacyShapingConfig) -> RustPrivacyShapingConfig {
+    RustPrivacyShapingConfig {
+        enabled: config.enabled,
+        profile: ffi_profile_to_rust(config.profile),
+        batch_min_ms: config.batch_min_ms,
+        batch_max_ms: config.batch_max_ms,
+        padding_enabled: config.padding_enabled,
+        scope_bucketing_enabled: config.scope_bucketing_enabled,
+        cover_traffic_enabled: config.cover_traffic_enabled,
+        cover_interval_secs: config.cover_interval_secs,
+    }
+}
+
+fn privacy_config_from_rust(config: RustPrivacyShapingConfig) -> PrivacyShapingConfig {
+    let profile = match config.profile {
+        RustPrivacyShapingProfile::Fast => PrivacyShapingProfile::Fast,
+        RustPrivacyShapingProfile::Balanced => PrivacyShapingProfile::Balanced,
+        RustPrivacyShapingProfile::Paranoid => PrivacyShapingProfile::Paranoid,
+    };
+    PrivacyShapingConfig {
+        enabled: config.enabled,
+        profile,
+        batch_min_ms: config.batch_min_ms,
+        batch_max_ms: config.batch_max_ms,
+        padding_enabled: config.padding_enabled,
+        scope_bucketing_enabled: config.scope_bucketing_enabled,
+        cover_traffic_enabled: config.cover_traffic_enabled,
+        cover_interval_secs: config.cover_interval_secs,
+    }
+}
+
+fn overhead_from_rust(est: RustPrivacyShapingOverheadEstimate) -> PrivacyShapingOverheadEstimate {
+    PrivacyShapingOverheadEstimate {
+        padding_overhead_pct_typical: est.padding_overhead_pct_typical,
+        batch_latency_ms_min: est.batch_latency_ms_min,
+        batch_latency_ms_max: est.batch_latency_ms_max,
+        cover_bytes_per_hour_active: est.cover_bytes_per_hour_active,
+        cover_bytes_per_hour_intermittent: est.cover_bytes_per_hour_intermittent,
+        battery_impact_summary: est.battery_impact_summary,
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -540,6 +624,7 @@ pub fn init_node(config: NodeConfig) {
             crowd_density_clear: 20,
             custody_enabled: true,
             max_custody_spray: 3,
+            privacy_shaping: RustPrivacyShapingConfig::disabled(),
         };
 
         let (runner, handle) =
@@ -1463,6 +1548,32 @@ pub fn is_crowd_mode_enabled() -> bool {
     with_state(|state| state.crowd_mode.load(Ordering::Relaxed))
 }
 
+pub fn set_privacy_shaping(config: PrivacyShapingConfig) {
+    let rust = privacy_config_to_rust(config);
+    let state = state_arc();
+    runtime().block_on(async {
+        let st = state.read().await;
+        let _ = st
+            .handle
+            .send(NodeCommand::SetPrivacyShaping(rust))
+            .await;
+    });
+}
+
+pub fn privacy_shaping_overhead_estimate(
+    config: PrivacyShapingConfig,
+) -> PrivacyShapingOverheadEstimate {
+    overhead_from_rust(RustPrivacyShapingOverheadEstimate::from_config(
+        &privacy_config_to_rust(config),
+    ))
+}
+
+pub fn default_privacy_shaping_config(profile: PrivacyShapingProfile) -> PrivacyShapingConfig {
+    privacy_config_from_rust(RustPrivacyShapingConfig::from_profile(ffi_profile_to_rust(
+        profile,
+    )))
+}
+
 pub fn get_shareable_multiaddrs() -> Vec<String> {
     runtime().block_on(async {
         let state = state_arc();
@@ -1484,6 +1595,39 @@ pub fn get_shareable_multiaddrs() -> Vec<String> {
             &listen,
             signed_invite.as_deref(),
         )
+    })
+}
+
+pub fn build_offline_share_bootstrap_sidecar(
+    install_url: String,
+) -> Result<Vec<u8>, MyceliumException> {
+    runtime().block_on(async {
+        let state = state_arc();
+        let guard = state.read().await;
+        let bootstrap = guard
+            .app_node
+            .build_offline_share_bootstrap(install_url)
+            .await
+            .map_err(|e| MyceliumException::InstallError {
+                detail: e.to_string(),
+            })?;
+        bootstrap
+            .to_sidecar_bytes()
+            .map_err(|e| MyceliumException::InstallError {
+                detail: e.to_string(),
+            })
+    })
+}
+
+pub fn propagate_installed_miniapps() -> u32 {
+    runtime().block_on(async {
+        let state = state_arc();
+        let guard = state.read().await;
+        guard
+            .app_node
+            .propagate_installed_miniapps()
+            .await
+            .unwrap_or(0)
     })
 }
 

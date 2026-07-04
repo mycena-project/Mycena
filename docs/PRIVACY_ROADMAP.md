@@ -63,13 +63,13 @@
 
 *Detailed mechanisms and prototype phases: [PRIVACY_EXPERIMENTS.md](./PRIVACY_EXPERIMENTS.md) (codename **Shade**).*
 
-| Action | Debt IDs | Effort |
-|--------|----------|--------|
-| Padding + batching scheduler | SD-070 | L |
-| Reduce sync fingerprint (bloom size normalization) | SD-001 | M |
-| Scope bucketing (e.g. `city/*` not exact list announce) | SD-004 | M |
-| Short-lived QR introduction tokens | SD-191 | M |
-| Multi-relay rotation (IP not pinned to one host) | SD-071, SD-220 | M |
+| Action | Debt IDs | Effort | Status |
+|--------|----------|--------|--------|
+| Padding + batching scheduler | SD-070 | L | **Experimental** — [`privacy_shaping.rs`](../crates/mycelium-core/src/privacy_shaping.rs), off by default; [benchmark](./PRIVACY_SHAPING_BENCHMARK.md) |
+| Reduce sync fingerprint (bloom size normalization) | SD-001 | M | Planned |
+| Scope bucketing (e.g. `city/*` not exact list announce) | SD-004 | M | **Partial** — `ScopeAnnounce` bucketing when shaping enabled |
+| Short-lived QR introduction tokens | SD-191 | M | Planned |
+| Multi-relay rotation (IP not pinned to one host) | SD-071, SD-220 | M | Planned |
 
 ---
 

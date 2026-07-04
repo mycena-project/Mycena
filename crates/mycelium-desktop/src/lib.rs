@@ -447,6 +447,7 @@ async fn start_node(
         crowd_density_clear: 20,
         custody_enabled: true,
         max_custody_spray: 3,
+        privacy_shaping: mycelium_core::privacy_shaping::PrivacyShapingConfig::disabled(),
     };
     let (runner, handle) = NodeRunner::new(config).map_err(|e| e.to_string())?;
     let local_peer_id = runner.local_peer_id().to_string();

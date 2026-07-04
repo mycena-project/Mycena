@@ -115,10 +115,14 @@ class MeshService : Service() {
         if (prefs.getBoolean(SosViewModel.KEY_LISTEN_SOS, false)) {
             mycelium.setListenSos(true)
         }
+        PrivacyShapingPrefs.applyFromPrefs(prefs)
         mycelium.setEventCallback(
             object : NodeEventCallback {
                 override fun onPeerDiscovered(peerId: String) {
                     sendBroadcast(Intent(MeshEvents.PEER_UP).putExtra("peer_id", peerId))
+                    serviceScope.launch(Dispatchers.IO) {
+                        runCatching { mycelium.propagateInstalledMiniapps() }
+                    }
                 }
 
                 override fun onPeerLost(peerId: String) {

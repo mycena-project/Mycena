@@ -17,6 +17,9 @@ use mycelium_core::crypto::EncryptionKeypair;
 use mycelium_core::crypto::{self};
 use mycelium_core::data::{now_ms, Priority};
 use mycelium_core::energy::NodeState;
+use mycelium_core::privacy_shaping::{
+    self, BatchingScheduler, PrivacyShapingConfig, PrivacyShapingStats,
+};
 use mycelium_core::sync::BloomFilter;
 use mycelium_core::topic_shard;
 use mycelium_core::transport::{
@@ -98,6 +101,8 @@ pub struct NodeConfig {
     pub custody_enabled: bool,
     /// Spray-and-wait copy budget per custody message.
     pub max_custody_spray: u8,
+    /// SD-070: optional padding, batching, scope bucketing, cover traffic (default off).
+    pub privacy_shaping: PrivacyShapingConfig,
 }
 
 fn default_crowd_density_enter() -> usize {
@@ -158,6 +163,7 @@ impl Default for NodeConfig {
             crowd_density_clear: default_crowd_density_clear(),
             custody_enabled: default_custody_enabled(),
             max_custody_spray: default_max_custody_spray(),
+            privacy_shaping: PrivacyShapingConfig::disabled(),
         }
     }
 }
@@ -191,6 +197,7 @@ impl NodeConfig {
             crowd_density_clear: default_crowd_density_clear(),
             custody_enabled: default_custody_enabled(),
             max_custody_spray: default_max_custody_spray(),
+            privacy_shaping: PrivacyShapingConfig::disabled(),
         }
     }
 }
@@ -351,6 +358,8 @@ pub enum NodeCommand {
         payload: Vec<u8>,
     },
     SetCrowdMode(bool),
+    /// SD-070: padding, batching, scope bucketing, cover traffic.
+    SetPrivacyShaping(PrivacyShapingConfig),
     /// Follow a contact's signed transport PeerId rotation (SD-190).
     RemapTransportPeer {
         old_peer_id: String,
@@ -377,6 +386,7 @@ pub struct NodeMetrics {
     pub peer_cap_rejections: u64,
     pub custody_queue_depth: usize,
     pub custody_forwards: u64,
+    pub privacy_shaping_stats: PrivacyShapingStats,
 }
 
 use crate::peer_trust::PeerReputationSnapshot;
@@ -669,6 +679,10 @@ pub struct NodeRunner {
     crowd_density_config: CrowdDensityConfig,
     crowd_density_active: bool,
     baseline_max_relay_fanout: usize,
+    privacy_shaping: PrivacyShapingConfig,
+    batch_scheduler: BatchingScheduler,
+    privacy_stats: PrivacyShapingStats,
+    last_cover_at: Option<Instant>,
 }
 
 async fn resolve_logical_sender(
@@ -879,6 +893,10 @@ impl NodeRunner {
                 crowd_density_config,
                 crowd_density_active: false,
                 baseline_max_relay_fanout,
+                privacy_shaping: config.privacy_shaping.clone(),
+                batch_scheduler: BatchingScheduler::default(),
+                privacy_stats: PrivacyShapingStats::default(),
+                last_cover_at: None,
             },
             NodeHandle {
                 tx,
@@ -1534,6 +1552,20 @@ impl NodeRunner {
                     if enabled { "enabled" } else { "disabled" }
                 );
             }
+            NodeCommand::SetPrivacyShaping(config) => {
+                let cover = config.cover_traffic_enabled;
+                self.privacy_shaping = config;
+                self.batch_scheduler = BatchingScheduler::default();
+                self.last_cover_at = None;
+                info!(
+                    "privacy shaping {} (cover={cover})",
+                    if self.privacy_shaping.enabled {
+                        "enabled"
+                    } else {
+                        "disabled"
+                    }
+                );
+            }
             NodeCommand::RemapTransportPeer {
                 old_peer_id,
                 new_peer_id,
@@ -1926,13 +1958,15 @@ impl NodeRunner {
     }
 
     async fn announce_subscribed_scopes_to_peers(&mut self) -> anyhow::Result<()> {
-        let scopes: Vec<String> = self
-            .subscribed_scopes
-            .read()
-            .await
-            .iter()
-            .cloned()
-            .collect();
+        let scopes = Self::bucketed_scopes(
+            self.subscribed_scopes
+                .read()
+                .await
+                .iter()
+                .cloned()
+                .collect(),
+            &self.privacy_shaping,
+        );
         if scopes.is_empty() {
             return Ok(());
         }
@@ -2240,7 +2274,13 @@ impl NodeRunner {
             }
         }
         match message {
-            WireMessage::Data(message) => {
+            WireMessage::Data(mut message) => {
+                if message.body == privacy_shaping::COVER_BODY {
+                    return Ok(());
+                }
+                if privacy_shaping::unpad_direct_message(&mut message) {
+                    self.privacy_stats.bytes_padded_received += 1;
+                }
                 match security::validate_data_message_signature(&message, now_ms()) {
                     Err(Sd030DropReason::NoSignature) => {
                         warn!(
@@ -2654,6 +2694,8 @@ impl NodeRunner {
     async fn forward_once(&mut self) -> anyhow::Result<()> {
         self.maybe_rotate_relay_keypair();
         self.evict_expired();
+        self.flush_privacy_batch_if_due().await?;
+        self.maybe_send_cover_traffic().await?;
         let budget = match self.effective_forwarding_state() {
             NodeState::Active => 10,
             NodeState::Intermittent => 4,
@@ -2672,24 +2714,29 @@ impl NodeRunner {
             ) {
                 continue;
             }
+            let mut outbound = pending.message.clone();
+            let padded_bytes = self.apply_outbound_padding(&mut outbound);
             if let Err(err) = self
                 .transport
-                .send_direct(
-                    pending.to_peer.clone(),
-                    WireMessage::Data(pending.message.clone()),
-                )
+                .send_direct(pending.to_peer.clone(), WireMessage::Data(outbound))
                 .await
             {
                 warn!("forward send failed to {}: {}", pending.to_peer, err);
             } else {
                 let mut metrics = self.metrics.write().await;
                 metrics.messages_forwarded += 1;
+                metrics.privacy_shaping_stats = self.privacy_stats.clone();
+                drop(metrics);
+                if padded_bytes > 0 {
+                    self.privacy_stats.bytes_padded_sent += padded_bytes as u64;
+                }
             }
         }
         let mut metrics = self.metrics.write().await;
         metrics.pending_queue_size = self.pending.len();
         metrics.seen_cache_size = self.seen_cache.len();
         metrics.custody_queue_depth = self.custody_queue.len().unwrap_or(0);
+        metrics.privacy_shaping_stats = self.privacy_stats.clone();
         self.update_transport_metrics(&mut metrics);
         drop(metrics);
         self.update_crowd_density_backoff();
@@ -2697,6 +2744,87 @@ impl NodeRunner {
             warn!("custody forward tick error: {e:#}");
         }
         Ok(())
+    }
+
+    async fn flush_privacy_batch_if_due(&mut self) -> anyhow::Result<()> {
+        if !self.privacy_shaping.enabled {
+            return Ok(());
+        }
+        if !self.batch_scheduler.is_due(Instant::now()) {
+            return Ok(());
+        }
+        let drained = self.batch_scheduler.drain();
+        if drained.is_empty() {
+            return Ok(());
+        }
+        self.privacy_stats.batches_flushed += 1;
+        self.privacy_stats.messages_batched += drained.len() as u64;
+        for (to_peer, message) in drained {
+            self.pending.push_back(PendingMessage { to_peer, message });
+        }
+        if !self.batch_scheduler.has_deadline() && self.batch_scheduler.len() > 0 {
+            self.batch_scheduler
+                .reschedule_flush(&self.privacy_shaping);
+        }
+        Ok(())
+    }
+
+    fn apply_outbound_padding(&self, message: &mut DirectMessage) -> usize {
+        if !self.privacy_shaping.enabled || !self.privacy_shaping.padding_enabled {
+            return 0;
+        }
+        privacy_shaping::pad_direct_message(message)
+    }
+
+    async fn maybe_send_cover_traffic(&mut self) -> anyhow::Result<()> {
+        let interval = privacy_shaping::cover_interval_for_state(
+            &self.privacy_shaping,
+            self.effective_forwarding_state(),
+        );
+        let Some(interval) = interval else {
+            return Ok(());
+        };
+        let now = Instant::now();
+        if self
+            .last_cover_at
+            .is_some_and(|t| now.duration_since(t) < interval)
+        {
+            return Ok(());
+        }
+        let peers: Vec<String> = self
+            .transport
+            .known_peers()
+            .into_iter()
+            .filter(|p| !mycelium_core::bootstrap::is_relay_peer(p))
+            .collect();
+        let Some(to_peer) = peers.first().cloned() else {
+            return Ok(());
+        };
+        let mut envelope =
+            privacy_shaping::build_cover_envelope(&self.local_peer_id, &to_peer);
+        envelope.priority = Priority::Low;
+        if let Some(keypair) = &self.keypair {
+            let _ = envelope.sign(keypair);
+        }
+        let msg = DirectMessage {
+            envelope,
+            body: privacy_shaping::COVER_BODY.to_string(),
+        };
+        let wire_bytes = msg.envelope.payload.len() as u64;
+        self.pending
+            .push_back(PendingMessage { to_peer, message: msg });
+        self.last_cover_at = Some(now);
+        self.privacy_stats.cover_packets_sent += 1;
+        self.privacy_stats.cover_bytes_sent += wire_bytes;
+        Ok(())
+    }
+
+    fn bucketed_scopes(scopes: Vec<String>, config: &PrivacyShapingConfig) -> Vec<String> {
+        if config.enabled && config.scope_bucketing_enabled {
+            privacy_shaping::bucket_scopes_for_announce(scopes)
+        } else {
+            scopes
+        }
     }
 
     async fn maybe_enqueue_custody(&mut self, message: &DirectMessage) -> anyhow::Result<()> {
@@ -2788,13 +2916,15 @@ impl NodeRunner {
     }
 
     async fn send_scope_announce(&mut self, peer_id: String) -> anyhow::Result<()> {
-        let scopes = self
-            .subscribed_scopes
-            .read()
-            .await
-            .iter()
-            .cloned()
-            .collect();
+        let scopes = Self::bucketed_scopes(
+            self.subscribed_scopes
+                .read()
+                .await
+                .iter()
+                .cloned()
+                .collect(),
+            &self.privacy_shaping,
+        );
         self.transport
             .send_direct(peer_id, WireMessage::ScopeAnnounce { scopes })
             .await
@@ -2920,6 +3050,14 @@ impl NodeRunner {
 
     async fn enqueue(&mut self, to_peer: String, message: DirectMessage) -> anyhow::Result<()> {
         if message.is_expired(now_ms()) {
+            return Ok(());
+        }
+        if privacy_shaping::should_batch(message.envelope.priority, &self.privacy_shaping) {
+            self.batch_scheduler.push(to_peer, message);
+            if !self.batch_scheduler.has_deadline() {
+                self.batch_scheduler
+                    .reschedule_flush(&self.privacy_shaping);
+            }
             return Ok(());
         }
         if self.pending.len() >= self.pending_cap {

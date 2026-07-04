@@ -91,7 +91,13 @@ namespace mycelium {
   boolean is_internet_enabled();
   void set_crowd_mode(boolean enabled);
   boolean is_crowd_mode_enabled();
+  void set_privacy_shaping(PrivacyShapingConfig config);
+  PrivacyShapingOverheadEstimate privacy_shaping_overhead_estimate(PrivacyShapingConfig config);
+  PrivacyShapingConfig default_privacy_shaping_config(PrivacyShapingProfile profile);
   sequence<string> get_shareable_multiaddrs();
+  [Throws=MyceliumException]
+  bytes build_offline_share_bootstrap_sidecar(string install_url);
+  u32 propagate_installed_miniapps();
   void add_bootstrap_peer(string multiaddr);
   [Throws=MyceliumException]
   void connect_invite(string raw);
@@ -389,6 +395,32 @@ enum EnergyState {
   "Active",
   "Intermittent",
   "Passive",
+};
+
+enum PrivacyShapingProfile {
+  "Fast",
+  "Balanced",
+  "Paranoid",
+};
+
+dictionary PrivacyShapingConfig {
+  boolean enabled;
+  PrivacyShapingProfile profile;
+  u64 batch_min_ms;
+  u64 batch_max_ms;
+  boolean padding_enabled;
+  boolean scope_bucketing_enabled;
+  boolean cover_traffic_enabled;
+  u64 cover_interval_secs;
+};
+
+dictionary PrivacyShapingOverheadEstimate {
+  double padding_overhead_pct_typical;
+  u64 batch_latency_ms_min;
+  u64 batch_latency_ms_max;
+  u64 cover_bytes_per_hour_active;
+  u64 cover_bytes_per_hour_intermittent;
+  string battery_impact_summary;
 };
 
 enum ConnectivityMode {

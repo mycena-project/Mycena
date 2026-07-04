@@ -28,6 +28,9 @@ typealias ProximityMessageData = uniffi.mycelium.ProximityMessageData
 typealias ScopeKeyInfo = uniffi.mycelium.ScopeKeyInfo
 typealias PeerReputationData = uniffi.mycelium.PeerReputationData
 typealias BleOutboundFrame = uniffi.mycelium.BleOutboundFrame
+typealias PrivacyShapingConfig = uniffi.mycelium.PrivacyShapingConfig
+typealias PrivacyShapingProfile = uniffi.mycelium.PrivacyShapingProfile
+typealias PrivacyShapingOverheadEstimate = uniffi.mycelium.PrivacyShapingOverheadEstimate
 
 object mycelium {
     fun initNode(config: NodeConfig) = uniffi.mycelium.initNode(config)
@@ -85,7 +88,15 @@ object mycelium {
     fun isInternetEnabled(): Boolean = uniffi.mycelium.isInternetEnabled()
     fun setCrowdMode(enabled: Boolean) = uniffi.mycelium.setCrowdMode(enabled)
     fun isCrowdModeEnabled(): Boolean = uniffi.mycelium.isCrowdModeEnabled()
+    fun setPrivacyShaping(config: PrivacyShapingConfig) = uniffi.mycelium.setPrivacyShaping(config)
+    fun privacyShapingOverheadEstimate(config: PrivacyShapingConfig): PrivacyShapingOverheadEstimate =
+        uniffi.mycelium.privacyShapingOverheadEstimate(config)
+    fun defaultPrivacyShapingConfig(profile: PrivacyShapingProfile): PrivacyShapingConfig =
+        uniffi.mycelium.defaultPrivacyShapingConfig(profile)
     fun getShareableMultiaddrs(): List<String> = uniffi.mycelium.getShareableMultiaddrs()
+    fun buildOfflineShareBootstrapSidecar(installUrl: String): ByteArray =
+        uniffi.mycelium.buildOfflineShareBootstrapSidecar(installUrl)
+    fun propagateInstalledMiniapps(): UInt = uniffi.mycelium.propagateInstalledMiniapps()
     fun displayName(): String = uniffi.mycelium.displayName()
     fun setEnergyState(state: EnergyState) = uniffi.mycelium.setEnergyState(state)
     fun addBootstrapPeer(multiaddr: String) = uniffi.mycelium.addBootstrapPeer(multiaddr)

@@ -270,6 +270,12 @@
     <string name="settings_privacy_policy">Privacy policy</string>
     <string name="settings_relay_key_rotation">Relay identity rotates in %1$d hours</string>
     <string name="settings_relay_key_explanation">When your device relays messages for others, it uses a temporary identity that changes every 24 hours. Your personal identity is separate and never revealed during relaying.</string>
+    <string name="settings_privacy_shaping_title">Traffic shaping (experimental)</string>
+    <string name="settings_privacy_shaping_sub">Pads messages to fixed sizes and batches sends with random delays to reduce timing correlation. Adds latency and bandwidth overhead — off by default.</string>
+    <string name="settings_privacy_shaping_cover_title">Cover traffic when idle</string>
+    <string name="settings_privacy_shaping_cover_sub">Sends dummy padded packets at a fixed rate when there is no real traffic. Disabled on Passive battery mode. Uses extra battery and data.</string>
+    <string name="settings_privacy_shaping_profile_title">Batching profile</string>
+    <string name="settings_privacy_shaping_overhead">Estimated impact: %1$s</string>
     <string name="settings_bulletin_title">Bulletin Board</string>
     <string name="settings_bulletin_disabled">Disabled (default)</string>
     <string name="settings_bulletin_subscribed">%1$d scope(s) active</string>
