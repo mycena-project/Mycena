@@ -48,6 +48,18 @@ pub struct Envelope {
     /// E2E crypto protocol: 0 = static X25519 (legacy), 1 = Double Ratchet.
     #[serde(default)]
     pub e2e_version: u8,
+    /// DTN store-and-forward — use custody queue instead of live epidemic fanout.
+    #[serde(default)]
+    pub custody: bool,
+    /// Spray-and-wait copies already dispatched network-wide.
+    #[serde(default)]
+    pub custody_spray_sent: u8,
+    /// Max active custody copies allowed in the mesh for this message.
+    #[serde(default = "default_max_custody_spray")]
+    pub max_custody_spray: u8,
+    /// Previous custody holder — avoids immediate ping-pong on handoff.
+    #[serde(default)]
+    pub last_custody_from: Option<String>,
 }
 
 impl Envelope {
@@ -70,7 +82,20 @@ impl Envelope {
             max_hops: default_max_hops(),
             author_peer: None,
             e2e_version: 0,
+            custody: false,
+            custody_spray_sent: 0,
+            max_custody_spray: default_max_custody_spray(),
+            last_custody_from: None,
         }
+    }
+
+    /// Directed DTN message with spray-and-wait custody (disaster / city carry).
+    pub fn new_custody(from_peer: String, to_peer: String, payload: Vec<u8>) -> Self {
+        let mut e = Self::new(from_peer, Some(to_peer), payload);
+        e.custody = true;
+        e.max_hops = default_custody_max_hops();
+        e.ttl_secs = 48 * 60 * 60;
+        e
     }
 
     /// Like [`Self::new`] but records which E2E wire protocol decrypted the payload.
@@ -155,6 +180,10 @@ impl Envelope {
         bytes.push(self.priority as u8);
         bytes.push(self.hop_count);
         bytes.push(self.max_hops);
+        bytes.push(self.e2e_version);
+        bytes.push(u8::from(self.custody));
+        bytes.push(self.custody_spray_sent);
+        bytes.push(self.max_custody_spray);
         bytes
     }
 
@@ -172,6 +201,14 @@ impl Envelope {
         bytes.push(self.max_hops);
         bytes
     }
+}
+
+fn default_max_custody_spray() -> u8 {
+    3
+}
+
+fn default_custody_max_hops() -> u8 {
+    255
 }
 
 fn signature_transition_active() -> bool {

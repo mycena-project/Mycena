@@ -3,6 +3,8 @@
 pub mod behaviour;
 mod ble_transport;
 pub mod connectivity;
+mod custody;
+mod encounter_log;
 mod error;
 mod forwarding;
 mod ingest_guard;
@@ -21,6 +23,8 @@ pub use ratchet_store::RatchetSessionStore;
 pub use transport::{DirectPeerCap, PeerAdmitAction};
 
 pub use connectivity::{kad_action_for_mode, ConnectivityMonitor, KadConnectivityAction};
+pub use custody::{CustodyConfig, CustodyForwardPlan, CustodyQueue, DEFAULT_MAX_CUSTODY_SPRAY};
+pub use encounter_log::{EncounterLogStore, EncounterRecord, ENCOUNTER_LOG_TTL_MS};
 pub use error::{
     decode_peer_ble_stream_frame, decode_peer_ble_wire_frame, decode_peer_wire_message, NodeError,
     NodeResult,

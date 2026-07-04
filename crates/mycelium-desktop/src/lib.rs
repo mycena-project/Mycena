@@ -442,6 +442,8 @@ async fn start_node(
         bulletin_subscriptions: Vec::new(),
         max_peers: 50,
         crowd_mode: ui_settings.crowd_mode,
+        custody_enabled: true,
+        max_custody_spray: 3,
     };
     let (runner, handle) = NodeRunner::new(config).map_err(|e| e.to_string())?;
     let local_peer_id = runner.local_peer_id().to_string();

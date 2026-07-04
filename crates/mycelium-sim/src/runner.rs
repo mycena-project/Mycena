@@ -362,6 +362,8 @@ impl SimulationRunner {
             bulletin_subscriptions: Vec::new(),
             max_peers: 50,
             crowd_mode: false,
+            custody_enabled: true,
+            max_custody_spray: 3,
         };
         let (node_runner, handle) = NodeRunner::new_with_transport(
             config,

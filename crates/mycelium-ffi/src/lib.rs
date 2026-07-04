@@ -534,6 +534,8 @@ pub fn init_node(config: NodeConfig) {
             bulletin_subscriptions: config.bulletin_subscriptions.clone(),
             max_peers: 50,
             crowd_mode: config.crowd_mode,
+            custody_enabled: true,
+            max_custody_spray: 3,
         };
 
         let (runner, handle) =

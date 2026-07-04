@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Mycelium Project
+use crate::custody::{CustodyConfig, CustodyQueue, DEFAULT_MAX_CUSTODY_SPRAY};
+use crate::encounter_log::EncounterLogStore;
 use crate::error::decode_peer_ble_wire_frame;
 use crate::forwarding::{
     EnergyPolicy, ForwardDecision, ForwardingPolicy, IngestPipeline, ProbabilisticForwardingPolicy,
@@ -78,6 +80,18 @@ pub struct NodeConfig {
     pub max_peers: usize,
     /// Festival / dense LAN: cap mDNS, dense gossip, lower peer cap (Phase D3).
     pub crowd_mode: bool,
+    /// Enable DTN custody queue (store-and-forward separate from gossip epidemic).
+    pub custody_enabled: bool,
+    /// Spray-and-wait copy budget per custody message.
+    pub max_custody_spray: u8,
+}
+
+fn default_custody_enabled() -> bool {
+    true
+}
+
+fn default_max_custody_spray() -> u8 {
+    DEFAULT_MAX_CUSTODY_SPRAY
 }
 
 fn default_max_relay_fanout() -> usize {
@@ -110,6 +124,8 @@ impl Default for NodeConfig {
             bulletin_subscriptions: Vec::new(),
             max_peers: default_max_peers(),
             crowd_mode: false,
+            custody_enabled: default_custody_enabled(),
+            max_custody_spray: default_max_custody_spray(),
         }
     }
 }
@@ -138,6 +154,8 @@ impl NodeConfig {
             bulletin_subscriptions: Vec::new(),
             max_peers: default_max_peers(),
             crowd_mode: false,
+            custody_enabled: default_custody_enabled(),
+            max_custody_spray: default_max_custody_spray(),
         }
     }
 }
@@ -306,6 +324,8 @@ pub struct NodeMetrics {
     pub connected_peers: usize,
     pub max_peers: usize,
     pub peer_cap_rejections: u64,
+    pub custody_queue_depth: usize,
+    pub custody_forwards: u64,
 }
 
 use crate::peer_trust::PeerReputationSnapshot;
@@ -581,6 +601,9 @@ pub struct NodeRunner {
     ble_outbound_cap: usize,
     ratchet_store: Arc<crate::ratchet_store::RatchetSessionStore>,
     local_prekeys: Arc<Mutex<mycelium_core::crypto::ratchet::LocalPrekeyStore>>,
+    encounter_log: EncounterLogStore,
+    custody_queue: CustodyQueue,
+    custody_enabled: bool,
 }
 
 async fn resolve_logical_sender(
@@ -726,6 +749,14 @@ impl NodeRunner {
         let pending_identity_rotation = identity.pending_rotation;
         let account_signing_key = Arc::new(identity.account_keypair);
         let invite_direct_cache = Arc::new(RwLock::new(None));
+        let encounter_log = EncounterLogStore::open(&config.db_path)?;
+        let custody_queue = CustodyQueue::open(
+            &config.db_path,
+            CustodyConfig {
+                max_spray_copies: config.max_custody_spray,
+                ..CustodyConfig::default()
+            },
+        )?;
         Ok((
             Self {
                 local_peer_id,
@@ -771,6 +802,9 @@ impl NodeRunner {
                 ble_outbound_cap: 128,
                 ratchet_store: ratchet_store.clone(),
                 local_prekeys: local_prekeys.clone(),
+                encounter_log,
+                custody_queue,
+                custody_enabled: config.custody_enabled,
             },
             NodeHandle {
                 tx,
@@ -1566,6 +1600,10 @@ impl NodeRunner {
                     return Ok(());
                 }
                 info!("discovered peer={peer_id}");
+                let now = now_ms();
+                if let Err(e) = self.encounter_log.begin_encounter(&peer_id, now) {
+                    warn!("encounter log begin failed for {peer_id}: {e:#}");
+                }
                 {
                     let mut peers = self.peers.write().await;
                     if !peers.iter().any(|p| p == &peer_id) {
@@ -1574,10 +1612,15 @@ impl NodeRunner {
                 }
                 self.send_scope_announce(peer_id.clone()).await?;
                 self.send_peer_info(peer_id.clone()).await?;
-                self.send_sync_bloom(peer_id).await?;
+                self.send_sync_bloom(peer_id.clone()).await?;
+                self.flush_custody_to_peer(&peer_id).await?;
             }
             TransportEvent::PeerDown { peer_id } => {
                 info!("expired peer={peer_id}");
+                let now = now_ms();
+                if let Err(e) = self.encounter_log.end_encounter(&peer_id, now) {
+                    warn!("encounter log end failed for {peer_id}: {e:#}");
+                }
                 {
                     let mut peers = self.peers.write().await;
                     peers.retain(|p| p != &peer_id);
@@ -1892,6 +1935,9 @@ impl NodeRunner {
                 {
                     let mut metrics = self.metrics.write().await;
                     metrics.messages_delivered_local += 1;
+                    let _ = self
+                        .custody_queue
+                        .mark_delivered_to_local(&message.envelope.id.0);
                     return Ok(());
                 }
                 if message.is_expired(now_ms()) {
@@ -1921,6 +1967,14 @@ impl NodeRunner {
                     if !crowd || message.body.starts_with("[bulletin:") {
                         self.find_peer_via_kad(&target).await;
                     }
+                    if message.envelope.custody || message.envelope.to_peer.is_some() {
+                        let _ = self.maybe_enqueue_custody(&message).await;
+                        return Ok(());
+                    }
+                }
+                if message.envelope.custody {
+                    let _ = self.maybe_enqueue_custody(&message).await;
+                    return Ok(());
                 }
                 let decision = self.forwarding_policy.decide(
                     &message,
@@ -1948,7 +2002,10 @@ impl NodeRunner {
                             message.envelope.id.0, reason
                         );
                     }
-                    _ => {}
+                    ForwardDecision::Hold => {
+                        let _ = self.maybe_enqueue_custody(&message).await;
+                    }
+                    ForwardDecision::DeliverLocal => {}
                 }
             }
             WireMessage::SyncBloom { bloom, count } => {
@@ -2253,7 +2310,64 @@ impl NodeRunner {
         let mut metrics = self.metrics.write().await;
         metrics.pending_queue_size = self.pending.len();
         metrics.seen_cache_size = self.seen_cache.len();
+        metrics.custody_queue_depth = self.custody_queue.len().unwrap_or(0);
         self.update_transport_metrics(&mut metrics);
+        drop(metrics);
+        if let Err(e) = self.forward_custody_once().await {
+            warn!("custody forward tick error: {e:#}");
+        }
+        Ok(())
+    }
+
+    async fn maybe_enqueue_custody(&mut self, message: &DirectMessage) -> anyhow::Result<()> {
+        if !self.custody_enabled {
+            return Ok(());
+        }
+        if !CustodyQueue::eligible_for_custody(message) {
+            return Ok(());
+        }
+        if self.custody_queue.enqueue(message)? {
+            debug!(
+                "custody enqueued message_id={} target={:?}",
+                message.envelope.id.0, message.envelope.to_peer
+            );
+        }
+        Ok(())
+    }
+
+    async fn forward_custody_once(&mut self) -> anyhow::Result<()> {
+        if !self.custody_enabled {
+            return Ok(());
+        }
+        let now = now_ms();
+        let _ = self.custody_queue.prune_expired(now);
+        let connected = self.transport.known_peers();
+        if let Some(plan) = self.custody_queue.next_forward_plan(
+            &self.local_peer_id,
+            &connected,
+            &self.encounter_log,
+        )? {
+            self.enqueue(plan.to_peer, plan.message).await?;
+            let mut metrics = self.metrics.write().await;
+            metrics.custody_forwards += 1;
+        }
+        let mut metrics = self.metrics.write().await;
+        metrics.custody_queue_depth = self.custody_queue.len().unwrap_or(0);
+        Ok(())
+    }
+
+    async fn flush_custody_to_peer(&mut self, peer: &str) -> anyhow::Result<()> {
+        if !self.custody_enabled {
+            return Ok(());
+        }
+        let plans = self
+            .custody_queue
+            .plans_for_encounter(&self.local_peer_id, peer, 2)?;
+        for plan in plans {
+            self.enqueue(plan.to_peer, plan.message).await?;
+            let mut metrics = self.metrics.write().await;
+            metrics.custody_forwards += 1;
+        }
         Ok(())
     }
 
