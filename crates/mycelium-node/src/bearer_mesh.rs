@@ -3,7 +3,7 @@
 //! Multi-bearer router: BLE (discovery + idle) and Wi‑Fi Direct (bulk upgrade path).
 
 use crate::bearer_ble::{BearerBleRouter, BearerIngestAction};
-use crate::behaviour::{DirectMessageRequest, DirectMessageResponse};
+use crate::behaviour::DirectMessageRequest;
 use crate::ble_transport::BlePeerInfo;
 use mycelium_core::ble_stream::encode_stream_frame;
 use mycelium_core::bearer_transport::{
@@ -35,6 +35,7 @@ impl BearerMeshRouter {
         }
     }
 
+    #[allow(dead_code)]
     pub fn decode_ingest(bytes: &[u8]) -> anyhow::Result<BearerIngestAction> {
         BearerBleRouter::decode_ingest(bytes)
     }
@@ -83,7 +84,7 @@ impl BearerMeshRouter {
         let q = self
             .wifi_outbound
             .entry(peer.to_string())
-            .or_insert_with(VecDeque::new);
+            .or_default();
         q.push_back(frame);
         while q.len() > WIFI_QUEUE_CAP {
             q.pop_front();

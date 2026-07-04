@@ -353,6 +353,8 @@ pub trait MeshTransport: Send {
     fn kad_find_peer(&mut self, _target_peer_id: &str) {}
     /// Adjust Kademlia activity for connectivity mode changes.
     fn kad_on_connectivity_changed(&mut self, _mode: ConnectivityMode) {}
+    /// Tighten peer/mDNS caps when local peer density exceeds threshold (AR-06).
+    fn set_density_backoff(&mut self, _active: bool, _max_direct_peers: usize) {}
 }
 
 #[async_trait]

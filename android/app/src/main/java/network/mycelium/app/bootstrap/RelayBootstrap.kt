@@ -33,16 +33,15 @@ object RelayBootstrap {
     private fun selectRelayBase(seed: String): String {
         val bases = RELAY_TCP_BASES
         if (bases.size == 1) return bases[0]
-        val h = stableHash(seed)
-        val idx = (h and 0x7FFF_FFFF_FFFF_FFFFL) % bases.size.toLong()
-        return bases[idx.toInt()]
+        val idx = (stableHash(seed) and Int.MAX_VALUE) % bases.size
+        return bases[idx]
     }
 
-    private fun stableHash(seed: String): Long {
-        var h = 0xcbf29ce484222325L
+    private fun stableHash(seed: String): Int {
+        var h = 0x811c9dc5.toInt()
         for (b in seed.toByteArray(Charsets.UTF_8)) {
-            h = h xor (b.toLong() and 0xff)
-            h *= 0x100000001b3L
+            h = h xor b.toInt()
+            h *= 0x01000193
         }
         return h
     }

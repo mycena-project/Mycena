@@ -2,6 +2,8 @@
 // Copyright (C) 2026 Mycelium Project
 //! Unified BLE bearer router — one ingest/drain path for F2 + F3 (ADR 002).
 
+#![allow(dead_code)] // Host-facing API; not all paths exercised in unit tests.
+
 use crate::ble_transport::BleTransportRegistry;
 use mycelium_core::bearer_transport::{
     self, BearerPayloadKind, BearerTransport, BearerWireVersion, ReliabilityClass,
@@ -201,7 +203,7 @@ impl BearerTransport for BearerBleRouter {
         let q = self
             .side_outbound
             .entry(peer.to_string())
-            .or_insert_with(VecDeque::new);
+            .or_default();
         q.push_back(frame.to_vec());
         while q.len() > SIDE_QUEUE_CAP {
             q.pop_front();

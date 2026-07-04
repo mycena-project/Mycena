@@ -3,6 +3,7 @@
 pub mod clock;
 pub mod coin_scenarios;
 pub mod custody_scenarios;
+pub mod dense_cluster;
 pub mod runner;
 pub mod scenarios;
 pub mod scheduler;

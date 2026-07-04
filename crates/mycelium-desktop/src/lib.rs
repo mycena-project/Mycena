@@ -442,6 +442,9 @@ async fn start_node(
         bulletin_subscriptions: Vec::new(),
         max_peers: 50,
         crowd_mode: ui_settings.crowd_mode,
+        local_geohash_prefix: None,
+        crowd_density_enter: 25,
+        crowd_density_clear: 20,
         custody_enabled: true,
         max_custody_spray: 3,
     };

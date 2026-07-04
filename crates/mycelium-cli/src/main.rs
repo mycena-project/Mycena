@@ -174,6 +174,9 @@ async fn cmd_app_publish_live(
         bulletin_subscriptions: Vec::new(),
         max_peers: 50,
         crowd_mode: false,
+        local_geohash_prefix: None,
+        crowd_density_enter: 25,
+        crowd_density_clear: 20,
         custody_enabled: true,
         max_custody_spray: 3,
     };
@@ -231,6 +234,9 @@ async fn run_interactive_server(cli: RunArgs) -> anyhow::Result<()> {
         bulletin_subscriptions: Vec::new(),
         max_peers: 50,
         crowd_mode: false,
+        local_geohash_prefix: None,
+        crowd_density_enter: 25,
+        crowd_density_clear: 20,
         custody_enabled: true,
         max_custody_spray: 3,
     };

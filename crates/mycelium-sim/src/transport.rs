@@ -3,7 +3,7 @@
 use crate::scheduler::LinkProfile;
 use async_trait::async_trait;
 use mycelium_core::transport::{MeshTransport, ScopeId, TransportEvent, WireMessage};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
 
@@ -27,6 +27,7 @@ pub struct SimTransport {
     links: Arc<Mutex<HashMap<(String, String), LinkProfile>>>,
     event_rx: mpsc::UnboundedReceiver<TransportEvent>,
     action_tx: mpsc::UnboundedSender<SimAction>,
+    subscribed_scopes: HashSet<String>,
 }
 
 impl SimTransport {
@@ -43,7 +44,12 @@ impl SimTransport {
             links,
             event_rx,
             action_tx,
+            subscribed_scopes: HashSet::new(),
         }
+    }
+
+    pub fn subscribed_scopes(&self) -> &HashSet<String> {
+        &self.subscribed_scopes
     }
 }
 
@@ -99,11 +105,13 @@ impl MeshTransport for SimTransport {
         Ok(())
     }
 
-    async fn subscribe_scope(&mut self, _scope: ScopeId) -> anyhow::Result<()> {
+    async fn subscribe_scope(&mut self, scope: ScopeId) -> anyhow::Result<()> {
+        self.subscribed_scopes.insert(scope);
         Ok(())
     }
 
-    async fn unsubscribe_scope(&mut self, _scope: ScopeId) -> anyhow::Result<()> {
+    async fn unsubscribe_scope(&mut self, scope: ScopeId) -> anyhow::Result<()> {
+        self.subscribed_scopes.remove(&scope);
         Ok(())
     }
 

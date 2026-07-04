@@ -27,7 +27,7 @@ pub const SOS_RATE_PER_MINUTE: u32 = 6;
 pub const SOS_GEOHASH_RATE_PER_MINUTE: u32 = 24;
 
 pub fn is_sos_scope(scope: &str) -> bool {
-    scope == "mycelium/sos/v1"
+    scope.starts_with("mycelium/sos/v1")
 }
 
 const RATE_WINDOW_MS: u64 = 60 * 1000;

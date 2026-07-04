@@ -253,4 +253,12 @@ mod tests {
         let report = scope_isolation(7);
         assert!(report.expected_deliveries > 0);
     }
+
+    #[test]
+    fn dense_cluster_520_shard_containment() {
+        let report = crate::dense_cluster::dense_cluster_shard_containment(520);
+        assert_eq!(report.nodes, 520);
+        assert!(report.density_backoff_triggered);
+        assert!(report.sharded_gossip_fanout * 4 < report.global_gossip_fanout);
+    }
 }

@@ -18,10 +18,10 @@ pub fn rotation_interval_ms() -> u64 {
 
 /// When true (default), rotate transport PeerId on every process start after the first boot.
 pub fn rotate_on_cold_start() -> bool {
-    match std::env::var("MYCELIUM_TRANSPORT_ROTATE_ON_START").as_deref() {
-        Ok("0") | Ok("false") | Ok("FALSE") => false,
-        _ => true,
-    }
+    !matches!(
+        std::env::var("MYCELIUM_TRANSPORT_ROTATE_ON_START").as_deref(),
+        Ok("0") | Ok("false") | Ok("FALSE")
+    )
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]

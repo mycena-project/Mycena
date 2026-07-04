@@ -2,6 +2,8 @@
 // Copyright (C) 2026 Mycelium Project
 //! BLE libp2p overlay — direct protocol over GATT streams (ADR 002 F3).
 
+#![allow(dead_code)] // F3 stream path wired on mobile hosts.
+
 use crate::behaviour::{DirectMessageRequest, DirectMessageResponse};
 use mycelium_core::ble_multiaddr::{build_ble_multiaddr, parse_ble_multiaddr};
 use mycelium_core::ble_stream::{decode_stream_frame, encode_stream_frame};

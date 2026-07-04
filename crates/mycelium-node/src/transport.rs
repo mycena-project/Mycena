@@ -4,7 +4,6 @@ use crate::behaviour::{
     make_direct_response, DirectMessageRequest, DirectMessageResponse, MeshBehaviour,
 };
 use crate::bearer_mesh::BearerMeshRouter;
-use crate::ble_transport::BleTransportRegistry;
 use crate::connectivity::{kad_action_for_mode, KadConnectivityAction};
 use futures::StreamExt;
 use libp2p::multiaddr::Protocol;
@@ -16,6 +15,7 @@ use libp2p::{
 use mycelium_core::ble_multiaddr::is_ble_multiaddr;
 use mycelium_core::bootstrap::peer_id_from_parsed_multiaddr;
 use mycelium_core::mesh_profile::MeshProfile;
+use mycelium_core::rate_limit::FixedWindowRateLimiter;
 use mycelium_core::relay_pool::RelayPool;
 use mycelium_core::relay_registry::{include_catalog_relays, load_relay_manifest};
 use mycelium_core::transport::{
@@ -37,6 +37,9 @@ const MAX_DIRECT_PEERS_DEFAULT: usize = 50;
 const CROWD_MAX_DIRECT_PEERS: usize = 20;
 const CROWD_MDNS_DIAL_CAP: u32 = 3;
 const CROWD_MDNS_DIAL_WINDOW: Duration = Duration::from_secs(60);
+/// Kademlia routing-table query cap per window (AR-06).
+const KAD_QUERY_CAP: u32 = 8;
+const KAD_QUERY_WINDOW: Duration = Duration::from_secs(60);
 
 /// Result of attempting to admit a peer under the direct-peer cap.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -80,6 +83,17 @@ impl DirectPeerCap {
 
     pub fn max_peers(&self) -> usize {
         self.max_peers
+    }
+
+    pub fn set_max_peers(&mut self, max_peers: usize) {
+        self.max_peers = max_peers;
+        while self.peers.len() > self.max_peers {
+            if let Some(oldest) = self.find_least_recently_used_peer() {
+                self.remove(&oldest);
+            } else {
+                break;
+            }
+        }
     }
 
     pub fn rejections(&self) -> u64 {
@@ -149,10 +163,14 @@ pub struct Libp2pTransport {
     relay_reservation_confirmed: bool,
     last_circuit_dial_attempt: Option<Instant>,
     crowd_mode: bool,
+    /// Runtime density backoff (auto crowd when visible peers exceed threshold).
+    density_backoff: bool,
+    baseline_max_peers: usize,
     relay_pool: RelayPool,
     active_relay_index: usize,
     mdns_dials_in_window: u32,
     mdns_window_start: Option<Instant>,
+    kad_query_limiter: FixedWindowRateLimiter,
     bearer: BearerMeshRouter,
     /// Throttle redials to stale LAN addrs (e.g. phone in flight mode).
     last_lan_dial: HashMap<String, Instant>,
@@ -255,10 +273,16 @@ impl Libp2pTransport {
             relay_reservation_confirmed: false,
             last_circuit_dial_attempt: None,
             crowd_mode,
+            density_backoff: false,
+            baseline_max_peers: max_peers,
             relay_pool,
             active_relay_index,
             mdns_dials_in_window: 0,
             mdns_window_start: None,
+            kad_query_limiter: FixedWindowRateLimiter::new(
+                KAD_QUERY_CAP,
+                KAD_QUERY_WINDOW.as_millis() as u64,
+            ),
             bearer: BearerMeshRouter::new(),
             last_lan_dial: HashMap::new(),
         };
@@ -285,7 +309,7 @@ impl Libp2pTransport {
     }
 
     fn crowd_mdns_dial_allowed(&mut self) -> bool {
-        if !self.crowd_mode {
+        if !self.crowd_mode && !self.density_backoff {
             return true;
         }
         let now = Instant::now();
@@ -302,6 +326,42 @@ impl Libp2pTransport {
         }
         self.mdns_dials_in_window += 1;
         true
+    }
+
+    /// Toggle auto density backoff (tightens mDNS dial cap and direct peer cap).
+    pub fn set_density_backoff(&mut self, active: bool, density_max_peers: usize) {
+        if self.density_backoff == active {
+            return;
+        }
+        self.density_backoff = active;
+        if active {
+            let cap = density_max_peers.min(self.baseline_max_peers);
+            self.peer_cap.set_max_peers(cap);
+            tracing::info!(
+                "density backoff active: max_peers={} mdns_dial_cap={}/min",
+                cap,
+                CROWD_MDNS_DIAL_CAP
+            );
+        } else {
+            self.peer_cap.set_max_peers(self.baseline_max_peers);
+            tracing::info!(
+                "density backoff cleared: max_peers={}",
+                self.baseline_max_peers
+            );
+        }
+    }
+
+    fn kad_query_allowed(&mut self) -> bool {
+        let now_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis() as u64)
+            .unwrap_or(0);
+        if self.kad_query_limiter.allow("kad", now_ms) {
+            true
+        } else {
+            tracing::debug!("kad: query rate cap reached ({KAD_QUERY_CAP}/min)");
+            false
+        }
     }
 
     fn rotate_active_relay(&mut self) {
@@ -390,6 +450,9 @@ impl Libp2pTransport {
     }
 
     fn start_kad_find_peer(&mut self, peer_id: PeerId) {
+        if !self.kad_query_allowed() {
+            return;
+        }
         tracing::debug!("kad: lookup closest peers to {peer_id}");
         self.swarm.behaviour_mut().kad.get_closest_peers(peer_id);
     }
@@ -829,6 +892,10 @@ impl MeshTransport for Libp2pTransport {
 
     fn kad_on_connectivity_changed(&mut self, mode: ConnectivityMode) {
         self.apply_kad_connectivity(kad_action_for_mode(mode));
+    }
+
+    fn set_density_backoff(&mut self, active: bool, max_direct_peers: usize) {
+        Libp2pTransport::set_density_backoff(self, active, max_direct_peers);
     }
 
     fn register_ble_link(&mut self, peer_id: String, device_id: &str) -> Option<TransportEvent> {

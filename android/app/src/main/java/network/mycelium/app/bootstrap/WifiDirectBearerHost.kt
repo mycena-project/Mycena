@@ -178,7 +178,9 @@ class WifiDirectBearerHost(
             channel,
             config,
             object : WifiP2pManager.ActionListener {
-                override fun onSuccess() = Log.d(logTag, "connect initiated to ${device.deviceAddress}")
+                override fun onSuccess() {
+                    Log.d(logTag, "connect initiated to ${device.deviceAddress}")
+                }
                 override fun onFailure(reason: Int) {
                     Log.w(logTag, "connect failed: $reason")
                     pendingConnect?.complete(false)

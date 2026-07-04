@@ -27,6 +27,7 @@ import network.mycelium.app.bootstrap.BleMeshLinkRegistry
 import network.mycelium.app.bootstrap.BleMeshRelay
 import network.mycelium.app.bootstrap.WifiDirectBearerHost
 import network.mycelium.app.bootstrap.WifiDirectRelay
+import network.mycelium.app.bootstrap.WifiMulticastLock
 import network.mycelium.app.viewmodel.SettingsViewModel
 import network.mycelium.app.viewmodel.SosViewModel
 import network.mycelium.bindings.AppStoreListing

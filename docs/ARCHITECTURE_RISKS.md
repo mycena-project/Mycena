@@ -155,6 +155,17 @@ Wallet screen in release build creates **user expectation of value** while ledge
 
 Architecture currently **O(peers)** fanout on unknown destinations—does not scale securely.
 
+**Mitigations (2026-07, AR-06):**
+
+| Mechanism | Location | Effect |
+|-----------|----------|--------|
+| Geohash gossip shards | `mycelium-core::topic_shard` | SOS / location bulletins publish to `{scope}/g/{prefix}` instead of one global topic |
+| Kademlia query cap | `Libp2pTransport` | ≤8 routing-table queries per 60s window |
+| Auto crowd density | `mycelium-core::crowd_density` + node runner | When visible peers ≥25 (configurable), runtime backoff: Intermittent forwarding, relay fanout 2, mDNS dial cap, peer cap ~20 |
+| Sim validation | `mycelium-sim::dense_cluster` | 520-node dense cluster: sharded fanout ≪ global fanout |
+
+Manual **crowd mode** (Settings) still applies dense gossip mesh at transport startup; auto density backoff applies at runtime without restart.
+
 ---
 
 ## 7. Regulatory & app-store risks

@@ -16,7 +16,7 @@ See also: [CONNECT.md](./CONNECT.md), [DISCOVERY.md](./DISCOVERY.md), [DISASTER_
 | **Internet** | `Use internet (relay + remote peers)` | Immediately (desktop + Android) | Enables bootstrap relay dial, NAT traversal, remote circuits. Off → **local mesh only** (LAN mDNS; no rendezvous). |
 | **Rendezvous** | `Relay discovery (opt-in)` | Immediately | Registers on public relay + bucketed dial of other opted-in peers (~45s tick, ≤3/tick). Requires internet on. |
 | **Maximum connectivity** | Preset toggle | Immediately | Turns internet + rendezvous on. On Android also enables BLE mesh (F1–F3). On macOS enables BLE preference + host stub (Phase 1). |
-| **Crowd mode** | Festival / dense events | Kademlia policy immediately; full transport caps on **restart** | Caps mDNS fanout, dense gossip, lower peer target (~20). |
+| **Crowd mode** | Festival / dense events | Kademlia policy immediately; full transport caps on **restart** | Caps mDNS fanout, dense gossip, lower peer target (~20). **Auto density backoff** (≥25 visible peers) applies Intermittent forwarding + caps at runtime without restart. |
 | **BLE bootstrap** | Android: part of max connectivity; macOS: separate preview toggle | Immediately (preference); transport when host active | Android F1–F3. Desktop stub logs intent until btleplug GATT ships (ADR 003). |
 | **Display name, energy, bootstrap peers** | Save / advanced | On save (desktop) | Identity and custom relay list — not connectivity hot path. |
 

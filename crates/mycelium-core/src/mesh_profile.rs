@@ -14,12 +14,14 @@ pub struct MeshProfileParams {
     pub history_gossip: usize,
 }
 
-/// Mesh density profile — `Dense` is used automatically in crowd mode.
+/// Mesh density profile — `Dense` / `Crowd` for festival-scale clusters.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum MeshProfile {
     #[default]
     Default,
     Dense,
+    /// Tighter mesh for auto density backoff (AR-06).
+    Crowd,
 }
 
 impl MeshProfile {
@@ -33,6 +35,7 @@ impl MeshProfile {
             .as_deref()
         {
             Some("dense") => Self::Dense,
+            Some("crowd") => Self::Crowd,
             _ => Self::Default,
         }
     }
@@ -57,6 +60,15 @@ impl MeshProfile {
                 history_length: 8,
                 history_gossip: 4,
             },
+            Self::Crowd => MeshProfileParams {
+                mesh_n: 4,
+                mesh_n_low: 3,
+                mesh_n_high: 6,
+                mesh_outbound_min: 1,
+                heartbeat_interval_secs: 3,
+                history_length: 4,
+                history_gossip: 2,
+            },
         }
     }
 }
@@ -71,5 +83,13 @@ mod tests {
         let default = MeshProfile::Default.params();
         assert!(dense.mesh_n >= default.mesh_n);
         assert!(dense.history_length >= default.history_length);
+    }
+
+    #[test]
+    fn crowd_profile_is_tighter_than_dense() {
+        let crowd = MeshProfile::Crowd.params();
+        let dense = MeshProfile::Dense.params();
+        assert!(crowd.mesh_n < dense.mesh_n);
+        assert!(crowd.history_gossip <= dense.history_gossip);
     }
 }

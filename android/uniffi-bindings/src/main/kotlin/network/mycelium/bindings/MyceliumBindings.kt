@@ -91,6 +91,8 @@ object mycelium {
     fun addBootstrapPeer(multiaddr: String) = uniffi.mycelium.addBootstrapPeer(multiaddr)
     fun connectInvite(raw: String) = uniffi.mycelium.connectInvite(raw)
     fun connectTransportInvite(raw: String) = uniffi.mycelium.connectTransportInvite(raw)
+    fun relayCircuitMultiaddr(remotePeerId: String): String? =
+        uniffi.mycelium.relayCircuitMultiaddr(remotePeerId)
     fun ingestBleFrame(fromPeer: String, frame: ByteArray) =
         uniffi.mycelium.ingestBleFrame(fromPeer, frame)
     fun peerIdFromBleFrame(frame: ByteArray): String? =

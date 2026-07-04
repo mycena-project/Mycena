@@ -401,17 +401,32 @@ pub fn key_from_seed(seed: &[u8]) -> Keypair {
     Keypair::from(ed25519::Keypair::from(sk))
 }
 
+/// Inputs for [`build_signed_registration`].
+pub struct SignedRegistrationParams<'a> {
+    pub operator_key: &'a Keypair,
+    pub curator_id: &'a str,
+    pub peer_id: &'a str,
+    pub multiaddrs: Vec<String>,
+    pub operator_label: &'a str,
+    pub region: &'a str,
+    pub registered_at_ms: u64,
+    pub catalog_only: bool,
+}
+
 /// Build a signed registration + curator endorsement (operators / CI).
 pub fn build_signed_registration(
-    operator_key: &Keypair,
-    curator_id: &str,
-    peer_id: &str,
-    multiaddrs: Vec<String>,
-    operator_label: &str,
-    region: &str,
-    registered_at_ms: u64,
-    catalog_only: bool,
+    params: SignedRegistrationParams<'_>,
 ) -> anyhow::Result<RelayRegistration> {
+    let SignedRegistrationParams {
+        operator_key,
+        curator_id,
+        peer_id,
+        multiaddrs,
+        operator_label,
+        region,
+        registered_at_ms,
+        catalog_only,
+    } = params;
     let curator_key = curator_keypair(curator_id);
     let operator_pubkey_hex = hex::encode(operator_key.public().encode_protobuf());
     let mut reg = RelayRegistration {
@@ -449,46 +464,46 @@ fn build_default_manifest() -> RelayRegistryManifest {
         .filter(|a| a.contains("/tcp/") && !a.contains("/p2p-circuit"))
         .map(|s| (*s).to_string())
         .collect();
-    let fly = build_signed_registration(
-        &fly_operator,
-        "mycelium-release",
-        RELAY_PEER_ID,
-        fly_addrs,
-        "mycelium-core-fly",
-        "sin",
-        issued_at_ms,
-        false,
-    )
+    let fly = build_signed_registration(SignedRegistrationParams {
+        operator_key: &fly_operator,
+        curator_id: "mycelium-release",
+        peer_id: RELAY_PEER_ID,
+        multiaddrs: fly_addrs,
+        operator_label: "mycelium-core-fly",
+        region: "sin",
+        registered_at_ms: issued_at_ms,
+        catalog_only: false,
+    })
     .expect("fly registration");
 
     let eu_peer = key_from_seed(b"peer:community-mesh-eu:v1");
     let eu_peer_id = eu_peer.public().to_peer_id().to_string();
     let eu_operator = key_from_seed(b"operator:community-mesh-eu:v1");
-    let eu = build_signed_registration(
-        &eu_operator,
-        "community-mesh-eu",
-        &eu_peer_id,
-        vec![format!("/ip4/203.0.113.10/tcp/4001/p2p/{eu_peer_id}")],
-        "community-mesh-eu-template",
-        "eu-central",
-        issued_at_ms,
-        true,
-    )
+    let eu = build_signed_registration(SignedRegistrationParams {
+        operator_key: &eu_operator,
+        curator_id: "community-mesh-eu",
+        peer_id: &eu_peer_id,
+        multiaddrs: vec![format!("/ip4/203.0.113.10/tcp/4001/p2p/{eu_peer_id}")],
+        operator_label: "community-mesh-eu-template",
+        region: "eu-central",
+        registered_at_ms: issued_at_ms,
+        catalog_only: true,
+    })
     .expect("eu catalog registration");
 
     let na_peer = key_from_seed(b"peer:community-mesh-na:v1");
     let na_peer_id = na_peer.public().to_peer_id().to_string();
     let na_operator = key_from_seed(b"operator:community-mesh-na:v1");
-    let na = build_signed_registration(
-        &na_operator,
-        "community-mesh-na",
-        &na_peer_id,
-        vec![format!("/ip4/203.0.113.11/tcp/4001/p2p/{na_peer_id}")],
-        "community-mesh-na-template",
-        "na-east",
-        issued_at_ms,
-        true,
-    )
+    let na = build_signed_registration(SignedRegistrationParams {
+        operator_key: &na_operator,
+        curator_id: "community-mesh-na",
+        peer_id: &na_peer_id,
+        multiaddrs: vec![format!("/ip4/203.0.113.11/tcp/4001/p2p/{na_peer_id}")],
+        operator_label: "community-mesh-na-template",
+        region: "na-east",
+        registered_at_ms: issued_at_ms,
+        catalog_only: true,
+    })
     .expect("na catalog registration");
 
     RelayRegistryManifest {
@@ -508,16 +523,16 @@ mod tests {
         let operator = Keypair::generate_ed25519();
         let peer = operator.public().to_peer_id().to_string();
         let addr = format!("/ip4/203.0.113.10/tcp/4001/p2p/{peer}");
-        let reg = build_signed_registration(
-            &operator,
-            "mycelium-release",
-            &peer,
-            vec![addr],
-            "test-op",
-            "test",
-            1_700_000_000_000,
-            true,
-        )
+        let reg = build_signed_registration(SignedRegistrationParams {
+            operator_key: &operator,
+            curator_id: "mycelium-release",
+            peer_id: &peer,
+            multiaddrs: vec![addr],
+            operator_label: "test-op",
+            region: "test",
+            registered_at_ms: 1_700_000_000_000,
+            catalog_only: true,
+        })
         .unwrap();
         assert!(reg.verify_operator_signature());
         assert!(reg.verify_endorsements(1));
@@ -531,16 +546,16 @@ mod tests {
             let kp = Keypair::generate_ed25519();
             let peer = kp.public().to_peer_id().to_string();
             regs.push(
-                build_signed_registration(
-                    &operator,
-                    "mycelium-release",
-                    &peer,
-                    vec![format!("/ip4/203.0.113.{i}/tcp/4001/p2p/{peer}")],
-                    "same-op",
-                    "test",
-                    1,
-                    false,
-                )
+                build_signed_registration(SignedRegistrationParams {
+                    operator_key: &operator,
+                    curator_id: "mycelium-release",
+                    peer_id: &peer,
+                    multiaddrs: vec![format!("/ip4/203.0.113.{i}/tcp/4001/p2p/{peer}")],
+                    operator_label: "same-op",
+                    region: "test",
+                    registered_at_ms: 1,
+                    catalog_only: false,
+                })
                 .unwrap(),
             );
         }

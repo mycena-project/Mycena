@@ -535,6 +535,9 @@ pub fn init_node(config: NodeConfig) {
             bulletin_subscriptions: config.bulletin_subscriptions.clone(),
             max_peers: 50,
             crowd_mode: config.crowd_mode,
+            local_geohash_prefix: None,
+            crowd_density_enter: 25,
+            crowd_density_clear: 20,
             custody_enabled: true,
             max_custody_spray: 3,
         };

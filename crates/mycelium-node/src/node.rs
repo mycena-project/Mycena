@@ -14,8 +14,10 @@ use libp2p::{identity, Multiaddr, PeerId};
 use mycelium_core::bootstrap::load_bootstrap_peers;
 use mycelium_core::crypto::EncryptionKeypair;
 use mycelium_core::crypto::{self};
+use mycelium_core::crowd_density::CrowdDensityConfig;
 use mycelium_core::data::{now_ms, Priority};
 use mycelium_core::energy::NodeState;
+use mycelium_core::topic_shard;
 use mycelium_core::sync::BloomFilter;
 use mycelium_core::transport::{
     ConnectivityMode, DirectMessage, MeshTransport, MessageStore, Scope, StoreStats,
@@ -86,10 +88,31 @@ pub struct NodeConfig {
     pub max_peers: usize,
     /// Festival / dense LAN: cap mDNS, dense gossip, lower peer cap (Phase D3).
     pub crowd_mode: bool,
+    /// Geohash prefix for location-scoped gossip shards (SOS / bulletin).
+    pub local_geohash_prefix: Option<String>,
+    /// Auto crowd backoff when visible peers ≥ threshold (0 = disabled).
+    pub crowd_density_enter: usize,
+    /// Hysteresis: leave density backoff when visible peers ≤ this.
+    pub crowd_density_clear: usize,
     /// Enable DTN custody queue (store-and-forward separate from gossip epidemic).
     pub custody_enabled: bool,
     /// Spray-and-wait copy budget per custody message.
     pub max_custody_spray: u8,
+}
+
+fn default_crowd_density_enter() -> usize {
+    25
+}
+
+fn default_crowd_density_clear() -> usize {
+    20
+}
+
+fn local_geohash_from_env() -> Option<String> {
+    std::env::var("MYCELIUM_LOCAL_GEOHASH")
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
 }
 
 fn default_custody_enabled() -> bool {
@@ -130,6 +153,9 @@ impl Default for NodeConfig {
             bulletin_subscriptions: Vec::new(),
             max_peers: default_max_peers(),
             crowd_mode: false,
+            local_geohash_prefix: local_geohash_from_env(),
+            crowd_density_enter: default_crowd_density_enter(),
+            crowd_density_clear: default_crowd_density_clear(),
             custody_enabled: default_custody_enabled(),
             max_custody_spray: default_max_custody_spray(),
         }
@@ -160,6 +186,9 @@ impl NodeConfig {
             bulletin_subscriptions: Vec::new(),
             max_peers: default_max_peers(),
             crowd_mode: false,
+            local_geohash_prefix: local_geohash_from_env(),
+            crowd_density_enter: default_crowd_density_enter(),
+            crowd_density_clear: default_crowd_density_clear(),
             custody_enabled: default_custody_enabled(),
             max_custody_spray: default_max_custody_spray(),
         }
@@ -611,7 +640,6 @@ pub struct NodeRunner {
     enc_keypair: EncryptionKeypair,
     display_name: Option<String>,
     peer_x25519: Arc<RwLock<HashMap<String, [u8; 32]>>>,
-    max_relay_fanout: usize,
     listen_addrs: Arc<RwLock<Vec<String>>>,
     rendezvous_enabled: Arc<AtomicBool>,
     internet_enabled: Arc<AtomicBool>,
@@ -633,6 +661,10 @@ pub struct NodeRunner {
     encounter_log: EncounterLogStore,
     custody_queue: CustodyQueue,
     custody_enabled: bool,
+    local_geohash_prefix: Option<String>,
+    crowd_density_config: CrowdDensityConfig,
+    crowd_density_active: bool,
+    baseline_max_relay_fanout: usize,
 }
 
 async fn resolve_logical_sender(
@@ -787,6 +819,12 @@ impl NodeRunner {
                 ..CustodyConfig::default()
             },
         )?;
+        let crowd_density_config = CrowdDensityConfig {
+            enter_threshold: config.crowd_density_enter,
+            clear_threshold: config.crowd_density_clear,
+            ..CrowdDensityConfig::default()
+        };
+        let baseline_max_relay_fanout = config.max_relay_fanout;
         Ok((
             Self {
                 local_peer_id,
@@ -812,7 +850,6 @@ impl NodeRunner {
                 enc_keypair,
                 display_name,
                 peer_x25519: peer_x25519.clone(),
-                max_relay_fanout: config.max_relay_fanout,
                 listen_addrs: listen_addrs.clone(),
                 rendezvous_enabled: rendezvous_enabled.clone(),
                 internet_enabled: config.internet_enabled.clone(),
@@ -834,6 +871,10 @@ impl NodeRunner {
                 encounter_log,
                 custody_queue,
                 custody_enabled: config.custody_enabled,
+                local_geohash_prefix: config.local_geohash_prefix.clone(),
+                crowd_density_config,
+                crowd_density_active: false,
+                baseline_max_relay_fanout,
             },
             NodeHandle {
                 tx,
@@ -899,6 +940,66 @@ impl NodeRunner {
         metrics.peer_cap_rejections = self.transport.peer_cap_rejections();
     }
 
+    fn effective_forwarding_state(&self) -> NodeState {
+        if self.crowd_density_active {
+            NodeState::Intermittent
+        } else {
+            self.node_state
+        }
+    }
+
+    fn effective_max_relay_fanout(&self) -> usize {
+        if self.crowd_density_active {
+            self.crowd_density_config
+                .max_relay_fanout
+                .min(self.baseline_max_relay_fanout)
+        } else {
+            self.baseline_max_relay_fanout
+        }
+    }
+
+    fn update_crowd_density_backoff(&mut self) {
+        let visible = self.transport.connected_peer_count();
+        let next = self.crowd_density_config.should_activate(visible, self.crowd_density_active);
+        if next == self.crowd_density_active {
+            return;
+        }
+        self.crowd_density_active = next;
+        self.transport.set_density_backoff(
+            next,
+            self.crowd_density_config.max_direct_peers,
+        );
+    }
+
+    async fn subscribe_gossip_for_scope(&mut self, scope: &str) -> anyhow::Result<()> {
+        let local_gh = self.local_geohash_prefix.as_deref();
+        let topics = topic_shard::resolve_subscribe_topics(scope, local_gh);
+        if topic_shard::supports_geohash_sharding(scope) {
+            let pattern = topic_shard::subscribe_pattern(scope);
+            self.subscribed_scopes.write().await.insert(pattern);
+        }
+        if topics.is_empty() {
+            if topic_shard::supports_geohash_sharding(scope) {
+                tracing::warn!(
+                    "bulletin scope {scope} requires local_geohash_prefix for gossip shards"
+                );
+            } else if let Err(e) = self.transport.subscribe_scope(scope.to_string()).await {
+                warn!("failed to subscribe to bulletin scope {scope}: {e}");
+            } else {
+                info!("bulletin subscribed: {scope}");
+            }
+            return Ok(());
+        }
+        for topic in topics {
+            if let Err(e) = self.transport.subscribe_scope(topic.clone()).await {
+                warn!("failed to subscribe to gossip shard {topic}: {e}");
+            } else {
+                info!("bulletin subscribed (shard): {topic}");
+            }
+        }
+        Ok(())
+    }
+
     async fn find_peer_via_kad(&mut self, target_peer_id: &str) {
         self.transport.kad_find_peer(target_peer_id);
     }
@@ -906,12 +1007,11 @@ impl NodeRunner {
     pub async fn run(mut self) -> anyhow::Result<()> {
         info!("node started with peer_id={}", self.local_peer_id);
         let crowd = self.crowd_mode.load(Ordering::Relaxed);
+        let bulletin_scopes = self.bulletin_subscriptions.read().await.clone();
         if crowd {
-            for scope in self.bulletin_subscriptions.read().await.clone() {
-                if let Err(e) = self.transport.subscribe_scope(scope.clone()).await {
+            for scope in bulletin_scopes {
+                if let Err(e) = self.subscribe_gossip_for_scope(&scope).await {
                     warn!("failed to subscribe to bulletin scope {scope}: {e}");
-                } else {
-                    info!("bulletin subscribed (crowd priority): {scope}");
                 }
                 self.subscribed_scopes.write().await.insert(scope);
             }
@@ -922,15 +1022,15 @@ impl NodeRunner {
             }
         }
         if !crowd {
-            for scope in self.bulletin_subscriptions.read().await.clone() {
-                if let Err(e) = self.transport.subscribe_scope(scope.clone()).await {
+            let bulletin_scopes = self.bulletin_subscriptions.read().await.clone();
+            for scope in bulletin_scopes {
+                if let Err(e) = self.subscribe_gossip_for_scope(&scope).await {
                     warn!("failed to subscribe to bulletin scope {scope}: {e}");
-                } else {
-                    info!("bulletin subscribed: {scope}");
                 }
                 self.subscribed_scopes.write().await.insert(scope);
             }
         }
+        self.update_crowd_density_backoff();
         let mut forward_tick =
             interval(Duration::from_millis(self.config_forwarding_interval_ms()));
         forward_tick.set_missed_tick_behavior(MissedTickBehavior::Skip);
@@ -1341,10 +1441,8 @@ impl NodeRunner {
                 }
                 self.subscribed_scopes.write().await.insert(scope.clone());
                 if !scope.contains('*') {
-                    if let Err(e) = self.transport.subscribe_scope(scope.clone()).await {
+                    if let Err(e) = self.subscribe_gossip_for_scope(&scope).await {
                         warn!("failed to subscribe to bulletin scope: {e}");
-                    } else {
-                        info!("bulletin subscribed: {scope}");
                     }
                 }
                 self.announce_subscribed_scopes_to_peers().await?;
@@ -1515,7 +1613,7 @@ impl NodeRunner {
                 &to_peer,
                 &peer_trust,
                 now,
-                self.max_relay_fanout,
+                self.effective_max_relay_fanout(),
             );
             if relay_candidates.is_empty() {
                 warn!("SD-031: no suitable relay candidates for {}", to_peer);
@@ -1729,7 +1827,7 @@ impl NodeRunner {
                 to_peer,
                 &peer_trust,
                 now,
-                self.max_relay_fanout,
+                self.effective_max_relay_fanout(),
             );
             if relay_candidates.is_empty() && peers.is_empty() {
                 anyhow::bail!("no path to {to_peer}");
@@ -1812,9 +1910,12 @@ impl NodeRunner {
                 Err(e) => warn!("broadcast ingest for {scope}: {e:#}"),
             }
         }
-        // Always gossip so remote peers receive posts even when ScopeAnnounce was missed.
-        if let Err(e) = self.transport.publish_scoped(scope, payload).await {
-            warn!("gossip publish for bulletin scope (non-fatal): {e:#}");
+        // Gossip publish on geohash-sharded topics when applicable (AR-06).
+        let gossip_topics = topic_shard::resolve_publish_topics(&scope, &payload);
+        for topic in gossip_topics {
+            if let Err(e) = self.transport.publish_scoped(topic, payload.clone()).await {
+                warn!("gossip publish for bulletin scope (non-fatal): {e:#}");
+            }
         }
         Ok(())
     }
@@ -1884,6 +1985,7 @@ impl NodeRunner {
                 self.send_sync_bloom(peer_id.clone()).await?;
                 self.flush_custody_to_peer(&peer_id).await?;
                 self.retry_identity_rotation_to_peer(&peer_id).await;
+                self.update_crowd_density_backoff();
             }
             TransportEvent::PeerDown { peer_id } => {
                 info!("expired peer={peer_id}");
@@ -1896,6 +1998,7 @@ impl NodeRunner {
                     peers.retain(|p| p != &peer_id);
                 }
                 self.peer_scopes.remove(&peer_id);
+                self.update_crowd_density_backoff();
             }
             TransportEvent::DirectReceived { from_peer, message } => {
                 self.handle_incoming_direct(from_peer, message).await?;
@@ -2217,7 +2320,7 @@ impl NodeRunner {
                 }
                 if !self
                     .energy_policy
-                    .can_forward(self.node_state, message.envelope.priority)
+                    .can_forward(self.effective_forwarding_state(), message.envelope.priority)
                 {
                     return Ok(());
                 }
@@ -2233,7 +2336,7 @@ impl NodeRunner {
                         self.enqueue(target, forwarded).await?;
                         return Ok(());
                     }
-                    let crowd = self.crowd_mode.load(Ordering::Relaxed);
+                    let crowd = self.crowd_mode.load(Ordering::Relaxed) || self.crowd_density_active;
                     if !crowd || message.body.starts_with("[bulletin:") {
                         self.find_peer_via_kad(&target).await;
                     }
@@ -2250,7 +2353,7 @@ impl NodeRunner {
                     &message,
                     &self.local_peer_id,
                     &peers,
-                    self.node_state,
+                    self.effective_forwarding_state(),
                 );
                 debug!(
                     "forward decision for message_id={} is {:?}",
@@ -2545,7 +2648,7 @@ impl NodeRunner {
     async fn forward_once(&mut self) -> anyhow::Result<()> {
         self.maybe_rotate_relay_keypair();
         self.evict_expired();
-        let budget = match self.node_state {
+        let budget = match self.effective_forwarding_state() {
             NodeState::Active => 10,
             NodeState::Intermittent => 4,
             NodeState::Passive => 1,
@@ -2559,7 +2662,7 @@ impl NodeRunner {
             }
             if !self
                 .energy_policy
-                .can_forward(self.node_state, pending.message.envelope.priority)
+                .can_forward(self.effective_forwarding_state(), pending.message.envelope.priority)
             {
                 continue;
             }
@@ -2583,6 +2686,7 @@ impl NodeRunner {
         metrics.custody_queue_depth = self.custody_queue.len().unwrap_or(0);
         self.update_transport_metrics(&mut metrics);
         drop(metrics);
+        self.update_crowd_density_backoff();
         if let Err(e) = self.forward_custody_once().await {
             warn!("custody forward tick error: {e:#}");
         }

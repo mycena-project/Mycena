@@ -3,9 +3,9 @@
 use crate::clock::{DeterministicClock, VirtualClock};
 use crate::scheduler::{EventScheduler, LinkProfile};
 use crate::transport::{SimAction, SimTransport};
-use mycelium_core::transport::{TransportEvent, WireMessage};
+use mycelium_core::transport::{TransportEvent, WireMessage, Scope};
 use mycelium_node::{IdentityBootstrap, NodeConfig, NodeHandle, NodeRunner};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
@@ -67,6 +67,7 @@ pub struct SimulationRunner {
     sim_run_id: u64,
     pub action_tx: mpsc::UnboundedSender<SimAction>,
     pub action_rx: mpsc::UnboundedReceiver<SimAction>,
+    peer_subscriptions: HashMap<String, HashSet<String>>,
 }
 
 pub struct SimNode {
@@ -91,6 +92,7 @@ impl SimulationRunner {
             sim_run_id: seed,
             action_tx,
             action_rx,
+            peer_subscriptions: HashMap::new(),
         }
     }
 
@@ -202,6 +204,11 @@ impl SimulationRunner {
         self.metrics.clone()
     }
 
+    /// Track gossip subscriptions per peer (for sharded publish filtering).
+    pub fn register_peer_subscriptions(&mut self, peer_id: String, scopes: HashSet<String>) {
+        self.peer_subscriptions.insert(peer_id, scopes);
+    }
+
     fn schedule_action(&mut self, action: SimAction) {
         match action {
             SimAction::SendDirect {
@@ -243,9 +250,18 @@ impl SimulationRunner {
                 scope,
                 payload,
             } => {
+                let scope_obj = Scope(scope.clone());
                 for to_peer in self.nodes.keys().cloned().collect::<Vec<_>>() {
                     if to_peer == from_peer {
                         continue;
+                    }
+                    if let Some(subs) = self.peer_subscriptions.get(&to_peer) {
+                        let subscribed = subs
+                            .iter()
+                            .any(|pattern| scope_obj.matches(pattern) || pattern == &scope);
+                        if !subscribed {
+                            continue;
+                        }
                     }
                     if !self.is_online(&from_peer) || !self.is_online(&to_peer) {
                         self.metrics.dropped_offline += 1;
@@ -362,6 +378,9 @@ impl SimulationRunner {
             bulletin_subscriptions: Vec::new(),
             max_peers: 50,
             crowd_mode: false,
+            local_geohash_prefix: None,
+            crowd_density_enter: 25,
+            crowd_density_clear: 20,
             custody_enabled: true,
             max_custody_spray: 3,
         };

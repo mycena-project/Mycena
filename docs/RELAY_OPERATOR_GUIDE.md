@@ -114,18 +114,18 @@ Sign the canonical payload (see `RelayRegistration::signable_bytes`):
 Use the same Ed25519 key as `operator_pubkey_hex`. In Rust:
 
 ```rust
-use mycelium_core::relay_registry::build_signed_registration;
+use mycelium_core::relay_registry::{build_signed_registration, SignedRegistrationParams};
 
-let reg = build_signed_registration(
-    &operator_keypair,
-    "community-mesh-eu",           // curator that will co-sign
-    &relay_peer_id,
-    vec![multiaddr],
-    "your-org-slug",
-    "eu-central",
+let reg = build_signed_registration(SignedRegistrationParams {
+    operator_key: &operator_keypair,
+    curator_id: "community-mesh-eu", // curator that will co-sign
+    peer_id: &relay_peer_id,
+    multiaddrs: vec![multiaddr],
+    operator_label: "your-org-slug",
+    region: "eu-central",
     registered_at_ms,
-    false,                         // catalog_only = false for production dial
-)?;
+    catalog_only: false, // catalog_only = false for production dial
+})?;
 ```
 
 ### Uptime history
