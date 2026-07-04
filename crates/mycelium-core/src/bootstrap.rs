@@ -2,19 +2,26 @@
 // Copyright (C) 2026 Mycelium Project
 //! Öffentliche Bootstrap-Peers für das Mycelium-Netzwerk.
 //!
-//! Federated relay registry (signed operator entries) replaces a single hard-coded
-//! relay as the only bootstrap path — see [`crate::relay_registry`] and
-//! [`RELAY_OPERATOR_GUIDE.md`](../../docs/RELAY_OPERATOR_GUIDE.md).
+//! Default Internet bootstrap is a **flat list** of independently operated relays
+//! ([`standard_bootstrap::STANDARD_BOOTSTRAP_RELAYS`]) — no primary relay, no fallback
+//! hierarchy. Each slot ships `/ip4/` and `/dns4/` multiaddrs (anti-DNS-block).
+//!
+//! Federated relay registry (signed operator entries) merges with the embedded list —
+//! see [`crate::relay_registry`] and [`RELAY_OPERATOR_GUIDE.md`](../../docs/RELAY_OPERATOR_GUIDE.md).
 
-/// Fly.io dedicated IPv4 (raw libp2p TCP/UDP; shared ingress breaks Noise handshake).
-pub const RELAY_IPV4: &str = "149.248.194.198";
+pub use crate::standard_bootstrap::{
+    standard_bootstrap_tcp_ip4_multiaddrs, RELAY_IPV4, RELAY_PEER_ID, STANDARD_BOOTSTRAP_RELAYS,
+};
 
-pub const RELAY_PEER_ID: &str = "12D3KooWSkVL5ThExB7paWskDKc2pUobKrV9yWVabMpUdw8hE2wj";
+/// All embedded default bootstrap multiaddrs (equal weight, no preferred entry).
+pub fn standard_bootstrap_multiaddrs() -> Vec<String> {
+    crate::standard_bootstrap::standard_bootstrap_multiaddrs()
+}
 
 /// Public relay / bootstrap infra — not a user device in Connect UI.
 pub fn is_relay_peer(peer_id: &str) -> bool {
     let p = peer_id.trim();
-    if p == RELAY_PEER_ID {
+    if crate::standard_bootstrap::is_standard_bootstrap_peer(p) {
         return true;
     }
     let manifest = crate::relay_registry::load_relay_manifest("");
@@ -31,14 +38,6 @@ pub fn is_mesh_peer_id(peer_id: &str) -> bool {
     let p = peer_id.trim();
     p.starts_with("12D3KooW") && p.len() >= 52 && !p.contains('/')
 }
-
-pub const BOOTSTRAP_PEERS: &[&str] = &[
-    "/ip4/149.248.194.198/tcp/4001/p2p/12D3KooWSkVL5ThExB7paWskDKc2pUobKrV9yWVabMpUdw8hE2wj",
-    "/ip4/149.248.194.198/udp/4001/quic-v1/p2p/12D3KooWSkVL5ThExB7paWskDKc2pUobKrV9yWVabMpUdw8hE2wj",
-    // Second regional relay (after deploy, e.g. fly regions add ams):
-    // "/ip4/<ams-ip>/tcp/4001/p2p/12D3KooW...",
-];
-
 /// Extract the `/p2p/<PeerId>` component from a libp2p multiaddr.
 pub fn peer_id_from_multiaddr(addr: &str) -> Option<String> {
     let parsed: libp2p::Multiaddr = addr.parse().ok()?;
@@ -92,7 +91,7 @@ pub fn relay_circuit_multiaddr_for_db(
     if pool.is_empty() {
         return None;
     }
-    let idx = relay_index.unwrap_or_else(|| pool.select_index_for(remote));
+    let idx = relay_index.unwrap_or_else(|| pool.select_diverse_index_for(remote));
     pool.circuit_multiaddr(remote, idx)
 }
 
@@ -168,7 +167,7 @@ pub fn shareable_dial_multiaddrs(
 /// 1. Umgebungsvariable `MYCELIUM_BOOTSTRAP_PEERS` (kommasepariert)
 /// 2. Datei `<db_path>/bootstrap.txt` (eine Adresse pro Zeile, # = Kommentar)
 /// 3. Verified federated relay registry (embedded + `<db_path>/relay_registry.json`)
-/// 4. Legacy embedded [`BOOTSTRAP_PEERS`]
+/// 4. Embedded [`standard_bootstrap_multiaddrs()`]
 pub fn load_bootstrap_peers(db_path: &str) -> Vec<String> {
     if let Ok(env_peers) = std::env::var("MYCELIUM_BOOTSTRAP_PEERS") {
         let peers: Vec<String> = env_peers
@@ -207,12 +206,12 @@ pub fn load_bootstrap_peers(db_path: &str) -> Vec<String> {
     }
 
     tracing::info!(
-        "bootstrap: using {} built-in peer(s)",
-        BOOTSTRAP_PEERS.len()
+        "bootstrap: using {} built-in peer(s) from standard bootstrap list",
+        standard_bootstrap_multiaddrs().len()
     );
     let mut peers: Vec<String> = federated_bootstrap_multiaddrs(db_path);
     if peers.is_empty() {
-        peers = BOOTSTRAP_PEERS.iter().map(|s| (*s).to_string()).collect();
+        peers = standard_bootstrap_multiaddrs();
     }
     peers
 }
@@ -325,18 +324,33 @@ mod tests {
 
     #[test]
     fn peer_id_from_multiaddr_extracts_embedded_id() {
-        let addr = BOOTSTRAP_PEERS[0];
+        let addrs = standard_bootstrap_multiaddrs();
+        let addr = addrs
+            .iter()
+            .find(|a| a.contains(RELAY_PEER_ID))
+            .expect("fly relay in standard bootstrap");
         let peer_id = peer_id_from_multiaddr(addr).expect("peer id");
         assert_eq!(peer_id, RELAY_PEER_ID);
+    }
+    #[test]
+    fn standard_bootstrap_has_seven_equal_relays() {
+        let addrs = standard_bootstrap_multiaddrs();
+        assert!(addrs.len() >= 28, "7 relays × (ip4+dns4) × (tcp+quic)");
+        assert!(addrs.iter().any(|a| a.contains("mycelium-relay.fly.dev")));
+        assert!(addrs.iter().any(|a| a.contains("149.248.194.198")));
     }
 
     #[test]
     fn relay_circuit_addr_uses_embedded_relay() {
         let addr =
             relay_circuit_multiaddr("12D3KooWExamplePeerIdForTestOnly").expect("circuit addr");
-        assert!(addr.contains(RELAY_IPV4));
         assert!(addr.contains("/p2p-circuit/p2p/12D3KooWExamplePeerIdForTestOnly"));
-        assert!(addr.contains(RELAY_PEER_ID));
+        assert!(
+            crate::standard_bootstrap::standard_bootstrap_peer_ids()
+                .iter()
+                .any(|id| addr.contains(id.as_str())),
+            "circuit must route via a standard bootstrap relay: {addr}"
+        );
     }
 
     #[test]

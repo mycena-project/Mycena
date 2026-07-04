@@ -2,11 +2,37 @@
 
 This document explains how an **independent third party** (not the Mycelium core team) can run a public libp2p relay for the Mycelium mesh and get listed in the federated bootstrap registry **without** letting a malicious operator Sybil-flood the relay list.
 
+## Anti-censorship bootstrap (not redundancy)
+
+Mycelium ships **seven equal default bootstrap relays** in every client (`STANDARD_BOOTSTRAP_RELAYS` in `crates/mycelium-core/src/standard_bootstrap.rs`). This is a deliberate **anti-censorship** measure:
+
+- There is **no primary relay** and no “fallback behind Fly.io”. All slots are listed with the same weight.
+- Each slot includes **both** `/ip4/…` and `/dns4/…` multiaddrs (plus QUIC). Blocking DNS alone is insufficient; censors must block every IP **and** every hostname embedded in the binary.
+- Slots use **different hosting providers, regions, and legal jurisdictions** — no shared operator company across the default set.
+- Independent operators **claim a reserved slot** by deploying to the slot’s DNS + IPv4 and opening a signed registry update PR.
+
+This is **not** classic HA redundancy (N+1 for uptime). It is **shutdown resistance**: no single DNS takedown or cloud-provider pressure should isolate users who have not configured custom bootstrap peers.
+
 Related code:
 
+- Standard slots: `crates/mycelium-core/src/standard_bootstrap.rs`
 - Registry format: `crates/mycelium-core/src/relay_registry.rs`
 - Client pool + failover: `crates/mycelium-core/src/relay_pool.rs`, `crates/mycelium-node/src/transport.rs`
 - Reference relay binary: `crates/mycelium-relay`
+
+### Default bootstrap slots (embedded)
+
+| Slot | Region | Provider (target) | DNS | IPv4 (slot) | Live |
+|------|--------|-------------------|-----|-------------|------|
+| `sin-fly` | AP-Southeast | Fly.io (SG) | `mycelium-relay.fly.dev` | `149.248.194.198` | yes |
+| `eu-fra` | EU-Central | Hetzner (DE) | `bootstrap-eu-fra.mycelium.network` | `243.185.187.10` | reserved |
+| `eu-ams` | EU-West | OVH (NL) | `bootstrap-eu-ams.mycelium.network` | `243.186.187.10` | reserved |
+| `na-east` | NA-East | Vultr (US-East) | `bootstrap-na-east.mycelium.network` | `243.187.187.10` | reserved |
+| `na-west` | NA-West | Akamai/Linode (US-West) | `bootstrap-na-west.mycelium.network` | `243.188.187.10` | reserved |
+| `ap-syd` | AP-Southeast | DigitalOcean (AU) | `bootstrap-ap-syd.mycelium.network` | `243.189.187.10` | reserved |
+| `sa-sao` | SA-East | Hostinger (BR) | `bootstrap-sa-sao.mycelium.network` | `243.190.187.10` | reserved |
+
+Reserved slots use non-routed `243.x` placeholder IPv4 until an operator deploys and replaces the address in a release. PeerIds for reserved slots are **deterministic** from slot seeds — operators must deploy with the listed identity.
 
 ---
 
@@ -65,13 +91,29 @@ curl -s http://127.0.0.1:8080/status | jq .
 
 ---
 
-## 4. Registration format (`mycelium-relay-registry/v1`)
+## 4. Registration format (`mycelium-relay-registry/v2`)
 
-Each relay is a **signed JSON entry** in a manifest:
+Each relay is a **signed JSON entry** with **public accountability** and **verifiable operating history** — anonymous entries are rejected.
+
+### Independence requirements (anti-Sybil)
+
+| Rule | Default | Purpose |
+|------|---------|---------|
+| `min_operating_duration_ms` | 14 days | Relay must be publicly observable before standard-list inclusion |
+| `batch_registration_window_ms` | 7 days | Blocks one operator registering multiple relays in a burst |
+| `max_registrations_per_operator_in_window` | 1 | No batch Sybil from a single source |
+| `min_public_history_snapshots` | 4 | Public uptime history (not just a one-shot signature) |
+| `min_history_reachable_ratio` | 0.75 | Majority of history snapshots must be reachable |
+| `operator_label` + `operator_contact` | required | Public identity — URL or email, no anonymous slots |
+| `asn` | required | BGP ASN for client-side infrastructure diversity |
+
+Client-side [`relay_diversity`](../../crates/mycelium-core/src/relay_diversity.rs) enforces parallel dial batches that never use **only** one IPv4 /24 or ASN when alternatives exist, and reserves quota for minority operators — so a single actor listing many relays still leaves minimum reachability to independent infrastructure.
+
+### JSON schema
 
 ```json
 {
-  "format": "mycelium-relay-registry/v1",
+  "format": "mycelium-relay-registry/v2",
   "issued_at_ms": 1700000000000,
   "policy": {
     "min_curator_endorsements": 1,
@@ -84,6 +126,9 @@ Each relay is a **signed JSON entry** in a manifest:
       "multiaddrs": ["/ip4/203.0.113.10/tcp/4001/p2p/12D3KooW…"],
       "operator_pubkey_hex": "<libp2p protobuf pubkey hex>",
       "operator_label": "your-org-slug",
+      "operator_contact": "ops@your-org.example",
+      "asn": 64500,
+      "first_observed_at_ms": 1699000000000,
       "region": "eu-central",
       "registered_at_ms": 1700000000000,
       "uptime_history": [
@@ -186,7 +231,7 @@ Set `MYCELIUM_INCLUDE_CATALOG_RELAYS=1` to dial `catalog_only` / TEST-NET templa
 - On dial failure or disconnect, the client marks failures and **rotates** to the next healthy relay.
 - After **3 consecutive failures**, a relay is skipped until it succeeds again.
 
-Override order for bootstrap peers remains: `MYCELIUM_BOOTSTRAP_PEERS` → `bootstrap.txt` → federated registry → legacy constants.
+Override order for bootstrap peers remains: `MYCELIUM_BOOTSTRAP_PEERS` → `bootstrap.txt` → federated registry (embedded standard slots) → [`standard_bootstrap_multiaddrs()`].
 
 ---
 

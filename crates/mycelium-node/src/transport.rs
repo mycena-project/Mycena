@@ -17,6 +17,7 @@ use mycelium_core::bootstrap::peer_id_from_parsed_multiaddr;
 use mycelium_core::data::now_ms;
 use mycelium_core::mesh_profile::MeshProfile;
 use mycelium_core::rate_limit::FixedWindowRateLimiter;
+use mycelium_core::relay_diversity::RelayDiversityPolicy;
 use mycelium_core::relay_pool::RelayPool;
 use mycelium_core::relay_registry::{include_catalog_relays, load_relay_manifest};
 use mycelium_core::transport::{
@@ -218,7 +219,7 @@ impl Libp2pTransport {
                 pool
             }
         };
-        let active_relay_index = relay_pool.select_index_for(&local_peer_id.to_string());
+        let active_relay_index = relay_pool.select_diverse_index_for(&local_peer_id.to_string());
         // DNS transport required for /dns4/ bootstrap + relay-circuit multiaddrs.
         // Use hickory defaults (Android has no /etc/resolv.conf for system resolver).
         let mesh_profile_for_behaviour = mesh_profile;
@@ -555,9 +556,9 @@ impl Libp2pTransport {
                 return format!("{addr_str}/p2p-circuit").parse().ok();
             }
         }
-        mycelium_core::bootstrap::BOOTSTRAP_PEERS
+        mycelium_core::bootstrap::standard_bootstrap_multiaddrs()
             .iter()
-            .find(|addr| addr.contains("/tcp/"))
+            .find(|addr| addr.contains("/tcp/") && addr.starts_with("/ip4/"))
             .and_then(|addr| format!("{addr}/p2p-circuit").parse().ok())
     }
 
@@ -617,7 +618,31 @@ impl Libp2pTransport {
             self.dial_lan_bootstrap_peers();
             return;
         }
-        for entry in self.relay_pool.entries() {
+        let policy = RelayDiversityPolicy::default();
+        let seed = self.local_peer_id.to_string();
+        let diverse = self.relay_pool.select_parallel_dial_indices(&seed, &policy);
+        let mut dialed_relay_indices = std::collections::HashSet::new();
+        for idx in diverse {
+            dialed_relay_indices.insert(idx);
+            if let Some(entry) = self.relay_pool.entry(idx) {
+                if let Ok(addr) = entry.tcp_multiaddr.parse::<Multiaddr>() {
+                    if let Ok(peer_id) = PeerId::from_str(&entry.peer_id) {
+                        if self.swarm.is_connected(&peer_id) {
+                            continue;
+                        }
+                    }
+                    if let Err(e) = self.swarm.dial(addr.clone()) {
+                        tracing::warn!("dial relay {}: {e}", entry.tcp_multiaddr);
+                    } else {
+                        tracing::info!("dialing diverse relay {}", entry.tcp_multiaddr);
+                    }
+                }
+            }
+        }
+        for (idx, entry) in self.relay_pool.entries().iter().enumerate() {
+            if dialed_relay_indices.contains(&idx) {
+                continue;
+            }
             if let Ok(addr) = entry.tcp_multiaddr.parse::<Multiaddr>() {
                 if let Ok(peer_id) = PeerId::from_str(&entry.peer_id) {
                     if self.swarm.is_connected(&peer_id) {

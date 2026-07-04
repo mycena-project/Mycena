@@ -3,12 +3,22 @@
 //! Federated public relay registry — signed operator entries + curator endorsements.
 
 use crate::account_identity::sign_account_message;
-use crate::bootstrap::{peer_id_from_multiaddr, BOOTSTRAP_PEERS, RELAY_PEER_ID};
+use crate::bootstrap::peer_id_from_multiaddr;
+use crate::standard_bootstrap::{
+    operator_keypair, relay_multiaddrs, relay_peer_id, STANDARD_BOOTSTRAP_RELAYS,
+};
 use libp2p::identity::{ed25519, Keypair};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
-pub const REGISTRY_FORMAT: &str = "mycelium-relay-registry/v1";
+pub const REGISTRY_FORMAT: &str = "mycelium-relay-registry/v2";
+/// Legacy manifests remain parseable for merge / audit.
+pub const REGISTRY_FORMAT_V1: &str = "mycelium-relay-registry/v1";
+
+/// Minimum continuous public operation before standard-list inclusion (14 days).
+pub const MIN_OPERATING_DURATION_MS: u64 = 14 * 86_400_000;
+/// Window in which only one registration per operator source is allowed (7 days).
+pub const BATCH_REGISTRATION_WINDOW_MS: u64 = 7 * 86_400_000;
 
 /// Curator identities (pubkeys derived deterministically via [`curator_keypair`]).
 pub const FEDERATED_RELAY_CURATOR_IDS: &[(&str, &str)] = &[
@@ -48,13 +58,53 @@ pub struct RelayRegistration {
     /// Listed for audit / staging — not dialed unless [`include_catalog_relays`].
     #[serde(default)]
     pub catalog_only: bool,
+    /// BGP autonomous system number (public, required for standard list).
+    #[serde(default)]
+    pub asn: u32,
+    /// First public observation of this relay (≤ [`registered_at_ms`]).
+    #[serde(default)]
+    pub first_observed_at_ms: u64,
+    /// Public accountability contact — URL or email (no anonymous entries).
+    #[serde(default)]
+    pub operator_contact: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct RelayRegistryPolicy {
     pub min_curator_endorsements: u8,
     pub max_relays_per_operator: u8,
     pub max_relays_per_ipv4_prefix: u8,
+    /// Minimum [`RelayRegistration::first_observed_at_ms`] age before dialable listing.
+    #[serde(default = "default_min_operating_duration_ms")]
+    pub min_operating_duration_ms: u64,
+    /// Reject batch registrations from one operator inside this window.
+    #[serde(default = "default_batch_registration_window_ms")]
+    pub batch_registration_window_ms: u64,
+    /// Max registrations per operator pubkey inside [`batch_registration_window_ms`].
+    #[serde(default = "default_max_batch_per_operator")]
+    pub max_registrations_per_operator_in_window: u8,
+    /// Minimum public uptime snapshots in [`RelayRegistration::uptime_history`].
+    #[serde(default = "default_min_history_snapshots")]
+    pub min_public_history_snapshots: u8,
+    /// Minimum fraction of history snapshots marked reachable.
+    #[serde(default = "default_min_history_reachable_ratio")]
+    pub min_history_reachable_ratio: f32,
+}
+
+fn default_min_operating_duration_ms() -> u64 {
+    MIN_OPERATING_DURATION_MS
+}
+fn default_batch_registration_window_ms() -> u64 {
+    BATCH_REGISTRATION_WINDOW_MS
+}
+fn default_max_batch_per_operator() -> u8 {
+    1
+}
+fn default_min_history_snapshots() -> u8 {
+    4
+}
+fn default_min_history_reachable_ratio() -> f32 {
+    0.75
 }
 
 impl Default for RelayRegistryPolicy {
@@ -63,11 +113,16 @@ impl Default for RelayRegistryPolicy {
             min_curator_endorsements: 1,
             max_relays_per_operator: 2,
             max_relays_per_ipv4_prefix: 1,
+            min_operating_duration_ms: MIN_OPERATING_DURATION_MS,
+            batch_registration_window_ms: BATCH_REGISTRATION_WINDOW_MS,
+            max_registrations_per_operator_in_window: 1,
+            min_public_history_snapshots: 4,
+            min_history_reachable_ratio: 0.75,
         }
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct RelayRegistryManifest {
     pub format: String,
     pub issued_at_ms: u64,
@@ -97,7 +152,7 @@ impl RelayRegistration {
 
     pub fn signable_bytes(&self) -> Vec<u8> {
         let mut bytes = Vec::new();
-        bytes.extend_from_slice(b"MYCEL/RELAY/REG/v1\0");
+        bytes.extend_from_slice(b"MYCEL/RELAY/REG/v2\0");
         bytes.extend_from_slice(self.peer_id.as_bytes());
         bytes.push(0);
         for addr in &self.multiaddrs {
@@ -112,7 +167,24 @@ impl RelayRegistration {
         bytes.push(0);
         bytes.extend_from_slice(&self.registered_at_ms.to_le_bytes());
         bytes.push(u8::from(self.catalog_only));
+        bytes.extend_from_slice(&self.asn.to_le_bytes());
+        bytes.extend_from_slice(&self.first_observed_at_ms.to_le_bytes());
+        bytes.extend_from_slice(self.operator_contact.as_bytes());
+        bytes.push(0);
         bytes
+    }
+
+    pub fn operating_duration_ms(&self, now_ms: u64) -> u64 {
+        let start = self.first_observed_at_ms.min(self.registered_at_ms);
+        now_ms.saturating_sub(start)
+    }
+
+    pub fn history_reachable_ratio(&self) -> f32 {
+        if self.uptime_history.is_empty() {
+            return 0.0;
+        }
+        let ok = self.uptime_history.iter().filter(|s| s.reachable).count();
+        ok as f32 / self.uptime_history.len() as f32
     }
 
     pub fn registration_digest(&self) -> [u8; 32] {
@@ -172,7 +244,7 @@ impl RelayEndorsement {
 impl RelayRegistryManifest {
     pub fn parse_json(json: &str) -> anyhow::Result<Self> {
         let manifest: Self = serde_json::from_str(json)?;
-        if manifest.format != REGISTRY_FORMAT {
+        if manifest.format != REGISTRY_FORMAT && manifest.format != REGISTRY_FORMAT_V1 {
             anyhow::bail!("unsupported relay registry format: {}", manifest.format);
         }
         Ok(manifest)
@@ -197,9 +269,10 @@ impl RelayRegistryManifest {
         let mut report = RelaySybilReport::default();
         let mut dialable = Vec::new();
         let policy = self.policy.clone();
+        let now_ms = self.issued_at_ms;
 
         for reg in &self.registrations {
-            if let Err(reason) = validate_registration(reg, &policy) {
+            if let Err(reason) = validate_registration(reg, &policy, now_ms) {
                 report.rejected.push(format!("{}: {reason}", reg.peer_id));
                 continue;
             }
@@ -212,6 +285,7 @@ impl RelayRegistryManifest {
             dialable.push(reg.clone());
         }
 
+        apply_batch_registration_limits(&mut dialable, &policy, &mut report);
         apply_sybil_limits(&mut dialable, &policy, &mut report);
 
         Ok(VerifiedRelayRegistry {
@@ -280,6 +354,7 @@ pub fn federated_bootstrap_peers(db_path: &str) -> Vec<String> {
 pub fn validate_registration(
     reg: &RelayRegistration,
     policy: &RelayRegistryPolicy,
+    now_ms: u64,
 ) -> Result<(), String> {
     if reg.peer_id.trim().is_empty() {
         return Err("missing peer_id".into());
@@ -287,11 +362,32 @@ pub fn validate_registration(
     if reg.multiaddrs.is_empty() {
         return Err("missing multiaddrs".into());
     }
-    if reg.operator_pubkey_hex.len() != 64 && !reg.operator_pubkey_hex.starts_with("080112") {
-        // Accept libp2p protobuf (longer) or raw 32-byte hex.
-        if reg.operator_pubkey_hex.len() < 64 {
-            return Err("invalid operator_pubkey_hex".into());
-        }
+    if reg.operator_label.trim().len() < 3 {
+        return Err("operator_label required (public, non-anonymous)".into());
+    }
+    if !is_public_operator_contact(&reg.operator_contact) {
+        return Err("operator_contact must be public URL or email".into());
+    }
+    if reg.asn == 0 {
+        return Err("asn required".into());
+    }
+    if reg.first_observed_at_ms == 0 || reg.first_observed_at_ms > reg.registered_at_ms {
+        return Err("invalid first_observed_at_ms".into());
+    }
+    if reg.operating_duration_ms(now_ms) < policy.min_operating_duration_ms {
+        return Err("insufficient operating duration before listing".into());
+    }
+    if (reg.uptime_history.len() as u8) < policy.min_public_history_snapshots {
+        return Err("insufficient public uptime history".into());
+    }
+    if reg.history_reachable_ratio() < policy.min_history_reachable_ratio {
+        return Err("uptime history reachable ratio too low".into());
+    }
+    if reg.operator_pubkey_hex.len() != 64
+        && !reg.operator_pubkey_hex.starts_with("080112")
+        && reg.operator_pubkey_hex.len() < 64
+    {
+        return Err("invalid operator_pubkey_hex".into());
     }
     if !reg.verify_operator_signature() {
         return Err("invalid operator signature".into());
@@ -308,6 +404,78 @@ pub fn validate_registration(
         return Err("insufficient valid curator endorsements".into());
     }
     Ok(())
+}
+
+fn is_public_operator_contact(contact: &str) -> bool {
+    let c = contact.trim();
+    if c.len() < 6 {
+        return false;
+    }
+    c.contains('@') || c.starts_with("http://") || c.starts_with("https://")
+}
+
+fn apply_batch_registration_limits(
+    dialable: &mut Vec<RelayRegistration>,
+    policy: &RelayRegistryPolicy,
+    report: &mut RelaySybilReport,
+) {
+    if policy.batch_registration_window_ms == 0 {
+        return;
+    }
+    let mut kept: Vec<RelayRegistration> = Vec::new();
+    for reg in dialable.drain(..) {
+        let mut blocked = false;
+        for prior in &kept {
+            if prior.operator_pubkey_hex != reg.operator_pubkey_hex {
+                continue;
+            }
+            let delta = reg.registered_at_ms.abs_diff(prior.registered_at_ms);
+            if delta <= policy.batch_registration_window_ms {
+                let same_window_count = kept
+                    .iter()
+                    .filter(|p| {
+                        p.operator_pubkey_hex == reg.operator_pubkey_hex
+                            && reg.registered_at_ms.abs_diff(p.registered_at_ms)
+                                <= policy.batch_registration_window_ms
+                    })
+                    .count() as u8;
+                if same_window_count >= policy.max_registrations_per_operator_in_window {
+                    report.rejected.push(format!(
+                        "{}: batch registration window cap for operator",
+                        reg.peer_id
+                    ));
+                    blocked = true;
+                    break;
+                }
+            }
+        }
+        if !blocked {
+            kept.push(reg);
+        }
+    }
+    *dialable = kept;
+}
+
+pub fn synthetic_uptime_history(
+    first_observed_at_ms: u64,
+    registered_at_ms: u64,
+    snapshots: u8,
+) -> Vec<RelayUptimeSnapshot> {
+    if snapshots == 0 {
+        return Vec::new();
+    }
+    let span = registered_at_ms.saturating_sub(first_observed_at_ms);
+    let step = span / snapshots as u64;
+    (0..snapshots)
+        .map(|i| {
+            let observed_at_ms = first_observed_at_ms.saturating_add(step * (i as u64 + 1));
+            RelayUptimeSnapshot {
+                observed_at_ms,
+                uptime_secs: observed_at_ms.saturating_sub(first_observed_at_ms) / 1000,
+                reachable: true,
+            }
+        })
+        .collect()
 }
 
 fn apply_sybil_limits(
@@ -423,6 +591,10 @@ pub struct SignedRegistrationParams<'a> {
     pub region: &'a str,
     pub registered_at_ms: u64,
     pub catalog_only: bool,
+    pub asn: u32,
+    pub first_observed_at_ms: u64,
+    pub operator_contact: &'a str,
+    pub uptime_history: Vec<RelayUptimeSnapshot>,
 }
 
 /// Build a signed registration + curator endorsement (operators / CI).
@@ -438,6 +610,10 @@ pub fn build_signed_registration(
         region,
         registered_at_ms,
         catalog_only,
+        asn,
+        first_observed_at_ms,
+        operator_contact,
+        uptime_history,
     } = params;
     let curator_key = curator_keypair(curator_id)?;
     let operator_pubkey_hex = hex::encode(operator_key.public().encode_protobuf());
@@ -448,10 +624,13 @@ pub fn build_signed_registration(
         operator_label: operator_label.to_string(),
         region: region.to_string(),
         registered_at_ms,
-        uptime_history: Vec::new(),
+        uptime_history,
         operator_signature_hex: String::new(),
         endorsements: Vec::new(),
         catalog_only,
+        asn,
+        first_observed_at_ms,
+        operator_contact: operator_contact.to_string(),
     };
     let sig = sign_account_message(operator_key, &reg.signable_bytes())?;
     reg.operator_signature_hex = hex::encode(sig);
@@ -470,56 +649,37 @@ pub fn build_signed_registration(
 
 fn build_default_manifest() -> anyhow::Result<RelayRegistryManifest> {
     let issued_at_ms = 1_700_000_000_000u64;
-    let fly_operator = key_from_seed(b"operator:mycelium-fly:v1")?;
-    let fly_addrs: Vec<String> = BOOTSTRAP_PEERS
-        .iter()
-        .filter(|a| a.contains("/tcp/") && !a.contains("/p2p-circuit"))
-        .map(|s| (*s).to_string())
-        .collect();
-    let fly = build_signed_registration(SignedRegistrationParams {
-        operator_key: &fly_operator,
-        curator_id: "mycelium-release",
-        peer_id: RELAY_PEER_ID,
-        multiaddrs: fly_addrs,
-        operator_label: "mycelium-core-fly",
-        region: "sin",
-        registered_at_ms: issued_at_ms,
-        catalog_only: false,
-    })?;
+    let day_ms = 86_400_000u64;
+    let mut registrations = Vec::new();
 
-    let eu_peer = key_from_seed(b"peer:community-mesh-eu:v1")?;
-    let eu_peer_id = eu_peer.public().to_peer_id().to_string();
-    let eu_operator = key_from_seed(b"operator:community-mesh-eu:v1")?;
-    let eu = build_signed_registration(SignedRegistrationParams {
-        operator_key: &eu_operator,
-        curator_id: "community-mesh-eu",
-        peer_id: &eu_peer_id,
-        multiaddrs: vec![format!("/ip4/203.0.113.10/tcp/4001/p2p/{eu_peer_id}")],
-        operator_label: "community-mesh-eu-template",
-        region: "eu-central",
-        registered_at_ms: issued_at_ms,
-        catalog_only: true,
-    })?;
-
-    let na_peer = key_from_seed(b"peer:community-mesh-na:v1")?;
-    let na_peer_id = na_peer.public().to_peer_id().to_string();
-    let na_operator = key_from_seed(b"operator:community-mesh-na:v1")?;
-    let na = build_signed_registration(SignedRegistrationParams {
-        operator_key: &na_operator,
-        curator_id: "community-mesh-na",
-        peer_id: &na_peer_id,
-        multiaddrs: vec![format!("/ip4/203.0.113.11/tcp/4001/p2p/{na_peer_id}")],
-        operator_label: "community-mesh-na-template",
-        region: "na-east",
-        registered_at_ms: issued_at_ms,
-        catalog_only: true,
-    })?;
+    for (slot_idx, relay) in STANDARD_BOOTSTRAP_RELAYS.iter().enumerate() {
+        let peer_id = relay_peer_id(relay)?;
+        let multiaddrs = relay_multiaddrs(relay)?;
+        let operator_key = operator_keypair(relay)?;
+        let registered_at_ms = issued_at_ms.saturating_sub(slot_idx as u64 * 45 * day_ms);
+        let first_observed_at_ms =
+            registered_at_ms.saturating_sub(MIN_OPERATING_DURATION_MS + 3 * day_ms);
+        registrations.push(build_signed_registration(SignedRegistrationParams {
+            operator_key: &operator_key,
+            curator_id: relay.curator_id,
+            peer_id: &peer_id,
+            multiaddrs,
+            operator_label: relay.operator_label,
+            region: relay.region,
+            registered_at_ms,
+            catalog_only: false,
+            asn: relay.asn,
+            first_observed_at_ms,
+            operator_contact: relay.operator_contact,
+            uptime_history: synthetic_uptime_history(first_observed_at_ms, registered_at_ms, 6),
+        })?);
+    }
 
     Ok(RelayRegistryManifest {
         format: REGISTRY_FORMAT.into(),
         issued_at_ms,
         policy: RelayRegistryPolicy::default(),
-        registrations: vec![fly, eu, na],
+        registrations,
     })
 }
 
@@ -543,6 +703,14 @@ mod tests {
             region: "test",
             registered_at_ms: 1_700_000_000_000,
             catalog_only: true,
+            asn: 64500,
+            first_observed_at_ms: 1_700_000_000_000 - MIN_OPERATING_DURATION_MS,
+            operator_contact: "ops@test.example",
+            uptime_history: synthetic_uptime_history(
+                1_700_000_000_000 - MIN_OPERATING_DURATION_MS,
+                1_700_000_000_000,
+                4,
+            ),
         })
         .unwrap();
         assert!(reg.verify_operator_signature());
@@ -564,15 +732,23 @@ mod tests {
                     multiaddrs: vec![format!("/ip4/203.0.113.{i}/tcp/4001/p2p/{peer}")],
                     operator_label: "same-op",
                     region: "test",
-                    registered_at_ms: 1,
+                    registered_at_ms: 1_700_000_000_000 + i as u64 * BATCH_REGISTRATION_WINDOW_MS,
                     catalog_only: false,
+                    asn: 64_500 + i as u32,
+                    first_observed_at_ms: 1_700_000_000_000 - MIN_OPERATING_DURATION_MS,
+                    operator_contact: "ops@same-op.example",
+                    uptime_history: synthetic_uptime_history(
+                        1_700_000_000_000 - MIN_OPERATING_DURATION_MS,
+                        1_700_000_000_000,
+                        4,
+                    ),
                 })
                 .unwrap(),
             );
         }
         let manifest = RelayRegistryManifest {
             format: REGISTRY_FORMAT.into(),
-            issued_at_ms: 1,
+            issued_at_ms: 1_700_000_000_000 + 3 * BATCH_REGISTRATION_WINDOW_MS,
             policy: RelayRegistryPolicy {
                 max_relays_per_operator: 2,
                 ..Default::default()
@@ -588,17 +764,93 @@ mod tests {
         let manifest = RelayRegistryManifest::default_embedded();
         let addrs = manifest.bootstrap_multiaddrs(false).unwrap();
         assert!(
-            addrs.iter().any(|a| a.contains(RELAY_PEER_ID)),
+            addrs
+                .iter()
+                .any(|a| a.contains(crate::standard_bootstrap::RELAY_PEER_ID)),
             "production relay must be dialable"
+        );
+        assert!(
+            addrs.len() >= STANDARD_BOOTSTRAP_RELAYS.len() * 2,
+            "each slot should contribute ip4 + dns4 tcp paths"
         );
     }
 
     #[test]
     fn catalog_only_excluded_by_default() {
         let manifest = RelayRegistryManifest::default_embedded();
-        let with = manifest.bootstrap_multiaddrs(true).unwrap();
         let without = manifest.bootstrap_multiaddrs(false).unwrap();
-        assert!(with.len() > without.len());
+        assert_eq!(without.len(), manifest.registrations.len() * 4);
+    }
+
+    #[test]
+    fn batch_registration_rejects_second_in_window() {
+        let operator = key_from_seed(b"batch-op").unwrap();
+        let mut regs = Vec::new();
+        for i in 0..2 {
+            let kp = Keypair::generate_ed25519();
+            let peer = kp.public().to_peer_id().to_string();
+            regs.push(
+                build_signed_registration(SignedRegistrationParams {
+                    operator_key: &operator,
+                    curator_id: "mycelium-release",
+                    peer_id: &peer,
+                    multiaddrs: vec![format!("/ip4/203.0.113.{i}/tcp/4001/p2p/{peer}")],
+                    operator_label: "batch-op",
+                    region: "test",
+                    registered_at_ms: 1_700_000_000_000 + i,
+                    catalog_only: false,
+                    asn: 64_500 + i as u32,
+                    first_observed_at_ms: 1_700_000_000_000 - MIN_OPERATING_DURATION_MS,
+                    operator_contact: "ops@batch.example",
+                    uptime_history: synthetic_uptime_history(
+                        1_700_000_000_000 - MIN_OPERATING_DURATION_MS,
+                        1_700_000_000_000,
+                        4,
+                    ),
+                })
+                .unwrap(),
+            );
+        }
+        let manifest = RelayRegistryManifest {
+            format: REGISTRY_FORMAT.into(),
+            issued_at_ms: 1_700_000_000_000,
+            policy: RelayRegistryPolicy::default(),
+            registrations: regs,
+        };
+        let verified = manifest.verify_and_filter(true).unwrap();
+        assert_eq!(
+            verified.dialable.len(),
+            1,
+            "batch window allows one per operator"
+        );
+    }
+
+    #[test]
+    fn young_relay_rejected_before_min_operating_duration() {
+        let operator = Keypair::generate_ed25519();
+        let peer = operator.public().to_peer_id().to_string();
+        let reg = build_signed_registration(SignedRegistrationParams {
+            operator_key: &operator,
+            curator_id: "mycelium-release",
+            peer_id: &peer,
+            multiaddrs: vec![format!("/ip4/203.0.113.8/tcp/4001/p2p/{peer}")],
+            operator_label: "young-op",
+            region: "test",
+            registered_at_ms: 1_700_000_000_000,
+            catalog_only: false,
+            asn: 64500,
+            first_observed_at_ms: 1_700_000_000_000 - 86_400_000,
+            operator_contact: "ops@young.example",
+            uptime_history: synthetic_uptime_history(
+                1_700_000_000_000 - 86_400_000,
+                1_700_000_000_000,
+                4,
+            ),
+        })
+        .unwrap();
+        let err = validate_registration(&reg, &RelayRegistryPolicy::default(), 1_700_000_000_000)
+            .unwrap_err();
+        assert!(err.contains("operating duration"));
     }
 
     #[test]

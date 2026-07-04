@@ -2,8 +2,11 @@
 // Copyright (C) 2026 Mycelium Project
 //! Multi-relay bootstrap pool with hash-based client rotation (Phase D2, SD-071).
 
-use crate::bootstrap::{peer_id_from_multiaddr, BOOTSTRAP_PEERS, RELAY_PEER_ID};
-use crate::relay_registry::{RelayRegistration, RelayRegistryManifest, VerifiedRelayRegistry};
+use crate::bootstrap::{peer_id_from_multiaddr, standard_bootstrap_tcp_ip4_multiaddrs};
+use crate::relay_diversity::{select_parallel_dial_indices, RelayDiversityPolicy};
+use crate::relay_registry::{
+    ipv4_prefix_from_multiaddr, RelayRegistration, RelayRegistryManifest, VerifiedRelayRegistry,
+};
 
 /// One public relay reachable via raw TCP (and optional QUIC in bootstrap list).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -13,6 +16,9 @@ pub struct RelayEntry {
     pub tcp_multiaddr: String,
     pub operator_label: String,
     pub region: String,
+    pub operator_pubkey_hex: String,
+    pub ipv4_prefix: Option<String>,
+    pub asn: u32,
     /// Client-side consecutive dial/reservation failures (not persisted).
     pub consecutive_failures: u8,
 }
@@ -42,17 +48,31 @@ impl RelayPool {
                 tcp_multiaddr: s.to_string(),
                 operator_label: String::new(),
                 region: String::new(),
+                operator_pubkey_hex: String::new(),
+                ipv4_prefix: ipv4_prefix_from_multiaddr(s),
+                asn: 0,
                 consecutive_failures: 0,
             });
         }
         if entries.is_empty() {
-            entries.push(RelayEntry {
-                peer_id: RELAY_PEER_ID.to_string(),
-                tcp_multiaddr: BOOTSTRAP_PEERS[0].to_string(),
-                operator_label: "mycelium-core-fly".into(),
-                region: "sin".into(),
-                consecutive_failures: 0,
-            });
+            for addr in standard_bootstrap_tcp_ip4_multiaddrs() {
+                let Some(relay_id) = peer_id_from_multiaddr(&addr) else {
+                    continue;
+                };
+                if entries.iter().any(|e| e.peer_id == relay_id) {
+                    continue;
+                }
+                entries.push(RelayEntry {
+                    peer_id: relay_id,
+                    tcp_multiaddr: addr.clone(),
+                    operator_label: String::new(),
+                    region: String::new(),
+                    operator_pubkey_hex: String::new(),
+                    ipv4_prefix: ipv4_prefix_from_multiaddr(&addr),
+                    asn: 0,
+                    consecutive_failures: 0,
+                });
+            }
         }
         Self { entries }
     }
@@ -101,8 +121,27 @@ impl RelayPool {
         self.entries.iter().any(|e| e.peer_id == p)
     }
 
+    /// Indices for a diverse parallel bootstrap dial batch (ASN /24 / operator spread).
+    pub fn select_parallel_dial_indices(
+        &self,
+        seed: &str,
+        policy: &RelayDiversityPolicy,
+    ) -> Vec<usize> {
+        select_parallel_dial_indices(&self.entries, seed, policy)
+    }
+
     /// Stable relay pick for a remote peer (spreads load across the pool).
     pub fn select_index_for(&self, seed: &str) -> usize {
+        self.select_index_for_with_skip(seed, &[])
+    }
+
+    /// Pick circuit relay preferring the diverse parallel batch, then hash fallback.
+    pub fn select_diverse_index_for(&self, seed: &str) -> usize {
+        let policy = RelayDiversityPolicy::default();
+        let batch = self.select_parallel_dial_indices(seed, &policy);
+        if let Some(&idx) = batch.first() {
+            return idx;
+        }
         self.select_index_for_with_skip(seed, &[])
     }
 
@@ -205,6 +244,9 @@ fn relay_entry_from_registration(reg: &RelayRegistration) -> Option<RelayEntry> 
         tcp_multiaddr: tcp,
         operator_label: reg.operator_label.clone(),
         region: reg.region.clone(),
+        operator_pubkey_hex: reg.operator_pubkey_hex.clone(),
+        ipv4_prefix: reg.ipv4_prefix(),
+        asn: reg.asn,
         consecutive_failures: 0,
     })
 }
@@ -288,8 +330,8 @@ mod tests {
     fn federated_pool_from_default_manifest() {
         let manifest = RelayRegistryManifest::default_embedded();
         let pool = RelayPool::from_registry_manifest(&manifest, false);
-        assert!(!pool.is_empty());
-        assert!(pool.is_relay_peer(RELAY_PEER_ID));
+        assert!(pool.len() >= 6, "multi-relay default manifest");
+        assert!(pool.is_relay_peer(crate::standard_bootstrap::RELAY_PEER_ID));
     }
 
     #[test]

@@ -6,15 +6,21 @@ import network.mycelium.bindings.mycelium
 
 /**
  * Federated relay circuit bootstrap — mirrors Rust [`RelayPool`] hash selection.
- * Production dialable relays only; full registry lives in `mycelium-core`.
+ * Equal-weight standard bootstrap relays (no primary / fallback ordering).
  */
 object RelayBootstrap {
-    /** Legacy primary relay (embedded production manifest). */
+    /** Legacy alias — first production slot (Fly Singapore). */
     const val RELAY_PEER_ID: String = "12D3KooWSkVL5ThExB7paWskDKc2pUobKrV9yWVabMpUdw8hE2wj"
 
-    /** TCP multiaddrs (no `/p2p-circuit` suffix). Add new production relays here after curator endorsement. */
+    /** TCP `/ip4/` bases (no `/p2p-circuit` suffix) — keep in sync with `standard_bootstrap.rs`. */
     private val RELAY_TCP_BASES: List<String> = listOf(
         "/ip4/149.248.194.198/tcp/4001/p2p/$RELAY_PEER_ID",
+        "/ip4/243.185.187.10/tcp/4001/p2p/12D3KooWHkNVYzAAYb37LJJVnkx5n6Z2GkArjT48QXbNx9aFCzi5",
+        "/ip4/243.186.187.10/tcp/4001/p2p/12D3KooWCxnh9j2SV9i4sCA4Z7Z8gN8piMTmQ3WsJMLTYYPCnVbb",
+        "/ip4/243.187.187.10/tcp/4001/p2p/12D3KooWBzTB6FdEpsoCjJXVrGPZWt2Uqpqo6DY5HfksxWDCdmib",
+        "/ip4/243.188.187.10/tcp/4001/p2p/12D3KooWMvn86f7CtdSDH6KE2TCLd2EmW2ARS6PTw2j95o9DgQcC",
+        "/ip4/243.189.187.10/tcp/4001/p2p/12D3KooWPTo5HXEsJ19oE6i1QeUgX1AWAeRpB3PCFmRREC3AhFAi",
+        "/ip4/243.190.187.10/tcp/4001/p2p/12D3KooWN3cqN7NLRHT7aoKSjnyecVHv5XR4DAasdaLhvDXLCsiE",
     )
 
     private val nativeLibLoaded: Boolean =
