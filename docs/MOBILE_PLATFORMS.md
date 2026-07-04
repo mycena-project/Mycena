@@ -1,7 +1,7 @@
 # Mobile platform strategy
 
-**Status:** Groundwork (Android shipping; iOS planned)  
-**Last updated:** 2026-07-02
+**Status:** Android shipping; iOS BLE host implemented (app shell pending)  
+**Last updated:** 2026-07-04
 
 This document records how Mycelium splits **shared Rust** from **native mobile shells**, so Android development can continue unchanged while iOS is added with minimal rework.
 
@@ -54,7 +54,7 @@ Related: [architecture.md](./architecture.md) · [SECURITY.md](./SECURITY.md) ·
 | System notifications | `NotificationSink` hook | Show notification UI |
 | Events to UI | `NodeEventCallback` (UniFFI) | Broadcast / Flow (Android) · delegate (iOS) |
 | QR / camera | — | Platform camera APIs |
-| BLE “app nearby” hint + libp2p overlay | — | Kotlin (F1–F3); Core Bluetooth on iOS |
+| BLE “app nearby” hint + libp2p overlay | — | Kotlin F1–F3 (Android); Core Bluetooth F1–F3 (iOS — see [IOS_BLE_CONSTRAINTS.md](./IOS_BLE_CONSTRAINTS.md)) |
 | mDNS on Wi‑Fi | Rust (libp2p) | Android: multicast lock; iOS: network entitlement |
 | Compose / SwiftUI | — | All screens and navigation |
 | Mini-app WebView sandbox | Bridge in Rust | WebView + process isolation per platform |
@@ -86,7 +86,7 @@ These are **intentionally** not in shared Rust:
 |---------|----------|------------------------|
 | Foreground mesh service | `MeshService.kt` | `BGProcessingTask` / limited BG fetch |
 | Encrypted prefs master key | `StorageKeyHelper.kt` | Keychain wrapper |
-| BLE bootstrap advertise/scan | `bootstrap/BleBootstrap*.kt` | Core Bluetooth |
+| BLE bootstrap advertise/scan + peripheral GATT | `bootstrap/BleBootstrap*.kt`, `BleInviteGattServer.kt` | `ios/Mycelium/BLE/` (`BleMeshHost`, restoration IDs) |
 | Wi‑Fi multicast lock | `bootstrap/WifiMulticastLock.kt` | iOS mDNS without extra lock |
 | Mesh event bus | `MeshEventBus.kt` | `NotificationCenter` / async stream |
 | Mini-app isolated process | `miniapp/MiniAppProcessActivity.kt` | App extension or in-process WebView policy |
@@ -126,6 +126,7 @@ Extract duplicated node startup from `mycelium-ffi/src/lib.rs` and `mycelium-des
 4. SwiftUI app: onboarding, Connect (QR), Chat, Settings
 5. Keychain → `NodeConfig.storage_key_hex`
 6. Free Apple ID or TestFlight for distribution (see below)
+7. [x] Core Bluetooth peripheral + central mesh host (`ios/Mycelium/BLE/`) — **background limits:** [IOS_BLE_CONSTRAINTS.md](./IOS_BLE_CONSTRAINTS.md)
 
 ### Phase 4 — Parity and platform polish
 
@@ -178,5 +179,6 @@ Bulletin, mail, mini-apps, BLE, background policy — prioritized by user need, 
 | At-rest vault | `crates/mycelium-core/src/at_rest.rs` |
 | Android host | `android/app/src/main/java/network/mycelium/app/` |
 | Android build | `android/README.md` |
-| iOS scaffold | `ios/README.md` |
+| iOS scaffold + BLE host | `ios/README.md`, `ios/Mycelium/BLE/` |
+| iOS BLE background limits | `docs/IOS_BLE_CONSTRAINTS.md` |
 | Binding regen | `scripts/regenerate-uniffi-bindings.sh` |

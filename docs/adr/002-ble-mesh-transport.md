@@ -1,6 +1,6 @@
 # ADR 002: Bluetooth as a mesh transport layer
 
-**Status:** Accepted (F0–F2 Android shipped; F3 Android shipped)  
+**Status:** Accepted (F0–F3 Android shipped; F1–F3 iOS host in `ios/Mycelium/BLE/` — background limits: [IOS_BLE_CONSTRAINTS.md](../IOS_BLE_CONSTRAINTS.md))  
 **Date:** 2026-07-03  
 **Context:** Users want **maximum connectivity** — all discovery and transport paths active so the mesh works when Wi‑Fi or internet fail. Today BLE is **opt-in discovery only** (Android); libp2p traffic uses TCP/QUIC on LAN and relay circuits. Real-world scenarios (protests, festivals, guest Wi‑Fi blocking mDNS, no shared router) can make **BLE the only link** between two phones meters apart.
 
