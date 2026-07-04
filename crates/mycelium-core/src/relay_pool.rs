@@ -286,7 +286,7 @@ mod tests {
     fn federated_pool_from_default_manifest() {
         let manifest = RelayRegistryManifest::default_embedded();
         let pool = RelayPool::from_registry_manifest(&manifest, false);
-        assert!(pool.len() >= 1);
+        assert!(!pool.is_empty());
         assert!(pool.is_relay_peer(RELAY_PEER_ID));
     }
 

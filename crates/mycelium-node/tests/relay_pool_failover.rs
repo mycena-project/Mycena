@@ -18,7 +18,7 @@ fn federated_circuit_multiaddr_uses_pool_not_hardcoded_peer() {
 fn relay_pool_failover_skips_failed_relay() {
     let manifest = RelayRegistryManifest::default_embedded();
     let mut pool = RelayPool::from_registry_manifest(&manifest, false);
-    assert!(pool.len() >= 1);
+    assert!(!pool.is_empty());
     let start = pool.select_index_for("client-seed");
     pool.mark_failure(start);
     pool.mark_failure(start);

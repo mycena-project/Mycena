@@ -17,7 +17,9 @@ struct LinkedTransport {
     keypair: identity::Keypair,
     connected: HashSet<String>,
     inbox: mpsc::UnboundedReceiver<TransportEvent>,
+    #[allow(dead_code)]
     inbox_tx: mpsc::UnboundedSender<TransportEvent>,
+    #[allow(dead_code)]
     routes: Arc<Mutex<HashMap<String, mpsc::UnboundedSender<TransportEvent>>>>,
 }
 
