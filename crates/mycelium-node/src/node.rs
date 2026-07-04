@@ -257,6 +257,7 @@ pub enum NodeCommand {
         to_peer: String,
         body: String,
         payload: Vec<u8>,
+        priority: Option<Priority>,
     },
     Broadcast {
         scope: String,
@@ -360,6 +361,8 @@ pub enum NodeCommand {
     SetCrowdMode(bool),
     /// SD-070: padding, batching, scope bucketing, cover traffic.
     SetPrivacyShaping(PrivacyShapingConfig),
+    /// Local endorsement boosts for relay selection (from UserTrustStore).
+    SetLocalEndorsements(HashMap<String, f32>),
     /// Follow a contact's signed transport PeerId rotation (SD-190).
     RemapTransportPeer {
         old_peer_id: String,
@@ -683,6 +686,7 @@ pub struct NodeRunner {
     batch_scheduler: BatchingScheduler,
     privacy_stats: PrivacyShapingStats,
     last_cover_at: Option<Instant>,
+    local_endorsements: Arc<RwLock<HashMap<String, f32>>>,
 }
 
 async fn resolve_logical_sender(
@@ -897,6 +901,7 @@ impl NodeRunner {
                 batch_scheduler: BatchingScheduler::default(),
                 privacy_stats: PrivacyShapingStats::default(),
                 last_cover_at: None,
+                local_endorsements: Arc::new(RwLock::new(HashMap::new())),
             },
             NodeHandle {
                 tx,
@@ -1199,15 +1204,27 @@ impl NodeRunner {
     async fn handle_command(&mut self, cmd: NodeCommand) -> anyhow::Result<()> {
         match cmd {
             NodeCommand::SendDirect { to_peer, body } => {
-                self.send_direct_internal(to_peer, body.clone(), body.into_bytes())
-                    .await?;
+                self.send_direct_internal(
+                    to_peer,
+                    body.clone(),
+                    body.into_bytes(),
+                    Priority::Normal,
+                )
+                .await?;
             }
             NodeCommand::SendDirectPayload {
                 to_peer,
                 body,
                 payload,
+                priority,
             } => {
-                self.send_direct_internal(to_peer, body, payload).await?;
+                self.send_direct_internal(
+                    to_peer,
+                    body,
+                    payload,
+                    priority.unwrap_or(Priority::Normal),
+                )
+                .await?;
             }
             NodeCommand::Broadcast { scope, body } => {
                 self.broadcast_scoped(scope, body.clone(), body.into_bytes())
@@ -1566,6 +1583,9 @@ impl NodeRunner {
                     }
                 );
             }
+            NodeCommand::SetLocalEndorsements(map) => {
+                *self.local_endorsements.write().await = map;
+            }
             NodeCommand::RemapTransportPeer {
                 old_peer_id,
                 new_peer_id,
@@ -1614,12 +1634,14 @@ impl NodeRunner {
         to_peer: String,
         body: String,
         payload: Vec<u8>,
+        priority: Priority,
     ) -> anyhow::Result<()> {
         let mut envelope = mycelium_core::data::Envelope::new(
             self.local_peer_id.clone(),
             Some(to_peer.clone()),
             payload,
         );
+        envelope.priority = priority;
         if let Some(keypair) = &self.keypair {
             let _ = envelope.sign(keypair);
         }
@@ -1642,10 +1664,12 @@ impl NodeRunner {
         } else {
             let now = now_ms();
             let peer_trust = self.peer_trust.load_all();
+            let endorsement_boosts = self.local_endorsements.read().await.clone();
             let relay_candidates = security::select_relay_candidates(
                 &peers,
                 &to_peer,
                 &peer_trust,
+                Some(&endorsement_boosts),
                 now,
                 self.effective_max_relay_fanout(),
             );
@@ -1859,10 +1883,12 @@ impl NodeRunner {
             let peers = self.transport.known_peers();
             let now = now_ms();
             let peer_trust = self.peer_trust.load_all();
+            let endorsement_boosts = self.local_endorsements.read().await.clone();
             let relay_candidates = security::select_relay_candidates(
                 &peers,
                 to_peer,
                 &peer_trust,
+                Some(&endorsement_boosts),
                 now,
                 self.effective_max_relay_fanout(),
             );
@@ -2763,8 +2789,7 @@ impl NodeRunner {
             self.pending.push_back(PendingMessage { to_peer, message });
         }
         if !self.batch_scheduler.has_deadline() && self.batch_scheduler.len() > 0 {
-            self.batch_scheduler
-                .reschedule_flush(&self.privacy_shaping);
+            self.batch_scheduler.reschedule_flush(&self.privacy_shaping);
         }
         Ok(())
     }
@@ -2800,8 +2825,7 @@ impl NodeRunner {
         let Some(to_peer) = peers.first().cloned() else {
             return Ok(());
         };
-        let mut envelope =
-            privacy_shaping::build_cover_envelope(&self.local_peer_id, &to_peer);
+        let mut envelope = privacy_shaping::build_cover_envelope(&self.local_peer_id, &to_peer);
         envelope.priority = Priority::Low;
         if let Some(keypair) = &self.keypair {
             let _ = envelope.sign(keypair);
@@ -2811,8 +2835,10 @@ impl NodeRunner {
             body: privacy_shaping::COVER_BODY.to_string(),
         };
         let wire_bytes = msg.envelope.payload.len() as u64;
-        self.pending
-            .push_back(PendingMessage { to_peer, message: msg });
+        self.pending.push_back(PendingMessage {
+            to_peer,
+            message: msg,
+        });
         self.last_cover_at = Some(now);
         self.privacy_stats.cover_packets_sent += 1;
         self.privacy_stats.cover_bytes_sent += wire_bytes;
@@ -3055,8 +3081,7 @@ impl NodeRunner {
         if privacy_shaping::should_batch(message.envelope.priority, &self.privacy_shaping) {
             self.batch_scheduler.push(to_peer, message);
             if !self.batch_scheduler.has_deadline() {
-                self.batch_scheduler
-                    .reschedule_flush(&self.privacy_shaping);
+                self.batch_scheduler.reschedule_flush(&self.privacy_shaping);
             }
             return Ok(());
         }

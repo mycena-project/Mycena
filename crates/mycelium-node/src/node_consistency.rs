@@ -46,7 +46,7 @@ impl crate::NodeHandle {
         self.send(NodeCommand::SendDirect { to_peer, body }).await
     }
 
-    /// Direct mesh payload ([`OP_DIRECT_MESSAGE_SEND`]).
+    /// Direct mesh payload with optional priority ([`OP_DIRECT_MESSAGE_SEND`]).
     pub async fn mesh_send_direct(
         &self,
         to_peer: String,
@@ -54,11 +54,24 @@ impl crate::NodeHandle {
         payload: Vec<u8>,
         _op: StateOp<EventuallyConsistentModel>,
     ) -> anyhow::Result<()> {
+        self.mesh_send_direct_priority(to_peer, body, payload, None, _op)
+            .await
+    }
+
+    pub async fn mesh_send_direct_priority(
+        &self,
+        to_peer: String,
+        body: String,
+        payload: Vec<u8>,
+        priority: Option<mycelium_core::data::Priority>,
+        _op: StateOp<EventuallyConsistentModel>,
+    ) -> anyhow::Result<()> {
         debug_assert_eq!(_op.name, OP_DIRECT_MESSAGE_SEND.name);
         self.send(NodeCommand::SendDirectPayload {
             to_peer,
             body,
             payload,
+            priority,
         })
         .await
     }

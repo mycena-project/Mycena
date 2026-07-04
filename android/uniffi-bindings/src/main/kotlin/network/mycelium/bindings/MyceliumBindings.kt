@@ -31,6 +31,7 @@ typealias BleOutboundFrame = uniffi.mycelium.BleOutboundFrame
 typealias PrivacyShapingConfig = uniffi.mycelium.PrivacyShapingConfig
 typealias PrivacyShapingProfile = uniffi.mycelium.PrivacyShapingProfile
 typealias PrivacyShapingOverheadEstimate = uniffi.mycelium.PrivacyShapingOverheadEstimate
+typealias UserTrustSummary = uniffi.mycelium.UserTrustSummary
 
 object mycelium {
     fun initNode(config: NodeConfig) = uniffi.mycelium.initNode(config)
@@ -65,6 +66,10 @@ object mycelium {
     fun sendProximityMessage(encPubkeyHex: String, message: String) =
         uniffi.mycelium.sendProximityMessage(encPubkeyHex, message)
     fun sendChatDirect(toPeer: String, body: String) = uniffi.mycelium.sendChatDirect(toPeer, body)
+    fun sendChatPriority(toPeer: String, body: String, depositMuon: ULong) =
+        uniffi.mycelium.sendChatPriority(toPeer, body, depositMuon)
+    fun userTrustSummary(): UserTrustSummary = uniffi.mycelium.userTrustSummary()
+    fun endorsePeer(peerId: String, strength: UByte) = uniffi.mycelium.endorsePeer(peerId, strength)
     fun sendChatEncrypted(toPeer: String, body: String) = uniffi.mycelium.sendChatEncrypted(toPeer, body)
     fun localEncPubkey(): String = uniffi.mycelium.localEncPubkey()
     fun hasEncKeyFor(peerId: String): Boolean = uniffi.mycelium.hasEncKeyFor(peerId)

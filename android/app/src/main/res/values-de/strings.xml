@@ -123,7 +123,13 @@
     <string name="nav_mail">Post</string>
     <string name="nav_peers">Knoten</string>
     <string name="nav_settings">Einstellungen</string>
-    <string name="nav_wallet">Geldbörse</string>
+    <string name="nav_wallet">Notfall-Credits</string>
+    <string name="nav_emergency_credits">Notfall-Credits</string>
+    <string name="more_emergency_credits_sub">Credits für Mesh-Dienste — kein Sparen oder Handel</string>
+    <string name="network_contribution_title">Netzwerk-Beitrag</string>
+    <string name="network_contribution_loading">Wird gemessen…</string>
+    <string name="network_contribution_hint">Leite Nachrichten weiter, bleib online und bestätige hilfreiche Peers.</string>
+    <string name="network_contribution_stats">Relays: %1$d · Zustellungen: %2$d · Uptime: %3$s · Bestätigungen: %4$d</string>
     <string name="notification_channel_name">Myzel-Netzwerk</string>
     <string name="notification_peers">%1$d Peers verbunden</string>
     <string name="notification_running">Myzelium-Netz aktiv</string>
@@ -241,7 +247,7 @@
     <string name="wallet_cold_wallet_address">Cold-Wallet-Adresse</string>
     <string name="wallet_cold_wallet_hint">mxc1… (Haupt-Wallet)</string>
     <string name="wallet_dismiss">Schließen</string>
-    <string name="wallet_experimental_notice">MeshCoin ist experimentell. Nicht für echte Zahlungen verwenden. Das Konsensmodell ist in Entwicklung und noch nicht gegen Angriffe abgesichert.</string>
+    <string name="wallet_experimental_notice">Lokale Notfall-Credits für Offline-Ausfallsicherheit. Kein Geld, keine Anlage, nicht zum Sparen. Guthaben sind begrenzt — nur für Nachbarschafts-Kontinuität bei Ausfällen.</string>
     <string name="wallet_faucet">Fordern Sie Vorschau-Credits an</string>
     <string name="wallet_fee">Netzwerkgebühr</string>
     <string name="wallet_history">Transaktionsverlauf</string>
@@ -261,7 +267,7 @@
     <string name="wallet_share_request">Zahlungslink teilen</string>
     <string name="wallet_status_confirmed">Bestätigt</string>
     <string name="wallet_status_witnesses">%1$d/3 Zeugen</string>
-    <string name="wallet_title">Geldbeutel</string>
+    <string name="wallet_title">Notfall-Credits</string>
     <string name="wallet_to_hint">An (Adresse oder Peer-ID)</string>
     <string name="wallet_tx_pending">Transaktion ausstehend (offline)</string>
     <string name="wallet_tx_sent">Transaktionsübertragung</string>

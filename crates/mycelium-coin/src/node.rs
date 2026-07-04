@@ -461,4 +461,13 @@ impl CoinNode {
         }
         Ok(())
     }
+
+    /// Burn settled credits as anti-spam caution for message priority (not transferable).
+    pub fn burn_priority_deposit(&self, amount_muon: u64) -> Result<(), crate::CoinError> {
+        crate::spam_caution::deposit_for_message_priority(
+            &self.ledger,
+            &self.local_address,
+            amount_muon,
+        )
+    }
 }

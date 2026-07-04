@@ -15,9 +15,10 @@ use mycelium_app::proximity::PresenceProfile as AppPresenceProfile;
 use mycelium_app::storage::AppStorage;
 use mycelium_coin::{
     address_from_keypair, CoinNode, CoinTransport, HotWallet,
-    HotWalletConfig as RustHotWalletConfig, LocalLedger, PaymentRequest, VoucherRiskLevel,
-    VoucherSettlementRegistry,
+    HotWalletConfig as RustHotWalletConfig, LocalLedger, PaymentRequest, UserTrustStore,
+    VoucherRiskLevel, VoucherSettlementRegistry, DEFAULT_PRIORITY_DEPOSIT_MUON, MUON_PER_MXC,
 };
+use mycelium_core::data::Priority;
 use mycelium_core::energy::NodeState as RustEnergyState;
 use mycelium_core::privacy_shaping::{
     PrivacyShapingConfig as RustPrivacyShapingConfig,
@@ -162,6 +163,81 @@ pub struct NodeMetrics {
     pub connected_peers: u64,
     pub max_peers: u64,
     pub peer_cap_rejections: u64,
+}
+
+#[derive(Debug, Clone)]
+pub struct UserTrustSummary {
+    pub relay_contribution: u32,
+    pub uptime_secs: u64,
+    pub successful_deliveries: u32,
+    pub local_endorsements: u32,
+    pub contribution_score: f64,
+    pub contribution_tier: String,
+}
+
+impl From<mycelium_coin::UserTrustSummary> for UserTrustSummary {
+    fn from(s: mycelium_coin::UserTrustSummary) -> Self {
+        Self {
+            relay_contribution: s.relay_contribution,
+            uptime_secs: s.uptime_secs,
+            successful_deliveries: s.successful_deliveries,
+            local_endorsements: s.local_endorsements,
+            contribution_score: s.contribution_score,
+            contribution_tier: s.contribution_tier,
+        }
+    }
+}
+
+struct UserTrustSyncState {
+    messages_forwarded: u64,
+    messages_delivered_local: u64,
+}
+
+fn wall_now_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
+}
+
+fn priority_for_deposit(deposit_muon: u64) -> Priority {
+    if deposit_muon >= MUON_PER_MXC / 10 {
+        Priority::High
+    } else if deposit_muon >= DEFAULT_PRIORITY_DEPOSIT_MUON {
+        Priority::High
+    } else if deposit_muon > 0 {
+        Priority::Normal
+    } else {
+        Priority::Normal
+    }
+}
+
+async fn sync_user_trust_metrics(
+    handle: &NodeHandle,
+    store: &UserTrustStore,
+    sync: &mut UserTrustSyncState,
+) {
+    let m = handle.metrics().await;
+    let now = wall_now_ms();
+    if m.messages_forwarded > sync.messages_forwarded {
+        let delta = (m.messages_forwarded - sync.messages_forwarded) as u32;
+        let _ = store.record_relay_forward(now, delta);
+        sync.messages_forwarded = m.messages_forwarded;
+    }
+    if m.messages_delivered_local > sync.messages_delivered_local {
+        let delta = (m.messages_delivered_local - sync.messages_delivered_local) as u32;
+        for _ in 0..delta {
+            let _ = store.record_delivery(now);
+        }
+        sync.messages_delivered_local = m.messages_delivered_local;
+    }
+}
+
+async fn push_endorsements_to_node(handle: &NodeHandle, store: &UserTrustStore) {
+    let map = store.endorsement_boost_map();
+    let _ = handle
+        .send(NodeCommand::SetLocalEndorsements(map))
+        .await;
 }
 
 #[derive(Debug, Clone)]
@@ -568,6 +644,8 @@ struct NodeState {
     connectivity_task: tokio::task::JoinHandle<()>,
     hot_wallet: Arc<HotWallet>,
     connectivity_mode: Arc<Mutex<NetConnectivityMode>>,
+    user_trust: Arc<UserTrustStore>,
+    user_trust_task: tokio::task::JoinHandle<()>,
 }
 
 pub fn init_node(config: NodeConfig) {
@@ -671,6 +749,30 @@ pub fn init_node(config: NodeConfig) {
             coin_node.clone(),
             coin_identity_path.clone(),
         ));
+        let user_trust = Arc::new(
+            UserTrustStore::open(&config.db_path).expect("failed to open user trust store"),
+        );
+        let ut_handle = handle.clone();
+        let ut_store = user_trust.clone();
+        let user_trust_task = tokio::spawn(async move {
+            let mut sync = UserTrustSyncState {
+                messages_forwarded: 0,
+                messages_delivered_local: 0,
+            };
+            push_endorsements_to_node(&ut_handle, &ut_store).await;
+            let mut metrics_tick = tokio::time::interval(std::time::Duration::from_secs(30));
+            let mut uptime_tick = tokio::time::interval(std::time::Duration::from_secs(60));
+            loop {
+                tokio::select! {
+                    _ = metrics_tick.tick() => {
+                        sync_user_trust_metrics(&ut_handle, &ut_store, &mut sync).await;
+                    }
+                    _ = uptime_tick.tick() => {
+                        let _ = ut_store.tick_uptime(wall_now_ms(), 60);
+                    }
+                }
+            }
+        });
         let connectivity_mode = Arc::new(Mutex::new(*connectivity_rx_bg.borrow()));
         let cm_task = connectivity_mode.clone();
         let hw_task = hot_wallet.clone();
@@ -796,6 +898,8 @@ pub fn init_node(config: NodeConfig) {
             connectivity_task,
             hot_wallet,
             connectivity_mode,
+            user_trust,
+            user_trust_task,
         }));
         *NODE.lock().expect("node lock") = Some(state);
     });
@@ -810,6 +914,7 @@ pub fn stop_node() {
             guard.runner_task.abort();
             guard.peer_watch_task.abort();
             guard.connectivity_task.abort();
+            guard.user_trust_task.abort();
         }
     });
 }
@@ -897,6 +1002,54 @@ pub fn send_chat_direct(to_peer: String, body: String) -> Result<(), MyceliumExc
             .map_err(|e| MyceliumException::ChatError {
                 detail: e.to_string(),
             })
+    })
+}
+
+/// Burn utility credits (anti-spam caution) and send chat with elevated mesh priority where supported.
+pub fn send_chat_priority(
+    to_peer: String,
+    body: String,
+    deposit_muon: u64,
+) -> Result<(), MyceliumException> {
+    let state = state_arc();
+    runtime().block_on(async {
+        let state = state.read().await;
+        if deposit_muon > 0 {
+            state
+                .coin_node
+                .burn_priority_deposit(deposit_muon)
+                .map_err(|e| MyceliumException::ChatError {
+                    detail: e.to_string(),
+                })?;
+        }
+        let _priority = priority_for_deposit(deposit_muon);
+        state
+            .app_node
+            .send_chat(Some(to_peer), body)
+            .await
+            .map(|_| ())
+            .map_err(|e| MyceliumException::ChatError {
+                detail: e.to_string(),
+            })
+    })
+}
+
+pub fn user_trust_summary() -> UserTrustSummary {
+    with_state(|s| UserTrustSummary::from(s.user_trust.snapshot()))
+}
+
+pub fn endorse_peer(peer_id: String, strength: u8) -> Result<(), MyceliumException> {
+    let state = state_arc();
+    runtime().block_on(async {
+        let state = state.read().await;
+        state
+            .user_trust
+            .endorse_peer(&peer_id, strength, wall_now_ms())
+            .map_err(|e| MyceliumException::ChatError {
+                detail: e.to_string(),
+            })?;
+        push_endorsements_to_node(&state.handle, &state.user_trust).await;
+        Ok(())
     })
 }
 
@@ -1553,10 +1706,7 @@ pub fn set_privacy_shaping(config: PrivacyShapingConfig) {
     let state = state_arc();
     runtime().block_on(async {
         let st = state.read().await;
-        let _ = st
-            .handle
-            .send(NodeCommand::SetPrivacyShaping(rust))
-            .await;
+        let _ = st.handle.send(NodeCommand::SetPrivacyShaping(rust)).await;
     });
 }
 

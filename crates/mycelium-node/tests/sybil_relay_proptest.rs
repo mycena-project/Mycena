@@ -46,7 +46,7 @@ proptest! {
             trust.insert(id, PeerTrust::cold_unknown(now));
         }
 
-        let selected = select_relay_candidates(&peers, "12D3KooWDest", &trust, now, fanout);
+        let selected = select_relay_candidates(&peers, "12D3KooWDest", &trust, None, now, fanout);
         prop_assert_eq!(selected.len(), fanout);
         let established_in_top = selected
             .iter()

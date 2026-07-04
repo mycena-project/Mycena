@@ -22,7 +22,7 @@ fn fanout_is_bounded() {
     let peers: Vec<String> = (0..10).map(|i| format!("12D3KooWPeer{i:02}")).collect();
     let target = "12D3KooWUnknown".to_string();
     let selected =
-        select_relay_candidates(&peers, &target, &HashMap::new(), NOW_MS, MAX_RELAY_FANOUT);
+        select_relay_candidates(&peers, &target, &HashMap::new(), None, NOW_MS, MAX_RELAY_FANOUT);
     assert_eq!(selected.len(), MAX_RELAY_FANOUT);
     assert!(!selected.contains(&target));
 }
@@ -40,7 +40,7 @@ fn lower_strike_peers_preferred() {
     trust.insert("peer_b".into(), trust_with_strikes(0));
     trust.insert("peer_c".into(), trust_with_strikes(1));
     trust.insert("peer_d".into(), trust_with_strikes(0));
-    let selected = select_relay_candidates(&peers, "missing", &trust, NOW_MS, 2);
+    let selected = select_relay_candidates(&peers, "missing", &trust, None, NOW_MS, 2);
     assert_eq!(selected.len(), 2);
     assert!(selected.contains(&"peer_b".to_string()) || selected.contains(&"peer_d".to_string()));
 }

@@ -51,7 +51,7 @@ fn persisted_trust_survives_reopen_and_prefers_established() {
         "12D3KooWEstablishedRelay01".into(),
         "12D3KooWSybilFresh01".into(),
     ];
-    let selected = select_relay_candidates(&peers, "12D3KooWDest", &trust, NOW_MS, 1);
+    let selected = select_relay_candidates(&peers, "12D3KooWDest", &trust, None, NOW_MS, 1);
     assert_eq!(selected, vec!["12D3KooWEstablishedRelay01"]);
 }
 
@@ -79,7 +79,7 @@ fn sybil_swarm_after_reopen_still_loses_to_established_triple() {
         trust.insert(id, PeerTrust::cold_unknown(NOW_MS));
     }
 
-    let selected = select_relay_candidates(&peers, "12D3KooWDest", &trust, NOW_MS, 3);
+    let selected = select_relay_candidates(&peers, "12D3KooWDest", &trust, None, NOW_MS, 3);
     assert_eq!(selected.len(), 3);
     assert!(selected.iter().all(|p| p.starts_with("12D3KooWEst")));
 }

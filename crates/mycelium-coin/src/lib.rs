@@ -12,6 +12,8 @@ mod payment;
 mod refill;
 mod settlement_policy;
 mod velocity;
+mod spam_caution;
+mod user_trust;
 mod views;
 mod voucher;
 mod voucher_settlement;
@@ -29,6 +31,10 @@ pub use refill::{RefillRequest, REFILL_REQUEST_TTL_MS};
 pub use settlement_policy::{
     SettlementPolicy, DEFAULT_MAX_BALANCE_MXC, DEFAULT_MAX_TX_MXC, HARD_MAX_BALANCE_MXC,
 };
+pub use spam_caution::{
+    deposit_for_message_priority, priority_deposit_tiers, DEFAULT_PRIORITY_DEPOSIT_MUON,
+};
+pub use user_trust::{UserTrust, UserTrustStore, UserTrustSummary};
 pub use views::{
     AccountBalanceView, InsufficientSettledFunds, PeerBalanceHint, SpendAuthorization,
     VoucherExposureView,

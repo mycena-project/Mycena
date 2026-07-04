@@ -19,6 +19,11 @@ namespace mycelium {
   [Throws=MyceliumException]
   void send_chat_direct(string to_peer, string body);
   [Throws=MyceliumException]
+  void send_chat_priority(string to_peer, string body, u64 deposit_muon);
+  UserTrustSummary user_trust_summary();
+  [Throws=MyceliumException]
+  void endorse_peer(string peer_id, u8 strength);
+  [Throws=MyceliumException]
   void send_chat_broadcast(string body);
   string local_enc_pubkey();
   [Throws=MyceliumException]
@@ -217,6 +222,15 @@ dictionary NodeMetrics {
   u64 connected_peers;
   u64 max_peers;
   u64 peer_cap_rejections;
+};
+
+dictionary UserTrustSummary {
+  u32 relay_contribution;
+  u64 uptime_secs;
+  u32 successful_deliveries;
+  u32 local_endorsements;
+  f64 contribution_score;
+  string contribution_tier;
 };
 
 dictionary HotWalletConfig {

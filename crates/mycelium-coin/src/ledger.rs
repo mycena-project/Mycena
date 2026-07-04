@@ -306,6 +306,23 @@ impl LocalLedger {
         ))
     }
 
+    /// Burn settled credits for non-transferable utility (e.g. message priority caution).
+    pub fn burn_settled_credits(
+        &self,
+        from: &str,
+        amount_muon: u64,
+    ) -> Result<(), InsufficientSettledFunds> {
+        let _auth = self.authorize_spend(from, amount_muon)?;
+        self.update_account(from, |acc| {
+            acc.balance_muon = acc.balance_muon.saturating_sub(amount_muon);
+        })
+        .map_err(|_| InsufficientSettledFunds {
+            have_settled: 0,
+            need: amount_muon,
+        })?;
+        Ok(())
+    }
+
     /// Authorize an outgoing spend against **settled** local balance only.
     pub fn authorize_spend(
         &self,

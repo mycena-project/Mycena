@@ -49,13 +49,18 @@ pub fn validate_data_message_signature(
 }
 
 /// SD-031: pick up to `max_fanout` relay peers by weighted trust score (Sybil-resistant).
+///
+/// `endorsement_boost`: local social trust from [`UserTrustStore`](../../mycelium-coin/src/user_trust.rs)
+/// (0..1 per peer). Combined with [`PeerTrust::relay_selection_score`] — separate attack surfaces.
 pub fn select_relay_candidates(
     peers: &[String],
     to_peer: &str,
     peer_trust: &HashMap<String, PeerTrust>,
+    endorsement_boost: Option<&HashMap<String, f32>>,
     now_ms: u64,
     max_fanout: usize,
 ) -> Vec<String> {
+    const ENDORSEMENT_WEIGHT: f64 = 0.15;
     let mut scored: Vec<(String, f64)> = peers
         .iter()
         .filter(|p| *p != to_peer)
@@ -64,7 +69,13 @@ pub fn select_relay_candidates(
                 .get(p)
                 .cloned()
                 .unwrap_or_else(|| PeerTrust::cold_unknown(now_ms));
-            (p.clone(), trust.relay_selection_score(now_ms))
+            let mut score = trust.relay_selection_score(now_ms);
+            if let Some(boosts) = endorsement_boost {
+                if let Some(b) = boosts.get(p) {
+                    score += ENDORSEMENT_WEIGHT * f64::from(*b);
+                }
+            }
+            (p.clone(), score)
         })
         .collect();
     scored.sort_by(|a, b| {
@@ -170,7 +181,7 @@ mod tests {
     fn fanout_is_bounded() {
         let peers: Vec<String> = (0..10).map(|i| format!("peer{i}")).collect();
         let now = 1_700_000_000_000u64;
-        let relay = select_relay_candidates(&peers, "unknown", &HashMap::new(), now, 3);
+        let relay = select_relay_candidates(&peers, "unknown", &HashMap::new(), None, now, 3);
         assert_eq!(relay.len(), 3);
         assert!(!relay.iter().any(|p| p == "unknown"));
     }
@@ -192,7 +203,7 @@ mod tests {
         bad.strike_count = 6;
         trust.insert("bad_a".into(), bad.clone());
         trust.insert("bad_b".into(), bad);
-        let selected = select_relay_candidates(&peers, "dest", &trust, now, 2);
+        let selected = select_relay_candidates(&peers, "dest", &trust, None, now, 2);
         assert_eq!(selected.len(), 2);
         assert!(selected.contains(&"good_a".to_string()));
         assert!(selected.contains(&"good_b".to_string()));
@@ -217,7 +228,7 @@ mod tests {
         }
 
         for fanout in 1..=3 {
-            let selected = select_relay_candidates(&peers, "12D3KooWDest", &trust, now, fanout);
+            let selected = select_relay_candidates(&peers, "12D3KooWDest", &trust, None, now, fanout);
             assert_eq!(selected.len(), fanout);
             assert!(
                 selected
@@ -248,7 +259,7 @@ mod tests {
                 trial_peers.push(id.clone());
                 trial_trust.insert(id, PeerTrust::cold_unknown(now));
             }
-            let selected = select_relay_candidates(&trial_peers, "target", &trial_trust, now, 3);
+            let selected = select_relay_candidates(&trial_peers, "target", &trial_trust, None, now, 3);
             assert_eq!(selected.len(), 3);
             let established_in_top: usize =
                 selected.iter().filter(|p| p.starts_with("est_")).count();
@@ -257,5 +268,18 @@ mod tests {
                 "sybil_count={sybil_count} selected={selected:?}"
             );
         }
+    }
+
+    #[test]
+    fn local_endorsement_boosts_relay_score() {
+        let now = 1_700_000_000_000u64;
+        let peers = vec!["endorsed".into(), "plain".into()];
+        let mut trust = HashMap::new();
+        trust.insert("endorsed".into(), PeerTrust::cold_unknown(now));
+        trust.insert("plain".into(), PeerTrust::cold_unknown(now));
+        let mut boosts = HashMap::new();
+        boosts.insert("endorsed".to_string(), 1.0f32);
+        let selected = select_relay_candidates(&peers, "dest", &trust, Some(&boosts), now, 1);
+        assert_eq!(selected, vec!["endorsed".to_string()]);
     }
 }
