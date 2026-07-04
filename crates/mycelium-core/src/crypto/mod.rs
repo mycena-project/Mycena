@@ -181,7 +181,8 @@ pub fn verify_enc_pubkey_update(
 }
 
 #[cfg(test)]
-mod tests {
+mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
+
     use super::*;
 
     #[test]

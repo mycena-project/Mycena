@@ -65,7 +65,8 @@ impl Default for ConnectivityMonitor {
 }
 
 #[cfg(test)]
-mod tests {
+mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
+
     use super::*;
 
     #[test]

@@ -4,6 +4,7 @@
 
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
+use mycelium_core::lock_or_recover;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Mutex;
@@ -232,10 +233,8 @@ impl PeerTrustStore {
     }
 
     pub fn load_all(&self) -> HashMap<String, PeerTrust> {
-        self.cache
-            .lock()
-            .expect("peer trust cache lock") // INVARIANT: mutex not poisoned
-            .clone()
+        // POISON-RECOVER: in-memory cache clone; sled is source of truth on reopen.
+        lock_or_recover!(self.cache, "peer trust cache").clone()
     }
 
     fn persist(&self, peer_id: &str, trust: &PeerTrust) -> anyhow::Result<()> {
@@ -248,7 +247,8 @@ impl PeerTrustStore {
     where
         F: FnOnce(&mut PeerTrust),
     {
-        let mut cache = self.cache.lock().expect("peer trust cache lock"); // INVARIANT: mutex not poisoned
+        // POISON-RECOVER: cache update then persist; panic mid-callback only skips one sled write.
+        let mut cache = lock_or_recover!(self.cache, "peer trust cache");
         let entry = cache
             .entry(peer_id.to_string())
             .or_insert_with(|| PeerTrust::new_peer(now_ms));
@@ -260,15 +260,15 @@ impl PeerTrustStore {
     }
 
     pub(crate) fn get(&self, peer_id: &str) -> Option<PeerTrust> {
-        self.cache
-            .lock()
-            .expect("peer trust cache lock") // INVARIANT: mutex not poisoned
+        // POISON-RECOVER: read-only cache lookup; no partial mutation on panic.
+        lock_or_recover!(self.cache, "peer trust cache")
             .get(peer_id)
             .cloned()
     }
 
     pub(crate) fn is_throttled(&self, peer_id: &str, now_ms: u64) -> bool {
-        let mut cache = self.cache.lock().expect("peer trust cache lock"); // INVARIANT: mutex not poisoned
+        // POISON-RECOVER: throttle check is derived; stale read only skips one decision.
+        let mut cache = lock_or_recover!(self.cache, "peer trust cache");
         if let Some(trust) = cache.get_mut(peer_id) {
             return trust.is_throttled(now_ms);
         }
@@ -277,7 +277,8 @@ impl PeerTrustStore {
 }
 
 #[cfg(test)]
-mod tests {
+mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
+
     use super::*;
 
     #[test]
@@ -300,5 +301,26 @@ mod tests {
             .expect("loaded");
         assert!((t.reliability - 0.88).abs() < f32::EPSILON);
         assert!((t.relay_success_rate - 0.91).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn peer_trust_survives_cache_poison() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let base = dir.path().to_str().expect("path");
+        let store = PeerTrustStore::open(base).expect("open");
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            store
+                .with_peer("__poison__", 0, |_| panic!("deliberate peer trust poison"))
+                .ok();
+        }));
+        store
+            .with_peer("12D3KooWRecoveredPeerIdAfterPoison01", 2000, |t| {
+                t.relay_success_rate = 0.5;
+            })
+            .expect("recover after poison");
+        let t = store
+            .get("12D3KooWRecoveredPeerIdAfterPoison01")
+            .expect("loaded after poison");
+        assert!((t.relay_success_rate - 0.5).abs() < f32::EPSILON);
     }
 }

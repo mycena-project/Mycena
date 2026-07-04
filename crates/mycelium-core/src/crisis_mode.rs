@@ -76,17 +76,12 @@ impl Default for CrisisAutoConfig {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum CrisisManualMode {
+    #[default]
     FollowAuto,
     ForceOn,
     ForceOff,
-}
-
-impl Default for CrisisManualMode {
-    fn default() -> Self {
-        Self::FollowAuto
-    }
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -127,7 +122,8 @@ pub fn geohash_nearby(local_prefix: &str, sos_geohash: &str, prefix_len: usize) 
 }
 
 #[cfg(test)]
-mod tests {
+mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
+
     use super::*;
 
     #[test]

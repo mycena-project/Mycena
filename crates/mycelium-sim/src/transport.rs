@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Mycelium Project
+use mycelium_core::lock_or_recover;
 use crate::scheduler::LinkProfile;
 use async_trait::async_trait;
 use mycelium_core::transport::{MeshTransport, ScopeId, TransportEvent, WireMessage};
@@ -60,7 +61,8 @@ impl MeshTransport for SimTransport {
     }
 
     fn known_peers(&self) -> Vec<String> {
-        let links = self.links.lock().expect("links lock poisoned");
+        // POISON-RECOVER: read-only link lookup for simulated send routing.
+        let links = lock_or_recover!(self.links, "sim links");
         links
             .keys()
             .filter_map(|(a, b)| {

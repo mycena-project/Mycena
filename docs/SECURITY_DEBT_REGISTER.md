@@ -7,7 +7,7 @@
 
 This register records **known** security, privacy, abuse, and legal debt. It is not a certification, audit, or guarantee. Items marked **beta-blocker: yes** must be resolved or explicitly accepted with written risk sign-off before a public Play Store / wide beta.
 
-**Related:** [ARCHITECTURE_RISKS.md](./ARCHITECTURE_RISKS.md) · [SECURITY_ROADMAP.md](./SECURITY_ROADMAP.md) · [PRIVACY_ROADMAP.md](./PRIVACY_ROADMAP.md) · [ABUSE_RESPONSE_PLAYBOOK.md](./ABUSE_RESPONSE_PLAYBOOK.md) · [BETA_SECURITY_ASSESSMENT.md](./BETA_SECURITY_ASSESSMENT.md)
+**Related:** [THREAT_MODEL.md](./THREAT_MODEL.md) · [ARCHITECTURE_RISKS.md](./ARCHITECTURE_RISKS.md) · [SECURITY_ROADMAP.md](./SECURITY_ROADMAP.md) · [PRIVACY_ROADMAP.md](./PRIVACY_ROADMAP.md) · [ABUSE_RESPONSE_PLAYBOOK.md](./ABUSE_RESPONSE_PLAYBOOK.md) · [BETA_SECURITY_ASSESSMENT.md](./BETA_SECURITY_ASSESSMENT.md)
 
 ---
 

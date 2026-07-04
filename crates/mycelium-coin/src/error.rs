@@ -45,13 +45,20 @@ impl From<bincode::Error> for CoinError {
     }
 }
 
+impl From<sled::Error> for CoinError {
+    fn from(value: sled::Error) -> Self {
+        Self::Internal(value.into())
+    }
+}
+
 /// Decode coin gossip bytes from a peer; returns `Err` on malformed input.
 pub fn decode_peer_coin_payload(payload: &[u8]) -> CoinResult<CoinPayload> {
     bincode::deserialize(payload).map_err(CoinError::from)
 }
 
 #[cfg(test)]
-mod tests {
+mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
+
     use super::*;
 
     #[test]

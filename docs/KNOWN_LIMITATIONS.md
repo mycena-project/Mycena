@@ -119,7 +119,7 @@ Treat as **preview only**:
 | Area | What works | What does not |
 |------|------------|---------------|
 | Mini-apps | Network block, sessions, caps, safe mode, bundle scan, Android isolated process, strict CSP (no inline scripts), sideload requires `mycelium-bundle.sig.json` | WebView CVE class |
-| Chat E2E | Encrypted path when keys present | Plaintext fallback |
+| Chat E2E | Encrypted path when keys present; send blocked without peer enc key | Metadata still visible |
 | Install | Listing verify, revocation, downgrade block | Sideload still possible |
 | Relay | Circuit limits, blind forward | Single operator, IP visibility |
 
@@ -160,6 +160,7 @@ These gaps were reviewed and left out of scope because mini-apps or settings alr
 
 ## See also
 
+- [THREAT_MODEL.md](./THREAT_MODEL.md)
 - [SECURITY_ASSUMPTIONS.md](./SECURITY_ASSUMPTIONS.md)
 - [SECURITY_DEBT_REGISTER.md](./SECURITY_DEBT_REGISTER.md)
 - [BETA_SECURITY_ASSESSMENT.md](./BETA_SECURITY_ASSESSMENT.md)

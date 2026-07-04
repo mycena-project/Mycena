@@ -14,11 +14,12 @@
 //!
 //! Relay routing combines both: `PeerTrust::relay_selection_score` + local endorsement boost.
 
+use crate::error::{CoinError, CoinResult};
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
-use std::sync::Mutex;
+use std::sync::{Mutex, MutexGuard};
 
 /// Non-transferable local network citizenship metrics (not MXC balance).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
@@ -87,6 +88,18 @@ pub struct UserTrustStore {
 
 const SELF_KEY: &[u8] = b"self";
 
+fn lock_user_trust<'a>(m: &'a Mutex<UserTrust>) -> MutexGuard<'a, UserTrust> {
+    // POISON-RECOVER: in-memory metrics; sled persist runs after guard drop with full snapshot.
+    mycelium_core::lock_recover::lock_or_recover(m, "user trust cache")
+}
+
+fn lock_endorse<'a>(
+    m: &'a Mutex<HashMap<String, u8>>,
+) -> MutexGuard<'a, HashMap<String, u8>> {
+    // POISON-RECOVER: endorsement map; worst case stale boost until next write.
+    mycelium_core::lock_recover::lock_or_recover(m, "endorse cache")
+}
+
 impl UserTrustStore {
     pub fn open(db_path: &str) -> anyhow::Result<Self> {
         let path = Path::new(db_path).join("user_trust");
@@ -120,33 +133,35 @@ impl UserTrustStore {
     }
 
     pub fn snapshot(&self) -> UserTrustSummary {
-        UserTrustSummary::from(&*self.cache.lock().expect("user trust lock"))
+        UserTrustSummary::from(&*lock_user_trust(&self.cache))
     }
 
-    pub fn with_self<F>(&self, now_ms: u64, f: F) -> anyhow::Result<()>
+    pub fn with_self<F>(&self, now_ms: u64, f: F) -> CoinResult<()>
     where
         F: FnOnce(&mut UserTrust),
     {
-        let mut guard = self.cache.lock().expect("user trust lock");
+        let mut guard = lock_user_trust(&self.cache);
         f(&mut guard);
         guard.updated_at_ms = now_ms;
-        self.self_tree.insert(SELF_KEY, bincode::serialize(&*guard)?)?;
+        self.self_tree
+            .insert(SELF_KEY, bincode::serialize(&*guard)?)
+            .map_err(CoinError::from)?;
         Ok(())
     }
 
-    pub fn record_relay_forward(&self, now_ms: u64, count: u32) -> anyhow::Result<()> {
+    pub fn record_relay_forward(&self, now_ms: u64, count: u32) -> CoinResult<()> {
         self.with_self(now_ms, |t| {
             t.relay_contribution = t.relay_contribution.saturating_add(count);
         })
     }
 
-    pub fn record_delivery(&self, now_ms: u64) -> anyhow::Result<()> {
+    pub fn record_delivery(&self, now_ms: u64) -> CoinResult<()> {
         self.with_self(now_ms, |t| {
             t.successful_deliveries = t.successful_deliveries.saturating_add(1);
         })
     }
 
-    pub fn tick_uptime(&self, now_ms: u64, delta_secs: u64) -> anyhow::Result<()> {
+    pub fn tick_uptime(&self, now_ms: u64, delta_secs: u64) -> CoinResult<()> {
         if delta_secs == 0 {
             return Ok(());
         }
@@ -156,13 +171,14 @@ impl UserTrustStore {
     }
 
     /// Endorse a peer locally (1–5). Not gossiped; boosts relay preference only.
-    pub fn endorse_peer(&self, peer_id: &str, strength: u8, now_ms: u64) -> anyhow::Result<()> {
+    pub fn endorse_peer(&self, peer_id: &str, strength: u8, now_ms: u64) -> CoinResult<()> {
         let strength = strength.clamp(1, 5);
-        let mut endorse = self.endorse_cache.lock().expect("endorse lock");
+        let mut endorse = lock_endorse(&self.endorse_cache);
         let is_new = !endorse.contains_key(peer_id);
         endorse.insert(peer_id.to_string(), strength);
         self.endorse_tree
-            .insert(peer_id.as_bytes(), &[strength])?;
+            .insert(peer_id.as_bytes(), &[strength])
+            .map_err(CoinError::from)?;
         if is_new {
             self.with_self(now_ms, |t| {
                 t.local_endorsements = t.local_endorsements.saturating_add(1);
@@ -171,10 +187,12 @@ impl UserTrustStore {
         Ok(())
     }
 
-    pub fn revoke_endorsement(&self, peer_id: &str, now_ms: u64) -> anyhow::Result<()> {
-        let mut endorse = self.endorse_cache.lock().expect("endorse lock");
+    pub fn revoke_endorsement(&self, peer_id: &str, now_ms: u64) -> CoinResult<()> {
+        let mut endorse = lock_endorse(&self.endorse_cache);
         if endorse.remove(peer_id).is_some() {
-            self.endorse_tree.remove(peer_id.as_bytes())?;
+            self.endorse_tree
+                .remove(peer_id.as_bytes())
+                .map_err(CoinError::from)?;
             self.with_self(now_ms, |t| {
                 t.local_endorsements = t.local_endorsements.saturating_sub(1);
             })?;
@@ -184,18 +202,14 @@ impl UserTrustStore {
 
     /// Endorsement boost [0, 1] for relay scoring (`select_relay_candidates`).
     pub fn endorsement_boost_map(&self) -> HashMap<String, f32> {
-        self.endorse_cache
-            .lock()
-            .expect("endorse lock")
+        lock_endorse(&self.endorse_cache)
             .iter()
             .map(|(peer, strength)| (peer.clone(), f32::from(*strength) / 5.0))
             .collect()
     }
 
     pub fn endorsement_boost_for(&self, peer_id: &str) -> f32 {
-        self.endorse_cache
-            .lock()
-            .expect("endorse lock")
+        lock_endorse(&self.endorse_cache)
             .get(peer_id)
             .map(|s| f32::from(*s) / 5.0)
             .unwrap_or(0.0)
@@ -204,6 +218,8 @@ impl UserTrustStore {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
+
     use super::*;
     use tempfile::tempdir;
 

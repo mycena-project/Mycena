@@ -107,8 +107,12 @@ async fn status(
     }))
 }
 
-async fn health() -> &'static str {
-    "ok"
+async fn health(State(s): State<StatusState>) -> Json<serde_json::Value> {
+    // Public surface: ok + version only (SD-003). Full telemetry stays on `/status`.
+    Json(serde_json::json!({
+        "ok": true,
+        "version": s.version,
+    }))
 }
 
 fn atomic_saturating_sub(a: &AtomicU64) {

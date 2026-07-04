@@ -169,7 +169,8 @@ impl crate::NodeHandle {
 }
 
 #[cfg(test)]
-mod tests {
+mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
+
     use super::*;
     use mycelium_core::consistency::OP_COIN_TRANSFER;
 

@@ -318,7 +318,8 @@ pub fn save_custom_bootstrap_peers(db_path: &str, peers: &[String]) -> std::io::
 }
 
 #[cfg(test)]
-mod tests {
+mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
+
     use super::*;
 
     #[test]

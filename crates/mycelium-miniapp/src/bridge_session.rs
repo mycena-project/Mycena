@@ -5,6 +5,7 @@
 use std::collections::HashMap;
 use std::sync::{LazyLock, Mutex};
 
+use mycelium_l0_facade::lock_or_recover;
 use mycelium_l0_facade::data::now_ms;
 use uuid::Uuid;
 
@@ -23,8 +24,8 @@ static SESSIONS: LazyLock<Mutex<HashMap<String, Session>>> =
 pub fn issue_session(app_id: &str) -> String {
     let token = Uuid::new_v4().to_string();
     let now = now_ms();
-    let mut guard = SESSIONS.lock().expect("bridge session lock");
-    guard.insert(
+    // POISON-RECOVER: session table insert; worst case re-issue on next app launch.
+    lock_or_recover!(SESSIONS, "bridge session").insert(
         app_id.to_string(),
         Session {
             token: token.clone(),
@@ -35,16 +36,14 @@ pub fn issue_session(app_id: &str) -> String {
 }
 
 pub fn revoke_session(app_id: &str) {
-    if let Ok(mut guard) = SESSIONS.lock() {
-        guard.remove(app_id);
-    }
+    // POISON-RECOVER: remove is idempotent; missing entry is already revoked.
+    lock_or_recover!(SESSIONS, "bridge session").remove(app_id);
 }
 
 pub fn validate_session(app_id: &str, token: &str) -> Result<(), String> {
     let now = now_ms();
-    let guard = SESSIONS
-        .lock()
-        .map_err(|_| "bridge session unavailable".to_string())?;
+    // POISON-RECOVER: read-only validation; stale deny only blocks one bridge call.
+    let guard = lock_or_recover!(SESSIONS, "bridge session");
     let Some(sess) = guard.get(app_id) else {
         return Err("bridge session expired or not issued".into());
     };
@@ -59,6 +58,8 @@ pub fn validate_session(app_id: &str, token: &str) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
+
     use super::*;
 
     #[test]

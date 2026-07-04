@@ -38,7 +38,8 @@ pub fn priority_deposit_tiers() -> &'static [(u64, &'static str)] {
 }
 
 #[cfg(test)]
-mod tests {
+mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
+
     use super::*;
     use crate::address_from_keypair;
     use libp2p::identity::Keypair;

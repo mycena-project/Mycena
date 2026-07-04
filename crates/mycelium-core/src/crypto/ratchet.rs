@@ -325,24 +325,27 @@ fn kdf_root(root_key: &[u8; 32], dh: &[u8]) -> ([u8; 32], [u8; 32]) {
     ikm.extend_from_slice(root_key);
     ikm.extend_from_slice(dh);
     let okm = hkdf_64(&ikm, ROOT_INFO);
-    (
-        okm[0..32].try_into().expect("32"), // INVARIANT: hkdf_64 always yields 64 bytes
-        okm[32..64].try_into().expect("32"), // INVARIANT: hkdf_64 always yields 64 bytes
-    )
+    split_hkdf_halves(&okm)
 }
 
 fn kdf_chain(chain_key: &[u8; 32]) -> ([u8; 32], [u8; 32]) {
     let okm = hkdf_64(chain_key, CHAIN_INFO);
+    split_hkdf_halves(&okm)
+}
+
+#[allow(clippy::expect_used)] // INVARIANT: hkdf_64 always yields 64 bytes; halves are [0..32] and [32..64].
+fn split_hkdf_halves(okm: &[u8; 64]) -> ([u8; 32], [u8; 32]) {
     (
-        okm[0..32].try_into().expect("32"), // INVARIANT: hkdf_64 always yields 64 bytes
-        okm[32..64].try_into().expect("32"), // INVARIANT: hkdf_64 always yields 64 bytes
+        okm[0..32].try_into().expect("32"),
+        okm[32..64].try_into().expect("32"),
     )
 }
 
+#[allow(clippy::expect_used)] // INVARIANT: HKDF expand length is fixed at 64 bytes.
 fn hkdf_64(ikm: &[u8], info: &[u8]) -> [u8; 64] {
     let hk = Hkdf::<Sha256>::new(None, ikm);
     let mut okm = [0u8; 64];
-    hk.expand(info, &mut okm).expect("HKDF expand 64 bytes"); // INVARIANT: fixed output length
+    hk.expand(info, &mut okm).expect("HKDF expand 64 bytes");
     okm
 }
 
@@ -719,7 +722,8 @@ pub fn decrypt_direct_e2e(
 }
 
 #[cfg(test)]
-mod tests {
+mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
+
     use super::*;
 
     fn alice_bundle(bob: &EncryptionKeypair, bob_prekeys: &LocalPrekeyStore) -> PrekeyBundle {

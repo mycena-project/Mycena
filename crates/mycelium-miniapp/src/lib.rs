@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Mycelium Project
 //! Mini-app platform: manifests, `.mxa` bundles, local store, and JS bridge source.
+#![deny(clippy::unwrap_used, clippy::expect_used)]
 
 pub mod bridge_limits;
 pub mod bridge_session;
@@ -22,6 +23,7 @@ pub mod storage_quota;
 pub mod store;
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod miniapp_security_tests;
 
 pub use bridge_session::{issue_session, revoke_session, validate_session};

@@ -351,7 +351,8 @@ fn legacy_host_port_to_multiaddr(input: &str) -> Option<InviteTarget> {
 }
 
 #[cfg(test)]
-mod tests {
+mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
+
     use super::*;
 
     #[test]

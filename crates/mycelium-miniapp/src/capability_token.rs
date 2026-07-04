@@ -79,6 +79,7 @@ fn now_ms() -> u64 {
 }
 
 /// Issue a capability token bound to the current bridge session.
+#[allow(clippy::expect_used)] // INVARIANT: mac_key is always 32 bytes from blake3::derive_key.
 pub fn issue_capability(
     mac_key: &[u8; 32],
     app_id: &str,
@@ -143,7 +144,8 @@ pub fn validate_capability(
 }
 
 #[cfg(test)]
-mod tests {
+mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
+
     use super::*;
 
     #[test]

@@ -23,8 +23,10 @@ if command -v curl >/dev/null 2>&1; then
   else
     echo "relay: HTTP unreachable (${RELAY_STATUS_URL})" >&2
   fi
-  if curl -fsS --max-time 5 "$RELAY_HEALTH_URL" >/dev/null 2>&1; then
-    echo "relay: health ok (${RELAY_HEALTH_URL})"
+  if health_json="$(curl -fsS --max-time 5 "$RELAY_HEALTH_URL" 2>/dev/null)"; then
+    if echo "$health_json" | grep -qE '"ok"[[:space:]]*:[[:space:]]*true|^ok$'; then
+      echo "relay: health ok (${RELAY_HEALTH_URL})"
+    fi
   fi
 else
   echo "relay: curl not found — skipping HTTP checks" >&2

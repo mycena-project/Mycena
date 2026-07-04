@@ -5,6 +5,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, LazyLock, Mutex};
 
+use mycelium_l0_facade::lock_or_recover;
 use mycelium_coin::{CoinNode, PaymentRequest};
 use mycelium_l0_facade::data::now_ms;
 use serde_json::{json, Value};
@@ -31,9 +32,8 @@ const BROADCAST_WINDOW_MS: u64 = 3_600_000;
 
 fn check_broadcast_rate(app_id: &str) -> Result<(), String> {
     let now = now_ms();
-    let mut guard = BROADCAST_LIMITS
-        .lock()
-        .map_err(|_| "broadcast limiter unavailable".to_string())?;
+    // POISON-RECOVER: rate-limit counter; window reset on poison only relaxes one hour cap.
+    let mut guard = lock_or_recover!(BROADCAST_LIMITS, "broadcast limits");
     let entry = guard.entry(app_id.to_string()).or_insert((now, 0));
     if now.saturating_sub(entry.0) > BROADCAST_WINDOW_MS {
         *entry = (now, 0);

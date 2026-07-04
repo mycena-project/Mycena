@@ -138,7 +138,8 @@ pub fn should_defer_gossip_in_crisis(scope: &str) -> bool {
 }
 
 #[cfg(test)]
-mod tests {
+mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
+
     use super::*;
 
     #[test]

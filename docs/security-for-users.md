@@ -13,7 +13,7 @@ That is useful offline or in poor connectivity — but it is **not** the same as
 Direct chats can be **end-to-end encrypted** when both devices have exchanged encryption keys.
 
 - You may see **“encrypted”** or a key icon when protection is active.
-- If keys are not yet available, the app may send **without E2E** and warn you (or show that encryption is pending).
+- If keys are not yet available, the app **blocks send** until encryption keys are exchanged (fail-closed).
 
 **E2E protects message content** on the path between devices. It does **not** hide that you are using the network or talking to a given peer ID.
 
@@ -51,9 +51,10 @@ Panic wipe does **not**:
 
 ## Mini-app store
 
-Apps listed in the store are signed by a developer peer ID when gossip listings are accepted. **Installing a file from disk** (`.mxa` / `.zip`) may not verify that signature yet — treat sideload like installing unknown software.
+Apps listed in the store are signed by a developer peer ID when gossip listings are accepted. **Sideload installs** require a valid **`mycelium-bundle.sig.json`** signature — treat unknown bundles like unknown software.
 
 - Only install apps you trust; review **Messaging**, **Payments**, and **Identity** permissions.
+- Sideload installs require a valid **`mycelium-bundle.sig.json`** developer signature — treat unknown bundles like unknown software.
 - Mini-apps cannot open arbitrary websites (network is blocked), but a malicious app can still abuse permissions you grant.
 - Developers and auditors: [MINIAPP_SECURITY_ARCHITECTURE.md](./MINIAPP_SECURITY_ARCHITECTURE.md)
 
@@ -72,8 +73,10 @@ Identity and encryption keys are stored **encrypted on disk** (OS keychain on de
 
 For developers and threat models, see:
 
+- [`THREAT_MODEL.md`](THREAT_MODEL.md) — adversaries, assets, accepted residuals (required for external review)
 - [`SECURITY_DEBT_REGISTER.md`](SECURITY_DEBT_REGISTER.md) — known issues (pre-beta)
 - [`ARCHITECTURE_RISKS.md`](ARCHITECTURE_RISKS.md) — systemic risks & trust boundaries
 - [`SECURITY_ROADMAP.md`](SECURITY_ROADMAP.md) · [`PRIVACY_ROADMAP.md`](PRIVACY_ROADMAP.md)
+- [`BETA_SECURITY_ASSESSMENT.md`](BETA_SECURITY_ASSESSMENT.md) — scenario verdicts
 - [`ABUSE_RESPONSE_PLAYBOOK.md`](ABUSE_RESPONSE_PLAYBOOK.md)
 - [`network-hardening.md`](network-hardening.md) · [`KNOWN_LIMITATIONS.md`](KNOWN_LIMITATIONS.md)

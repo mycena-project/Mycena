@@ -47,7 +47,8 @@ impl ReproducibleBuild {
 }
 
 #[cfg(test)]
-mod tests {
+mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
+
     use super::*;
 
     #[test]
@@ -95,7 +96,8 @@ pub fn content_attestation_hash(bundle: &MiniAppBundle) -> anyhow::Result<String
 }
 
 #[cfg(test)]
-mod content_hash_tests {
+mod content_hash_tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
+
     use super::*;
     #[test]
     fn content_hash_ignores_reproducible_block() {

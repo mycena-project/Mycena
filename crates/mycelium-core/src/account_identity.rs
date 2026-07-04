@@ -109,7 +109,8 @@ pub fn public_key_from_peer_id(peer_id: &PeerId) -> Option<PublicKey> {
 }
 
 #[cfg(test)]
-mod tests {
+mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
+
     use super::*;
 
     #[test]

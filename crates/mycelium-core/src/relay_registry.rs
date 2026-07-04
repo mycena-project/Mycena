@@ -179,7 +179,15 @@ impl RelayRegistryManifest {
     }
 
     pub fn default_embedded() -> Self {
-        build_default_manifest()
+        build_default_manifest().unwrap_or_else(|e| {
+            tracing::error!("embedded relay registry manifest invalid: {e}");
+            RelayRegistryManifest {
+                format: REGISTRY_FORMAT.into(),
+                issued_at_ms: 0,
+                policy: RelayRegistryPolicy::default(),
+                registrations: Vec::new(),
+            }
+        })
     }
 
     pub fn verify_and_filter(
@@ -333,12 +341,14 @@ fn apply_sybil_limits(
     });
 }
 
-pub fn curator_keypair(curator_id: &str) -> Keypair {
+pub fn curator_keypair(curator_id: &str) -> anyhow::Result<Keypair> {
     key_from_seed(format!("curator:{curator_id}:v1").as_bytes())
 }
 
-pub fn curator_pubkey_hex(curator_id: &str) -> String {
-    hex::encode(curator_keypair(curator_id).public().encode_protobuf())
+pub fn curator_pubkey_hex(curator_id: &str) -> anyhow::Result<String> {
+    Ok(hex::encode(
+        curator_keypair(curator_id)?.public().encode_protobuf(),
+    ))
 }
 
 fn curator_pubkey_matches_id(curator_id: &str, pubkey_hex: &str) -> bool {
@@ -348,7 +358,9 @@ fn curator_pubkey_matches_id(curator_id: &str, pubkey_hex: &str) -> bool {
     {
         return false;
     }
-    curator_pubkey_hex(curator_id).eq_ignore_ascii_case(pubkey_hex.trim())
+    curator_pubkey_hex(curator_id)
+        .ok()
+        .is_some_and(|expected| expected.eq_ignore_ascii_case(pubkey_hex.trim()))
 }
 
 pub fn verify_operator_signature(pubkey_hex: &str, bytes: &[u8], signature: &[u8]) -> bool {
@@ -393,12 +405,12 @@ pub fn is_testnet_multiaddr(addr: &str) -> bool {
         || addr.contains("/ip4/192.0.2.")
 }
 
-pub fn key_from_seed(seed: &[u8]) -> Keypair {
+pub fn key_from_seed(seed: &[u8]) -> anyhow::Result<Keypair> {
     let digest = blake3::hash(seed);
     let mut secret = digest.as_bytes()[..32].to_vec();
     let sk = ed25519::SecretKey::try_from_bytes(&mut secret)
-        .expect("blake3 output is valid ed25519 seed");
-    Keypair::from(ed25519::Keypair::from(sk))
+        .map_err(|_| anyhow::anyhow!("blake3 output is not a valid ed25519 seed"))?;
+    Ok(Keypair::from(ed25519::Keypair::from(sk)))
 }
 
 /// Inputs for [`build_signed_registration`].
@@ -427,7 +439,7 @@ pub fn build_signed_registration(
         registered_at_ms,
         catalog_only,
     } = params;
-    let curator_key = curator_keypair(curator_id);
+    let curator_key = curator_keypair(curator_id)?;
     let operator_pubkey_hex = hex::encode(operator_key.public().encode_protobuf());
     let mut reg = RelayRegistration {
         peer_id: peer_id.to_string(),
@@ -449,16 +461,16 @@ pub fn build_signed_registration(
     let endo_sig = sign_account_message(&curator_key, &endo_bytes)?;
     reg.endorsements.push(RelayEndorsement {
         curator_id: curator_id.to_string(),
-        curator_pubkey_hex: curator_pubkey_hex(curator_id),
+        curator_pubkey_hex: curator_pubkey_hex(curator_id)?,
         signed_at_ms,
         signature_hex: hex::encode(endo_sig),
     });
     Ok(reg)
 }
 
-fn build_default_manifest() -> RelayRegistryManifest {
+fn build_default_manifest() -> anyhow::Result<RelayRegistryManifest> {
     let issued_at_ms = 1_700_000_000_000u64;
-    let fly_operator = key_from_seed(b"operator:mycelium-fly:v1");
+    let fly_operator = key_from_seed(b"operator:mycelium-fly:v1")?;
     let fly_addrs: Vec<String> = BOOTSTRAP_PEERS
         .iter()
         .filter(|a| a.contains("/tcp/") && !a.contains("/p2p-circuit"))
@@ -473,12 +485,11 @@ fn build_default_manifest() -> RelayRegistryManifest {
         region: "sin",
         registered_at_ms: issued_at_ms,
         catalog_only: false,
-    })
-    .expect("fly registration");
+    })?;
 
-    let eu_peer = key_from_seed(b"peer:community-mesh-eu:v1");
+    let eu_peer = key_from_seed(b"peer:community-mesh-eu:v1")?;
     let eu_peer_id = eu_peer.public().to_peer_id().to_string();
-    let eu_operator = key_from_seed(b"operator:community-mesh-eu:v1");
+    let eu_operator = key_from_seed(b"operator:community-mesh-eu:v1")?;
     let eu = build_signed_registration(SignedRegistrationParams {
         operator_key: &eu_operator,
         curator_id: "community-mesh-eu",
@@ -488,12 +499,11 @@ fn build_default_manifest() -> RelayRegistryManifest {
         region: "eu-central",
         registered_at_ms: issued_at_ms,
         catalog_only: true,
-    })
-    .expect("eu catalog registration");
+    })?;
 
-    let na_peer = key_from_seed(b"peer:community-mesh-na:v1");
+    let na_peer = key_from_seed(b"peer:community-mesh-na:v1")?;
     let na_peer_id = na_peer.public().to_peer_id().to_string();
-    let na_operator = key_from_seed(b"operator:community-mesh-na:v1");
+    let na_operator = key_from_seed(b"operator:community-mesh-na:v1")?;
     let na = build_signed_registration(SignedRegistrationParams {
         operator_key: &na_operator,
         curator_id: "community-mesh-na",
@@ -503,19 +513,19 @@ fn build_default_manifest() -> RelayRegistryManifest {
         region: "na-east",
         registered_at_ms: issued_at_ms,
         catalog_only: true,
-    })
-    .expect("na catalog registration");
+    })?;
 
-    RelayRegistryManifest {
+    Ok(RelayRegistryManifest {
         format: REGISTRY_FORMAT.into(),
         issued_at_ms,
         policy: RelayRegistryPolicy::default(),
         registrations: vec![fly, eu, na],
-    }
+    })
 }
 
 #[cfg(test)]
-mod tests {
+mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
+
     use super::*;
 
     #[test]
@@ -540,7 +550,7 @@ mod tests {
 
     #[test]
     fn sybil_policy_caps_per_operator() {
-        let operator = key_from_seed(b"same-operator");
+        let operator = key_from_seed(b"same-operator").unwrap();
         let mut regs = Vec::new();
         for i in 0..3 {
             let kp = Keypair::generate_ed25519();
@@ -592,8 +602,8 @@ mod tests {
 
     #[test]
     fn curator_keys_are_stable() {
-        let a = curator_pubkey_hex("mycelium-release");
-        let b = curator_pubkey_hex("mycelium-release");
+        let a = curator_pubkey_hex("mycelium-release").unwrap();
+        let b = curator_pubkey_hex("mycelium-release").unwrap();
         assert_eq!(a, b);
     }
 }

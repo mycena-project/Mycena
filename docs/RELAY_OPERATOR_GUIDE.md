@@ -215,7 +215,31 @@ For private testing, place a verified manifest at:
 
 ---
 
-## 9. Further reading
+## 9. Logging, privacy, and audit (SD-003, SD-210)
+
+**Policy:** Relay operators must **not** retain client IP addresses or per-circuit logs beyond what the hosting platform requires for abuse mitigation (typically ≤72 h if unavoidable).
+
+| Requirement | Implementation |
+|-------------|----------------|
+| Public `/health` | JSON only: `{"ok": true, "version": "…"}` — no peer counts or PeerId |
+| Full telemetry | Restrict `/status` to operator monitoring (firewall / VPN), not public internet |
+| Access logs | Disable Fly.io / nginx / CDN access logs where possible, or aggregate without IP retention |
+| Legal requests | Document jurisdiction and contact in operator privacy notice |
+
+**Last engineering audit (reference deploy):** July 2026 — verify on your host after each deploy.
+
+Checklist:
+
+- [ ] `/health` returns minimal JSON (no `peer_id`, no connection counts)
+- [ ] `/status` not exposed on untrusted interfaces
+- [ ] Platform access logging reviewed and minimized
+- [ ] Abuse contact published (email or issue tracker)
+
+See also [PRIVACY_ROADMAP.md](./PRIVACY_ROADMAP.md) Phase B · [THREAT_MODEL.md](./THREAT_MODEL.md) §4.5.
+
+---
+
+## 10. Further reading
 
 - `docs/ARCHITECTURE_RISKS.md` — AR-01 (concentration), AR-10 (operator liability)
 - `docs/DISASTER_MESH_ROADMAP.md` — Phase D relay pool

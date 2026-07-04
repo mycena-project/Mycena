@@ -18,6 +18,7 @@ use mycelium_coin::{
     HotWalletConfig as RustHotWalletConfig, LocalLedger, PaymentRequest, UserTrustStore,
     VoucherRiskLevel, VoucherSettlementRegistry, DEFAULT_PRIORITY_DEPOSIT_MUON, MUON_PER_MXC,
 };
+use mycelium_core::lock_or_recover;
 use mycelium_core::data::Priority;
 use mycelium_core::energy::NodeState as RustEnergyState;
 use mycelium_core::privacy_shaping::{
@@ -30,10 +31,10 @@ use mycelium_l1_facade::consistency::{OP_DIRECT_MESSAGE_SEND, OP_GOSSIP_BULLETIN
 use mycelium_node::{
     ConnectivityMonitor, NodeCommand, NodeConfig as RustNodeConfig, NodeHandle, NodeRunner,
 };
-use once_cell::sync::{Lazy, OnceCell};
+use once_cell::sync::OnceCell;
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, LazyLock, Mutex};
 use tokio::runtime::Runtime;
 use tokio::sync::RwLock;
 
@@ -586,27 +587,33 @@ impl NotificationSink for FfiNotifier {
     fn on_bulletin_posted(&self, _scope: &str, _title: &str) {}
 
     fn on_sos_received(&self, payload: &mycelium_core::sos::SosPayload) {
-        if let Some(cb) = CALLBACK.lock().expect("callback lock").clone() {
+        // POISON-RECOVER: callback clone only; poison skips one SOS JNI dispatch.
+        if let Some(cb) = lock_or_recover!(CALLBACK, "callback lock").clone() {
             cb.on_sos_received(to_sos_post(payload));
         }
     }
 
     fn on_contact_request(&self, peer_id: &str, display_name: &str) {
-        if let Some(cb) = CALLBACK.lock().expect("callback lock").clone() {
+        // POISON-RECOVER: callback clone only; poison skips one contact JNI dispatch.
+        if let Some(cb) = lock_or_recover!(CALLBACK, "callback lock").clone() {
             cb.on_contact_request(peer_id.to_string(), display_name.to_string());
         }
     }
 
     fn on_contact_added(&self, peer_id: &str, display_name: &str) {
-        if let Some(cb) = CALLBACK.lock().expect("callback lock").clone() {
+        // POISON-RECOVER: callback clone only; poison skips one contact JNI dispatch.
+        if let Some(cb) = lock_or_recover!(CALLBACK, "callback lock").clone() {
             cb.on_contact_request(peer_id.to_string(), display_name.to_string());
         }
     }
 }
 
 static RUNTIME: OnceCell<Runtime> = OnceCell::new();
-static NODE: Lazy<Mutex<Option<Arc<RwLock<NodeState>>>>> = Lazy::new(|| Mutex::new(None));
-static CALLBACK: Lazy<Mutex<Option<Arc<dyn NodeEventCallback>>>> = Lazy::new(|| Mutex::new(None));
+// POISON-RECOVER: global FFI node slot holds Option<Arc>; poison only blocks one init/shutdown path.
+static NODE: LazyLock<Mutex<Option<Arc<RwLock<NodeState>>>>> = LazyLock::new(|| Mutex::new(None));
+// POISON-RECOVER: callback registry; clone is cheap and poison skips one event dispatch.
+static CALLBACK: LazyLock<Mutex<Option<Arc<dyn NodeEventCallback>>>> =
+    LazyLock::new(|| Mutex::new(None));
 
 struct FfiCoinTransport {
     handle: NodeHandle,
@@ -804,7 +811,8 @@ pub fn init_node(config: NodeConfig) {
                 if let Ok(mut g) = cm_task.lock() {
                     *g = mode;
                 }
-                if let Some(cb) = CALLBACK.lock().expect("callback lock").clone() {
+                // POISON-RECOVER: callback clone only; poison skips one connectivity JNI event.
+                if let Some(cb) = lock_or_recover!(CALLBACK, "callback lock").clone() {
                     cb.on_connectivity_changed(mode.into());
                 }
                 if mode == NetConnectivityMode::Internet {
@@ -845,7 +853,8 @@ pub fn init_node(config: NodeConfig) {
                 tick.tick().await;
                 let peers = peer_handle.known_peers().await;
                 let current: HashSet<String> = peers.into_iter().collect();
-                if let Some(cb) = CALLBACK.lock().expect("callback lock").clone() {
+                // POISON-RECOVER: callback clone only; poison skips one peer-discovery JNI batch.
+                if let Some(cb) = lock_or_recover!(CALLBACK, "callback lock").clone() {
                     for peer in current.difference(&known) {
                         cb.on_peer_discovered(peer.clone());
                     }
@@ -861,17 +870,20 @@ pub fn init_node(config: NodeConfig) {
             loop {
                 tokio::select! {
                     Ok(chat) = inbox.chat_rx.recv() => {
-                        if let Some(cb) = CALLBACK.lock().expect("callback lock").clone() {
+                        // POISON-RECOVER: callback clone only; poison skips one chat JNI dispatch.
+                        if let Some(cb) = lock_or_recover!(CALLBACK, "callback lock").clone() {
                             cb.on_chat_received(to_chat_message(chat.message, chat.from_peer));
                         }
                     }
                     Ok(mail) = inbox.mail_rx.recv() => {
-                        if let Some(cb) = CALLBACK.lock().expect("callback lock").clone() {
+                        // POISON-RECOVER: callback clone only; poison skips one mail JNI dispatch.
+                        if let Some(cb) = lock_or_recover!(CALLBACK, "callback lock").clone() {
                             cb.on_mail_received(to_mail_message(mail, false));
                         }
                     }
                     Ok(post) = inbox.bulletin_rx.recv() => {
-                        if let Some(cb) = CALLBACK.lock().expect("callback lock").clone() {
+                        // POISON-RECOVER: callback clone only; poison skips one bulletin/SOS JNI dispatch.
+                        if let Some(cb) = lock_or_recover!(CALLBACK, "callback lock").clone() {
                             if post.scope == mycelium_core::sos::SOS_SCOPE {
                                 if let Ok(payload) = mycelium_core::sos::SosPayload::decode_json(&post.body) {
                                     cb.on_sos_received(to_sos_post(&payload));
@@ -882,7 +894,8 @@ pub fn init_node(config: NodeConfig) {
                         }
                     }
                     Ok(listing) = inbox.appstore_rx.recv() => {
-                        if let Some(cb) = CALLBACK.lock().expect("callback lock").clone() {
+                        // POISON-RECOVER: callback clone only; poison skips one app-store JNI dispatch.
+                        if let Some(cb) = lock_or_recover!(CALLBACK, "callback lock").clone() {
                             cb.on_app_store_listing(to_app_store_listing(listing));
                         }
                     }
@@ -912,13 +925,15 @@ pub fn init_node(config: NodeConfig) {
             user_trust,
             user_trust_task,
         }));
-        *NODE.lock().expect("node lock") = Some(state);
+        // POISON-RECOVER: assigns whole Option<Arc>; init is atomic from None to Some.
+        *lock_or_recover!(NODE, "node lock") = Some(state);
     });
 }
 
 pub fn stop_node() {
     let Some(runtime) = RUNTIME.get() else { return };
-    let state = NODE.lock().expect("node lock").take();
+    // POISON-RECOVER: take() clears slot; shutdown is idempotent if already None.
+    let state = lock_or_recover!(NODE, "node lock").take();
     runtime.block_on(async {
         if let Some(state) = state {
             let guard = state.write().await;
@@ -1047,7 +1062,7 @@ pub fn send_chat_priority(
 }
 
 pub fn user_trust_summary() -> UserTrustSummary {
-    with_state(|s| UserTrustSummary::from(s.user_trust.snapshot()))
+    with_state(|s| s.user_trust.snapshot().into())
 }
 
 pub fn endorse_peer(peer_id: String, strength: u8) -> Result<(), MyceliumException> {
@@ -2047,7 +2062,8 @@ pub fn ble_peer_addrs() -> Vec<String> {
 }
 
 pub fn set_event_callback(callback: Box<dyn NodeEventCallback>) {
-    *CALLBACK.lock().expect("callback lock") = Some(Arc::from(callback));
+    // POISON-RECOVER: replaces callback Arc wholesale; old callback remains valid until dropped.
+    *lock_or_recover!(CALLBACK, "callback lock") = Some(Arc::from(callback));
 }
 
 pub fn wallet_address() -> String {
@@ -2194,7 +2210,8 @@ pub fn hot_wallet_status() -> HotWalletStatus {
         let st = state.read().await;
         let (conf, pend) = st.coin_node.balance().unwrap_or((0, 0));
         let cfg = st.hot_wallet.config().await;
-        let net = *st.connectivity_mode.lock().expect("connectivity lock");
+        // POISON-RECOVER: reads enum copy; stale value only misreports wallet refill hint once.
+        let net = *lock_or_recover!(st.connectivity_mode, "connectivity lock");
         let needs_refill = cfg.cold_wallet_address.is_some() && conf < cfg.refill_threshold_muon;
         HotWalletStatus {
             confirmed_muon: conf,
@@ -2209,7 +2226,8 @@ pub fn hot_wallet_status() -> HotWalletStatus {
 
 pub fn current_connectivity_mode() -> ConnectivityMode {
     with_state(|s| {
-        let net = *s.connectivity_mode.lock().expect("connectivity lock");
+        // POISON-RECOVER: reads enum copy; stale mode only delays one UI connectivity update.
+        let net = *lock_or_recover!(s.connectivity_mode, "connectivity lock");
         net.into()
     })
 }
@@ -2549,8 +2567,8 @@ fn runtime() -> &'static Runtime {
 }
 
 fn state_arc() -> Arc<RwLock<NodeState>> {
-    NODE.lock()
-        .expect("node lock")
+    // POISON-RECOVER: clones existing Arc handle; poison before init still fails expect below.
+    lock_or_recover!(NODE, "node lock")
         .as_ref()
         .cloned()
         .expect("node not initialized")

@@ -60,7 +60,8 @@ pub fn decode_frame(bytes: &[u8]) -> anyhow::Result<WireMessage> {
 }
 
 #[cfg(test)]
-mod tests {
+mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
+
     use super::*;
     use crate::data::Envelope;
     use crate::transport::DirectMessage;

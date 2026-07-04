@@ -194,8 +194,10 @@ pub fn unpad_payload(payload: &mut Vec<u8>) -> bool {
     if &payload[len - 8..len - 4] != PAD_MAGIC {
         return false;
     }
-    let orig_len =
-        u32::from_le_bytes(payload[len - 4..].try_into().expect("4 byte trailer")) as usize;
+    let orig_len = match payload[len - 4..].try_into() {
+        Ok(trailer) => u32::from_le_bytes(trailer) as usize,
+        Err(_) => return false,
+    };
     if orig_len + 8 > len {
         return false;
     }
@@ -332,7 +334,8 @@ pub fn build_cover_envelope(from_peer: &str, to_peer: &str) -> Envelope {
 }
 
 #[cfg(test)]
-mod tests {
+mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
+
     use super::*;
 
     #[test]

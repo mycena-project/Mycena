@@ -176,7 +176,8 @@ pub const fn strong_consistency_not_on_mesh() -> StrongConsistencyForbidden {
 }
 
 #[cfg(test)]
-mod tests {
+mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
+
     use super::*;
 
     #[test]

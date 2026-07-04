@@ -123,9 +123,10 @@ We **do not** assume:
 
 Before trusting this release, verify:
 
-1. [SECURITY_DEBT_REGISTER.md](./SECURITY_DEBT_REGISTER.md) — open items and waivers.
-2. [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md) — NOT SAFE AGAINST.
-3. Build hash / Play signing certificate fingerprint.
+1. [THREAT_MODEL.md](./THREAT_MODEL.md) — adversaries, assets, accepted residuals.
+2. [SECURITY_DEBT_REGISTER.md](./SECURITY_DEBT_REGISTER.md) — open items and waivers.
+3. [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md) — NOT SAFE AGAINST.
+4. Build hash / Play signing certificate fingerprint.
 
 ---
 

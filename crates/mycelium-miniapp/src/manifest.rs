@@ -92,7 +92,8 @@ impl MiniAppManifest {
 }
 
 #[cfg(test)]
-mod bulletin_scope_tests {
+mod bulletin_scope_tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
+
     use super::*;
 
     fn manifest_with_scopes(scopes: Vec<&str>) -> MiniAppManifest {

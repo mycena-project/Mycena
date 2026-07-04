@@ -1,6 +1,6 @@
 SHELL := /bin/zsh
 
-.PHONY: help desktop-dev desktop-stop desktop-nuke desktop-check-relay android-apk android-apk-ci android-apk-local android-install android-deploy android-nuke clean test test-fast test-integration test-unit test-sim check check-app-layer check-layer-boundaries check-unwrap-audit clippy ci fmt fuzz-smoke docker-android-ci docker-compose-android gradle-wrapper
+.PHONY: help desktop-dev desktop-stop desktop-nuke desktop-check-relay android-apk android-apk-ci android-apk-local android-install android-deploy android-nuke clean test test-fast test-integration test-unit test-sim check check-app-layer check-layer-boundaries check-unwrap-audit check-no-unwrap-prod clippy ci fmt fuzz-smoke docker-android-ci docker-compose-android gradle-wrapper sync-privacy-policy
 
 help:
 	@echo "Mycelium — the maintainer mesh client (no server stack)"
@@ -13,10 +13,11 @@ help:
 	@echo "  make android-deploy   Stop desktop, rebuild APK, install on device"
 	@echo "  make android-nuke     Clear ALL app data on USB device (scorched earth)"
 	@echo "  make clean            Clean build artifacts (not a running mesh)"
+	@echo "  make sync-privacy-policy  Copy docs/legal/privacy-policy.html → Android assets"
 	@echo ""
 	@echo "See docs/ECOSYSTEM.md · Android: ./android/build.sh"
 
-.PHONY: test test-fast test-integration test-unit test-sim check check-app-layer check-layer-boundaries check-unwrap-audit clippy ci fmt docker-android-ci docker-compose-android gradle-wrapper desktop-dev desktop-stop desktop-check-relay android-apk android-apk-ci android-apk-local android-install android-deploy android-nuke clean
+.PHONY: test test-fast test-integration test-unit test-sim check check-app-layer check-layer-boundaries check-unwrap-audit check-no-unwrap-prod clippy ci fmt docker-android-ci docker-compose-android gradle-wrapper desktop-dev desktop-stop desktop-check-relay android-apk android-apk-ci android-apk-local android-install android-deploy android-nuke clean
 
 # One-shot: add Gradle wrapper under android/ using Docker (no local Gradle needed).
 gradle-wrapper:
@@ -65,7 +66,10 @@ check-layer-boundaries:
 check-unwrap-audit:
 	./scripts/check-unwrap-audit.sh
 
-ci: check test-fast test-integration check-app-layer check-layer-boundaries check-unwrap-audit clippy
+check-no-unwrap-prod:
+	./scripts/check-no-unwrap-prod.sh
+
+ci: check test-fast test-integration check-app-layer check-layer-boundaries check-unwrap-audit check-no-unwrap-prod clippy
 	CARGO_HOME="$(CURDIR)/.cargo-home" cargo test -p mycelium-sim city_custody -- --test-threads=1
 	CARGO_HOME="$(CURDIR)/.cargo-home" cargo test -p mycelium-sim myceliumlab_ci_gates -- --test-threads=1
 	CARGO_HOME="$(CURDIR)/.cargo-home" cargo fmt --all --check
@@ -111,6 +115,9 @@ android-deploy: desktop-stop android-apk android-install
 
 android-nuke:
 	./scripts/nuke-android-data.sh
+
+sync-privacy-policy:
+	./scripts/sync-privacy-policy.sh
 
 clean:
 	./scripts/clean-repo.sh --deep

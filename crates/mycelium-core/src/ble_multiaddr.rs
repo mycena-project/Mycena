@@ -70,7 +70,8 @@ pub fn parse_ble_multiaddr(addr: &str) -> Option<BleMultiaddr> {
 }
 
 #[cfg(test)]
-mod tests {
+mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
+
     use super::*;
 
     #[test]

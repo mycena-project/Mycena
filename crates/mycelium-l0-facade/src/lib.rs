@@ -15,6 +15,7 @@ pub use mycelium_core::bearer_transport;
 pub use mycelium_core::ble_mesh;
 pub use mycelium_core::bootstrap;
 pub use mycelium_core::consistency;
+pub use mycelium_core::lock_or_recover;
 pub use mycelium_core::contact_hello;
 pub use mycelium_core::crisis_mode;
 pub use mycelium_core::data;

@@ -3,6 +3,7 @@
 use crate::clock::{DeterministicClock, VirtualClock};
 use crate::scheduler::{EventScheduler, LinkProfile};
 use crate::transport::{SimAction, SimTransport};
+use mycelium_core::lock_or_recover;
 use mycelium_core::transport::{Scope, TransportEvent, WireMessage};
 use mycelium_node::{IdentityBootstrap, NodeConfig, NodeHandle, NodeRunner};
 use std::collections::{HashMap, HashSet};
@@ -134,17 +135,20 @@ impl SimulationRunner {
     }
 
     pub fn set_link(&mut self, a: String, b: String, profile: LinkProfile) {
-        let mut links = self.links.lock().expect("links lock poisoned");
+        // POISON-RECOVER: sim topology map; duplicate insert is idempotent.
+        let mut links = lock_or_recover!(self.links, "sim links");
         links.insert((a.clone(), b.clone()), profile.clone());
         links.insert((b, a), profile);
     }
 
     pub fn clear_links(&mut self) {
-        self.links.lock().expect("links lock poisoned").clear();
+        // POISON-RECOVER: sim topology reset; empty map is valid baseline.
+        lock_or_recover!(self.links, "sim links").clear();
     }
 
     pub fn replace_links(&mut self, pairs: &[(String, String, LinkProfile)]) {
-        let mut links = self.links.lock().expect("links lock poisoned");
+        // POISON-RECOVER: sim topology map; duplicate insert is idempotent.
+        let mut links = lock_or_recover!(self.links, "sim links");
         links.clear();
         for (a, b, profile) in pairs {
             links.insert((a.clone(), b.clone()), profile.clone());
@@ -162,7 +166,8 @@ impl SimulationRunner {
         self.event_txs.remove(peer_id);
         self.malicious_drop_per_mille.remove(peer_id);
         self.peer_subscriptions.remove(peer_id);
-        let mut links = self.links.lock().expect("links lock poisoned");
+        // POISON-RECOVER: sim topology map; duplicate insert is idempotent.
+        let mut links = lock_or_recover!(self.links, "sim links");
         links.retain(|(a, b), _| a != peer_id && b != peer_id);
     }
 
@@ -254,10 +259,8 @@ impl SimulationRunner {
                     self.metrics.dropped_offline += 1;
                     return;
                 }
-                let Some(profile) = self
-                    .links
-                    .lock()
-                    .expect("links lock poisoned")
+                // POISON-RECOVER: read-only link profile lookup for routing decision.
+                let Some(profile) = lock_or_recover!(self.links, "sim links")
                     .get(&(from_peer.clone(), to_peer.clone()))
                     .cloned()
                 else {

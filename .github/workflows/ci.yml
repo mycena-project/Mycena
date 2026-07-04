@@ -44,6 +44,12 @@ jobs:
         run: npm ci && npm run build
       - name: Format
         run: cargo fmt --all -- --check
+      - name: Unwrap/expect lint gate (node, core, coin, miniapp)
+        run: ./scripts/check-no-unwrap-prod.sh
+      - name: Privacy policy sync check
+        run: |
+          ./scripts/sync-privacy-policy.sh
+          git diff --exit-code android/app/src/main/assets/privacy_policy.html
       - name: Clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: Test

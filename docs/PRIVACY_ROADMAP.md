@@ -2,7 +2,7 @@
 
 **Goal:** Minimize data collection, metadata leakage, and identifiability—while staying honest about what mesh + relay architectures cannot hide.
 
-**Companion:** [SECURITY_DEBT_REGISTER.md](./SECURITY_DEBT_REGISTER.md) (metadata & deanonymization) · [PRIVACY_EXPERIMENTS.md](./PRIVACY_EXPERIMENTS.md) (Shade R&D) · [security-for-users.md](./security-for-users.md)
+**Companion:** [THREAT_MODEL.md](./THREAT_MODEL.md) · [BETA_SECURITY_ASSESSMENT.md](./BETA_SECURITY_ASSESSMENT.md) · [PRE_RELEASE_GAPS.md](./PRE_RELEASE_GAPS.md) · [SECURITY_DEBT_REGISTER.md](./SECURITY_DEBT_REGISTER.md)
 
 ---
 
@@ -38,24 +38,24 @@
 
 | Action | Owner | Status |
 |--------|-------|--------|
-| Publish privacy policy URL in Play Console | Legal/product | Template exists |
-| Document relay IP processing (no retention) | Ops | **Policy needed** |
-| In-app link: Settings → Privacy Policy | Android | **TODO** |
-| Clarify “we cannot delete mesh copies” in user doc | Docs | Partial |
+| Publish privacy policy URL in Play Console | Legal/product | **Ready** — URL after Pages deploy: [docs/legal/README.md](./legal/README.md) |
+| Document relay IP processing (no retention) | Ops | **Policy needed** — stated in privacy policy; ops audit **TODO** |
+| In-app link: Settings → Privacy Policy | Android | **Done** — Settings → Legal |
+| Clarify “we cannot delete mesh copies” in user doc | Docs | **Done** — privacy policy + [security-for-users.md](./security-for-users.md) |
 | MeshCoin = no monetary value statement | Product | Banner added |
 
 ---
 
 ## Phase B — Data minimization (beta)
 
-| Action | Debt IDs | Effort |
-|--------|----------|--------|
-| Relay: disable access logs / minimize Fly metrics | SD-210 | S |
-| Health endpoint: remove peer_id from public JSON | SD-003 | S |
-| Optional “minimal PeerInfo” mode (enc key only) | SD-004 | M |
-| Default display name empty or random | SD-082 | S |
-| No backup to cloud (`allowBackup=false`) | SD-171 | S |
-| Coin: stop gossiping balance by default | SD-002 | M |
+| Action | Debt IDs | Effort | Status |
+|--------|----------|--------|--------|
+| Relay: disable access logs / minimize Fly metrics | SD-210 | S | **Documented** — [RELAY_OPERATOR_GUIDE.md §9](./RELAY_OPERATOR_GUIDE.md#9-logging-privacy-and-audit-sd-003-sd-210) |
+| Health endpoint: remove peer_id from public JSON | SD-003 | S | **Done** — `/health` JSON `{ok, version}` |
+| Optional “minimal PeerInfo” mode (enc key only) | SD-004 | M | Planned |
+| Default display name empty or random | SD-082 | S | Planned |
+| No backup to cloud (`allowBackup=false`) | SD-171 | S | **Done** |
+| Coin: stop gossiping balance by default | SD-002 | M | **Done** — balance query responses off by default |
 
 ---
 

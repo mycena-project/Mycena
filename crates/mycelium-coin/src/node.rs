@@ -36,6 +36,8 @@ pub struct CoinNode {
     /// Path to sled identity store for this node's coin keypair (cold signs outgoing refills).
     coin_identity_path: String,
     voucher_registry: Option<Arc<VoucherSettlementRegistry>>,
+    /// Respond to peer balance probes on coin gossip (SD-002). Off by default.
+    respond_to_balance_queries: bool,
 }
 
 impl std::fmt::Debug for CoinNode {
@@ -62,7 +64,14 @@ impl CoinNode {
             local_peer_id,
             coin_identity_path,
             voucher_registry: None,
+            respond_to_balance_queries: false,
         }
+    }
+
+    /// Opt in to answering [`CoinPayload::BalanceQuery`] (leaks balance metadata to peers).
+    pub fn with_balance_query_responses(mut self, enabled: bool) -> Self {
+        self.respond_to_balance_queries = enabled;
+        self
     }
 
     pub fn with_voucher_registry(mut self, registry: Arc<VoucherSettlementRegistry>) -> Self {
@@ -182,6 +191,9 @@ impl CoinNode {
                 let _ = self.ledger.add_witness(&tx_id, peer_id)?;
             }
             CoinPayload::BalanceQuery { address } => {
+                if !self.respond_to_balance_queries {
+                    return Ok(());
+                }
                 let acc = self.ledger.account_state(&address)?;
                 let view = self.ledger.eventual_balance_view(&address)?;
                 let confirmed = view.confirmed_muon();

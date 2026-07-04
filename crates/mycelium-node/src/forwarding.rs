@@ -214,9 +214,11 @@ impl IngestPipeline {
 }
 
 #[cfg(test)]
-mod tests {
+mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
+
     use super::*;
     use async_trait::async_trait;
+    use mycelium_core::lock_or_recover;
     use mycelium_core::data::Envelope;
     use mycelium_core::transport::{MessageStore, StoreStats};
     use std::collections::HashMap;
@@ -253,30 +255,34 @@ mod tests {
     #[async_trait]
     impl MessageStore for MemStore {
         async fn persist(&self, message: &DirectMessage) -> anyhow::Result<()> {
-            self.inner
-                .lock()
-                .expect("lock")
+            // POISON-RECOVER: test in-memory store; insert is atomic per message id.
+            lock_or_recover!(self.inner, "mem store")
                 .insert(message.envelope.id.0.clone(), message.clone());
             Ok(())
         }
         async fn recent(&self, _limit: usize) -> anyhow::Result<Vec<DirectMessage>> {
-            Ok(self.inner.lock().expect("lock").values().cloned().collect())
+            // POISON-RECOVER: test read-only scan; incomplete iteration only affects test assertion.
+            Ok(lock_or_recover!(self.inner, "mem store").values().cloned().collect())
         }
         async fn contains(&self, message_id: &str) -> anyhow::Result<bool> {
-            Ok(self.inner.lock().expect("lock").contains_key(message_id))
+            // POISON-RECOVER: test lookup; false negative only fails test, not prod state.
+            Ok(lock_or_recover!(self.inner, "mem store").contains_key(message_id))
         }
         async fn load_by_id(&self, message_id: &str) -> anyhow::Result<Option<DirectMessage>> {
-            Ok(self.inner.lock().expect("lock").get(message_id).cloned())
+            // POISON-RECOVER: test load; None only loses one fixture message.
+            Ok(lock_or_recover!(self.inner, "mem store").get(message_id).cloned())
         }
         async fn list_ids_window(&self, _window: Duration) -> anyhow::Result<Vec<String>> {
-            Ok(self.inner.lock().expect("lock").keys().cloned().collect())
+            // POISON-RECOVER: test id listing; partial list only skews test window check.
+            Ok(lock_or_recover!(self.inner, "mem store").keys().cloned().collect())
         }
         async fn gc_expired(&self) -> anyhow::Result<usize> {
             Ok(0)
         }
         async fn stats(&self) -> anyhow::Result<StoreStats> {
             Ok(StoreStats {
-                count: self.inner.lock().expect("lock").len(),
+                // POISON-RECOVER: test stats count; wrong len only fails test metrics.
+                count: lock_or_recover!(self.inner, "mem store").len(),
                 oldest_ms: 0,
             })
         }

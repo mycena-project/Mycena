@@ -70,8 +70,11 @@ pub fn plan_rendezvous_dials(
 
 fn peer_in_bucket(peer_id: &str, bucket: u32, num_buckets: u32) -> bool {
     let h = blake3::hash(peer_id.as_bytes());
-    // INVARIANT: blake3 output is 32 bytes; slicing [0..4] always fits [u8; 4].
-    let slot = u32::from_le_bytes(h.as_bytes()[0..4].try_into().expect("4 bytes")) % num_buckets;
+    let slot = match h.as_bytes()[0..4].try_into() {
+        Ok(bytes) => u32::from_le_bytes(bytes) % num_buckets,
+        // INVARIANT: blake3 output is 32 bytes; slicing [0..4] always fits [u8; 4].
+        Err(_) => return false,
+    };
     slot == bucket % num_buckets
 }
 
@@ -94,7 +97,8 @@ pub fn default_rendezvous_plan(
 }
 
 #[cfg(test)]
-mod tests {
+mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
+
     use super::*;
 
     fn peers(n: usize) -> Vec<String> {

@@ -37,6 +37,7 @@ pub struct MeshBehaviour {
     pub kad: kad::Behaviour<MemoryStore>,
 }
 
+#[allow(clippy::expect_used)] // INVARIANT: MeshProfile params + signed local key initialize libp2p behaviours.
 impl MeshBehaviour {
     pub fn new(
         local_key: &libp2p::identity::Keypair,

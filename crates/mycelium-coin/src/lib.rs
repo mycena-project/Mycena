@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Mycelium Project
 //! Offline-first MeshCoin ledger and mesh propagation hooks.
+#![deny(clippy::unwrap_used, clippy::expect_used)]
 
 mod address;
 mod error;
@@ -49,7 +50,10 @@ pub use voucher_settlement::{
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
+
     use super::hot_wallet::{HotWallet, HotWalletConfig};
+    use mycelium_core::lock_or_recover;
     use super::ledger::{ApplyResult, LocalLedger, Transaction, MUON_PER_MXC};
     use super::payload::CoinPayload;
     use super::payment::PaymentRequest;
@@ -294,7 +298,8 @@ mod tests {
         #[async_trait]
         impl CoinTransport for Capture {
             async fn broadcast_coin_inner(&self, inner: Vec<u8>) -> anyhow::Result<()> {
-                self.0.lock().unwrap().push(inner);
+                // POISON-RECOVER: test capture vec; push is atomic.
+                lock_or_recover!(self.0, "coin test capture").push(inner);
                 Ok(())
             }
 
@@ -324,7 +329,8 @@ mod tests {
             .unwrap();
         cold_node.handle_incoming(payload, "p99").await.unwrap();
 
-        assert_eq!(outs.lock().unwrap().len(), 1);
+        // POISON-RECOVER: test broadcast capture; len check is test-only assertion.
+        assert_eq!(lock_or_recover!(outs, "coin test outs").len(), 1);
         let hot_acc = cold_ledger.account_state(&hot_addr).unwrap();
         assert_eq!(hot_acc.pending_received, 10 * MUON_PER_MXC);
         let spent = 10 * MUON_PER_MXC + 1000;
@@ -462,7 +468,8 @@ mod tests {
         impl CoinTransport for Capture {
             async fn broadcast_coin_inner(&self, inner: Vec<u8>) -> anyhow::Result<()> {
                 let p: CoinPayload = bincode::deserialize(&inner)?;
-                self.0.lock().unwrap().push(p);
+                // POISON-RECOVER: test capture vec; push is atomic per payload.
+                lock_or_recover!(self.0, "coin test capture").push(p);
                 Ok(())
             }
             async fn send_direct_coin_inner(
@@ -488,9 +495,8 @@ mod tests {
             .issue_voucher(amount, None)
             .await
             .expect("issue voucher");
-        assert!(outs
-            .lock()
-            .unwrap()
+        // POISON-RECOVER: test outs scan; missed payload only fails test expectation.
+        assert!(lock_or_recover!(outs, "coin test outs")
             .iter()
             .any(|p| matches!(p, CoinPayload::PaymentVoucher(_))));
 
@@ -527,9 +533,8 @@ mod tests {
             .unwrap();
         assert_eq!(outcome.risk, VoucherRiskLevel::DoubleSpendDetected);
         assert_eq!(outcome.canonical_recipient.as_deref(), Some(bob.as_str()));
-        assert!(outs
-            .lock()
-            .unwrap()
+        // POISON-RECOVER: test settlement sync capture; false fails test only.
+        assert!(lock_or_recover!(outs, "coin test outs")
             .iter()
             .any(|p| matches!(p, CoinPayload::VoucherSettlementSync { .. })));
     }

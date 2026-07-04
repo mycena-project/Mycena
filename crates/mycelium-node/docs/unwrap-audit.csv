@@ -14,17 +14,32 @@ P0,crates/mycelium-coin/src/node.rs,100,否,peer_input_coin,"handle_incoming -> 
 P0,crates/mycelium-coin/src/payload.rs,8,否,peer_input_coin,"CoinPayload serde; deserialize at host boundary uses ?",already_safe
 P2,crates/mycelium-node/src/node.rs,93,否,local_state_startup,".expect(""default listen addr must parse"")",invariant_comment_done
 P2,crates/mycelium-node/src/node.rs,120,否,local_state_startup,".expect(""default listen addr must parse"")",invariant_comment_done
-P2,crates/mycelium-node/src/node.rs,157,否,local_state_mutex,".expect(""relay keypair lock"")",invariant_comment_done
-P2,crates/mycelium-node/src/node.rs,166,否,local_state_mutex,".expect(""relay created_at lock"")",invariant_comment_done
-P2,crates/mycelium-node/src/node.rs,173,否,local_state_mutex,"keypair.lock().expect(...)",invariant_comment_done
-P2,crates/mycelium-node/src/node.rs,175,否,local_state_mutex,"created_at.lock().expect(...)",invariant_comment_done
-P2,crates/mycelium-node/src/node.rs,181,否,local_state_mutex,"keypair.lock().expect(...).clone()",invariant_comment_done
-P2,crates/mycelium-node/src/peer_trust.rs,237,否,local_state_mutex,"peer trust cache lock",invariant_comment_done
-P2,crates/mycelium-node/src/peer_trust.rs,251,否,local_state_mutex,"peer trust cache lock",invariant_comment_done
-P2,crates/mycelium-node/src/peer_trust.rs,264,否,local_state_mutex,"peer trust cache lock",invariant_comment_done
-P2,crates/mycelium-node/src/peer_trust.rs,271,否,local_state_mutex,"peer trust cache lock",invariant_comment_done
-P2,crates/mycelium-node/src/secrets.rs,18,否,local_state_mutex,"locks.lock().expect(""account load lock map"")",invariant_comment_done
-P2,crates/mycelium-node/src/secrets.rs,105,否,local_state_mutex,"lock.lock().expect(""account load mutex"")",invariant_comment_done
+P2,crates/mycelium-node/src/node.rs,225,否,local_state_mutex,"lock_or_recover!(self.keypair, ""relay keypair"")",poison_recover_done
+P2,crates/mycelium-node/src/node.rs,233,否,local_state_mutex,"lock_or_recover!(self.created_at, ""relay created_at"")",poison_recover_done
+P2,crates/mycelium-node/src/node.rs,241,否,local_state_mutex,"lock_or_recover!(self.keypair) assign",poison_recover_done
+P2,crates/mycelium-node/src/node.rs,243,否,local_state_mutex,"lock_or_recover!(self.created_at) assign",poison_recover_done
+P2,crates/mycelium-node/src/node.rs,250,否,local_state_mutex,"lock_or_recover!(self.keypair).clone()",poison_recover_done
+P2,crates/mycelium-node/src/node.rs,993,否,local_state_mutex,"lock_or_recover!(relay_identity.created_at)",poison_recover_done
+P2,crates/mycelium-node/src/node.rs,1544,否,local_state_mutex,"lock_or_recover!(self.local_prekeys)",poison_recover_done
+P2,crates/mycelium-node/src/node.rs,3141,否,local_state_mutex,"lock_or_recover!(self.local_prekeys)",poison_recover_done
+P2,crates/mycelium-node/src/node.rs,3206,否,local_state_mutex,"lock_or_recover!(self.local_prekeys) mut",poison_recover_done
+P2,crates/mycelium-node/src/peer_trust.rs,237,否,local_state_mutex,"lock_or_recover!(self.cache) clone",poison_recover_done
+P2,crates/mycelium-node/src/peer_trust.rs,251,否,local_state_mutex,"lock_or_recover!(self.cache) mut",poison_recover_done
+P2,crates/mycelium-node/src/peer_trust.rs,264,否,local_state_mutex,"lock_or_recover!(self.cache) read",poison_recover_done
+P2,crates/mycelium-node/src/peer_trust.rs,271,否,local_state_mutex,"lock_or_recover!(self.cache) throttle",poison_recover_done
+P2,crates/mycelium-node/src/secrets.rs,17,否,local_state_mutex,"lock_or_recover(locks, ""account load lock map"")",poison_recover_done
+P2,crates/mycelium-node/src/secrets.rs,106,否,local_state_mutex,"lock_or_recover!(lock, ""account load mutex"")",poison_recover_done
+P2,crates/mycelium-node/src/encounter_log.rs,59,否,local_state_mutex,"lock_or_recover!(self.open)",poison_recover_done
+P2,crates/mycelium-node/src/encounter_log.rs,71,否,local_state_mutex,"lock_or_recover!(self.open)",poison_recover_done
+P2,crates/mycelium-node/src/forwarding.rs,259,是,test_mem_store,"lock_or_recover!(self.inner) persist",poison_recover_done
+P2,crates/mycelium-node/src/forwarding.rs,264,是,test_mem_store,"lock_or_recover!(self.inner) recent",poison_recover_done
+P2,crates/mycelium-coin/src/user_trust.rs,93,否,local_state_mutex,"lock_or_recover(m, ""user trust cache"")",poison_recover_done
+P2,crates/mycelium-coin/src/user_trust.rs,100,否,local_state_mutex,"lock_or_recover(m, ""endorse cache"")",poison_recover_done
+P2,crates/mycelium-ffi/src/lib.rs,591,否,local_state_mutex,"lock_or_recover!(CALLBACK)",poison_recover_done
+P2,crates/mycelium-ffi/src/lib.rs,929,否,local_state_mutex,"lock_or_recover!(NODE)",poison_recover_done
+P2,crates/mycelium-miniapp/src/bridge_session.rs,28,否,local_state_mutex,"lock_or_recover!(SESSIONS)",poison_recover_done
+P2,crates/mycelium-app/src/bridge_host.rs,36,否,local_state_mutex,"lock_or_recover!(BROADCAST_LIMITS)",poison_recover_done
+P2,crates/mycelium-core/src/lock_recover.rs,12,否,lock_recover_infra,"lock_or_recover / lock_or_recover! macro",poison_recover_done
 P2,crates/mycelium-node/src/behaviour.rs,57,否,local_state_startup,"gossipsub ConfigBuilder.build().expect(...)",invariant_comment_done
 P2,crates/mycelium-node/src/behaviour.rs,62,否,local_state_startup,"gossipsub::Behaviour::new(...).expect(...)",invariant_comment_done
 P2,crates/mycelium-node/src/behaviour.rs,65,否,local_state_startup,"mdns::Behaviour::new(...).expect(...)",invariant_comment_done

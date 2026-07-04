@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Mycelium Project
 //! Local encounter history for DTN custody scheduling (privacy: device-local, TTL-pruned).
 
+use mycelium_core::lock_or_recover;
 use mycelium_core::data::now_ms;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -54,10 +55,8 @@ impl EncounterLogStore {
     }
 
     pub fn begin_encounter(&self, peer_id: &str, at_ms: u64) -> anyhow::Result<()> {
-        let mut open = self
-            .open
-            .lock()
-            .map_err(|_| anyhow::anyhow!("lock poison"))?;
+        // POISON-RECOVER: open encounter map; sled persist follows in save().
+        let mut open = lock_or_recover!(self.open, "encounter open map");
         open.insert(peer_id.to_string(), at_ms);
         let mut rec = self.load_or_new(peer_id, at_ms)?;
         rec.last_seen_ms = at_ms;
@@ -68,10 +67,8 @@ impl EncounterLogStore {
 
     pub fn end_encounter(&self, peer_id: &str, at_ms: u64) -> anyhow::Result<()> {
         let started = {
-            let mut open = self
-                .open
-                .lock()
-                .map_err(|_| anyhow::anyhow!("lock poison"))?;
+            // POISON-RECOVER: remove open marker; duration math uses returned start time only.
+            let mut open = lock_or_recover!(self.open, "encounter open map");
             open.remove(peer_id)
         };
         let mut rec = self.load_or_new(peer_id, at_ms)?;
@@ -206,7 +203,8 @@ impl EncounterLogStore {
 }
 
 #[cfg(test)]
-mod tests {
+mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
+
     use super::*;
     use tempfile::tempdir;
 

@@ -11,6 +11,7 @@ use crate::security::{self, Sd030DropReason};
 use crate::storage::SledMessageStore;
 use crate::transport::Libp2pTransport;
 use libp2p::{identity, Multiaddr, PeerId};
+use mycelium_core::lock_or_recover;
 use mycelium_core::bootstrap::load_bootstrap_peers;
 use mycelium_core::crowd_density::CrowdDensityConfig;
 use mycelium_core::crypto::EncryptionKeypair;
@@ -136,13 +137,19 @@ fn default_internet_enabled() -> Arc<AtomicBool> {
     Arc::new(AtomicBool::new(true))
 }
 
+fn invariant_default_listen_addr() -> libp2p::Multiaddr {
+    const ADDR: &str = "/ip4/0.0.0.0/tcp/0";
+    match ADDR.parse() {
+        Ok(addr) => addr,
+        // INVARIANT: compile-time constant multiaddr; parse cannot fail.
+        Err(e) => panic!("default listen addr must parse: {e}"),
+    }
+}
+
 impl Default for NodeConfig {
     fn default() -> Self {
         Self {
-            listen_addr: "/ip4/0.0.0.0/tcp/0"
-                .parse()
-                // INVARIANT: compile-time constant multiaddr; parse cannot fail.
-                .expect("default listen addr must parse"),
+            listen_addr: invariant_default_listen_addr(),
             db_path: ".mycelium-node".to_string(),
             keypair_path: Some(".mycelium-node/identity".to_string()),
             forwarding_interval_ms: 500,
@@ -173,10 +180,7 @@ impl NodeConfig {
     /// peers via [`mycelium_core::bootstrap::load_bootstrap_peers`].
     pub fn with_defaults(db_path: &str) -> Self {
         Self {
-            listen_addr: "/ip4/0.0.0.0/tcp/0"
-                .parse()
-                // INVARIANT: compile-time constant multiaddr; parse cannot fail.
-                .expect("default listen addr must parse"),
+            listen_addr: invariant_default_listen_addr(),
             db_path: db_path.to_string(),
             keypair_path: Some(format!("{db_path}/identity")),
             forwarding_interval_ms: 500,
@@ -217,33 +221,33 @@ impl RelayIdentity {
     }
 
     fn peer_id(&self) -> String {
-        self.keypair
-            .lock()
-            .expect("relay keypair lock") // INVARIANT: mutex not poisoned; we never panic while holding it
+        // POISON-RECOVER: read-only keypair view; rotation replaces whole keypair atomically.
+        lock_or_recover!(self.keypair, "relay keypair")
             .public()
             .to_peer_id()
             .to_string()
     }
 
     fn age_secs(&self) -> u64 {
-        self.created_at
-            .lock()
-            .expect("relay created_at lock") // INVARIANT: mutex not poisoned; we never panic while holding it
+        // POISON-RECOVER: reads Instant; worst case triggers early relay rotation.
+        lock_or_recover!(self.created_at, "relay created_at")
             .elapsed()
             .as_secs()
     }
 
     fn maybe_rotate(&self) {
         if self.age_secs() > RELAY_KEY_ROTATION_SECS {
-            *self.keypair.lock().expect("relay keypair lock") = // INVARIANT: mutex not poisoned
+            // POISON-RECOVER: assigns fresh keypair + timestamp; no partial crypto state.
+            *lock_or_recover!(self.keypair, "relay keypair") =
                 identity::Keypair::generate_ed25519();
-            *self.created_at.lock().expect("relay created_at lock") = Instant::now(); // INVARIANT: mutex not poisoned
+            *lock_or_recover!(self.created_at, "relay created_at") = Instant::now();
             info!("relay keypair rotated");
         }
     }
 
     fn signing_keypair(&self) -> identity::Keypair {
-        self.keypair.lock().expect("relay keypair lock").clone() // INVARIANT: mutex not poisoned
+        // POISON-RECOVER: clones entire keypair; safe if prior holder panicked mid-read.
+        lock_or_recover!(self.keypair, "relay keypair").clone()
     }
 }
 
@@ -985,12 +989,8 @@ impl NodeRunner {
     #[doc(hidden)]
     pub fn set_relay_keypair_age_for_test(&self, age_secs: u64) {
         let created = Instant::now() - Duration::from_secs(age_secs);
-        *self
-            .relay_identity
-            .created_at
-            .lock()
-            .expect("relay created_at lock") // INVARIANT: mutex not poisoned
-            = created;
+        // POISON-RECOVER: test-only backdate; assigns whole Instant value.
+        *lock_or_recover!(self.relay_identity.created_at, "relay created_at") = created;
     }
 
     /// Rotate the relay keypair when it is older than 24 hours.
@@ -1540,10 +1540,8 @@ impl NodeRunner {
                 direct_multiaddr,
                 reply,
             } => {
-                let bundle = self
-                    .local_prekeys
-                    .lock()
-                    .expect("local prekeys lock") // INVARIANT: mutex not poisoned
+                // POISON-RECOVER: reads prekey bundle snapshot; invite encode is atomic.
+                let bundle = lock_or_recover!(self.local_prekeys, "local prekeys")
                     .public_bundle(&self.enc_keypair);
                 let result = mycelium_core::invite::encode_signed_invite_v3(
                     &self.account_id,
@@ -3139,10 +3137,8 @@ impl NodeRunner {
             .iter()
             .cloned()
             .collect();
-        let bundle = self
-            .local_prekeys
-            .lock()
-            .expect("local prekeys lock") // INVARIANT: mutex not poisoned
+        // POISON-RECOVER: reads prekey bundle snapshot for PeerInfo gossip.
+        let bundle = lock_or_recover!(self.local_prekeys, "local prekeys")
             .public_bundle(&self.enc_keypair);
         let info = WireMessage::PeerInfo {
             enc_pubkey_hex: self.enc_keypair.public_hex(),
@@ -3206,7 +3202,8 @@ impl NodeRunner {
             return crypto::decrypt_with(payload, &self.enc_keypair);
         }
         if ratchet::is_ratchet_init_frame(payload) {
-            let mut prekeys = self.local_prekeys.lock().expect("local prekeys lock"); // INVARIANT: mutex not poisoned
+            // POISON-RECOVER: ratchet init mutates prekeys then persists to sled on success.
+            let mut prekeys = lock_or_recover!(self.local_prekeys, "local prekeys");
             let (session, plain) = RatchetSession::init_inbound(
                 logical.to_string(),
                 &self.enc_keypair,
@@ -3339,6 +3336,12 @@ impl NodeRunner {
 
     fn config_sync_interval_secs(&self) -> u64 {
         self.sync_interval_secs
+    }
+
+    /// Test-only access for mutex-poison recovery integration tests.
+    #[doc(hidden)]
+    pub fn peer_trust_for_test(&self) -> &crate::peer_trust::PeerTrustStore {
+        &self.peer_trust
     }
 
     fn targets_for_scope(&self, scope: &str) -> Vec<String> {

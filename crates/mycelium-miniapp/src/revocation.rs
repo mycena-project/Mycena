@@ -133,7 +133,8 @@ pub fn merge_bundled_defaults(db: &Db) -> anyhow::Result<usize> {
 }
 
 #[cfg(test)]
-mod tests {
+mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
+
     use super::*;
     use libp2p::identity::Keypair;
 

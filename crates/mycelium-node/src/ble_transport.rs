@@ -213,7 +213,8 @@ impl BleTransportRegistry {
 }
 
 #[cfg(test)]
-mod tests {
+mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
+
     use super::*;
     use mycelium_core::data::Envelope;
     use mycelium_core::transport::DirectMessage;

@@ -20,7 +20,8 @@ pub fn safe_mode_denial_message(method: &str) -> String {
 }
 
 #[cfg(test)]
-mod tests {
+mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
+
     use super::*;
 
     #[test]

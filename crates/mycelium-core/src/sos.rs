@@ -61,7 +61,8 @@ pub fn geohash_from_payload_bytes(payload: &[u8]) -> Option<String> {
 }
 
 #[cfg(test)]
-mod tests {
+mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
+
     use super::*;
 
     #[test]

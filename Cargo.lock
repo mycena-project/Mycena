@@ -4075,6 +4075,7 @@ dependencies = [
  "blake3",
  "bs58",
  "libp2p",
+ "mycelium-core",
  "mycelium-l0-facade",
  "mycelium-l1-facade",
  "serde",

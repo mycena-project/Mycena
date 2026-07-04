@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Mycelium Project
 //! Load identity and encryption keys through [`mycelium_core::at_rest::SecretVault`].
 
+use mycelium_core::lock_or_recover;
 use libp2p::identity;
 use std::collections::HashMap;
 use std::path::Path;
@@ -12,7 +13,8 @@ const IDENTITY_SECRET: &str = "ed25519_identity";
 fn account_load_lock(db_path: &str) -> Arc<Mutex<()>> {
     static LOCKS: OnceLock<Mutex<HashMap<String, Arc<Mutex<()>>>>> = OnceLock::new();
     let locks = LOCKS.get_or_init(|| Mutex::new(HashMap::new()));
-    let mut guard = locks.lock().expect("account load lock map"); // INVARIANT: mutex not poisoned
+    // POISON-RECOVER: lock map only guards insert; no partial HashMap mutation on panic.
+    let mut guard = mycelium_core::lock_recover::lock_or_recover(locks, "account load lock map");
     guard
         .entry(db_path.to_string())
         .or_insert_with(|| Arc::new(Mutex::new(())))
@@ -100,7 +102,8 @@ pub fn load_or_create_account_keypair(
     storage_key: StorageKey,
 ) -> anyhow::Result<identity::Keypair> {
     let lock = account_load_lock(db_path);
-    let _guard = lock.lock().expect("account load mutex"); // INVARIANT: mutex not poisoned
+    // POISON-RECOVER: serializes identity load; vault IO is idempotent on retry.
+    let _guard = lock_or_recover!(lock, "account load mutex");
     let vault = open_vault(db_path, storage_key)?;
     match vault.read_secret(ACCOUNT_SECRET) {
         Ok(Some(bytes)) => return keypair_from_ed25519_secret(&bytes),

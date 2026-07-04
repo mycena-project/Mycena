@@ -284,7 +284,8 @@ pub fn listing_from_manifest_and_bundle(
 }
 
 #[cfg(test)]
-mod tests {
+mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
+
     use super::*;
 
     fn sample_manifest(peer_id: Option<String>) -> MiniAppManifest {
