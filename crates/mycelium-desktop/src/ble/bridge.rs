@@ -82,7 +82,7 @@ pub async fn drain_bearer_outbound(
     handle: &NodeHandle,
     to_peer: Option<String>,
     max: usize,
-) -> Vec<(String, Vec<u8>)> {
+) -> Vec<(String, Vec<u8>, mycelium_l0_facade::bearer_transport::BearerMedium)> {
     let (tx, rx) = tokio::sync::oneshot::channel();
     let _ = handle
         .send(NodeCommand::DrainBearerOutbound {

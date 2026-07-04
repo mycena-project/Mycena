@@ -6,8 +6,6 @@
 //! but used different inner magics (`MYBL` / `MYLP`). This module defines a single
 //! [`BearerFrame`] envelope with a version byte and routes both legacy formats on decode.
 
-use crate::transport::WireMessage;
-
 pub const CHUNK_MAGIC: [u8; 4] = *b"MYLC";
 /// Unified bearer envelope (v1+).
 pub const BEARER_MAGIC: [u8; 4] = *b"MYBR";
@@ -78,6 +76,47 @@ impl Default for BearerMtu {
     }
 }
 
+/// Physical bearer selected by the host (BLE low-power idle vs Wi‑Fi Direct bulk).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(u8)]
+pub enum BearerMedium {
+    Ble = 0,
+    WifiDirect = 1,
+}
+
+impl BearerMedium {
+    pub fn from_u8(v: u8) -> Option<Self> {
+        match v {
+            0 => Some(Self::Ble),
+            1 => Some(Self::WifiDirect),
+            _ => None,
+        }
+    }
+}
+
+pub const WIFI_DIRECT_MAX_FRAME_LEN: usize = 65_536;
+pub const WIFI_DIRECT_CHUNK_PAYLOAD: usize = 60_000;
+
+pub fn wifi_direct_mtu() -> BearerMtu {
+    BearerMtu {
+        max_frame: WIFI_DIRECT_MAX_FRAME_LEN,
+        chunk_payload: WIFI_DIRECT_CHUNK_PAYLOAD,
+    }
+}
+
+/// Default 16 KiB — override with `MYCELIUM_BEARER_WIFI_UPGRADE_BYTES`.
+pub fn bearer_wifi_upgrade_threshold() -> usize {
+    std::env::var("MYCELIUM_BEARER_WIFI_UPGRADE_BYTES")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(16 * 1024)
+}
+
+/// True when payload should use Wi‑Fi Direct (bulk / mini-app bundle / large bulletin).
+pub fn should_upgrade_to_wifi_direct(encoded_len: usize, force_bulk: bool) -> bool {
+    force_bulk || encoded_len >= bearer_wifi_upgrade_threshold()
+}
+
 /// On-the-wire encoding style for outbound frames.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum BearerWireVersion {
@@ -133,9 +172,18 @@ pub fn encode_bearer_frame(
     payload: &[u8],
     style: BearerWireVersion,
 ) -> anyhow::Result<Vec<u8>> {
-    if payload.len() > MAX_FRAME_LEN {
+    encode_bearer_frame_with_limit(kind, payload, style, MAX_FRAME_LEN)
+}
+
+pub fn encode_bearer_frame_with_limit(
+    kind: BearerPayloadKind,
+    payload: &[u8],
+    style: BearerWireVersion,
+    max_payload_len: usize,
+) -> anyhow::Result<Vec<u8>> {
+    if payload.len() > max_payload_len {
         anyhow::bail!(
-            "bearer payload too large ({len} > {MAX_FRAME_LEN})",
+            "bearer payload too large ({len} > {max_payload_len})",
             len = payload.len()
         );
     }
@@ -337,6 +385,13 @@ mod tests {
         assert_eq!(&bytes[..4], LEGACY_STREAM_MAGIC);
         let frame = decode_bearer_frame(&bytes).unwrap();
         assert_eq!(frame.kind, BearerPayloadKind::LegacyStream);
+    }
+
+    #[test]
+    fn wifi_upgrade_threshold() {
+        assert!(!should_upgrade_to_wifi_direct(1024, false));
+        assert!(should_upgrade_to_wifi_direct(32 * 1024, false));
+        assert!(should_upgrade_to_wifi_direct(64, true));
     }
 
     #[test]

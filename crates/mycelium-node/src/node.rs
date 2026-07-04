@@ -31,6 +31,13 @@ use tokio::time::{interval, MissedTickBehavior};
 use tracing::{debug, info, warn};
 
 type BleWireOutboundReply = tokio::sync::oneshot::Sender<Vec<(String, Vec<u8>)>>;
+type BearerOutboundReply = tokio::sync::oneshot::Sender<
+    Vec<(
+        String,
+        Vec<u8>,
+        mycelium_core::bearer_transport::BearerMedium,
+    )>,
+>;
 type BleStreamOutboundReply = tokio::sync::oneshot::Sender<Vec<Vec<u8>>>;
 type E2eEncryptReply = tokio::sync::oneshot::Sender<anyhow::Result<(Vec<u8>, u8)>>;
 
@@ -307,7 +314,12 @@ pub enum NodeCommand {
     DrainBearerOutbound {
         to_peer: Option<String>,
         max: usize,
-        reply: Option<BleWireOutboundReply>,
+        reply: Option<BearerOutboundReply>,
+    },
+    /// Queue a bulk payload for Wi‑Fi Direct (mini-app bundle, forced upgrade).
+    QueueBearerBulk {
+        to_peer: String,
+        payload: Vec<u8>,
     },
     SetCrowdMode(bool),
     /// Follow a contact's signed transport PeerId rotation (SD-190).
@@ -1193,6 +1205,11 @@ impl NodeRunner {
                 let drained = self.transport.drain_bearer_outbound(to_peer.as_deref(), max);
                 if let Some(tx) = reply {
                     let _ = tx.send(drained);
+                }
+            }
+            NodeCommand::QueueBearerBulk { to_peer, payload } => {
+                if let Err(e) = self.transport.queue_bearer_bulk(to_peer, payload) {
+                    warn!("queue bearer bulk: {e:#}");
                 }
             }
             NodeCommand::ListPeers => {

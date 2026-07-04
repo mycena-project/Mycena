@@ -337,13 +337,17 @@ pub trait MeshTransport: Send {
     ) -> Vec<(String, Vec<u8>)> {
         Vec::new()
     }
-    /// Drain encoded bearer frames (F2 side + F3 stream) for BLE hosts.
+    /// Drain encoded bearer frames (F2 side + F3 stream) for mesh hosts.
     fn drain_bearer_outbound(
         &mut self,
         _to_peer: Option<&str>,
         _max: usize,
-    ) -> Vec<(String, Vec<u8>)> {
+    ) -> Vec<(String, Vec<u8>, crate::bearer_transport::BearerMedium)> {
         Vec::new()
+    }
+    /// Queue bulk bytes on Wi‑Fi Direct bearer.
+    fn queue_bearer_bulk(&mut self, _to_peer: String, _payload: Vec<u8>) -> anyhow::Result<()> {
+        Ok(())
     }
     /// Start a Kademlia lookup for `target_peer_id` (no-op on transports without DHT).
     fn kad_find_peer(&mut self, _target_peer_id: &str) {}

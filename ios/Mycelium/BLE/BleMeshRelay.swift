@@ -12,7 +12,7 @@ enum BleMeshRelay {
         let connected = Set(bridge.connectedPeers())
         let bleAddrs = bridge.blePeerAddrs()
         let items = bridge.drainBearerOutbound(toPeer: nil, max: 16)
-        for item in items {
+        for item in items where item.medium == 0 {
             if !shouldSendOverBle(peerId: item.toPeer, connected: connected, bleAddrs: bleAddrs) {
                 continue
             }

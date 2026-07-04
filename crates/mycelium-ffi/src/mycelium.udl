@@ -102,6 +102,8 @@ namespace mycelium {
   string? peer_id_from_ble_frame(bytes frame);
   sequence<BleOutboundFrame> drain_ble_outbound(string? to_peer, u32 max);
   sequence<BleOutboundFrame> drain_bearer_outbound(string? to_peer, u32 max);
+  [Throws=MyceliumException]
+  void queue_bearer_bulk(string to_peer, bytes payload);
   void register_ble_link(string peer_id, string device_id);
   [Throws=MyceliumException]
   void ingest_ble_stream_frame(string from_peer, bytes frame);
@@ -179,6 +181,7 @@ dictionary TxInfo {
 dictionary BleOutboundFrame {
   string to_peer;
   bytes frame;
+  u8 medium;
 };
 
 dictionary NodeConfig {

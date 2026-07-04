@@ -26,6 +26,7 @@ object BleMeshRelay {
             val bleAddrs = mycelium.blePeerAddrs()
             val items = mycelium.drainBearerOutbound(null, 16u)
             for (item in items) {
+                if (item.medium != 0u.toUByte()) continue
                 if (!shouldSendOverBle(item.toPeer, connected, bleAddrs)) continue
                 val address = BleMeshLinkRegistry.addressForPeer(item.toPeer) ?: continue
                 val device = adapter.getRemoteDevice(address)

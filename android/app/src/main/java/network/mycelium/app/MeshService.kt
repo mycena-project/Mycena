@@ -25,7 +25,8 @@ import network.mycelium.app.bootstrap.BleMeshHandoff
 import network.mycelium.app.bootstrap.BleMeshDataSession
 import network.mycelium.app.bootstrap.BleMeshLinkRegistry
 import network.mycelium.app.bootstrap.BleMeshRelay
-import network.mycelium.app.bootstrap.WifiMulticastLock
+import network.mycelium.app.bootstrap.WifiDirectBearerHost
+import network.mycelium.app.bootstrap.WifiDirectRelay
 import network.mycelium.app.viewmodel.SettingsViewModel
 import network.mycelium.app.viewmodel.SosViewModel
 import network.mycelium.bindings.AppStoreListing
@@ -48,6 +49,7 @@ class MeshService : Service() {
     private var bleScanner: BleBootstrapScanner? = null
     private var bleGattServer: BleInviteGattServer? = null
     private var bleCollectJob: kotlinx.coroutines.Job? = null
+    private var wifiDirectHost: WifiDirectBearerHost? = null
     private val notifiedAddresses = mutableSetOf<String>()
     private var nodeInitialized = false
     private var wifiMulticastLock: WifiMulticastLock? = null
@@ -203,6 +205,7 @@ class MeshService : Service() {
         bleGattServer = BleInviteGattServer(this, serviceScope)
         bleAdvertiser = BleBootstrapAdvertiser(this, bleGattServer!!)
         bleScanner = BleBootstrapScanner(this)
+        wifiDirectHost = WifiDirectBearerHost(this).also { it.register() }
 
         bleAdvertiser?.startAdvertising()
         bleScanner?.startScanning()
@@ -220,6 +223,10 @@ class MeshService : Service() {
                     delay(2_000)
                     withContext(Dispatchers.IO) {
                         BleMeshRelay.flushOutbound(this@MeshService)
+                        wifiDirectHost?.let { host ->
+                            WifiDirectRelay.flushOutbound(this@MeshService, host)
+                            host.noteIdleDowngradeIfNeeded { }
+                        }
                     }
                 }
             }
@@ -267,6 +274,9 @@ class MeshService : Service() {
     private fun stopBleBootstrap() {
         bleCollectJob?.cancel()
         bleCollectJob = null
+        wifiDirectHost?.teardownAll()
+        wifiDirectHost?.unregister()
+        wifiDirectHost = null
         bleAdvertiser?.stopAdvertising()
         bleScanner?.stopScanning()
         bleGattServer?.stop()

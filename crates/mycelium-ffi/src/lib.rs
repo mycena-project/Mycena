@@ -1499,6 +1499,8 @@ pub fn add_bootstrap_peer(multiaddr: String) {
 pub struct BleOutboundFrame {
     pub to_peer: String,
     pub frame: Vec<u8>,
+    /// 0 = BLE, 1 = Wi‑Fi Direct (see `BearerMedium`).
+    pub medium: u8,
 }
 
 pub fn connect_invite(raw: String) -> Result<(), MyceliumException> {
@@ -1565,7 +1567,11 @@ pub fn drain_ble_outbound(to_peer: Option<String>, max: u32) -> Vec<BleOutboundF
         rx.await
             .unwrap_or_default()
             .into_iter()
-            .map(|(to_peer, frame)| BleOutboundFrame { to_peer, frame })
+            .map(|(to_peer, frame)| BleOutboundFrame {
+                to_peer,
+                frame,
+                medium: 0,
+            })
             .collect()
     })
 }
@@ -1586,8 +1592,26 @@ pub fn drain_bearer_outbound(to_peer: Option<String>, max: u32) -> Vec<BleOutbou
         rx.await
             .unwrap_or_default()
             .into_iter()
-            .map(|(to_peer, frame)| BleOutboundFrame { to_peer, frame })
+            .map(|(to_peer, frame, medium)| BleOutboundFrame {
+                to_peer,
+                frame,
+                medium: medium as u8,
+            })
             .collect()
+    })
+}
+
+pub fn queue_bearer_bulk(to_peer: String, payload: Vec<u8>) -> Result<(), MyceliumException> {
+    let state = state_arc();
+    runtime().block_on(async {
+        let state = state.read().await;
+        state
+            .handle
+            .send(NodeCommand::QueueBearerBulk { to_peer, payload })
+            .await
+            .map_err(|e| MyceliumException::ChatError {
+                detail: e.to_string(),
+            })
     })
 }
 

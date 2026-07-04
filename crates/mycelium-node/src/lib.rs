@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Mycelium Project
 pub mod behaviour;
 mod bearer_ble;
+mod bearer_mesh;
 mod ble_transport;
 pub mod connectivity;
 mod custody;

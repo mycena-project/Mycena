@@ -3,7 +3,7 @@
 use crate::behaviour::{
     make_direct_response, DirectMessageRequest, DirectMessageResponse, MeshBehaviour,
 };
-use crate::bearer_ble::BearerBleRouter;
+use crate::bearer_mesh::BearerMeshRouter;
 use crate::ble_transport::BleTransportRegistry;
 use crate::connectivity::{kad_action_for_mode, KadConnectivityAction};
 use futures::StreamExt;
@@ -153,7 +153,7 @@ pub struct Libp2pTransport {
     active_relay_index: usize,
     mdns_dials_in_window: u32,
     mdns_window_start: Option<Instant>,
-    bearer: BearerBleRouter,
+    bearer: BearerMeshRouter,
     /// Throttle redials to stale LAN addrs (e.g. phone in flight mode).
     last_lan_dial: HashMap<String, Instant>,
 }
@@ -259,7 +259,7 @@ impl Libp2pTransport {
             active_relay_index,
             mdns_dials_in_window: 0,
             mdns_window_start: None,
-            bearer: BearerBleRouter::new(),
+            bearer: BearerMeshRouter::new(),
             last_lan_dial: HashMap::new(),
         };
         if transport.internet_dials_enabled() {
@@ -875,11 +875,15 @@ impl MeshTransport for Libp2pTransport {
         self.bearer.drain_side_outbound(to_peer, max)
     }
 
+    fn queue_bearer_bulk(&mut self, to_peer: String, payload: Vec<u8>) -> anyhow::Result<()> {
+        self.bearer.queue_bulk_frame(to_peer, payload)
+    }
+
     fn drain_bearer_outbound(
         &mut self,
         to_peer: Option<&str>,
         max: usize,
-    ) -> Vec<(String, Vec<u8>)> {
+    ) -> Vec<(String, Vec<u8>, mycelium_core::bearer_transport::BearerMedium)> {
         self.bearer.drain_bearer_outbound(to_peer, max)
     }
 
@@ -934,7 +938,7 @@ impl Libp2pTransport {
     }
 
     pub fn drain_ble_stream_outbound(&mut self, to_peer: &str, max: usize) -> Vec<Vec<u8>> {
-        self.bearer.drain_stream_outbound(to_peer, max)
+        self.bearer.drain_ble_stream_outbound(to_peer, max)
     }
 
     pub fn ble_peer_addrs(&self) -> Vec<String> {

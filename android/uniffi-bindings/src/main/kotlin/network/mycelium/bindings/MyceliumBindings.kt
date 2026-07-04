@@ -99,6 +99,8 @@ object mycelium {
         uniffi.mycelium.drainBleOutbound(toPeer, max)
     fun drainBearerOutbound(toPeer: String?, max: UInt): List<BleOutboundFrame> =
         uniffi.mycelium.drainBearerOutbound(toPeer, max)
+    fun queueBearerBulk(toPeer: String, payload: ByteArray) =
+        uniffi.mycelium.queueBearerBulk(toPeer, payload)
     fun registerBleLink(peerId: String, deviceId: String) =
         uniffi.mycelium.registerBleLink(peerId, deviceId)
     fun ingestBleStreamFrame(fromPeer: String, frame: ByteArray) =

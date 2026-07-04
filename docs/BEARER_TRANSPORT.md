@@ -33,10 +33,10 @@ pub trait BearerTransport {
 
 Set `MYCELIUM_BEARER_WIRE_V1=1` to emit `MYBR` on the wire (requires peer support).
 
-## BLE implementation
+## BLE + Wi‑Fi Direct implementation
 
-[`BearerBleRouter`](../crates/mycelium-node/src/bearer_ble.rs) — single ingest (`decode_ingest`) and **unified outbound drain** (`drain_bearer_outbound`) for F2 + F3.
+[`BearerMeshRouter`](../crates/mycelium-node/src/bearer_mesh.rs) routes outbound frames by size: BLE for idle/small, Wi‑Fi Direct for bulk (≥16 KiB default). [`BearerBleRouter`](../crates/mycelium-node/src/bearer_ble.rs) provides unified ingest (`decode_ingest`).
 
-**Host API:** `drain_bearer_outbound` / UniFFI `drainBearerOutbound` — one relay loop on Android, iOS, and desktop. Legacy split drains remain for older shells.
+**Host API:** `drain_bearer_outbound` returns `medium` (`0`=BLE, `1`=Wi‑Fi Direct). See [ADR 007](./adr/007-wifi-direct-bulk-bearer.md).
 
 Related: [ADR 002](./adr/002-ble-mesh-transport.md)

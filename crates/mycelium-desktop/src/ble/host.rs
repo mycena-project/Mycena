@@ -394,7 +394,10 @@ async fn flush_relay(
     let live_set: HashSet<String> = ctx.handle.known_peers().await.into_iter().collect();
     let ble_addrs = bridge::ble_peer_addrs(&ctx.handle).await;
     let items = bridge::drain_bearer_outbound(&ctx.handle, None, 16).await;
-    for (peer, frame) in items {
+    for (peer, frame, medium) in items {
+        if medium != mycelium_l0_facade::bearer_transport::BearerMedium::Ble {
+            continue;
+        }
         if !should_send_over_ble(&peer, &live_set, &ble_addrs) {
             continue;
         }
