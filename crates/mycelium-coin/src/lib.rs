@@ -13,6 +13,8 @@ mod refill;
 mod settlement_policy;
 mod velocity;
 mod views;
+mod voucher;
+mod voucher_settlement;
 
 pub use address::{address_from_keypair, validate_address};
 pub use error::{decode_peer_coin_payload, CoinError, CoinResult};
@@ -29,6 +31,14 @@ pub use settlement_policy::{
 };
 pub use views::{
     AccountBalanceView, InsufficientSettledFunds, PeerBalanceHint, SpendAuthorization,
+    VoucherExposureView,
+};
+pub use voucher::{
+    PaymentVoucher, VoucherRedemption, VoucherRiskLevel, VoucherRiskNotice, VOUCHER_DEFAULT_TTL_MS,
+};
+pub use voucher_settlement::{
+    AcceptRedemptionResult, VoucherPartitionView, VoucherSettlementOutcome,
+    VoucherSettlementRegistry,
 };
 
 #[cfg(test)]
@@ -314,6 +324,208 @@ mod tests {
         let spent = 10 * MUON_PER_MXC + 1000;
         let cold_acc = cold_ledger.account_state(&cold_addr).unwrap();
         assert_eq!(cold_acc.balance_muon, 100 * MUON_PER_MXC - spent);
+    }
+
+    #[test]
+    fn unsettled_voucher_does_not_authorize_spend() {
+        use super::voucher::{PaymentVoucher, VOUCHER_DEFAULT_TTL_MS};
+        use super::voucher_settlement::VoucherSettlementRegistry;
+        let dir = tempdir().unwrap();
+        let ledger = LocalLedger::open(dir.path().join("ledger").to_str().unwrap()).unwrap();
+        let reg =
+            VoucherSettlementRegistry::open(dir.path().join("reg").to_str().unwrap()).unwrap();
+        let issuer = Keypair::generate_ed25519();
+        let merchant = Keypair::generate_ed25519();
+        let merchant_addr = address_from_keypair(&merchant);
+        let amount = 3 * MUON_PER_MXC;
+        let voucher =
+            PaymentVoucher::new_signed(&issuer, amount, VOUCHER_DEFAULT_TTL_MS, None).unwrap();
+        let redemption = super::voucher::VoucherRedemption::new(
+            &voucher,
+            merchant_addr.clone(),
+            amount,
+            "local".into(),
+            None,
+        );
+        let now = 1000u64;
+        let r = reg
+            .accept_redemption_offline(&voucher, &redemption, now)
+            .unwrap();
+        assert!(r.accepted);
+        assert_eq!(r.notice.risk, super::voucher::VoucherRiskLevel::Unsettled);
+        VoucherSettlementRegistry::credit_unsettled_on_ledger(&ledger, &merchant_addr, amount)
+            .unwrap();
+        let acc = ledger.account_state(&merchant_addr).unwrap();
+        assert_eq!(acc.unsettled_voucher_muon, amount);
+        assert_eq!(
+            ledger.authorize_spend(&merchant_addr, 1),
+            Err(InsufficientSettledFunds {
+                have_settled: 0,
+                need: 1,
+            })
+        );
+    }
+
+    #[test]
+    fn voucher_settlement_claws_back_loser() {
+        use super::voucher::{
+            PaymentVoucher, VoucherRedemption, VoucherRiskLevel, VOUCHER_DEFAULT_TTL_MS,
+        };
+        use super::voucher_settlement::VoucherSettlementRegistry;
+        let dir = tempdir().unwrap();
+        let issuer = Keypair::generate_ed25519();
+        let bob = address_from_keypair(&Keypair::generate_ed25519());
+        let carol = address_from_keypair(&Keypair::generate_ed25519());
+        let amount = MUON_PER_MXC;
+        let voucher =
+            PaymentVoucher::new_signed(&issuer, amount, VOUCHER_DEFAULT_TTL_MS, None).unwrap();
+        let reg =
+            VoucherSettlementRegistry::open(dir.path().join("reg").to_str().unwrap()).unwrap();
+        reg.register_voucher(&voucher).unwrap();
+        let bob_r = VoucherRedemption {
+            voucher_id: voucher.voucher_id.clone(),
+            issuer_address: voucher.issuer_address.clone(),
+            recipient_address: bob.clone(),
+            amount_muon: amount,
+            redeemed_at_ms: 100,
+            recorder_peer_id: "p1".into(),
+            linked_tx_id: None,
+        };
+        let carol_r = VoucherRedemption {
+            voucher_id: voucher.voucher_id.clone(),
+            issuer_address: voucher.issuer_address.clone(),
+            recipient_address: carol.clone(),
+            amount_muon: amount,
+            redeemed_at_ms: 200,
+            recorder_peer_id: "p2".into(),
+            linked_tx_id: None,
+        };
+        reg.accept_redemption_offline(&voucher, &bob_r, 100)
+            .unwrap();
+        reg.accept_redemption_offline(&voucher, &carol_r, 200)
+            .unwrap();
+        let outcome = reg.settle_voucher(&voucher.voucher_id, 300).unwrap();
+        assert_eq!(outcome.risk, VoucherRiskLevel::DoubleSpendDetected);
+        assert_eq!(outcome.canonical_recipient.as_deref(), Some(bob.as_str()));
+    }
+
+    #[test]
+    fn voucher_reservation_blocks_spend() {
+        use super::voucher::{PaymentVoucher, VOUCHER_DEFAULT_TTL_MS};
+        let dir = tempdir().unwrap();
+        let ledger = LocalLedger::open(dir.path().to_str().unwrap()).unwrap();
+        let issuer = Keypair::generate_ed25519();
+        let addr = address_from_keypair(&issuer);
+        ledger.genesis_credit(&addr, 5 * MUON_PER_MXC).unwrap();
+        ledger
+            .reserve_voucher_funds(&addr, 4 * MUON_PER_MXC)
+            .unwrap();
+        assert_eq!(
+            ledger.authorize_spend(&addr, 2 * MUON_PER_MXC),
+            Err(InsufficientSettledFunds {
+                have_settled: MUON_PER_MXC,
+                need: 2 * MUON_PER_MXC,
+            })
+        );
+        let _voucher =
+            PaymentVoucher::new_signed(&issuer, 4 * MUON_PER_MXC, VOUCHER_DEFAULT_TTL_MS, None)
+                .unwrap();
+    }
+
+    #[tokio::test]
+    async fn coin_node_voucher_gossip_settlement_detects_double_spend() {
+        use super::voucher::{VoucherRedemption, VoucherRiskLevel};
+        use super::voucher_settlement::VoucherSettlementRegistry;
+        let dir = tempdir().unwrap();
+        let ledger_path = dir.path().join("ledger");
+        let reg_path = dir.path().join("reg");
+        let id_path = dir.path().join("identity");
+        let ledger = Arc::new(LocalLedger::open(ledger_path.to_str().unwrap()).unwrap());
+        let reg = Arc::new(VoucherSettlementRegistry::open(reg_path.to_str().unwrap()).unwrap());
+        let alice_kp = Keypair::generate_ed25519();
+        let alice = address_from_keypair(&alice_kp);
+        write_identity_store(&id_path, &alice_kp);
+        ledger.genesis_credit(&alice, 10 * MUON_PER_MXC).unwrap();
+        let bob = address_from_keypair(&Keypair::generate_ed25519());
+        let carol = address_from_keypair(&Keypair::generate_ed25519());
+        let amount = 3 * MUON_PER_MXC;
+
+        #[derive(Clone, Default)]
+        struct Capture(Arc<Mutex<Vec<CoinPayload>>>);
+        #[async_trait]
+        impl CoinTransport for Capture {
+            async fn broadcast_coin_inner(&self, inner: Vec<u8>) -> anyhow::Result<()> {
+                let p: CoinPayload = bincode::deserialize(&inner)?;
+                self.0.lock().unwrap().push(p);
+                Ok(())
+            }
+            async fn send_direct_coin_inner(
+                &self,
+                _to_peer: String,
+                _inner: Vec<u8>,
+            ) -> anyhow::Result<()> {
+                Ok(())
+            }
+        }
+
+        let outs = Arc::new(Mutex::new(Vec::new()));
+        let relay = CoinNode::new(
+            ledger.clone(),
+            Arc::new(Capture(outs.clone())),
+            alice.clone(),
+            "relay".into(),
+            id_path.to_str().unwrap().to_string(),
+        )
+        .with_voucher_registry(reg.clone());
+
+        let voucher = relay
+            .issue_voucher(amount, None)
+            .await
+            .expect("issue voucher");
+        assert!(outs
+            .lock()
+            .unwrap()
+            .iter()
+            .any(|p| matches!(p, CoinPayload::PaymentVoucher(_))));
+
+        let bob_r = VoucherRedemption {
+            voucher_id: voucher.voucher_id.clone(),
+            issuer_address: voucher.issuer_address.clone(),
+            recipient_address: bob.clone(),
+            amount_muon: amount,
+            redeemed_at_ms: 100,
+            recorder_peer_id: "p-a".into(),
+            linked_tx_id: None,
+        };
+        let carol_r = VoucherRedemption {
+            voucher_id: voucher.voucher_id.clone(),
+            issuer_address: voucher.issuer_address.clone(),
+            recipient_address: carol.clone(),
+            amount_muon: amount,
+            redeemed_at_ms: 200,
+            recorder_peer_id: "p-b".into(),
+            linked_tx_id: None,
+        };
+        relay
+            .handle_incoming(CoinPayload::VoucherRedemption(bob_r.clone()), "peer-a")
+            .await
+            .unwrap();
+        relay
+            .handle_incoming(CoinPayload::VoucherRedemption(carol_r.clone()), "peer-b")
+            .await
+            .unwrap();
+
+        let outcome = relay
+            .settle_voucher_and_broadcast(&voucher.voucher_id)
+            .await
+            .unwrap();
+        assert_eq!(outcome.risk, VoucherRiskLevel::DoubleSpendDetected);
+        assert_eq!(outcome.canonical_recipient.as_deref(), Some(bob.as_str()));
+        assert!(outs
+            .lock()
+            .unwrap()
+            .iter()
+            .any(|p| matches!(p, CoinPayload::VoucherSettlementSync { .. })));
     }
 
     #[tokio::test]

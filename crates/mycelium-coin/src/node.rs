@@ -4,7 +4,11 @@ use crate::address::address_from_keypair;
 use crate::ledger::{ApplyResult, LocalLedger, Transaction};
 use crate::payload::CoinPayload;
 use crate::settlement_policy::SettlementPolicy;
-use crate::views::{InsufficientSettledFunds, PeerBalanceHint, SpendAuthorization};
+use crate::views::{
+    InsufficientSettledFunds, PeerBalanceHint, SpendAuthorization, VoucherExposureView,
+};
+use crate::voucher::{PaymentVoucher, VoucherRedemption, VOUCHER_DEFAULT_TTL_MS};
+use crate::voucher_settlement::{VoucherSettlementOutcome, VoucherSettlementRegistry};
 use async_trait::async_trait;
 use mycelium_l0_facade::consistency::{
     EventuallyConsistentModel, SettlementRequiredModel, OP_COIN_TRANSFER,
@@ -31,6 +35,7 @@ pub struct CoinNode {
     local_peer_id: String,
     /// Path to sled identity store for this node's coin keypair (cold signs outgoing refills).
     coin_identity_path: String,
+    voucher_registry: Option<Arc<VoucherSettlementRegistry>>,
 }
 
 impl std::fmt::Debug for CoinNode {
@@ -56,7 +61,17 @@ impl CoinNode {
             local_address,
             local_peer_id,
             coin_identity_path,
+            voucher_registry: None,
         }
+    }
+
+    pub fn with_voucher_registry(mut self, registry: Arc<VoucherSettlementRegistry>) -> Self {
+        self.voucher_registry = Some(registry);
+        self
+    }
+
+    pub fn voucher_registry(&self) -> Option<&Arc<VoucherSettlementRegistry>> {
+        self.voucher_registry.as_ref()
     }
 
     pub async fn broadcast_coin_payload(&self, payload: CoinPayload) -> anyhow::Result<()> {
@@ -167,14 +182,22 @@ impl CoinNode {
                 let _ = self.ledger.add_witness(&tx_id, peer_id)?;
             }
             CoinPayload::BalanceQuery { address } => {
+                let acc = self.ledger.account_state(&address)?;
                 let view = self.ledger.eventual_balance_view(&address)?;
                 let confirmed = view.confirmed_muon();
                 let pending = view.pending_muon();
-                let _hint = PeerBalanceHint::new(view.address.clone(), confirmed, pending);
+                let unsettled = acc.unsettled_voucher_muon;
+                let _hint = PeerBalanceHint::with_voucher_exposure(
+                    view.address.clone(),
+                    confirmed,
+                    pending,
+                    unsettled,
+                );
                 let response = CoinPayload::BalanceResponse {
                     address: view.address,
                     balance_muon: confirmed,
                     pending_muon: pending,
+                    unsettled_voucher_muon: unsettled,
                 };
                 let inner = bincode::serialize(&response)?;
                 self.transport
@@ -182,6 +205,23 @@ impl CoinNode {
                     .await?;
             }
             CoinPayload::BalanceResponse { .. } => {}
+            CoinPayload::PaymentVoucher(voucher) => {
+                if let Some(reg) = &self.voucher_registry {
+                    if voucher.verify() {
+                        let _ = reg.register_voucher(&voucher);
+                    }
+                }
+            }
+            CoinPayload::VoucherRedemption(redemption) => {
+                self.handle_voucher_redemption(&redemption, None).await?;
+            }
+            CoinPayload::VoucherSettlementSync {
+                voucher_id,
+                redemptions,
+            } => {
+                self.merge_voucher_redemptions(&voucher_id, &redemptions)
+                    .await?;
+            }
             CoinPayload::RefillRequest(req) => {
                 if req.cold_address != self.local_address {
                     return Ok(());
@@ -220,6 +260,173 @@ impl CoinNode {
                     }
                 }
             }
+        }
+        Ok(())
+    }
+
+    /// Issue a signed voucher, reserve issuer funds locally, register + gossip.
+    pub async fn issue_voucher_from_identity_path(
+        &self,
+        identity_path: &str,
+        max_amount_muon: u64,
+        ttl_ms: u64,
+        memo: Option<String>,
+    ) -> anyhow::Result<PaymentVoucher> {
+        let kp = mycelium_l1_facade::load_or_create_keypair(identity_path)?;
+        if address_from_keypair(&kp) != self.local_address {
+            anyhow::bail!("identity does not match coin address");
+        }
+        let reg = self
+            .voucher_registry
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("voucher settlement not enabled on this node"))?;
+        self.ledger
+            .reserve_voucher_funds(&self.local_address, max_amount_muon)?;
+        let voucher = match PaymentVoucher::new_signed(&kp, max_amount_muon, ttl_ms, memo) {
+            Ok(v) => v,
+            Err(e) => {
+                let _ = self
+                    .ledger
+                    .release_voucher_reservation(&self.local_address, max_amount_muon);
+                return Err(e);
+            }
+        };
+        if let Err(e) = reg.register_voucher(&voucher) {
+            let _ = self
+                .ledger
+                .release_voucher_reservation(&self.local_address, max_amount_muon);
+            return Err(e);
+        }
+        self.broadcast_coin_payload(CoinPayload::PaymentVoucher(voucher.clone()))
+            .await?;
+        Ok(voucher)
+    }
+
+    pub async fn issue_voucher(
+        &self,
+        max_amount_muon: u64,
+        memo: Option<String>,
+    ) -> anyhow::Result<PaymentVoucher> {
+        self.issue_voucher_from_identity_path(
+            &self.coin_identity_path,
+            max_amount_muon,
+            VOUCHER_DEFAULT_TTL_MS,
+            memo,
+        )
+        .await
+    }
+
+    /// Accept a voucher redemption locally (unsettled credit; does not prevent partition double-spend).
+    pub async fn redeem_voucher(
+        &self,
+        voucher: &PaymentVoucher,
+        amount_muon: u64,
+    ) -> anyhow::Result<()> {
+        let redemption = VoucherRedemption::new(
+            voucher,
+            self.local_address.clone(),
+            amount_muon,
+            self.local_peer_id.clone(),
+            None,
+        );
+        self.handle_voucher_redemption(&redemption, Some(voucher))
+            .await?;
+        let inner = bincode::serialize(&CoinPayload::VoucherRedemption(redemption))?;
+        self.transport.broadcast_coin_inner(inner).await
+    }
+
+    /// Merge redemption gossip, settle when possible, broadcast sync frame.
+    pub async fn settle_voucher_and_broadcast(
+        &self,
+        voucher_id: &str,
+    ) -> anyhow::Result<VoucherSettlementOutcome> {
+        let reg = self
+            .voucher_registry
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("voucher settlement not enabled"))?;
+        let voucher = reg
+            .get_voucher(voucher_id)?
+            .ok_or_else(|| anyhow::anyhow!("unknown voucher {voucher_id}"))?;
+        let now = mycelium_l0_facade::data::now_ms();
+        let outcome = reg.settle_voucher(voucher_id, now)?;
+        let merged = reg.redemptions_for(voucher_id)?;
+        VoucherSettlementRegistry::apply_settlement_to_ledger(
+            &self.ledger,
+            &voucher,
+            &outcome,
+            &merged,
+        )?;
+        let sync = CoinPayload::VoucherSettlementSync {
+            voucher_id: voucher_id.to_string(),
+            redemptions: merged,
+        };
+        self.broadcast_coin_payload(sync).await?;
+        Ok(outcome)
+    }
+
+    /// Recipient-facing unsettled exposure + risk notices for UI.
+    pub fn voucher_exposure(&self) -> anyhow::Result<VoucherExposureView> {
+        let acc = self.ledger.account_state(&self.local_address)?;
+        let notices = if let Some(reg) = &self.voucher_registry {
+            reg.risk_notices_for_recipient(&self.local_address)?
+        } else {
+            Vec::new()
+        };
+        Ok(VoucherExposureView::from_account_and_notices(&acc, notices))
+    }
+
+    async fn merge_voucher_redemptions(
+        &self,
+        voucher_id: &str,
+        redemptions: &[VoucherRedemption],
+    ) -> anyhow::Result<()> {
+        let Some(reg) = &self.voucher_registry else {
+            return Ok(());
+        };
+        for r in redemptions {
+            let _ = reg.ingest_redemption_gossip(r);
+        }
+        let now = mycelium_l0_facade::data::now_ms();
+        let outcome = reg.settle_voucher(voucher_id, now)?;
+        let merged = reg.redemptions_for(voucher_id)?;
+        let voucher = reg
+            .get_voucher(voucher_id)?
+            .ok_or_else(|| anyhow::anyhow!("unknown voucher {voucher_id}"))?;
+        VoucherSettlementRegistry::apply_settlement_to_ledger(
+            &self.ledger,
+            &voucher,
+            &outcome,
+            &merged,
+        )?;
+        Ok(())
+    }
+
+    async fn handle_voucher_redemption(
+        &self,
+        redemption: &VoucherRedemption,
+        voucher: Option<&PaymentVoucher>,
+    ) -> anyhow::Result<()> {
+        let Some(reg) = &self.voucher_registry else {
+            return Ok(());
+        };
+        let now = mycelium_l0_facade::data::now_ms();
+        let voucher = match voucher {
+            Some(v) => v.clone(),
+            None => reg
+                .get_voucher(&redemption.voucher_id)?
+                .ok_or_else(|| anyhow::anyhow!("unknown voucher {}", redemption.voucher_id))?,
+        };
+        let result = reg.accept_redemption_offline(&voucher, redemption, now)?;
+        if result.accepted && redemption.recipient_address == self.local_address {
+            VoucherSettlementRegistry::credit_unsettled_on_ledger(
+                &self.ledger,
+                &redemption.recipient_address,
+                redemption.amount_muon,
+            )?;
+            info!(
+                "voucher {} accepted unsettled for {} muon",
+                redemption.voucher_id, redemption.amount_muon
+            );
         }
         Ok(())
     }

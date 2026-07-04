@@ -4252,6 +4252,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "libp2p",
+ "mycelium-coin",
  "mycelium-core",
  "mycelium-node",
  "tempfile",

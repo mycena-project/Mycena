@@ -43,6 +43,9 @@
 | **Coin balance query/response** | EventuallyConsistent | Peer **hint** only; must not gate spends (type: `PeerBalanceHint`). |
 | **Coin refill (cold→hot)** | SettlementRequired | Cold signs only against its settled local ledger. |
 | **Coin hot-wallet cap return** | SettlementRequired | Uses settled balance before broadcasting return TX. |
+| **Payment voucher issue** | SettlementRequired | Reserves issuer `voucher_reserved_muon`; reduces spendable until settlement/expiry. |
+| **Payment voucher redeem (incoming)** | EventuallyConsistent | Credits recipient `unsettled_voucher_muon` — **not spendable** until merge settlement. |
+| **Voucher settlement sync** | SettlementRequired | Relay merges redemption set; retroactive double-spend detection; issuer debit + recipient promote/clawback. |
 | **Genesis / faucet credit** | Local | Testnet-only local ledger mutation; not mesh consensus. |
 
 ### Forbidden pattern (Strong)
@@ -67,8 +70,10 @@ The type `StrongConsistencyForbidden` has **no mesh constructor** — only ADR/t
 | `apply_incoming_transaction` | EventuallyConsistent | Mesh gossip path — no spend token. |
 | `apply_outgoing_transaction` | SettlementRequired | Requires matching [`SpendAuthorization`]. |
 | `PeerBalanceHint` | EventuallyConsistent | Built from `BalanceResponse`; **no** `Into<SpendAuthorization>`. |
+| `VoucherExposureView` | EventuallyConsistent | Recipient unsettled voucher exposure + risk notices; **not** spendable. |
+| `PaymentVoucher` / `VoucherRedemption` gossip | EventuallyConsistent → SettlementRequired | Offline accept; settlement at relay merge. |
 
-Outgoing `send_transaction` requires `SpendAuthorization`, forcing callers through settled-balance checks.
+Outgoing `send_transaction` requires `SpendAuthorization`, forcing callers through settled-balance checks (excluding `voucher_reserved_muon` and `unsettled_voucher_muon`).
 
 ---
 
@@ -94,5 +99,6 @@ Outgoing `send_transaction` requires `SpendAuthorization`, forcing callers throu
 
 - [`crates/mycelium-core/src/consistency.rs`](../../crates/mycelium-core/src/consistency.rs)
 - [`crates/mycelium-coin/src/views.rs`](../../crates/mycelium-coin/src/views.rs)
+- [`docs/VOUCHER_SETTLEMENT.md`](../VOUCHER_SETTLEMENT.md)
 - [`docs/OFFLINE_SETTLEMENT_MODEL.md`](../OFFLINE_SETTLEMENT_MODEL.md)
 - [`docs/DOUBLE_SPEND_TRADEOFFS.md`](../DOUBLE_SPEND_TRADEOFFS.md)

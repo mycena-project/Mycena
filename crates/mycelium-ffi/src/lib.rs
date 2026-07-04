@@ -15,7 +15,8 @@ use mycelium_app::proximity::PresenceProfile as AppPresenceProfile;
 use mycelium_app::storage::AppStorage;
 use mycelium_coin::{
     address_from_keypair, CoinNode, CoinTransport, HotWallet,
-    HotWalletConfig as RustHotWalletConfig, LocalLedger, PaymentRequest,
+    HotWalletConfig as RustHotWalletConfig, LocalLedger, PaymentRequest, VoucherRiskLevel,
+    VoucherSettlementRegistry,
 };
 use mycelium_core::energy::NodeState as RustEnergyState;
 use mycelium_core::transport::ConnectivityMode as NetConnectivityMode;
@@ -250,6 +251,16 @@ pub struct WalletBalance {
     pub confirmed_muon: u64,
     pub pending_muon: u64,
     pub settled_muon: u64,
+    pub unsettled_voucher_muon: u64,
+    pub voucher_reserved_muon: u64,
+}
+
+#[derive(Debug, Clone)]
+pub struct VoucherRiskInfo {
+    pub voucher_id: String,
+    pub amount_muon: u64,
+    pub risk: String,
+    pub message: String,
 }
 
 #[derive(Debug, Clone)]
@@ -547,16 +558,23 @@ pub fn init_node(config: NodeConfig) {
             LocalLedger::open(&format!("{}/coin", config.db_path))
                 .expect("failed to open coin ledger"),
         );
+        let voucher_registry = Arc::new(
+            VoucherSettlementRegistry::open(&format!("{}/coin_vouchers", config.db_path))
+                .expect("failed to open voucher registry"),
+        );
         let coin_transport = Arc::new(FfiCoinTransport {
             handle: handle.clone(),
         });
-        let coin_node = Arc::new(CoinNode::new(
-            coin_ledger,
-            coin_transport,
-            coin_addr,
-            local_peer_id.clone(),
-            coin_identity_path.clone(),
-        ));
+        let coin_node = Arc::new(
+            CoinNode::new(
+                coin_ledger,
+                coin_transport,
+                coin_addr,
+                local_peer_id.clone(),
+                coin_identity_path.clone(),
+            )
+            .with_voucher_registry(voucher_registry),
+        );
         let hot_wallet = Arc::new(HotWallet::new(
             RustHotWalletConfig::default(),
             coin_node.clone(),
@@ -1608,17 +1626,61 @@ pub fn wallet_balance() -> WalletBalance {
                 .balance_settled()
                 .map(|v| v.spendable_muon())
                 .unwrap_or(0);
+            let acc = s
+                .coin_node
+                .voucher_exposure()
+                .ok()
+                .map(|e| e.unsettled_voucher_muon)
+                .unwrap_or(0);
+            let reserved = s
+                .coin_node
+                .balance_settled()
+                .map(|v| v.voucher_reserved_muon())
+                .unwrap_or(0);
             WalletBalance {
                 confirmed_muon: view.confirmed_muon(),
                 pending_muon: view.pending_muon(),
                 settled_muon: settled,
+                unsettled_voucher_muon: acc,
+                voucher_reserved_muon: reserved,
             }
         }
         Err(_) => WalletBalance {
             confirmed_muon: 0,
             pending_muon: 0,
             settled_muon: 0,
+            unsettled_voucher_muon: 0,
+            voucher_reserved_muon: 0,
         },
+    })
+}
+
+fn voucher_risk_label(risk: VoucherRiskLevel) -> &'static str {
+    match risk {
+        VoucherRiskLevel::Unsettled => "unsettled",
+        VoucherRiskLevel::Settled => "settled",
+        VoucherRiskLevel::DoubleSpendDetected => "double_spend_detected",
+        VoucherRiskLevel::Expired => "expired",
+        VoucherRiskLevel::Revoked => "revoked",
+    }
+}
+
+pub fn wallet_voucher_risks() -> Vec<VoucherRiskInfo> {
+    with_state(|s| {
+        s.coin_node
+            .voucher_exposure()
+            .map(|view| {
+                view.notices
+                    .into_iter()
+                    .map(|n| VoucherRiskInfo {
+                        voucher_id: n.voucher_id,
+                        amount_muon: n.amount_muon,
+                        risk: voucher_risk_label(n.risk).to_string(),
+                        message: n.message,
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
     })
 }
 

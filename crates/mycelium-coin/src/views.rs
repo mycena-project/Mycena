@@ -14,6 +14,8 @@ pub struct AccountBalanceView<C: ConsistencyModel> {
     pub address: String,
     confirmed_muon: u64,
     pending_muon: u64,
+    unsettled_voucher_muon: u64,
+    voucher_reserved_muon: u64,
     _level: StateView<C>,
 }
 
@@ -25,6 +27,8 @@ impl AccountBalanceView<EventuallyConsistentModel> {
             address: state.address.clone(),
             confirmed_muon: state.balance_muon,
             pending_muon: state.pending_received,
+            unsettled_voucher_muon: state.unsettled_voucher_muon,
+            voucher_reserved_muon: state.voucher_reserved_muon,
             _level: StateView::new(),
         }
     }
@@ -36,6 +40,10 @@ impl AccountBalanceView<EventuallyConsistentModel> {
     pub fn pending_muon(&self) -> u64 {
         self.pending_muon
     }
+
+    pub fn unsettled_voucher_muon(&self) -> u64 {
+        self.unsettled_voucher_muon
+    }
 }
 
 impl AccountBalanceView<SettlementRequiredModel> {
@@ -46,13 +54,20 @@ impl AccountBalanceView<SettlementRequiredModel> {
             address: state.address.clone(),
             confirmed_muon: state.balance_muon,
             pending_muon: state.pending_received,
+            unsettled_voucher_muon: state.unsettled_voucher_muon,
+            voucher_reserved_muon: state.voucher_reserved_muon,
             _level: StateView::new(),
         }
     }
 
-    /// Witness-settled balance only — excludes `pending_received`.
+    /// Witness-settled balance minus issuer voucher holds — excludes pending and recipient unsettled.
     pub fn spendable_muon(&self) -> u64 {
         self.confirmed_muon
+            .saturating_sub(self.voucher_reserved_muon)
+    }
+
+    pub fn voucher_reserved_muon(&self) -> u64 {
+        self.voucher_reserved_muon
     }
 }
 
@@ -64,13 +79,45 @@ pub struct PeerBalanceHint {
 
 impl PeerBalanceHint {
     pub fn new(address: String, confirmed_muon: u64, pending_muon: u64) -> Self {
+        Self::with_voucher_exposure(address, confirmed_muon, pending_muon, 0)
+    }
+
+    pub fn with_voucher_exposure(
+        address: String,
+        confirmed_muon: u64,
+        pending_muon: u64,
+        unsettled_voucher_muon: u64,
+    ) -> Self {
         Self {
             view: AccountBalanceView {
                 address,
                 confirmed_muon,
                 pending_muon,
+                unsettled_voucher_muon,
+                voucher_reserved_muon: 0,
                 _level: StateView::new(),
             },
+        }
+    }
+}
+
+/// Recipient-facing voucher risk until relay settlement (not spendable).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VoucherExposureView {
+    pub address: String,
+    pub unsettled_voucher_muon: u64,
+    pub notices: Vec<crate::voucher::VoucherRiskNotice>,
+}
+
+impl VoucherExposureView {
+    pub fn from_account_and_notices(
+        state: &AccountState,
+        notices: Vec<crate::voucher::VoucherRiskNotice>,
+    ) -> Self {
+        Self {
+            address: state.address.clone(),
+            unsettled_voucher_muon: state.unsettled_voucher_muon,
+            notices,
         }
     }
 }
@@ -118,11 +165,14 @@ mod tests {
             address: "mxc1test".into(),
             balance_muon: 100,
             pending_received: 500,
+            unsettled_voucher_muon: 200,
+            voucher_reserved_muon: 30,
             next_nonce: 0,
         };
         let settled = AccountBalanceView::<SettlementRequiredModel>::from_settled_account(&state);
-        assert_eq!(settled.spendable_muon(), 100);
+        assert_eq!(settled.spendable_muon(), 70);
         let eventual = AccountBalanceView::<EventuallyConsistentModel>::from_account(&state);
         assert_eq!(eventual.pending_muon(), 500);
+        assert_eq!(eventual.unsettled_voucher_muon(), 200);
     }
 }

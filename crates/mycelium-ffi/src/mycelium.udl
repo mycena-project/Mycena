@@ -108,6 +108,7 @@ namespace mycelium {
 
   string wallet_address();
   WalletBalance wallet_balance();
+  sequence<VoucherRiskInfo> wallet_voucher_risks();
   void send_transaction(string to_address, u64 amount_muon, string? memo);
   sequence<TxInfo> wallet_recent_transactions(u32 limit);
   void request_faucet();
@@ -149,6 +150,15 @@ dictionary WalletBalance {
   u64 confirmed_muon;
   u64 pending_muon;
   u64 settled_muon;
+  u64 unsettled_voucher_muon;
+  u64 voucher_reserved_muon;
+};
+
+dictionary VoucherRiskInfo {
+  string voucher_id;
+  u64 amount_muon;
+  string risk;
+  string message;
 };
 
 dictionary TxInfo {

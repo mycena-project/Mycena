@@ -31,6 +31,22 @@ Alice offline in partition A spends credit to Bob. Alice offline in partition B 
 | Transfer cap (25 MXC) | Max single event | Chunked returns needed |
 | Velocity limits | Burst slowdown | Local only |
 | Pending → confirmed | Delayed credit | Not fraud-proof |
+| **Payment vouchers** | Signed cap + expiry; merge settlement | **Double-spend detected at merge, not prevented offline** — see [VOUCHER_SETTLEMENT.md](./VOUCHER_SETTLEMENT.md) |
+
+---
+
+## Voucher double-spend (Scenario D)
+
+Alice issues one signed voucher offline. In partition A, Bob redeems; in partition B, Carol redeems the **same** voucher. Both see `Unsettled` credit locally.
+
+When relays merge:
+
+- Earliest redemption becomes canonical (`Settled` → pending).
+- Later redemption(s) → `DoubleSpendDetected`, `unsettled_voucher_muon` clawed back.
+
+**Residual risk:** Merchants who deliver goods on unsettled vouchers bear up to **voucher max amount** until settlement. UI must show: *"Unsettled payment — risk X MXC until settlement"*.
+
+Sim: `cargo test -p mycelium-sim voucher_double_spend_detected_at_merge_not_prevented_offline`
 
 ---
 

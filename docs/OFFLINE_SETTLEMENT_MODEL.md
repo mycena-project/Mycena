@@ -30,7 +30,19 @@ There is **no global chain state**. Each device holds a **local settlement ledge
 2. **Local apply** — `LocalLedger::apply_transaction` checks signature, nonce, funds, **policy caps**, velocity.  
 3. **Gossip** — `CoinPayload::Transaction` broadcast on mesh.  
 4. **Witness** — Peers add themselves to `witnesses` set; at **≥3** witnesses, recipient balance confirms.  
-5. **Reconciliation** — *Partial today*: no global merge; conflicts resolved by local view + future experiments.
+5. **Reconciliation** — *Partial today*: no global merge; conflicts resolved by local view + voucher settlement at relay merge (see below).
+
+---
+
+## Payment vouchers (offline IOU)
+
+Signed [`PaymentVoucher`](../../crates/mycelium-coin/src/voucher.rs) promises with capped amount + expiry:
+
+1. **Issue** — Issuer reserves `voucher_reserved_muon` from settled balance; signs voucher; gossips.  
+2. **Redeem offline** — Recipient gets `unsettled_voucher_muon` (non-spendable); UI shows risk until settlement.  
+3. **Merge / settle** — Online relay ingests redemption set, detects partition double-spend **retroactively**, debits issuer, promotes winner to `pending_received`, claws back losers.
+
+Double-spend across partitions is **detected at merge, not prevented offline**. See [VOUCHER_SETTLEMENT.md](./VOUCHER_SETTLEMENT.md).
 
 ---
 
@@ -127,6 +139,7 @@ The protocol intentionally omits:
 
 ## Related
 
+- [VOUCHER_SETTLEMENT.md](./VOUCHER_SETTLEMENT.md)
 - [DOUBLE_SPEND_TRADEOFFS.md](./DOUBLE_SPEND_TRADEOFFS.md)
 - [OFFLINE_RECONCILIATION_EXPERIMENTS.md](./OFFLINE_RECONCILIATION_EXPERIMENTS.md)
 - [MESHCOIN_ARCHITECTURE_REVIEW.md](./MESHCOIN_ARCHITECTURE_REVIEW.md)
