@@ -137,6 +137,52 @@ impl BearerBleRouter {
         self.stream.drain_outbound(to_peer, max)
     }
 
+    /// Unified F2 + F3 outbound drain for BLE hosts (one relay loop).
+    pub fn drain_bearer_outbound(
+        &mut self,
+        to_peer: Option<&str>,
+        max: usize,
+    ) -> Vec<(String, Vec<u8>)> {
+        let mut out = Vec::new();
+        if let Some(peer) = to_peer {
+            self.drain_peer_bearer(peer, max, &mut out);
+            return out;
+        }
+        let mut peer_ids = self.stream.known_peers();
+        for peer in self.side_outbound.keys() {
+            if !peer_ids.iter().any(|p| p == peer) {
+                peer_ids.push(peer.clone());
+            }
+        }
+        for peer in peer_ids {
+            if out.len() >= max {
+                break;
+            }
+            let take = max.saturating_sub(out.len());
+            self.drain_peer_bearer(&peer, take, &mut out);
+        }
+        out
+    }
+
+    fn drain_peer_bearer(&mut self, peer: &str, max: usize, out: &mut Vec<(String, Vec<u8>)>) {
+        if max == 0 {
+            return;
+        }
+        for frame in self.drain_stream_outbound(peer, max.saturating_sub(out.len())) {
+            if out.len() >= max {
+                break;
+            }
+            out.push((peer.to_string(), frame));
+        }
+        let remaining = max.saturating_sub(out.len());
+        for frame in BearerTransport::drain_outbound(self, peer, remaining) {
+            if out.len() >= max {
+                break;
+            }
+            out.push((peer.to_string(), frame));
+        }
+    }
+
     pub fn all_peer_infos(&self) -> Vec<crate::ble_transport::BlePeerInfo> {
         self.stream.all_peer_infos()
     }
@@ -211,6 +257,30 @@ mod tests {
             BearerIngestAction::StreamFrame(p) => assert_eq!(p, b"cbor"),
             _ => panic!("expected stream"),
         }
+    }
+
+    #[test]
+    fn unified_drain_merges_stream_and_side() {
+        let mut router = BearerBleRouter::new();
+        router.register_link("peerB".into(), "aa:bb:cc:dd:ee:ff");
+        router
+            .send_direct(
+                "peerB",
+                WireMessage::Data(DirectMessage {
+                    envelope: Envelope::new("peerB".into(), None, vec![]),
+                    body: "f3".into(),
+                }),
+            )
+            .unwrap();
+        let wire = WireMessage::Data(DirectMessage {
+            envelope: Envelope::new("p".into(), None, vec![]),
+            body: "f2".into(),
+        });
+        router
+            .queue_side_channel_wire("peerB".into(), &wire)
+            .unwrap();
+        let drained = router.drain_bearer_outbound(Some("peerB"), 8);
+        assert_eq!(drained.len(), 2);
     }
 
     #[test]

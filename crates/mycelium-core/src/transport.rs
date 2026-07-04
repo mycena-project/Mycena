@@ -337,6 +337,14 @@ pub trait MeshTransport: Send {
     ) -> Vec<(String, Vec<u8>)> {
         Vec::new()
     }
+    /// Drain encoded bearer frames (F2 side + F3 stream) for BLE hosts.
+    fn drain_bearer_outbound(
+        &mut self,
+        _to_peer: Option<&str>,
+        _max: usize,
+    ) -> Vec<(String, Vec<u8>)> {
+        Vec::new()
+    }
     /// Start a Kademlia lookup for `target_peer_id` (no-op on transports without DHT).
     fn kad_find_peer(&mut self, _target_peer_id: &str) {}
     /// Adjust Kademlia activity for connectivity mode changes.

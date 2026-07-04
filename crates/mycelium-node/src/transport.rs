@@ -875,6 +875,14 @@ impl MeshTransport for Libp2pTransport {
         self.bearer.drain_side_outbound(to_peer, max)
     }
 
+    fn drain_bearer_outbound(
+        &mut self,
+        to_peer: Option<&str>,
+        max: usize,
+    ) -> Vec<(String, Vec<u8>)> {
+        self.bearer.drain_bearer_outbound(to_peer, max)
+    }
+
     async fn next_event(&mut self) -> anyhow::Result<TransportEvent> {
         loop {
             if let Some(ev) = self.bearer.try_recv_event() {

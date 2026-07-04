@@ -20,6 +20,9 @@ pub struct Contact {
     /// Stable account id from signed invite / identity rotation (SD-190).
     #[serde(default)]
     pub account_id: Option<String>,
+    /// Recent transport peer ids during rotation transition (SD-190 dial window).
+    #[serde(default)]
+    pub previous_peer_ids: Vec<String>,
 }
 
 impl Contact {
@@ -30,6 +33,7 @@ impl Contact {
             added_at_ms: now_ms(),
             status,
             account_id: None,
+            previous_peer_ids: Vec::new(),
         }
     }
 }

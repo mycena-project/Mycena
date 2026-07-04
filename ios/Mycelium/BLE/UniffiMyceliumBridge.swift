@@ -45,6 +45,12 @@ final class UniffiMyceliumBridge: MyceliumNodeBridge {
         }
     }
 
+    func drainBearerOutbound(toPeer: String?, max: UInt32) -> [(toPeer: String, frame: Data)] {
+        MyceliumFFI.drainBearerOutbound(toPeer: toPeer, max: max).map { item in
+            (item.toPeer, Data(item.frame))
+        }
+    }
+
     func blePeerAddrs() -> [String] {
         MyceliumFFI.blePeerAddrs()
     }
@@ -63,6 +69,7 @@ final class UniffiMyceliumBridge: MyceliumNodeBridge {
     func connectedPeers() -> [String] { [] }
     func drainBleStreamOutbound(toPeer: String, max: UInt32) -> [Data] { [] }
     func drainBleOutbound(toPeer: String?, max: UInt32) -> [(toPeer: String, frame: Data)] { [] }
+    func drainBearerOutbound(toPeer: String?, max: UInt32) -> [(toPeer: String, frame: Data)] { [] }
     func blePeerAddrs() -> [String] { [] }
 }
 

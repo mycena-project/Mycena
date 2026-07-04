@@ -35,6 +35,8 @@ Set `MYCELIUM_BEARER_WIRE_V1=1` to emit `MYBR` on the wire (requires peer suppor
 
 ## BLE implementation
 
-[`BearerBleRouter`](../crates/mycelium-node/src/bearer_ble.rs) — single ingest path (`decode_ingest`) and side outbound queue inside `Libp2pTransport`. F3 stream registry unchanged; hosts still call the same FFI drains.
+[`BearerBleRouter`](../crates/mycelium-node/src/bearer_ble.rs) — single ingest (`decode_ingest`) and **unified outbound drain** (`drain_bearer_outbound`) for F2 + F3.
+
+**Host API:** `drain_bearer_outbound` / UniFFI `drainBearerOutbound` — one relay loop on Android, iOS, and desktop. Legacy split drains remain for older shells.
 
 Related: [ADR 002](./adr/002-ble-mesh-transport.md)

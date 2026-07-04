@@ -31,6 +31,10 @@ After rotation the node sends `IdentityRotationGossip` to each contact with an E
 
 Contacts verify the account signature, remap `account_id → new_peer_id`, migrate chat history tree, group members, and node ratchet/enc-key maps.
 
+**Offline delivery:** failed E2E announces are queued per contact and retried on `PeerUp` and periodic sync.
+
+**Transition window:** contacts retain `previous_peer_ids`; encrypted chat send tries canonical id then recent transport ids.
+
 ## QR / invites
 
 Signed invite v3 binds `account_id + transport_peer_id + enc_key + epoch`. After rotation, share a fresh QR or wait for E2E re-announce from an existing contact.

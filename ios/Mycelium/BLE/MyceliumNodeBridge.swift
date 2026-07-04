@@ -13,6 +13,7 @@ protocol MyceliumNodeBridge: AnyObject {
     func connectedPeers() -> [String]
     func drainBleStreamOutbound(toPeer: String, max: UInt32) -> [Data]
     func drainBleOutbound(toPeer: String?, max: UInt32) -> [(toPeer: String, frame: Data)]
+    func drainBearerOutbound(toPeer: String?, max: UInt32) -> [(toPeer: String, frame: Data)]
     func blePeerAddrs() -> [String]
 }
 

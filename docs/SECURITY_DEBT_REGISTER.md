@@ -785,8 +785,8 @@ This register records **known** security, privacy, abuse, and legal debt. It is 
 | **Exploitation scenario** | Long-term tracking across networks, QR re-scans, bulletin posts |
 | **Likelihood** | High |
 | **Impact** | Pseudonymity broken |
-| **Current mitigations** | User can panic wipe (new identity) |
-| **Missing mitigations** | Rotatable sub-identities per context |
+| **Current mitigations** | User can panic wipe (new identity); transport PeerId rotation with E2E re-announce (SD-190 spike) |
+| **Missing mitigations** | Pairwise IDs per chat context; full fleet MYBR wire migration |
 | **Proposed architecture changes** | Pairwise IDs (Signal-style) for direct chat |
 | **Implementation complexity** | L |
 | **Beta-blocker** | **no** |

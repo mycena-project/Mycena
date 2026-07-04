@@ -84,7 +84,7 @@ F2 (`MYBL`) and F3 (`MYLP`) shared GATT chunking (`MYLC`) but duplicated inner f
 
 [`BearerTransport`](../../crates/mycelium-core/src/bearer_transport.rs) trait: `send_frame`, `recv_frame`, `mtu`, `reliability_class`. BLE implementation: [`BearerBleRouter`](../../crates/mycelium-node/src/bearer_ble.rs).
 
-**Wire compat:** decode accepts MYBR + MYBL + MYLP; encode defaults to legacy magics (`MYCELIUM_BEARER_WIRE_V1=1` for MYBR). Host FFI (`drainBleOutbound` / `drainBleStreamOutbound`) unchanged.
+**Wire compat:** decode accepts MYBR + MYBL + MYLP; encode defaults to legacy magics (`MYCELIUM_BEARER_WIRE_V1=1` for MYBR). Hosts call **`drainBearerOutbound`** (unified F2+F3); legacy `drainBleOutbound` / `drainBleStreamOutbound` remain for older shells.
 
 Future bearers (Wi‑Fi Direct, LoRa) implement the same trait with different MTU/chunk drivers.
 

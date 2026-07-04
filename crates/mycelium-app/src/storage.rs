@@ -139,6 +139,23 @@ impl AppStorage {
             .unwrap_or(false))
     }
 
+    /// Canonical peer id first, then recent transport ids (SD-190 transition window).
+    pub fn transport_peer_candidates(&self, peer_id: &str) -> anyhow::Result<Vec<String>> {
+        let Some(contact) = self.contact_by_id(peer_id)? else {
+            return Ok(vec![peer_id.to_string()]);
+        };
+        let mut out = vec![contact.peer_id.clone()];
+        for prev in contact.previous_peer_ids.iter().rev() {
+            if !out.iter().any(|p| p == prev) {
+                out.push(prev.clone());
+            }
+        }
+        if !out.iter().any(|p| p == peer_id) {
+            out.push(peer_id.to_string());
+        }
+        Ok(out)
+    }
+
     /// Update stored peer id when a contact rotates transport identity (SD-190).
     pub fn remap_contact_peer(
         &self,
@@ -156,6 +173,12 @@ impl AppStorage {
         let Some(mut contact) = self.contact_by_id(&old_peer_id)? else {
             return Ok(None);
         };
+        if old_peer_id != new_peer_id && !contact.previous_peer_ids.contains(&old_peer_id) {
+            contact.previous_peer_ids.push(old_peer_id.clone());
+            while contact.previous_peer_ids.len() > 8 {
+                contact.previous_peer_ids.remove(0);
+            }
+        }
         let tree = self.db.open_tree("contacts:data")?;
         tree.remove(old_peer_id.as_bytes())?;
         contact.peer_id = new_peer_id.to_string();

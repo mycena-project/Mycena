@@ -42,7 +42,7 @@ These exist in `ios/Mycelium/BLE/` and mirror Android `bootstrap/Ble*.kt`:
 | `BleInviteReader` | Central connect + invite characteristic read |
 | `BleMeshHandoff` | Invite → `connectTransportInvite` + link registry |
 | `BleMeshDataSession` | Long-lived GATT client for chunked outbound frames |
-| `BleMeshRelay` | Drains Rust F2/F3 queues (`drainBleOutbound`, `drainBleStreamOutbound`) |
+| `BleMeshRelay` | Drains unified bearer queue (`drainBearerOutbound`) |
 | `BleMeshHost` | Orchestrator with restoration IDs |
 
 **State Preservation / Restoration identifiers** (required for background BLE):

@@ -1570,6 +1570,27 @@ pub fn drain_ble_outbound(to_peer: Option<String>, max: u32) -> Vec<BleOutboundF
     })
 }
 
+pub fn drain_bearer_outbound(to_peer: Option<String>, max: u32) -> Vec<BleOutboundFrame> {
+    let state = state_arc();
+    runtime().block_on(async {
+        let state = state.read().await;
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        let _ = state
+            .handle
+            .send(NodeCommand::DrainBearerOutbound {
+                to_peer,
+                max: max as usize,
+                reply: Some(tx),
+            })
+            .await;
+        rx.await
+            .unwrap_or_default()
+            .into_iter()
+            .map(|(to_peer, frame)| BleOutboundFrame { to_peer, frame })
+            .collect()
+    })
+}
+
 pub fn register_ble_link(peer_id: String, device_id: String) {
     let state = state_arc();
     runtime().block_on(async {
@@ -1596,20 +1617,21 @@ pub fn ingest_ble_stream_frame(from_peer: String, frame: Vec<u8>) -> Result<(), 
 }
 
 pub fn drain_ble_stream_outbound(to_peer: String, max: u32) -> Vec<Vec<u8>> {
-    let state = state_arc();
-    runtime().block_on(async {
-        let state = state.read().await;
-        let (tx, rx) = tokio::sync::oneshot::channel();
-        let _ = state
-            .handle
-            .send(NodeCommand::DrainBleStreamOutbound {
-                to_peer,
-                max: max as usize,
-                reply: Some(tx),
-            })
-            .await;
-        rx.await.unwrap_or_default()
-    })
+    let all = drain_bearer_outbound(Some(to_peer.clone()), max);
+    all.into_iter()
+        .filter(|item| {
+            mycelium_core::bearer_transport::decode_bearer_frame(&item.frame)
+                .map(|f| {
+                    matches!(
+                        f.kind,
+                        mycelium_core::bearer_transport::BearerPayloadKind::StreamDirect
+                            | mycelium_core::bearer_transport::BearerPayloadKind::LegacyStream
+                    )
+                })
+                .unwrap_or(false)
+        })
+        .map(|item| item.frame)
+        .collect()
 }
 
 pub fn ble_peer_addrs() -> Vec<String> {

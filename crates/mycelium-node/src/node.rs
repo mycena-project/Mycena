@@ -303,6 +303,12 @@ pub enum NodeCommand {
         max: usize,
         reply: Option<BleStreamOutboundReply>,
     },
+    /// Take queued bearer frames (F2 + F3) for BLE relay hosts.
+    DrainBearerOutbound {
+        to_peer: Option<String>,
+        max: usize,
+        reply: Option<BleWireOutboundReply>,
+    },
     SetCrowdMode(bool),
     /// Follow a contact's signed transport PeerId rotation (SD-190).
     RemapTransportPeer {
@@ -607,6 +613,7 @@ pub struct NodeRunner {
     transport_epoch: u64,
     account_signing_key: Arc<identity::Keypair>,
     pending_identity_rotation: Option<mycelium_core::identity_rotation::IdentityRotationGossip>,
+    identity_rotation_pending_peers: HashSet<String>,
     crowd_mode: Arc<AtomicBool>,
     rendezvous_dial_bucket: u32,
     ratchet_store: Arc<crate::ratchet_store::RatchetSessionStore>,
@@ -807,6 +814,7 @@ impl NodeRunner {
                 transport_epoch,
                 account_signing_key: account_signing_key.clone(),
                 pending_identity_rotation,
+                identity_rotation_pending_peers: HashSet::new(),
                 crowd_mode: crowd_mode.clone(),
                 rendezvous_dial_bucket: 0,
                 ratchet_store: ratchet_store.clone(),
@@ -949,8 +957,10 @@ impl NodeRunner {
 
         self.transport.redial_stored_targets();
         if let Some(rot) = self.pending_identity_rotation.take() {
-            if let Err(e) = self.announce_identity_rotation_e2e(rot).await {
-                warn!("failed to announce identity rotation over E2E: {e}");
+            let failed = self.announce_identity_rotation_e2e(rot.clone()).await;
+            if !failed.is_empty() {
+                self.pending_identity_rotation = Some(rot);
+                self.identity_rotation_pending_peers = failed.into_iter().collect();
             }
         }
         let mut dial_tick = interval(Duration::from_secs(15));
@@ -1171,6 +1181,16 @@ impl NodeRunner {
                 reply,
             } => {
                 let drained = self.transport.drain_ble_stream_outbound(&to_peer, max);
+                if let Some(tx) = reply {
+                    let _ = tx.send(drained);
+                }
+            }
+            NodeCommand::DrainBearerOutbound {
+                to_peer,
+                max,
+                reply,
+            } => {
+                let drained = self.transport.drain_bearer_outbound(to_peer.as_deref(), max);
                 if let Some(tx) = reply {
                     let _ = tx.send(drained);
                 }
@@ -1565,34 +1585,95 @@ impl NodeRunner {
     }
 
     /// Signed re-announce to contacts over E2E direct (opaque to LAN/relay observers).
+    /// Returns peer ids that still need delivery (offline / send failure).
     async fn announce_identity_rotation_e2e(
         &mut self,
         rot: mycelium_core::identity_rotation::IdentityRotationGossip,
-    ) -> anyhow::Result<()> {
-        let inner = rot.encode_e2e_announce()?;
-        let recipients = self.identity_rotation_recipients();
+    ) -> Vec<String> {
+        let inner = match rot.encode_e2e_announce() {
+            Ok(v) => v,
+            Err(e) => {
+                warn!("encode identity rotation E2E announce: {e:#}");
+                return Vec::new();
+            }
+        };
+        let recipients = if self.identity_rotation_pending_peers.is_empty() {
+            self.identity_rotation_recipients()
+        } else {
+            self.identity_rotation_pending_peers.iter().cloned().collect()
+        };
         if recipients.is_empty() {
             info!(
                 "transport rotated to {} — no E2E contacts to announce (epoch {})",
                 rot.new_peer_id, rot.epoch
             );
-            return Ok(());
+            return Vec::new();
         }
         let mut sent = 0usize;
+        let mut failed = Vec::new();
         for to_peer in recipients {
             match self
                 .send_encrypted_direct_internal(&to_peer, &inner)
                 .await
             {
                 Ok(()) => sent += 1,
-                Err(e) => warn!("identity rotation E2E to {to_peer}: {e:#}"),
+                Err(e) => {
+                    warn!("identity rotation E2E to {to_peer}: {e:#}");
+                    failed.push(to_peer);
+                }
             }
         }
         info!(
-            "transport identity rotation epoch={} announced to {sent} contact(s) via E2E",
-            rot.epoch
+            "transport identity rotation epoch={} announced to {sent} contact(s) via E2E ({} pending)",
+            rot.epoch,
+            failed.len()
         );
-        Ok(())
+        failed
+    }
+
+    async fn retry_identity_rotation_to_peer(&mut self, peer_id: &str) {
+        if !self.identity_rotation_pending_peers.contains(peer_id) {
+            return;
+        }
+        let Some(rot) = self.pending_identity_rotation.clone() else {
+            self.identity_rotation_pending_peers.remove(peer_id);
+            return;
+        };
+        let inner = match rot.encode_e2e_announce() {
+            Ok(v) => v,
+            Err(e) => {
+                warn!("encode identity rotation retry: {e:#}");
+                return;
+            }
+        };
+        match self
+            .send_encrypted_direct_internal(peer_id, &inner)
+            .await
+        {
+            Ok(()) => {
+                self.identity_rotation_pending_peers.remove(peer_id);
+                if self.identity_rotation_pending_peers.is_empty() {
+                    self.pending_identity_rotation = None;
+                    info!(
+                        "transport identity rotation epoch={} fully delivered",
+                        rot.epoch
+                    );
+                }
+            }
+            Err(e) => warn!("identity rotation retry to {peer_id}: {e:#}"),
+        }
+    }
+
+    async fn retry_pending_identity_rotations(&mut self) {
+        if self.identity_rotation_pending_peers.is_empty() {
+            return;
+        }
+        let pending: Vec<String> = self.identity_rotation_pending_peers.iter().cloned().collect();
+        for peer in pending {
+            if self.transport.is_peer_connected(&peer) {
+                self.retry_identity_rotation_to_peer(&peer).await;
+            }
+        }
     }
 
     async fn send_encrypted_direct_internal(
@@ -1785,6 +1866,7 @@ impl NodeRunner {
                 self.send_peer_info(peer_id.clone()).await?;
                 self.send_sync_bloom(peer_id.clone()).await?;
                 self.flush_custody_to_peer(&peer_id).await?;
+                self.retry_identity_rotation_to_peer(&peer_id).await;
             }
             TransportEvent::PeerDown { peer_id } => {
                 info!("expired peer={peer_id}");
@@ -2550,6 +2632,7 @@ impl NodeRunner {
     }
 
     async fn sync_known_peers(&mut self) -> anyhow::Result<()> {
+        self.retry_pending_identity_rotations().await;
         let peers = self.transport.known_peers();
         for peer in peers {
             self.send_sync_bloom(peer).await?;

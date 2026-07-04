@@ -78,6 +78,31 @@ pub async fn drain_ble_stream_outbound(
     rx.await.unwrap_or_default()
 }
 
+pub async fn drain_bearer_outbound(
+    handle: &NodeHandle,
+    to_peer: Option<String>,
+    max: usize,
+) -> Vec<(String, Vec<u8>)> {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    let _ = handle
+        .send(NodeCommand::DrainBearerOutbound {
+            to_peer,
+            max,
+            reply: Some(tx),
+        })
+        .await;
+    rx.await.unwrap_or_default()
+}
+
+pub async fn ble_peer_addrs(handle: &NodeHandle) -> Vec<String> {
+    handle
+        .listen_addrs()
+        .await
+        .into_iter()
+        .filter(|a| a.starts_with("/ble/"))
+        .collect()
+}
+
 pub async fn apply_transport_invite(app_node: &Arc<AppNode>, invite: &str) -> anyhow::Result<()> {
     app_node
         .clone()

@@ -603,11 +603,21 @@ impl AppNode {
         .encode()?;
         let wrapped =
             mycelium_l0_facade::e2e_direct_wrap::wrap_inner(&self.local_peer_id, &plaintext);
-        if self.handle.has_enc_key_for(&to_peer).await {
-            let (encrypted, e2e_version) =
-                self.handle.encrypt_e2e_payload(&to_peer, wrapped).await?;
+        let candidates = self.storage.transport_peer_candidates(&to_peer)?;
+        let mut last_err = None;
+        for target in candidates {
+            if !self.handle.has_enc_key_for(&target).await {
+                continue;
+            }
+            let (encrypted, e2e_version) = match self.handle.encrypt_e2e_payload(&target, wrapped.clone()).await {
+                Ok(v) => v,
+                Err(e) => {
+                    last_err = Some(e);
+                    continue;
+                }
+            };
             let wire = WireMessage::EncryptedDirect {
-                to_peer: to_peer.clone(),
+                to_peer: target.clone(),
                 sender_enc_pubkey: self.handle.local_enc_pubkey_hex(),
                 encrypted_payload: encrypted,
                 mesh_signature: None,
@@ -615,12 +625,21 @@ impl AppNode {
                 max_hops: 8,
                 e2e_version,
             };
-            self.handle
-                .mesh_send_wire_or_ble(to_peer.clone(), wire, OP_DIRECT_MESSAGE_SEND)
-                .await?;
-            self.storage.save_chat(&to_peer, &chat)?;
-            tracing::info!("sent encrypted chat to {to_peer} ({} bytes)", body.len());
-            return Ok(EncryptionResult::Encrypted);
+            match self
+                .handle
+                .mesh_send_wire_or_ble(target.clone(), wire, OP_DIRECT_MESSAGE_SEND)
+                .await
+            {
+                Ok(()) => {
+                    self.storage.save_chat(&to_peer, &chat)?;
+                    tracing::info!("sent encrypted chat to {target} ({} bytes)", body.len());
+                    return Ok(EncryptionResult::Encrypted);
+                }
+                Err(e) => last_err = Some(e),
+            }
+        }
+        if let Some(e) = last_err {
+            return Err(e);
         }
         Err(enc_key_not_yet_exchanged_err())
     }

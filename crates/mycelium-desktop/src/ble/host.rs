@@ -391,37 +391,13 @@ async fn flush_relay(
     central: &Central,
     connected: &Arc<Mutex<HashSet<String>>>,
 ) {
-    let live = ctx.handle.known_peers().await;
-    let live_set: HashSet<String> = live.into_iter().collect();
-
-    for peer in ctx.links.all_peers() {
-        let device_id = match ctx.links.device_for_peer(&peer) {
-            Some(d) => d,
-            None => continue,
-        };
-        if !connected.lock().await.contains(&device_id) {
+    let live_set: HashSet<String> = ctx.handle.known_peers().await.into_iter().collect();
+    let ble_addrs = bridge::ble_peer_addrs(&ctx.handle).await;
+    let items = bridge::drain_bearer_outbound(&ctx.handle, None, 16).await;
+    for (peer, frame) in items {
+        if !should_send_over_ble(&peer, &live_set, &ble_addrs) {
             continue;
         }
-        let device = DeviceId::from(device_id.as_str());
-        let stream_frames = bridge::drain_ble_stream_outbound(&ctx.handle, &peer, 4).await;
-        for frame in stream_frames {
-            if !send_mesh_frame(central, &device, &frame).await {
-                break;
-            }
-        }
-        if live_set.contains(&peer) {
-            continue;
-        }
-        let wire_frames = bridge::drain_ble_outbound(&ctx.handle, Some(peer.clone()), 8).await;
-        for (_, frame) in wire_frames {
-            if !send_mesh_frame(central, &device, &frame).await {
-                break;
-            }
-        }
-    }
-
-    let orphan = bridge::drain_ble_outbound(&ctx.handle, None, 8).await;
-    for (peer, frame) in orphan {
         let device_id = match ctx.links.device_for_peer(&peer) {
             Some(d) => d,
             None => continue,
@@ -432,6 +408,13 @@ async fn flush_relay(
         let device = DeviceId::from(device_id.as_str());
         let _ = send_mesh_frame(central, &device, &frame).await;
     }
+}
+
+fn should_send_over_ble(peer: &str, connected: &HashSet<String>, ble_addrs: &[String]) -> bool {
+    if !connected.contains(peer) {
+        return true;
+    }
+    ble_addrs.iter().any(|a| a.contains(peer))
 }
 
 async fn send_mesh_frame(central: &Central, device: &DeviceId, frame: &[u8]) -> bool {

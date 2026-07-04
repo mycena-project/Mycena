@@ -1,0 +1,31 @@
+name: Mycelium
+options:
+  bundleIdPrefix: network.mycelium
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    TARGETED_DEVICE_FAMILY: "1,2"
+targets:
+  Mycelium:
+    type: application
+    platform: iOS
+    sources:
+      - path: Mycelium
+        excludes:
+          - Resources/Info.ble.plist.snippet
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: network.mycelium.app
+        INFOPLIST_KEY_CFBundleDisplayName: Mycelium
+        INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription: >-
+          Mycelium uses Bluetooth for offline mesh messaging with nearby devices.
+        INFOPLIST_KEY_UIBackgroundModes:
+          - bluetooth-central
+          - bluetooth-peripheral
+        OTHER_LDFLAGS: $(inherited) -framework CoreBluetooth
+    dependencies: []
+    preBuildScripts: []
+    postBuildScripts: []
