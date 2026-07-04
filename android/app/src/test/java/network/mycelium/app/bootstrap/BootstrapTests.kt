@@ -48,10 +48,9 @@ class BootstrapTests {
     }
 
     @Test
-    fun install_landing_page_links_to_apk() {
+    fun install_landing_includes_bootstrap_sidecar_path() {
         val html = WifiDirectSharer.buildInstallLandingHtml()
-        assertTrue(html.contains("href=\"/mycelium.apk\""))
-        assertTrue(html.contains("Install Mycelium"))
+        assertTrue(html.contains("/mesh/bootstrap.myc"))
     }
 
     @Test

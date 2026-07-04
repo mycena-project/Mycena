@@ -8,9 +8,11 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import network.mycelium.app.MeshService
 import network.mycelium.app.bootstrap.ApkSharePayload
 import network.mycelium.app.bootstrap.LocalHotspotHelper
 import network.mycelium.app.bootstrap.WifiDirectSharer
+import network.mycelium.bindings.mycelium
 
 enum class ShareAppMode {
     /** Local hotspot on this phone — no router or internet. */
@@ -67,6 +69,7 @@ class ShareAppViewModel(application: Application) : AndroidViewModel(application
                         null
                     }
                 val url = sharer.startApkServer()
+                refreshBootstrapSidecar(url)
                 _session.value =
                     ShareAppSession(
                         mode = mode,
@@ -97,6 +100,19 @@ class ShareAppViewModel(application: Application) : AndroidViewModel(application
 
     fun clearError() {
         _error.value = null
+    }
+
+    private fun refreshBootstrapSidecar(installUrl: String) {
+        if (!MeshService.isNodeReady()) {
+            sharer.setBootstrapSidecar(null)
+            return
+        }
+        try {
+            val bytes = mycelium.buildOfflineShareBootstrapSidecar(installUrl)
+            sharer.setBootstrapSidecar(bytes)
+        } catch (_: Exception) {
+            sharer.setBootstrapSidecar(null)
+        }
     }
 
     override fun onCleared() {

@@ -122,6 +122,9 @@ impl AppStore {
         let key = manifest.id.as_bytes();
         self.installed.insert(key, serde_json::to_vec(&manifest)?)?;
 
+        let archives = self.db.open_tree("app_archives")?;
+        archives.insert(key, bundle_bytes)?;
+
         let files_tree = self.db.open_tree(format!("app_files:{}", manifest.id))?;
         for (path, data) in &bundle.files {
             files_tree.insert(path.as_bytes(), data.as_slice())?;
@@ -137,9 +140,17 @@ impl AppStore {
 
     pub fn uninstall(&self, app_id: &str) -> anyhow::Result<()> {
         self.installed.remove(app_id.as_bytes())?;
+        let archives = self.db.open_tree("app_archives")?;
+        archives.remove(app_id.as_bytes())?;
         let tree_name = format!("app_files:{app_id}");
         let _ = self.db.drop_tree(tree_name.as_bytes());
         Ok(())
+    }
+
+    /// Original `.mxa` bytes retained for epidemic re-sharing.
+    pub fn bundle_archive_bytes(&self, app_id: &str) -> anyhow::Result<Option<Vec<u8>>> {
+        let archives = self.db.open_tree("app_archives")?;
+        Ok(archives.get(app_id.as_bytes())?.map(|v| v.to_vec()))
     }
 
     pub fn installed_apps(&self) -> anyhow::Result<Vec<MiniAppManifest>> {

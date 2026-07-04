@@ -55,14 +55,26 @@ class WifiDirectSharer(private val context: Context) {
               <title>Install Mycelium</title>
               <style>
                 body { font-family: system-ui, sans-serif; margin: 2rem; text-align: center; }
-                a { display: inline-block; margin-top: 1.5rem; padding: 1rem 1.5rem;
+                a.btn { display: inline-block; margin: 0.75rem; padding: 1rem 1.5rem;
                      background: #2e7d32; color: #fff; text-decoration: none; border-radius: 8px; }
+                a.secondary { background: #1565c0; }
+                p.hint { color: #555; font-size: 0.95rem; max-width: 28rem; margin: 1rem auto; }
               </style>
             </head>
             <body>
               <h1>Mycelium</h1>
               <p>Offline mesh messaging — shared from a friend nearby.</p>
-              <a href="$installPath">Install Mycelium</a>
+              <p class="hint">Join Wi‑Fi from the other QR first if prompted. No Play Store or internet needed.</p>
+              <a class="btn" href="$installPath">Install Mycelium</a>
+              <a class="btn secondary" href="/mesh/bootstrap.myc" download="mycelium-bootstrap.myc">Save mesh join file</a>
+              <script>
+                fetch("/mesh/bootstrap.myc").then(r => r.blob()).then(b => {
+                  const a = document.createElement("a");
+                  a.href = URL.createObjectURL(b);
+                  a.download = "mycelium-bootstrap.myc";
+                  a.click();
+                }).catch(() => {});
+              </script>
             </body>
             </html>
             """.trimIndent()
@@ -72,6 +84,11 @@ class WifiDirectSharer(private val context: Context) {
     private var isServing = false
     private val transferCount = AtomicInteger(0)
     private var onTransfer: (() -> Unit)? = null
+    private var bootstrapSidecar: ByteArray? = null
+
+    fun setBootstrapSidecar(bytes: ByteArray?) {
+        bootstrapSidecar = bytes
+    }
 
     fun setOnTransferListener(listener: (() -> Unit)?) {
         onTransfer = listener
@@ -119,6 +136,9 @@ class WifiDirectSharer(private val context: Context) {
                     output.write(html)
                 }
                 path.startsWith("/mycelium.apk") -> sendApk(output, apkFile)
+                path.startsWith("/mesh/bootstrap.myc") || path.startsWith("/mesh/bootstrap.json") -> {
+                    sendBootstrapSidecar(output)
+                }
                 else -> {
                     val html = buildInstallLandingHtml().toByteArray(Charsets.UTF_8)
                     output.write(buildHtmlHttpHeader(html.size).toByteArray())
@@ -140,6 +160,23 @@ class WifiDirectSharer(private val context: Context) {
         transferCount.incrementAndGet()
         onTransfer?.invoke()
         Log.i(TAG, "APK sent (${apkBytes.size} bytes)")
+    }
+
+    private fun sendBootstrapSidecar(output: java.io.OutputStream) {
+        val bytes = bootstrapSidecar ?: byteArrayOf()
+        val header =
+            """
+                HTTP/1.1 200 OK
+                Content-Type: application/json
+                Content-Disposition: attachment; filename="mycelium-bootstrap.myc"
+                Content-Length: ${bytes.size}
+                Connection: close
+                
+            """.trimIndent() + "\r\n"
+        output.write(header.toByteArray())
+        if (bytes.isNotEmpty()) {
+            output.write(bytes)
+        }
     }
 
     private fun skipHttpHeaders(reader: java.io.BufferedReader) {

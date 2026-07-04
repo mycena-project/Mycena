@@ -17,6 +17,7 @@ pub enum AppId {
     Coin,
     AppStore,
     MiniAppRevocation,
+    MiniAppBundleChunk,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -30,6 +31,8 @@ pub enum AppPayload {
     AppStoreListing(Box<crate::miniapp::store::AppStoreListing>),
     /// Signed revocation on scope `mycelium/appstore/revocations/v1`.
     MiniAppRevocation(Box<crate::miniapp::revocation::RevocationGossip>),
+    /// Chunked mini-app bundle bytes on scope `mycelium/appstore/bundles/v1`.
+    MiniAppBundleChunk(Box<crate::miniapp_epidemic::MiniAppBundleChunk>),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

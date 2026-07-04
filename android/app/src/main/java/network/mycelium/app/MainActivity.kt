@@ -23,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.delay
+import network.mycelium.app.bootstrap.OfflineBootstrap
 import network.mycelium.app.IdentityHelper
 import network.mycelium.app.OnboardingActivity
 import network.mycelium.app.WelcomeBackActivity
@@ -42,6 +43,7 @@ class MainActivity : AppCompatActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         val prefs = getSharedPreferences("app", MODE_PRIVATE)
+        OfflineBootstrap.applySideloadAutoOnboarding(this)
         if (!prefs.getBoolean("onboarding_complete", false)) {
             val next =
                 if (IdentityHelper.hasExistingIdentity(this)) {

@@ -12,12 +12,14 @@ import android.net.wifi.p2p.WifiP2pInfo
 import android.net.wifi.p2p.WifiP2pManager
 import android.os.Build
 import android.util.Log
+import network.mycelium.bindings.mycelium
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.net.InetSocketAddress
 import java.net.ServerSocket
@@ -221,7 +223,9 @@ class WifiDirectBearerHost(
             try {
                 val socket = server.accept()
                 socket.tcpNoDelay = true
-                sessions[peerId] = PeerSession(socket, DataOutputStream(socket.getOutputStream()))
+                val session = PeerSession(peerId, socket, DataOutputStream(socket.getOutputStream()))
+                sessions[peerId] = session
+                session.startInboundReader()
                 Log.i(logTag, "GO accepted client for $peerId")
             } catch (e: Exception) {
                 Log.w(logTag, "GO accept: ${e.message}")
@@ -233,14 +237,38 @@ class WifiDirectBearerHost(
         val socket = Socket()
         socket.connect(InetSocketAddress(host, WifiDirectBearer.SOCKET_PORT), 8_000)
         socket.tcpNoDelay = true
-        sessions[peerId] = PeerSession(socket, DataOutputStream(socket.getOutputStream()))
+        val session = PeerSession(peerId, socket, DataOutputStream(socket.getOutputStream()))
+        sessions[peerId] = session
+        session.startInboundReader()
         Log.i(logTag, "client connected to GO $host for $peerId")
     }
 
     private class PeerSession(
+        private val peerId: String,
         private val socket: Socket,
         private val out: DataOutputStream,
     ) {
+        @Volatile
+        private var readerStarted = false
+
+        fun startInboundReader() {
+            if (readerStarted) return
+            readerStarted = true
+            Thread {
+                val input = DataInputStream(socket.getInputStream())
+                try {
+                    while (socket.isConnected && !socket.isClosed) {
+                        val len = input.readInt()
+                        if (len <= 0 || len > 512 * 1024) break
+                        val frame = ByteArray(len)
+                        input.readFully(frame)
+                        mycelium.ingestBleFrame(peerId, frame)
+                    }
+                } catch (e: Exception) {
+                    Log.d("WifiDirectBearer", "inbound reader $peerId: ${e.message}")
+                }
+            }.start()
+        }
         @Synchronized
         fun writeFrame(frame: ByteArray): Boolean {
             return try {
