@@ -163,7 +163,6 @@ impl AppNode {
     /// Remember relay circuits for reconnect when a remote peer comes online.
     /// Contacts are added only via QR invite / explicit accept — not on mere connectivity.
     pub fn start_peer_contact_sync(self: Arc<Self>) {
-        let relay = mycelium_l0_facade::bootstrap::RELAY_PEER_ID.to_string();
         tokio::spawn(async move {
             let mut bootstrapped = std::collections::HashSet::<String>::new();
             let mut tick = tokio::time::interval(std::time::Duration::from_secs(2));
@@ -172,7 +171,9 @@ impl AppNode {
                 tick.tick().await;
                 let peers = self.handle.known_peers().await;
                 for peer in peers {
-                    if peer == relay || !mycelium_l0_facade::bootstrap::is_mesh_peer_id(&peer) {
+                    if !mycelium_l0_facade::bootstrap::is_mesh_peer_id(&peer)
+                        || mycelium_l0_facade::bootstrap::is_relay_peer(&peer)
+                    {
                         continue;
                     }
                     // Relay bootstrap only — contacts come from QR scan + signed ContactHello.

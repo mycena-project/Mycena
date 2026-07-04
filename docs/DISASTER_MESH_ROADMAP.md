@@ -22,7 +22,7 @@ See also: [CONNECTIVITY_MODES.md](./CONNECTIVITY_MODES.md), [LEVEL0_ROADMAP.md](
 | Desktop BLE | **Active on macOS/Linux** (blew host) | Phase 1b ✓ |
 | Multi-hop epidemic routing at city scale | **Not supported** |
 | Store-and-forward DTN custody | **Phase 3 shipped (core)** — see [CUSTODY_DTN.md](./CUSTODY_DTN.md) |
-| Configurable hop limits > 8 for disaster profile | **Custody messages default 32 hops** |
+| Configurable hop limits > 8 for disaster profile | **Custody messages default 64 hops** |
 
 **Honest limit:** Pocket-to-pocket mesh between **Android phones** in BLE range is the near-term disaster story. Laptops without BLE transport do not extend the mesh yet. Hundreds of hops across a city is **out of scope** until routing, custody, and battery policies are designed (Phase 3–4).
 

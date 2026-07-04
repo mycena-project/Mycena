@@ -10,7 +10,7 @@ Messages can reach a destination **hours later** via physical carriers even when
 |--------|------|
 | `encounter_log` | sled-backed record of peer meetings (start/end, duration, recency) |
 | `custody` | Separate custody queue — **not** the live gossip epidemic queue |
-| `Envelope::custody` | Marks DTN messages; uses extended `max_hops` (255) + 48h TTL |
+| `Envelope::custody` | Marks DTN messages; uses extended `max_hops` (**64** default) + 48h TTL |
 | `Envelope::last_custody_from` | Prevents immediate custody ping-pong on handoff |
 
 ---
@@ -36,6 +36,8 @@ Custody queue respects existing envelope fields:
 - `hop_count` / `max_hops` — no further custody forward when exhausted
 
 Directed messages without live path are **enqueued** to custody (when `custody_enabled`).
+
+**Origin policy:** custody is only queued for **confirmed contacts** (stored enc key or mutual contact trust). Carriers may still relay custody envelopes they receive.
 
 ---
 

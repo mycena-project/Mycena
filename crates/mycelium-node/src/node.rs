@@ -1455,7 +1455,7 @@ impl NodeRunner {
             .await?;
         let peers = self.transport.known_peers();
         if peers.iter().any(|p| p == &to_peer) {
-            self.enqueue(to_peer.clone(), msg).await?;
+            self.enqueue(to_peer.clone(), msg.clone()).await?;
             info!("direct message queued for {}", to_peer);
         } else if peers.is_empty() {
             warn!("no relay candidates available for {}", to_peer);
@@ -1487,7 +1487,54 @@ impl NodeRunner {
                 self.queue_ble_wire(to_peer.clone(), wire);
             }
         }
+        if self.custody_enabled && !self.transport.is_peer_connected(&to_peer) {
+            self.enqueue_outbound_custody(&to_peer, &msg, &body).await?;
+        }
         Ok(())
+    }
+
+    async fn enqueue_outbound_custody(
+        &mut self,
+        to_peer: &str,
+        msg: &DirectMessage,
+        body: &str,
+    ) -> anyhow::Result<()> {
+        if !self.custody_origin_allowed(to_peer) {
+            return Ok(());
+        }
+        let mut envelope = msg.envelope.clone();
+        envelope.custody = true;
+        envelope.max_hops = mycelium_core::data::CUSTODY_DEFAULT_MAX_HOPS;
+        envelope.ttl_secs = 48 * 60 * 60;
+        if let Some(keypair) = &self.keypair {
+            let _ = envelope.sign(keypair);
+        }
+        let custody_msg = DirectMessage {
+            envelope,
+            body: body.to_string(),
+        };
+        if self.custody_queue.enqueue(&custody_msg)? {
+            debug!(
+                "custody enqueued outbound message_id={} target={to_peer}",
+                custody_msg.envelope.id.0
+            );
+        }
+        Ok(())
+    }
+
+    fn custody_origin_allowed(&self, to_peer: &str) -> bool {
+        if self
+            .peer_x25519
+            .try_read()
+            .ok()
+            .is_some_and(|m| m.contains_key(to_peer))
+        {
+            return true;
+        }
+        self.peer_trust
+            .load_all()
+            .get(to_peer)
+            .is_some_and(|t| t.mutual_contacts > 0)
     }
 
     async fn publish_identity_rotation(
@@ -2326,6 +2373,13 @@ impl NodeRunner {
         }
         if !CustodyQueue::eligible_for_custody(message) {
             return Ok(());
+        }
+        if message.envelope.from_peer == self.local_peer_id {
+            if let Some(to) = message.envelope.to_peer.as_deref() {
+                if !self.custody_origin_allowed(to) {
+                    return Ok(());
+                }
+            }
         }
         if self.custody_queue.enqueue(message)? {
             debug!(

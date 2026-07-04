@@ -10,6 +10,8 @@ namespace mycelium {
   string relay_peer_id();
   /// Seconds since the current relay keypair was created.
   u64 relay_keypair_age_secs();
+  /// `/p2p-circuit` multiaddr for `remote_peer_id` via federated relay pool.
+  string? relay_circuit_multiaddr(string remote_peer_id);
   sequence<string> known_peers();
   sequence<string> connected_peers();
   NodeMetrics metrics();

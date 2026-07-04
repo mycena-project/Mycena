@@ -98,6 +98,7 @@ fn run_city_custody_at(base: &Path, seed: u64, node_count: usize) -> CityCustody
     let mut env = Envelope::new_custody(sender.clone(), receiver.clone(), b"city-msg".to_vec());
     env.id = ContentId(format!("city-custody-{seed}"));
     env.max_custody_spray = 10;
+    env.max_hops = 255;
     let t0 = 1_700_000_000_000u64 + seed * 1_000;
     env.created_at_ms = t0;
     let msg = DirectMessage {
@@ -480,6 +481,17 @@ mod tests {
         assert!(
             report.delivered,
             "120-node city sim should deliver within TTL"
+        );
+    }
+
+    #[test]
+    fn city_custody_scales_to_200_nodes() {
+        let report = city_custody_delivery(42, 200);
+        assert_eq!(report.nodes, 200);
+        assert!(
+            report.delivered,
+            "200-node city sim should deliver within TTL (steps={})",
+            report.steps
         );
     }
 }

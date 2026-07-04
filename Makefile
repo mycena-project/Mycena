@@ -42,7 +42,7 @@ test-unit:
 	CARGO_HOME="$(CURDIR)/.cargo-home" cargo test --workspace --lib
 
 test-sim:
-	CARGO_HOME="$(CURDIR)/.cargo-home" cargo test -p mycelium-sim
+	CARGO_HOME="$(CURDIR)/.cargo-home" cargo test -p mycelium-sim -- --test-threads=1
 
 test:
 	CARGO_HOME="$(CURDIR)/.cargo-home" cargo test --workspace
@@ -66,6 +66,7 @@ check-unwrap-audit:
 	./scripts/check-unwrap-audit.sh
 
 ci: check test-fast test-integration check-app-layer check-layer-boundaries check-unwrap-audit clippy
+	CARGO_HOME="$(CURDIR)/.cargo-home" cargo test -p mycelium-sim city_custody -- --test-threads=1
 	CARGO_HOME="$(CURDIR)/.cargo-home" cargo fmt --all --check
 
 fuzz-smoke:

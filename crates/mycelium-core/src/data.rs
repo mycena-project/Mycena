@@ -208,8 +208,11 @@ fn default_max_custody_spray() -> u8 {
 }
 
 fn default_custody_max_hops() -> u8 {
-    255
+    CUSTODY_DEFAULT_MAX_HOPS
 }
+
+/// Default hop budget for DTN custody messages (disaster profile).
+pub const CUSTODY_DEFAULT_MAX_HOPS: u8 = 64;
 
 fn signature_transition_active() -> bool {
     now_ms() < SIG_V1_LAUNCH_MS.saturating_add(SIG_TRANSITION_MS)

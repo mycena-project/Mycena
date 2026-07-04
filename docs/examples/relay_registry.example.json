@@ -1,0 +1,38 @@
+{
+  "format": "mycelium-relay-registry/v1",
+  "issued_at_ms": 1700000000000,
+  "policy": {
+    "min_curator_endorsements": 1,
+    "max_relays_per_operator": 2,
+    "max_relays_per_ipv4_prefix": 1
+  },
+  "registrations": [
+    {
+      "peer_id": "12D3KooWREPLACE_WITH_RELAY_PEER_ID",
+      "multiaddrs": [
+        "/ip4/203.0.113.20/tcp/4001/p2p/12D3KooWREPLACE_WITH_RELAY_PEER_ID"
+      ],
+      "operator_pubkey_hex": "REPLACE_WITH_OPERATOR_LIBP2P_PUBKEY_HEX",
+      "operator_label": "your-org-slug",
+      "region": "eu-central",
+      "registered_at_ms": 1700000000000,
+      "uptime_history": [
+        {
+          "observed_at_ms": 1700003600000,
+          "uptime_secs": 86400,
+          "reachable": true
+        }
+      ],
+      "operator_signature_hex": "REPLACE_AFTER_SIGNING",
+      "endorsements": [
+        {
+          "curator_id": "community-mesh-eu",
+          "curator_pubkey_hex": "REPLACE_CURATOR_PUBKEY",
+          "signed_at_ms": 1700000000000,
+          "signature_hex": "REPLACE_CURATOR_SIGNATURE"
+        }
+      ],
+      "catalog_only": false
+    }
+  ]
+}

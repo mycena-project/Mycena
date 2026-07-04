@@ -198,8 +198,7 @@ impl RelayRegistryManifest {
             if reg.catalog_only && !include_catalog {
                 continue;
             }
-            if is_testnet_multiaddr(reg.primary_tcp_multiaddr().unwrap_or("")) && !include_catalog
-            {
+            if is_testnet_multiaddr(reg.primary_tcp_multiaddr().unwrap_or("")) && !include_catalog {
                 continue;
             }
             dialable.push(reg.clone());

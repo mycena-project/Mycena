@@ -1012,12 +1012,15 @@ impl Libp2pTransport {
                     peer_id: peer_id.to_string(),
                 }));
             }
-            SwarmEvent::ConnectionClosed { peer_id, .. } if self.is_known_relay_peer(&peer_id.to_string()) => {
+            SwarmEvent::ConnectionClosed { peer_id, .. }
+                if self.is_known_relay_peer(&peer_id.to_string()) =>
+            {
                 self.note_relay_disconnected();
                 self.failover_relay();
             }
             SwarmEvent::ConnectionClosed { peer_id, .. }
-                if !self.is_known_relay_peer(&peer_id.to_string()) && self.peer_cap.contains(&peer_id) =>
+                if !self.is_known_relay_peer(&peer_id.to_string())
+                    && self.peer_cap.contains(&peer_id) =>
             {
                 self.peer_cap.remove(&peer_id);
                 self.swarm

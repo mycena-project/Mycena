@@ -66,10 +66,34 @@ pub fn relay_circuit_multiaddr_with_relay(
     remote_peer_id: &str,
     relay_index: Option<usize>,
 ) -> Option<String> {
-    let manifest = crate::relay_registry::load_relay_manifest("");
-    let pool = crate::relay_pool::RelayPool::from_registry_manifest(&manifest, false);
-    let idx = relay_index.unwrap_or_else(|| pool.select_index_for(remote_peer_id));
-    pool.circuit_multiaddr(remote_peer_id, idx)
+    relay_circuit_multiaddr_for_db("", remote_peer_id, relay_index)
+}
+
+/// Federated relay circuit multiaddr using embedded + `<db_path>/relay_registry.json`.
+pub fn relay_circuit_multiaddr_for_db(
+    db_path: &str,
+    remote_peer_id: &str,
+    relay_index: Option<usize>,
+) -> Option<String> {
+    use crate::relay_pool::RelayPool;
+    use crate::relay_registry::{include_catalog_relays, load_relay_manifest};
+
+    let remote = remote_peer_id.trim();
+    if remote.is_empty() {
+        return None;
+    }
+    let manifest = load_relay_manifest(db_path);
+    let pool = RelayPool::from_registry_manifest(&manifest, include_catalog_relays());
+    let pool = if pool.is_empty() {
+        RelayPool::from_bootstrap_peers(&federated_bootstrap_multiaddrs(db_path))
+    } else {
+        pool
+    };
+    if pool.is_empty() {
+        return None;
+    }
+    let idx = relay_index.unwrap_or_else(|| pool.select_index_for(remote));
+    pool.circuit_multiaddr(remote, idx)
 }
 
 /// Best LAN multiaddr for embedding in a signed v3 invite (stable, not 0.0.0.0 / loopback).

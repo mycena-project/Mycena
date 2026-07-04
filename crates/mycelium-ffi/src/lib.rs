@@ -468,6 +468,7 @@ impl CoinTransport for FfiCoinTransport {
 }
 
 struct NodeState {
+    db_path: String,
     handle: NodeHandle,
     app_node: Arc<AppNode>,
     app_store: Arc<mycelium_app::miniapp::AppStore>,
@@ -691,6 +692,7 @@ pub fn init_node(config: NodeConfig) {
         let cap_mac_key = mycelium_app::miniapp::mac_key_from_db_path(&config.db_path);
         let crowd_mode = Arc::new(AtomicBool::new(config.crowd_mode));
         let state = Arc::new(RwLock::new(NodeState {
+            db_path: config.db_path.clone(),
             handle,
             app_node,
             app_store,
@@ -745,6 +747,18 @@ pub fn relay_keypair_age_secs() -> u64 {
     runtime().block_on(async {
         let state = state.read().await;
         state.handle.relay_keypair_age_secs()
+    })
+}
+
+pub fn relay_circuit_multiaddr(remote_peer_id: String) -> Option<String> {
+    let state = state_arc();
+    runtime().block_on(async {
+        let state = state.read().await;
+        mycelium_core::bootstrap::relay_circuit_multiaddr_for_db(
+            &state.db_path,
+            &remote_peer_id,
+            None,
+        )
     })
 }
 
