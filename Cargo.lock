@@ -4251,6 +4251,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "clap",
  "libp2p",
  "mycelium-coin",
  "mycelium-core",

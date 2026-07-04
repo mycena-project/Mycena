@@ -48,3 +48,5 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: Test
         run: cargo test --workspace
+      - name: MyceliumLab CI gates
+        run: cargo test -p mycelium-sim myceliumlab_ci_gates -- --test-threads=1

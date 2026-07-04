@@ -67,6 +67,7 @@ check-unwrap-audit:
 
 ci: check test-fast test-integration check-app-layer check-layer-boundaries check-unwrap-audit clippy
 	CARGO_HOME="$(CURDIR)/.cargo-home" cargo test -p mycelium-sim city_custody -- --test-threads=1
+	CARGO_HOME="$(CURDIR)/.cargo-home" cargo test -p mycelium-sim myceliumlab_ci_gates -- --test-threads=1
 	CARGO_HOME="$(CURDIR)/.cargo-home" cargo fmt --all --check
 
 fuzz-smoke:

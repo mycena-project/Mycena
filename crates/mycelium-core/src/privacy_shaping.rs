@@ -143,9 +143,7 @@ impl PrivacyShapingOverheadEstimate {
         } else {
             format!(
                 "Batching adds {}–{} ms latency; padding ~{:.0}% on typical chat payloads.",
-                config.batch_min_ms,
-                config.batch_max_ms,
-                padding_overhead_pct_typical,
+                config.batch_min_ms, config.batch_max_ms, padding_overhead_pct_typical,
             )
         };
         Self {
@@ -196,11 +194,8 @@ pub fn unpad_payload(payload: &mut Vec<u8>) -> bool {
     if &payload[len - 8..len - 4] != PAD_MAGIC {
         return false;
     }
-    let orig_len = u32::from_le_bytes(
-        payload[len - 4..]
-            .try_into()
-            .expect("4 byte trailer"),
-    ) as usize;
+    let orig_len =
+        u32::from_le_bytes(payload[len - 4..].try_into().expect("4 byte trailer")) as usize;
     if orig_len + 8 > len {
         return false;
     }
@@ -260,6 +255,10 @@ impl BatchingScheduler {
         self.queue.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.queue.is_empty()
+    }
+
     pub fn has_deadline(&self) -> bool {
         self.flush_at.is_some()
     }
@@ -296,7 +295,10 @@ pub fn should_batch(priority: Priority, config: &PrivacyShapingConfig) -> bool {
     config.enabled && !matches!(priority, Priority::High)
 }
 
-pub fn cover_interval_for_state(config: &PrivacyShapingConfig, state: NodeState) -> Option<Duration> {
+pub fn cover_interval_for_state(
+    config: &PrivacyShapingConfig,
+    state: NodeState,
+) -> Option<Duration> {
     if !config.enabled || !config.cover_traffic_enabled {
         return None;
     }
@@ -307,7 +309,9 @@ pub fn cover_interval_for_state(config: &PrivacyShapingConfig, state: NodeState)
     if mult == 0 {
         return None;
     }
-    Some(Duration::from_secs(config.cover_interval_secs.saturating_mul(mult).max(1)))
+    Some(Duration::from_secs(
+        config.cover_interval_secs.saturating_mul(mult).max(1),
+    ))
 }
 
 pub fn build_cover_payload() -> Vec<u8> {
@@ -355,10 +359,7 @@ mod tests {
             bucket_scope_for_announce("mycelium/bulletin/berlin/mitte"),
             "mycelium/bulletin/berlin/*"
         );
-        assert_eq!(
-            bucket_scope_for_announce("mycelium/chat"),
-            "mycelium/chat"
-        );
+        assert_eq!(bucket_scope_for_announce("mycelium/chat"), "mycelium/chat");
         assert_eq!(
             bucket_scope_for_announce("mycelium/bulletin/*"),
             "mycelium/bulletin/*"
@@ -416,7 +417,10 @@ mod tests {
             ..PrivacyShapingConfig::default()
         };
         let est = PrivacyShapingOverheadEstimate::from_config(&config);
-        println!("  cover_bytes_per_hour_active: {}", est.cover_bytes_per_hour_active);
+        println!(
+            "  cover_bytes_per_hour_active: {}",
+            est.cover_bytes_per_hour_active
+        );
         println!(
             "  cover_bytes_per_hour_intermittent: {}",
             est.cover_bytes_per_hour_intermittent

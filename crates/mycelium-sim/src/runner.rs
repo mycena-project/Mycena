@@ -63,6 +63,8 @@ pub struct SimulationRunner {
     pub delivered_ids: HashMap<String, u64>,
     pub metrics: SimulationMetrics,
     rng_state: u64,
+    /// Per-peer drop rate for adversarial nodes (per mille).
+    pub malicious_drop_per_mille: HashMap<String, u16>,
     /// Isolates sled DB paths per simulation run (avoids stale encrypted state in /tmp).
     sim_run_id: u64,
     pub action_tx: mpsc::UnboundedSender<SimAction>,
@@ -88,6 +90,7 @@ impl SimulationRunner {
             bandwidth_usage: HashMap::new(),
             delivered_ids: HashMap::new(),
             metrics: SimulationMetrics::default(),
+            malicious_drop_per_mille: HashMap::new(),
             rng_state: seed.max(1),
             sim_run_id: seed,
             action_tx,
@@ -134,6 +137,33 @@ impl SimulationRunner {
         let mut links = self.links.lock().expect("links lock poisoned");
         links.insert((a.clone(), b.clone()), profile.clone());
         links.insert((b, a), profile);
+    }
+
+    pub fn clear_links(&mut self) {
+        self.links.lock().expect("links lock poisoned").clear();
+    }
+
+    pub fn replace_links(&mut self, pairs: &[(String, String, LinkProfile)]) {
+        let mut links = self.links.lock().expect("links lock poisoned");
+        links.clear();
+        for (a, b, profile) in pairs {
+            links.insert((a.clone(), b.clone()), profile.clone());
+            links.insert((b.clone(), a.clone()), profile.clone());
+        }
+    }
+
+    pub fn set_malicious(&mut self, peer_id: String, drop_per_mille: u16) {
+        self.malicious_drop_per_mille
+            .insert(peer_id, drop_per_mille);
+    }
+
+    pub fn remove_node(&mut self, peer_id: &str) {
+        self.nodes.remove(peer_id);
+        self.event_txs.remove(peer_id);
+        self.malicious_drop_per_mille.remove(peer_id);
+        self.peer_subscriptions.remove(peer_id);
+        let mut links = self.links.lock().expect("links lock poisoned");
+        links.retain(|(a, b), _| a != peer_id && b != peer_id);
     }
 
     pub fn schedule_availability(&mut self, peer_id: String, at_ms: u64, online: bool) {
@@ -216,6 +246,10 @@ impl SimulationRunner {
                 to_peer,
                 message,
             } => {
+                if self.is_malicious_drop(&from_peer) {
+                    self.metrics.dropped_loss += 1;
+                    return;
+                }
                 if !self.is_online(&from_peer) || !self.is_online(&to_peer) {
                     self.metrics.dropped_offline += 1;
                     return;
@@ -329,6 +363,18 @@ impl SimulationRunner {
             .wrapping_mul(6364136223846793005)
             .wrapping_add(1);
         (self.rng_state % 1000) < loss_per_mille as u64
+    }
+
+    fn is_malicious_drop(&mut self, peer_id: &str) -> bool {
+        let rate = self
+            .malicious_drop_per_mille
+            .get(peer_id)
+            .copied()
+            .unwrap_or(0);
+        if rate == 0 {
+            return false;
+        }
+        self.roll_loss(rate)
     }
 
     fn record_delivery(&mut self, to_peer: &str, message: &WireMessage) {
