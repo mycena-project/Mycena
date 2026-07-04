@@ -57,7 +57,8 @@ pub fn decode_peer_coin_payload(payload: &[u8]) -> CoinResult<CoinPayload> {
 }
 
 #[cfg(test)]
-mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
+mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
 
     use super::*;
 

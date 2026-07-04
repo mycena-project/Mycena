@@ -77,7 +77,8 @@ impl ResourceMapEntry {
     }
 
     pub fn expires_at_ms(&self) -> u64 {
-        self.created_at_ms.saturating_add(self.ttl_secs.saturating_mul(1000))
+        self.created_at_ms
+            .saturating_add(self.ttl_secs.saturating_mul(1000))
     }
 
     pub fn is_expired(&self, now_ms: u64) -> bool {
@@ -138,7 +139,8 @@ pub fn should_defer_gossip_in_crisis(scope: &str) -> bool {
 }
 
 #[cfg(test)]
-mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
+mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
 
     use super::*;
 

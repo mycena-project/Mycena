@@ -49,9 +49,7 @@ fn bundle_scan_blocks_javascript_urls() {
 
 #[test]
 fn bridge_chain_budget_enforced() {
-    use super::bridge_limits::{
-        check_chain_budget, record_bridge_elapsed, BRIDGE_CHAIN_BUDGET_MS,
-    };
+    use super::bridge_limits::{check_chain_budget, record_bridge_elapsed, BRIDGE_CHAIN_BUDGET_MS};
     let app = "budget-test-app";
     record_bridge_elapsed(app, BRIDGE_CHAIN_BUDGET_MS - 1_000);
     assert!(check_chain_budget(app, 500).is_ok());

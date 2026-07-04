@@ -119,9 +119,7 @@ async fn sync_desktop_user_trust(
 
 async fn push_desktop_endorsements(handle: &NodeHandle, store: &UserTrustStore) {
     let map = store.endorsement_boost_map();
-    let _ = handle
-        .send(NodeCommand::SetLocalEndorsements(map))
-        .await;
+    let _ = handle.send(NodeCommand::SetLocalEndorsements(map)).await;
 }
 
 type SharedState = Arc<RwLock<Option<AppState>>>;
@@ -559,8 +557,7 @@ async fn start_node(
     }
     setup_inbox_emitter(app, inbox);
 
-    let user_trust =
-        Arc::new(UserTrustStore::open(&db_path).map_err(|e| e.to_string())?);
+    let user_trust = Arc::new(UserTrustStore::open(&db_path).map_err(|e| e.to_string())?);
     let ut_handle = handle.clone();
     let ut_store = user_trust.clone();
     let user_trust_task = tauri::async_runtime::spawn(async move {
@@ -1736,9 +1733,7 @@ async fn miniapp_bridge_call(
         safe_mode,
         s.cap_mac_key,
     );
-    host.handle(&method, &args)
-        .await
-        .map_err(|e| e.to_string())
+    host.handle(&method, &args).await.map_err(|e| e.to_string())
 }
 
 fn node_state_label(state: NodeState) -> &'static str {

@@ -62,7 +62,12 @@ impl CustodyRoutingContext {
         }
         Ok(Self {
             peer_trust: HashMap::new(),
-            routing_meta: build_routing_meta_map(connected, &HashMap::new(), &encounter_first, &HashMap::new()),
+            routing_meta: build_routing_meta_map(
+                connected,
+                &HashMap::new(),
+                &encounter_first,
+                &HashMap::new(),
+            ),
             diversity: PeerDiversityConfig::score_only(),
             negotiated_caps: HashMap::new(),
             candidate_scoring: CustodyCandidateScoring::RecencyOnly,
@@ -399,10 +404,12 @@ impl CustodyQueue {
                 let mut score = trust.relay_selection_score(now);
                 if let Ok(Some(rec)) = encounter_log.record(p) {
                     let recency = now.saturating_sub(rec.last_seen_ms);
-                    score += 0.15
-                        * (1.0 - recency as f64 / ENCOUNTER_LOG_TTL_MS as f64).clamp(0.0, 1.0);
+                    score +=
+                        0.15 * (1.0 - recency as f64 / ENCOUNTER_LOG_TTL_MS as f64).clamp(0.0, 1.0);
                 }
-                if routing.candidate_scoring == CustodyCandidateScoring::DeliveryProbabilityAndRecency {
+                if routing.candidate_scoring
+                    == CustodyCandidateScoring::DeliveryProbabilityAndRecency
+                {
                     if let Some(dest) = stored.message.envelope.to_peer.as_deref() {
                         if let Ok(est) = encounter_log.delivery_probability(p, dest, now) {
                             score += 0.35 * est.combined;
@@ -420,14 +427,8 @@ impl CustodyQueue {
 
         let dest = stored.message.envelope.to_peer.as_deref();
         let diversity = routing.diversity_for_dest(dest);
-        let picks = apply_peer_diversity(
-            &scored,
-            &routing.peer_trust,
-            &meta_map,
-            now,
-            1,
-            &diversity,
-        );
+        let picks =
+            apply_peer_diversity(&scored, &routing.peer_trust, &meta_map, now, 1, &diversity);
         picks.into_iter().next()
     }
 
@@ -474,7 +475,8 @@ enum ForwardMode {
 }
 
 #[cfg(test)]
-mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
+mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
 
     use super::*;
     use mycelium_core::data::Envelope;

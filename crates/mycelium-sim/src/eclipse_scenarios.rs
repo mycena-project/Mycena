@@ -61,7 +61,11 @@ fn legit_trust(now_ms: u64) -> PeerTrust {
     }
 }
 
-fn build_eclipse_topology() -> (Vec<String>, HashMap<String, PeerTrust>, HashMap<String, PeerRoutingMeta>) {
+fn build_eclipse_topology() -> (
+    Vec<String>,
+    HashMap<String, PeerTrust>,
+    HashMap<String, PeerRoutingMeta>,
+) {
     let mut peers = Vec::new();
     let mut trust = HashMap::new();
     let mut meta = HashMap::new();
@@ -124,8 +128,7 @@ pub fn eclipse_relay_resilience(traffic_rounds: u32) -> EclipseScenarioReport {
     let rounds = traffic_rounds.max(1);
     let (peers, trust, meta) = build_eclipse_topology();
     let visible = peers.len();
-    let attacker_share_pct =
-        ((ATTACKER_PEERS as f64 / visible as f64) * 100.0).round() as u32;
+    let attacker_share_pct = ((ATTACKER_PEERS as f64 / visible as f64) * 100.0).round() as u32;
 
     let score_only = relay_rounds_with_legit(
         &peers,
@@ -158,7 +161,10 @@ pub fn diverse_transport_share(
             .iter()
             .filter(|p| *p != DEST)
             .map(|p| {
-                let t = trust.get(p).cloned().unwrap_or_else(|| PeerTrust::cold_unknown(NOW_MS));
+                let t = trust
+                    .get(p)
+                    .cloned()
+                    .unwrap_or_else(|| PeerTrust::cold_unknown(NOW_MS));
                 (p.clone(), t.relay_selection_score(NOW_MS))
             })
             .collect();
@@ -175,7 +181,10 @@ pub fn diverse_transport_share(
             FANOUT,
             &PeerDiversityConfig::default(),
         );
-        let transports: HashSet<_> = picked.iter().map(|p| meta[p].transport_hint.clone()).collect();
+        let transports: HashSet<_> = picked
+            .iter()
+            .map(|p| meta[p].transport_hint.clone())
+            .collect();
         if transports.len() > 1 {
             mixed += 1;
         }
@@ -206,8 +215,7 @@ mod tests {
             "diversity must keep at least part of traffic on legit peers: {report:?}"
         );
         assert_eq!(
-            report.diverse_legit_relay_rounds,
-            report.traffic_rounds,
+            report.diverse_legit_relay_rounds, report.traffic_rounds,
             "established legit peer should appear in every diverse relay round"
         );
     }

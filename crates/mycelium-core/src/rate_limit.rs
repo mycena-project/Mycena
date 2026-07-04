@@ -44,7 +44,8 @@ impl FixedWindowRateLimiter {
 }
 
 #[cfg(test)]
-mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
+mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
 
     use super::*;
 

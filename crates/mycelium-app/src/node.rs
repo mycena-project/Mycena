@@ -20,14 +20,14 @@ use mycelium_l0_facade::consistency::{
     OP_DIRECT_MESSAGE_SEND, OP_GOSSIP_BULLETIN_PUBLISH, OP_RESOURCE_MAP_BROADCAST, OP_SOS_BROADCAST,
 };
 use mycelium_l0_facade::crisis_mode::{geohash_nearby, CrisisAutoConfig, CrisisManualMode};
+use mycelium_l0_facade::data::now_ms;
+use mycelium_l0_facade::data::Priority;
 use mycelium_l0_facade::resource_map::{
     ResourceCategory, ResourceMapEntry, RESOURCE_DEFAULT_TTL_SECS, RESOURCE_MAP_SCOPE,
 };
-use mycelium_l0_facade::data::now_ms;
 use mycelium_l0_facade::{
     decrypt_group, encrypt_for, encrypt_group, parse_x25519_public_hex, EncKey,
 };
-use mycelium_l0_facade::data::Priority;
 use mycelium_l1_facade::{DirectMessage, NodeCommand, NodeHandle, WireMessage};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -403,11 +403,9 @@ impl AppNode {
                                 self.notifier.on_sos_received(&payload);
                             }
                         }
-                    } else if post.scope.starts_with(RESOURCE_MAP_SCOPE)
-                    {
+                    } else if post.scope.starts_with(RESOURCE_MAP_SCOPE) {
                         if self.listen_sos.load(Ordering::Relaxed) {
-                            if let Ok(entry) = ResourceMapEntry::decode_json(&post.body)
-                            {
+                            if let Ok(entry) = ResourceMapEntry::decode_json(&post.body) {
                                 if !entry.is_expired(now_ms()) {
                                     self.notifier.on_resource_map_received(&entry);
                                 }

@@ -49,7 +49,8 @@ pub fn unwrap_inner(data: &[u8], relay_from: &str) -> (String, Vec<u8>) {
 }
 
 #[cfg(test)]
-mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
+mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
 
     use super::*;
 

@@ -224,13 +224,7 @@ fn adding_violates_diversity(trial: &DiversityTrial<'_>) -> bool {
     if config.is_disabled() {
         return false;
     }
-    let meta_for = |p: &str| {
-        trial
-            .routing_meta
-            .get(p)
-            .cloned()
-            .unwrap_or_default()
-    };
+    let meta_for = |p: &str| trial.routing_meta.get(p).cloned().unwrap_or_default();
     let trust_for = |p: &str| {
         trial
             .peer_trust
@@ -246,16 +240,18 @@ fn adding_violates_diversity(trial: &DiversityTrial<'_>) -> bool {
 
     let transports = pool_transport_alternatives(trial.scored, &meta_for);
     if transports.len() > 1 {
-        let max_same = max_same_transport_slots(trial.max_fanout, config.max_same_transport_fraction);
+        let max_same =
+            max_same_transport_slots(trial.max_fanout, config.max_same_transport_fraction);
         let hint = meta_for(peer).transport_hint;
         let same = trial_peers
             .iter()
             .filter(|p| meta_for(p).transport_hint == hint)
             .count();
         if same > max_same {
-            let has_alt = trial.scored.iter().any(|(p, _)| {
-                !trial_peers.contains(p) && meta_for(p).transport_hint != hint
-            });
+            let has_alt = trial
+                .scored
+                .iter()
+                .any(|(p, _)| !trial_peers.contains(p) && meta_for(p).transport_hint != hint);
             if has_alt {
                 return true;
             }
@@ -356,9 +352,9 @@ pub fn apply_peer_diversity(
             continue;
         }
         if is_young(&trust_for(peer), now_ms, config)
-            && scored.iter().any(|(p, _)| {
-                !used.contains(p) && is_established(&trust_for(p), now_ms, config)
-            })
+            && scored
+                .iter()
+                .any(|(p, _)| !used.contains(p) && is_established(&trust_for(p), now_ms, config))
         {
             deferred.push(peer.clone());
             continue;
@@ -650,10 +646,7 @@ mod tests {
             );
         }
         peers.push("legit".into());
-        trust.insert(
-            "legit".into(),
-            established_trust(now, 0.82, 0.80, 45),
-        );
+        trust.insert("legit".into(), established_trust(now, 0.82, 0.80, 45));
         meta.insert(
             "legit".into(),
             PeerRoutingMeta {
@@ -789,7 +782,8 @@ mod tests {
         }
 
         for fanout in 1..=3 {
-            let selected = select_relay_candidates(&peers, "12D3KooWDest", &trust, None, now, fanout);
+            let selected =
+                select_relay_candidates(&peers, "12D3KooWDest", &trust, None, now, fanout);
             assert_eq!(selected.len(), fanout);
             assert!(
                 selected
@@ -820,7 +814,8 @@ mod tests {
                 trial_peers.push(id.clone());
                 trial_trust.insert(id, PeerTrust::cold_unknown(now));
             }
-            let selected = select_relay_candidates(&trial_peers, "target", &trial_trust, None, now, 3);
+            let selected =
+                select_relay_candidates(&trial_peers, "target", &trial_trust, None, now, 3);
             assert_eq!(selected.len(), 3);
             let established_in_top: usize =
                 selected.iter().filter(|p| p.starts_with("est_")).count();

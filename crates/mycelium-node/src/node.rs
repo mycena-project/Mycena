@@ -1,34 +1,36 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Mycelium Project
-use crate::custody::{CustodyConfig, CustodyQueue, CustodyRoutingContext, DEFAULT_MAX_CUSTODY_SPRAY};
+use crate::custody::{
+    CustodyConfig, CustodyQueue, CustodyRoutingContext, DEFAULT_MAX_CUSTODY_SPRAY,
+};
 use crate::encounter_log::EncounterLogStore;
 use crate::forwarding::{
-    EnergyPolicy, ForwardDecision, ForwardingPolicy, IngestPipeline, ProbabilisticForwardingPolicy,
-    SeenCache, SimpleEnergyPolicy, TrafficClass, traffic_class_for_direct,
+    traffic_class_for_direct, EnergyPolicy, ForwardDecision, ForwardingPolicy, IngestPipeline,
+    ProbabilisticForwardingPolicy, SeenCache, SimpleEnergyPolicy, TrafficClass,
 };
 use crate::ingest_guard::{IngestGuard, IngestReject};
 use crate::security::{self, PeerDiversityConfig, Sd030DropReason};
 use crate::storage::SledMessageStore;
 use crate::transport::Libp2pTransport;
 use libp2p::{identity, Multiaddr, PeerId};
-use mycelium_core::lock_or_recover;
 use mycelium_core::bootstrap::load_bootstrap_peers;
 use mycelium_core::crowd_density::CrowdDensityConfig;
 use mycelium_core::crypto::EncryptionKeypair;
 use mycelium_core::crypto::{self};
 use mycelium_core::data::{now_ms, Priority};
 use mycelium_core::energy::NodeState;
+use mycelium_core::lock_or_recover;
 use mycelium_core::privacy_shaping::{
     self, BatchingScheduler, PrivacyShapingConfig, PrivacyShapingStats,
 };
 use mycelium_core::protocol_capabilities::{NegotiatedProtocol, ProtocolCapabilities};
 use mycelium_core::sync::BloomFilter;
 use mycelium_core::topic_shard;
-use mycelium_core::transport_score::TransportPath;
 use mycelium_core::transport::{
     ConnectivityMode, DirectMessage, MeshTransport, MessageStore, Scope, StoreStats,
     TransportEvent, WireMessage,
 };
+use mycelium_core::transport_score::TransportPath;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -107,7 +109,8 @@ pub struct NodeConfig {
     /// SD-070: optional padding, batching, scope bucketing, cover traffic (default off).
     pub privacy_shaping: PrivacyShapingConfig,
     /// Override advertised protocol capabilities (integration tests).
-    pub protocol_capabilities_override: Option<mycelium_core::protocol_capabilities::ProtocolCapabilities>,
+    pub protocol_capabilities_override:
+        Option<mycelium_core::protocol_capabilities::ProtocolCapabilities>,
 }
 
 fn default_crowd_density_enter() -> usize {
@@ -1160,8 +1163,7 @@ impl NodeRunner {
             mycelium_core::bearer_transport::BearerWireVersion::Legacy
         };
         let wifi = negotiated.wifi_direct_allowed();
-        self.transport
-            .set_peer_bearer_caps(peer, style, wifi);
+        self.transport.set_peer_bearer_caps(peer, style, wifi);
     }
 
     fn peer_allowed_for_broadcast(&self, peer: &str, filter: BroadcastPeerFilter) -> bool {
@@ -1825,9 +1827,7 @@ impl NodeRunner {
             NodeCommand::SetCrisisManual(manual) => {
                 self.crisis_state.manual = manual;
                 let active = self.crisis_state.is_active();
-                info!(
-                    "crisis mode manual={manual:?} active={active}"
-                );
+                info!("crisis mode manual={manual:?} active={active}");
                 self.metrics.write().await.crisis_active = active;
             }
             NodeCommand::UpdateCrisisAuto {
@@ -1835,12 +1835,13 @@ impl NodeRunner {
                 listen_sos,
                 nearby_sos_recent,
             } => {
-                self.crisis_state.auto_active = mycelium_core::crisis_mode::evaluate_auto_activation(
-                    &self.crisis_auto_config,
-                    internet_reachable,
-                    listen_sos,
-                    nearby_sos_recent,
-                );
+                self.crisis_state.auto_active =
+                    mycelium_core::crisis_mode::evaluate_auto_activation(
+                        &self.crisis_auto_config,
+                        internet_reachable,
+                        listen_sos,
+                        nearby_sos_recent,
+                    );
                 let active = self.crisis_state.is_active();
                 self.metrics.write().await.crisis_active = active;
             }
@@ -1919,11 +1920,9 @@ impl NodeRunner {
             .peer_protocol_caps
             .get(&to_peer)
             .is_some_and(|n| n.wifi_direct_allowed());
-        let availability = self.transport.transport_availability_for_peer(
-            &to_peer,
-            wifi_cap,
-            !peers.is_empty(),
-        );
+        let availability =
+            self.transport
+                .transport_availability_for_peer(&to_peer, wifi_cap, !peers.is_empty());
         let path = self
             .transport
             .decide_outbound_path(&availability, payload_len, false, now);
@@ -1971,8 +1970,8 @@ impl NodeRunner {
         let endorsement_boosts = self.local_endorsements.read().await.clone();
         let routing_meta = self.build_routing_meta(peers, &peer_trust)?;
         let diversity = self.relay_diversity_config_for(to_peer);
-        let relay_candidates = security::select_relay_candidates_with_diversity(
-            &security::RelaySelectionRequest {
+        let relay_candidates =
+            security::select_relay_candidates_with_diversity(&security::RelaySelectionRequest {
                 peers,
                 to_peer,
                 peer_trust: &peer_trust,
@@ -1981,8 +1980,7 @@ impl NodeRunner {
                 max_fanout: self.effective_max_relay_fanout(),
                 routing_meta: Some(&routing_meta),
                 diversity: Some(&diversity),
-            },
-        );
+            });
         if relay_candidates.is_empty() {
             warn!("SD-031: no suitable relay candidates for {to_peer}");
         } else {
@@ -2021,8 +2019,8 @@ impl NodeRunner {
         let endorsement_boosts = self.local_endorsements.read().await.clone();
         let routing_meta = self.build_routing_meta(peers, &peer_trust)?;
         let diversity = self.relay_diversity_config_for(to_peer);
-        let relay_candidates = security::select_relay_candidates_with_diversity(
-            &security::RelaySelectionRequest {
+        let relay_candidates =
+            security::select_relay_candidates_with_diversity(&security::RelaySelectionRequest {
                 peers,
                 to_peer,
                 peer_trust: &peer_trust,
@@ -2031,8 +2029,7 @@ impl NodeRunner {
                 max_fanout: self.effective_max_relay_fanout(),
                 routing_meta: Some(&routing_meta),
                 diversity: Some(&diversity),
-            },
-        );
+            });
         if relay_candidates.is_empty() {
             warn!("SD-031: no suitable relay candidates for {to_peer}");
         } else {
@@ -2138,7 +2135,10 @@ impl NodeRunner {
         let mut sent = 0usize;
         let mut failed = Vec::new();
         for to_peer in recipients {
-            match self.send_encrypted_direct_internal(&to_peer, &inner, Priority::Normal).await {
+            match self
+                .send_encrypted_direct_internal(&to_peer, &inner, Priority::Normal)
+                .await
+            {
                 Ok(()) => sent += 1,
                 Err(e) => {
                     warn!("identity rotation E2E to {to_peer}: {e:#}");
@@ -2169,7 +2169,10 @@ impl NodeRunner {
                 return;
             }
         };
-        match self.send_encrypted_direct_internal(peer_id, &inner, Priority::Normal).await {
+        match self
+            .send_encrypted_direct_internal(peer_id, &inner, Priority::Normal)
+            .await
+        {
             Ok(()) => {
                 self.identity_rotation_pending_peers.remove(peer_id);
                 if self.identity_rotation_pending_peers.is_empty() {
@@ -2282,7 +2285,8 @@ impl NodeRunner {
             self.peer_scopes.insert(new_peer_id.to_string(), scopes);
         }
         if let Some(caps) = self.peer_protocol_caps.remove(old_peer_id) {
-            self.peer_protocol_caps.insert(new_peer_id.to_string(), caps);
+            self.peer_protocol_caps
+                .insert(new_peer_id.to_string(), caps);
         }
         let now = now_ms();
         if let Some(trust) = self.peer_trust.load_all().get(old_peer_id).cloned() {
@@ -2415,11 +2419,7 @@ impl NodeRunner {
                 let now = now_ms();
                 let connected_others: Vec<String> = {
                     let peers = self.peers.read().await;
-                    peers
-                        .iter()
-                        .filter(|p| *p != &peer_id)
-                        .cloned()
-                        .collect()
+                    peers.iter().filter(|p| *p != &peer_id).cloned().collect()
                 };
                 if let Err(e) = self.encounter_log.begin_encounter(&peer_id, now) {
                     warn!("encounter log begin failed for {peer_id}: {e:#}");
@@ -2451,11 +2451,7 @@ impl NodeRunner {
                 let now = now_ms();
                 let connected_others: Vec<String> = {
                     let peers = self.peers.read().await;
-                    peers
-                        .iter()
-                        .filter(|p| *p != &peer_id)
-                        .cloned()
-                        .collect()
+                    peers.iter().filter(|p| *p != &peer_id).cloned().collect()
                 };
                 for other in &connected_others {
                     if let Err(e) = self.encounter_log.end_co_encounter(other, &peer_id, now) {
@@ -2808,8 +2804,7 @@ impl NodeRunner {
                     metrics.messages_dropped_ttl += 1;
                     return Ok(());
                 }
-                let essential =
-                    traffic_class_for_direct(&message) == TrafficClass::Essential;
+                let essential = traffic_class_for_direct(&message) == TrafficClass::Essential;
                 if (!self.crisis_active() || !essential)
                     && !self
                         .energy_policy
@@ -3036,9 +3031,12 @@ impl NodeRunner {
                         .or_default()
                         .extend(validated);
                 }
-                let negotiated =
-                    ProtocolCapabilities::negotiate(&self.local_protocol_capabilities(), &protocol_capabilities);
-                self.peer_protocol_caps.insert(from_peer.clone(), negotiated);
+                let negotiated = ProtocolCapabilities::negotiate(
+                    &self.local_protocol_capabilities(),
+                    &protocol_capabilities,
+                );
+                self.peer_protocol_caps
+                    .insert(from_peer.clone(), negotiated);
                 self.apply_negotiated_bearer_caps(&from_peer, negotiated);
                 info!(
                     "stored peer info for {from_peer} (ratchet={} custody={} relay={})",
@@ -3181,8 +3179,7 @@ impl NodeRunner {
             if pending.message.is_expired(now_ms()) {
                 continue;
             }
-            let essential =
-                traffic_class_for_direct(&pending.message) == TrafficClass::Essential;
+            let essential = traffic_class_for_direct(&pending.message) == TrafficClass::Essential;
             if (!self.crisis_active() || !essential)
                 && !self.energy_policy.can_forward(
                     self.effective_forwarding_state(),
@@ -3429,8 +3426,8 @@ impl NodeRunner {
             .cloned()
             .collect();
         // POISON-RECOVER: reads prekey bundle snapshot for PeerInfo gossip.
-        let bundle = lock_or_recover!(self.local_prekeys, "local prekeys")
-            .public_bundle(&self.enc_keypair);
+        let bundle =
+            lock_or_recover!(self.local_prekeys, "local prekeys").public_bundle(&self.enc_keypair);
         let info = WireMessage::PeerInfo {
             enc_pubkey_hex: self.enc_keypair.public_hex(),
             display_name: self.display_name.clone(),

@@ -12,9 +12,9 @@ mod payload;
 mod payment;
 mod refill;
 mod settlement_policy;
-mod velocity;
 mod spam_caution;
 mod user_trust;
+mod velocity;
 mod views;
 mod voucher;
 mod voucher_settlement;
@@ -53,7 +53,6 @@ mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used)]
 
     use super::hot_wallet::{HotWallet, HotWalletConfig};
-    use mycelium_core::lock_or_recover;
     use super::ledger::{ApplyResult, LocalLedger, Transaction, MUON_PER_MXC};
     use super::payload::CoinPayload;
     use super::payment::PaymentRequest;
@@ -62,6 +61,7 @@ mod tests {
     use super::{address_from_keypair, validate_address, CoinNode, CoinTransport};
     use async_trait::async_trait;
     use libp2p::identity::Keypair;
+    use mycelium_core::lock_or_recover;
     use std::path::Path;
     use std::sync::{Arc, Mutex};
     use tempfile::tempdir;

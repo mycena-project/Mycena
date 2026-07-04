@@ -84,7 +84,8 @@ pub fn record_bridge_anomaly(db: &Db, app_id: &str) -> anyhow::Result<()> {
 }
 
 #[cfg(test)]
-mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
+mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
 
     use super::*;
     use tempfile::tempdir;

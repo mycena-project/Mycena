@@ -231,7 +231,8 @@ impl BearerTransport for BearerBleRouter {
 }
 
 #[cfg(test)]
-mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
+mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
 
     use super::*;
     use mycelium_core::data::Envelope;

@@ -93,9 +93,7 @@ fn lock_user_trust<'a>(m: &'a Mutex<UserTrust>) -> MutexGuard<'a, UserTrust> {
     mycelium_core::lock_recover::lock_or_recover(m, "user trust cache")
 }
 
-fn lock_endorse<'a>(
-    m: &'a Mutex<HashMap<String, u8>>,
-) -> MutexGuard<'a, HashMap<String, u8>> {
+fn lock_endorse<'a>(m: &'a Mutex<HashMap<String, u8>>) -> MutexGuard<'a, HashMap<String, u8>> {
     // POISON-RECOVER: endorsement map; worst case stale boost until next write.
     mycelium_core::lock_recover::lock_or_recover(m, "endorse cache")
 }

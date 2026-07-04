@@ -215,7 +215,8 @@ pub fn is_relay_peer_in_pool(peer_id: &str, bootstrap_peers: &[impl AsRef<str>])
 }
 
 #[cfg(test)]
-mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
+mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
 
     use super::*;
     use crate::relay_registry::RelayRegistryManifest;

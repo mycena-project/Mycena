@@ -99,7 +99,12 @@ impl ForwardingPolicy for ProbabilisticForwardingPolicy {
         if message.is_expired(now_ms()) {
             return ForwardDecision::Drop("expired");
         }
-        let fanout = base_fanout(node_state, message.envelope.priority, crisis_active, traffic);
+        let fanout = base_fanout(
+            node_state,
+            message.envelope.priority,
+            crisis_active,
+            traffic,
+        );
         if fanout == 0 || known_peers.is_empty() {
             return ForwardDecision::Hold;
         }
@@ -203,12 +208,13 @@ impl IngestPipeline {
 }
 
 #[cfg(test)]
-mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
+mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
 
     use super::*;
     use async_trait::async_trait;
-    use mycelium_core::lock_or_recover;
     use mycelium_core::data::Envelope;
+    use mycelium_core::lock_or_recover;
     use mycelium_core::transport::{MessageStore, StoreStats};
     use std::collections::HashMap;
     use std::sync::{Arc, Mutex};
@@ -251,7 +257,10 @@ mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
         }
         async fn recent(&self, _limit: usize) -> anyhow::Result<Vec<DirectMessage>> {
             // POISON-RECOVER: test read-only scan; incomplete iteration only affects test assertion.
-            Ok(lock_or_recover!(self.inner, "mem store").values().cloned().collect())
+            Ok(lock_or_recover!(self.inner, "mem store")
+                .values()
+                .cloned()
+                .collect())
         }
         async fn contains(&self, message_id: &str) -> anyhow::Result<bool> {
             // POISON-RECOVER: test lookup; false negative only fails test, not prod state.
@@ -259,11 +268,16 @@ mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
         }
         async fn load_by_id(&self, message_id: &str) -> anyhow::Result<Option<DirectMessage>> {
             // POISON-RECOVER: test load; None only loses one fixture message.
-            Ok(lock_or_recover!(self.inner, "mem store").get(message_id).cloned())
+            Ok(lock_or_recover!(self.inner, "mem store")
+                .get(message_id)
+                .cloned())
         }
         async fn list_ids_window(&self, _window: Duration) -> anyhow::Result<Vec<String>> {
             // POISON-RECOVER: test id listing; partial list only skews test window check.
-            Ok(lock_or_recover!(self.inner, "mem store").keys().cloned().collect())
+            Ok(lock_or_recover!(self.inner, "mem store")
+                .keys()
+                .cloned()
+                .collect())
         }
         async fn gc_expired(&self) -> anyhow::Result<usize> {
             Ok(0)
@@ -302,7 +316,13 @@ mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
         let policy = ProbabilisticForwardingPolicy;
         let mut msg = mk_msg("hello");
         msg.envelope.to_peer = Some("local".to_string());
-        let d = policy.decide_crisis_aware(&msg, "local", &["p1".to_string()], NodeState::Active, false);
+        let d = policy.decide_crisis_aware(
+            &msg,
+            "local",
+            &["p1".to_string()],
+            NodeState::Active,
+            false,
+        );
         assert!(matches!(d, ForwardDecision::DeliverLocal));
     }
 

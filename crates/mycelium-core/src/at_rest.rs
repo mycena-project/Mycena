@@ -327,7 +327,8 @@ fn decrypt(master: &[u8; KEY_LEN], blob: &[u8]) -> anyhow::Result<Vec<u8>> {
 }
 
 #[cfg(test)]
-mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
+mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
 
     use super::*;
 

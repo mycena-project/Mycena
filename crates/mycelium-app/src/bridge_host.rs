@@ -5,9 +5,9 @@
 use std::collections::HashMap;
 use std::sync::{Arc, LazyLock, Mutex};
 
-use mycelium_l0_facade::lock_or_recover;
 use mycelium_coin::{CoinNode, PaymentRequest};
 use mycelium_l0_facade::data::now_ms;
+use mycelium_l0_facade::lock_or_recover;
 use serde_json::{json, Value};
 
 use crate::miniapp::bridge_limits::{
@@ -183,9 +183,7 @@ impl BridgeHost {
             self.handle_inner(method, args),
         )
         .await
-        .map_err(|_| {
-            format!("bridge call timed out ({BRIDGE_CALL_TIMEOUT_MS}ms)")
-        })?;
+        .map_err(|_| format!("bridge call timed out ({BRIDGE_CALL_TIMEOUT_MS}ms)"))?;
         record_bridge_elapsed(&self.app_id, now_ms().saturating_sub(started));
         outcome
     }

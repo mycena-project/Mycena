@@ -133,7 +133,8 @@ fn validate_html_content(html: &str, label: &str) -> anyhow::Result<()> {
 }
 
 #[cfg(test)]
-mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
+mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
 
     use super::*;
     use crate::manifest::MiniAppManifest;

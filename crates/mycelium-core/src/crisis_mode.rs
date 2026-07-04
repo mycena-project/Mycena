@@ -50,7 +50,9 @@ pub struct CrisisBaseline {
 impl CrisisRuntimeParams {
     pub fn from_baseline(baseline: CrisisBaseline) -> Self {
         let mut p = Self::default();
-        p.forwarding_interval_ms = p.forwarding_interval_ms.min(baseline.forwarding_interval_ms);
+        p.forwarding_interval_ms = p
+            .forwarding_interval_ms
+            .min(baseline.forwarding_interval_ms);
         p
     }
 
@@ -122,7 +124,8 @@ pub fn geohash_nearby(local_prefix: &str, sos_geohash: &str, prefix_len: usize) 
 }
 
 #[cfg(test)]
-mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
+mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
 
     use super::*;
 

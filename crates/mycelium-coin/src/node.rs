@@ -367,9 +367,7 @@ impl CoinNode {
         self.handle_voucher_redemption(&redemption, Some(voucher))
             .await?;
         let inner = bincode::serialize(&CoinPayload::VoucherRedemption(redemption))?;
-        self.transport
-            .broadcast_coin_voucher_inner(inner)
-            .await
+        self.transport.broadcast_coin_voucher_inner(inner).await
     }
 
     /// Merge redemption gossip, settle when possible, broadcast sync frame.

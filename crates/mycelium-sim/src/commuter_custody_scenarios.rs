@@ -79,7 +79,12 @@ fn run_commuter_scenario(
     let receiver = "receiver".to_string();
     let commuter = "commuter".to_string();
     let wanderer = "wanderer".to_string();
-    let ids = [sender.clone(), receiver.clone(), commuter.clone(), wanderer.clone()];
+    let ids = [
+        sender.clone(),
+        receiver.clone(),
+        commuter.clone(),
+        wanderer.clone(),
+    ];
 
     let sim_custody = CustodyConfig {
         flush_every_ms: None,
@@ -184,8 +189,16 @@ fn run_commuter_scenario(
             .collect();
         broken_links.sort();
         for (a, b) in broken_links {
-            let _ = nodes.get(&a).expect("node").encounter_log.end_encounter(&b, now);
-            let _ = nodes.get(&b).expect("node").encounter_log.end_encounter(&a, now);
+            let _ = nodes
+                .get(&a)
+                .expect("node")
+                .encounter_log
+                .end_encounter(&b, now);
+            let _ = nodes
+                .get(&b)
+                .expect("node")
+                .encounter_log
+                .end_encounter(&a, now);
         }
         active_links = links_now;
 

@@ -16,12 +16,7 @@ pub enum TransportBearer {
 
 impl TransportBearer {
     pub fn all() -> &'static [Self] {
-        &[
-            Self::InternetRelay,
-            Self::WifiDirect,
-            Self::Ble,
-            Self::LoRa,
-        ]
+        &[Self::InternetRelay, Self::WifiDirect, Self::Ble, Self::LoRa]
     }
 
     fn cold_start_prior(self) -> TransportScore {
@@ -174,9 +169,8 @@ impl TransportScoreStore {
                 throughput_n += 1;
             }
             let energy = bearer.cold_start_prior().energy_joules_per_byte * s.bytes as f64;
-            prior.energy_joules_per_byte =
-                prior.energy_joules_per_byte * (1.0 - EWMA_ALPHA)
-                    + (energy / s.bytes.max(1) as f64) * EWMA_ALPHA;
+            prior.energy_joules_per_byte = prior.energy_joules_per_byte * (1.0 - EWMA_ALPHA)
+                + (energy / s.bytes.max(1) as f64) * EWMA_ALPHA;
             last_at = last_at.max(s.at_ms);
         }
 
@@ -205,12 +199,7 @@ impl TransportScoreStore {
             .clamp(0.0, 1.0)
     }
 
-    pub fn prefer_wifi_over_ble(
-        &self,
-        payload_bytes: usize,
-        force_bulk: bool,
-        now: u64,
-    ) -> bool {
+    pub fn prefer_wifi_over_ble(&self, payload_bytes: usize, force_bulk: bool, now: u64) -> bool {
         if force_bulk {
             return true;
         }
@@ -381,7 +370,9 @@ pub fn verify_transport_score_invariants() -> Result<(), String> {
     Ok(())
 }
 
-pub fn bearer_medium_to_transport(medium: super::bearer_transport::BearerMedium) -> TransportBearer {
+pub fn bearer_medium_to_transport(
+    medium: super::bearer_transport::BearerMedium,
+) -> TransportBearer {
     match medium {
         super::bearer_transport::BearerMedium::Ble => TransportBearer::Ble,
         super::bearer_transport::BearerMedium::WifiDirect => TransportBearer::WifiDirect,
@@ -433,10 +424,7 @@ mod tests {
                 TransportBearer::WifiDirect,
                 sample(base + i, 10, 32 * 1024, true),
             );
-            store.record(
-                TransportBearer::Ble,
-                sample(base + i, 120, 512, true),
-            );
+            store.record(TransportBearer::Ble, sample(base + i, 120, 512, true));
         }
         assert!(store.prefer_wifi_over_ble(32 * 1024, false, base + 100));
         assert!(!store.prefer_wifi_over_ble(256, false, base + 100));

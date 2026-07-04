@@ -81,7 +81,8 @@ fn extract_geohash_field(payload: &[u8]) -> Option<String> {
 }
 
 #[cfg(test)]
-mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
+mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
 
     use super::*;
 

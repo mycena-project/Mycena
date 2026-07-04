@@ -85,7 +85,9 @@ async fn node_metrics_after_peer_trust_cache_poison() {
     let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         runner
             .peer_trust_for_test()
-            .with_peer("__poison__", 0, |_| panic!("deliberate poison during trust update"))
+            .with_peer("__poison__", 0, |_| {
+                panic!("deliberate poison during trust update")
+            })
             .ok();
     }));
 

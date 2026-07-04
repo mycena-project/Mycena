@@ -41,7 +41,8 @@ pub fn chunk_stream_frame(frame: &[u8]) -> Vec<Vec<u8>> {
 pub type StreamAssembler = ChunkAssembler;
 
 #[cfg(test)]
-mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
+mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
 
     use super::*;
 

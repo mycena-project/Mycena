@@ -18,9 +18,9 @@ use mycelium_coin::{
     HotWalletConfig as RustHotWalletConfig, LocalLedger, PaymentRequest, UserTrustStore,
     VoucherRiskLevel, VoucherSettlementRegistry, DEFAULT_PRIORITY_DEPOSIT_MUON,
 };
-use mycelium_core::lock_or_recover;
 use mycelium_core::data::Priority;
 use mycelium_core::energy::NodeState as RustEnergyState;
+use mycelium_core::lock_or_recover;
 use mycelium_core::privacy_shaping::{
     PrivacyShapingConfig as RustPrivacyShapingConfig,
     PrivacyShapingOverheadEstimate as RustPrivacyShapingOverheadEstimate,
@@ -233,9 +233,7 @@ async fn sync_user_trust_metrics(
 
 async fn push_endorsements_to_node(handle: &NodeHandle, store: &UserTrustStore) {
     let map = store.endorsement_boost_map();
-    let _ = handle
-        .send(NodeCommand::SetLocalEndorsements(map))
-        .await;
+    let _ = handle.send(NodeCommand::SetLocalEndorsements(map)).await;
 }
 
 #[derive(Debug, Clone)]
@@ -1489,20 +1487,12 @@ pub fn refresh_crisis_auto(internet_reachable: bool, local_geohash_prefix: Optio
         let state = state.read().await;
         let _ = state
             .app_node
-            .refresh_crisis_auto(
-                internet_reachable,
-                local_geohash_prefix.as_deref(),
-            )
+            .refresh_crisis_auto(internet_reachable, local_geohash_prefix.as_deref())
             .await;
     });
 }
 
-pub fn post_resource_map(
-    geohash: String,
-    category: String,
-    description: String,
-    ttl_secs: u64,
-) {
+pub fn post_resource_map(geohash: String, category: String, description: String, ttl_secs: u64) {
     let state = state_arc();
     runtime().block_on(async {
         let state = state.read().await;

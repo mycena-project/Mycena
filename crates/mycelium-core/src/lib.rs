@@ -2,7 +2,6 @@
 // Copyright (C) 2026 Mycelium Project
 #![deny(clippy::unwrap_used, clippy::expect_used)]
 
-pub mod lock_recover;
 pub mod account_identity;
 pub mod at_rest;
 pub mod bearer_transport;
@@ -21,6 +20,7 @@ pub mod energy;
 pub mod identity;
 pub mod identity_rotation;
 pub mod invite;
+pub mod lock_recover;
 pub mod mesh_profile;
 pub mod privacy_shaping;
 pub mod protocol_capabilities;
@@ -29,10 +29,10 @@ pub mod relay_pool;
 pub mod relay_registry;
 pub mod relay_status;
 pub mod rendezvous;
-pub mod resource_map;
 pub mod rendezvous_dial;
+pub mod resource_map;
 pub mod sos;
 pub mod sync;
 pub mod topic_shard;
-pub mod transport_score;
 pub mod transport;
+pub mod transport_score;

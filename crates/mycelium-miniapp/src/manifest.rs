@@ -92,7 +92,8 @@ impl MiniAppManifest {
 }
 
 #[cfg(test)]
-mod bulletin_scope_tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
+mod bulletin_scope_tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
 
     use super::*;
 

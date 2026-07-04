@@ -136,7 +136,9 @@ impl LabRunner {
                     continue;
                 }
                 let profile = bearer.link_profile();
-                let success = self.rng.gen_bool(1.0 - profile.loss_per_mille as f64 / 1000.0);
+                let success = self
+                    .rng
+                    .gen_bool(1.0 - profile.loss_per_mille as f64 / 1000.0);
                 record_lab_transfer(
                     &mut self.transport_scores,
                     *bearer,
@@ -338,7 +340,8 @@ impl LabRunner {
                             let b = &self.nodes[j];
                             let same_cluster = !self.network_split_active || a.cluster == b.cluster;
                             let dist = a.position.distance(&b.position);
-                            let Some(bearer) = self.pick_bearer(dist, a, b, same_cluster, now_ms) else {
+                            let Some(bearer) = self.pick_bearer(dist, a, b, same_cluster, now_ms)
+                            else {
                                 continue;
                             };
                             let mut profile = bearer.link_profile();
@@ -422,8 +425,7 @@ impl LabRunner {
                     return false;
                 }
                 let dist = from_pos.distance(&n.position);
-                self.pick_bearer(dist, from_node, n, true, now_ms)
-                    .is_some()
+                self.pick_bearer(dist, from_node, n, true, now_ms).is_some()
             })
             .map(|(j, _)| j)
             .collect();

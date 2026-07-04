@@ -2,8 +2,8 @@
 // Copyright (C) 2026 Mycelium Project
 //! Load identity and encryption keys through [`mycelium_core::at_rest::SecretVault`].
 
-use mycelium_core::lock_or_recover;
 use libp2p::identity;
+use mycelium_core::lock_or_recover;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::{Arc, Mutex, OnceLock};

@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Mycelium Project
-pub mod eclipse_scenarios;
 pub mod clock;
 pub mod coin_scenarios;
 pub mod commuter_custody_scenarios;
 pub mod custody_scenarios;
 pub mod dense_cluster;
+pub mod eclipse_scenarios;
 pub mod lab;
 pub mod runner;
 pub mod scenarios;

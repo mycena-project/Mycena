@@ -27,7 +27,10 @@ pub use ratchet_store::RatchetSessionStore;
 pub use transport::{DirectPeerCap, PeerAdmitAction};
 
 pub use connectivity::{kad_action_for_mode, ConnectivityMonitor, KadConnectivityAction};
-pub use custody::{CustodyConfig, CustodyForwardPlan, CustodyQueue, CustodyRoutingContext, DEFAULT_MAX_CUSTODY_SPRAY};
+pub use custody::{
+    CustodyConfig, CustodyForwardPlan, CustodyQueue, CustodyRoutingContext,
+    DEFAULT_MAX_CUSTODY_SPRAY,
+};
 pub use encounter_log::{
     CoEncounterRecord, CustodyCandidateQuery, CustodyCandidateScoring, DeliveryProbabilityEstimate,
     EncounterLogStore, EncounterRecord, ENCOUNTER_LOG_TTL_MS,
@@ -43,7 +46,10 @@ pub use mycelium_core::transport_score::{
     TransportScoreSample, TransportScoreStore,
 };
 pub use mycelium_l0_facade::EncKey;
-pub use node::{BroadcastPeerFilter, NodeCommand, NodeConfig, NodeHandle, NodeMetrics, NodeRunner, SYSTEM_SCOPES};
+pub use node::{
+    BroadcastPeerFilter, NodeCommand, NodeConfig, NodeHandle, NodeMetrics, NodeRunner,
+    SYSTEM_SCOPES,
+};
 pub use peer_trust::PeerReputationSnapshot;
 pub use secrets::{
     bootstrap_identities, encode_signed_invite_v3, load_or_create_enc_keypair, IdentityBootstrap,

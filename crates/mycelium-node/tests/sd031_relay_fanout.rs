@@ -21,8 +21,14 @@ fn fanout_is_bounded() {
     const MAX_RELAY_FANOUT: usize = 3;
     let peers: Vec<String> = (0..10).map(|i| format!("12D3KooWPeer{i:02}")).collect();
     let target = "12D3KooWUnknown".to_string();
-    let selected =
-        select_relay_candidates(&peers, &target, &HashMap::new(), None, NOW_MS, MAX_RELAY_FANOUT);
+    let selected = select_relay_candidates(
+        &peers,
+        &target,
+        &HashMap::new(),
+        None,
+        NOW_MS,
+        MAX_RELAY_FANOUT,
+    );
     assert_eq!(selected.len(), MAX_RELAY_FANOUT);
     assert!(!selected.contains(&target));
 }

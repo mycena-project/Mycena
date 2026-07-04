@@ -222,7 +222,11 @@ impl EncounterLogStore {
     }
 
     /// Update co-encounters for every pair among simultaneously connected peers.
-    pub fn observe_co_presence_among(&self, connected: &[String], at_ms: u64) -> anyhow::Result<()> {
+    pub fn observe_co_presence_among(
+        &self,
+        connected: &[String],
+        at_ms: u64,
+    ) -> anyhow::Result<()> {
         for i in 0..connected.len() {
             for j in (i + 1)..connected.len() {
                 self.begin_co_encounter(&connected[i], &connected[j], at_ms)?;
@@ -300,12 +304,12 @@ impl EncounterLogStore {
 
         let count = rec.co_encounter_count.max(1);
         let avg_duration = rec.total_co_duration_ms / u64::from(count);
-        let frequency_score = (1.0 - (-f64::from(rec.co_encounter_count) / 5.0).exp()).clamp(0.0, 1.0);
+        let frequency_score =
+            (1.0 - (-f64::from(rec.co_encounter_count) / 5.0).exp()).clamp(0.0, 1.0);
         let duration_score = (avg_duration as f64 / 3_600_000.0).clamp(0.0, 1.0);
         let regularity_score = regularity_score(&rec.recent_starts_ms);
         let age = now.saturating_sub(rec.last_co_seen_ms);
-        let recency_score =
-            (1.0 - age as f64 / ENCOUNTER_LOG_TTL_MS as f64).clamp(0.0, 1.0);
+        let recency_score = (1.0 - age as f64 / ENCOUNTER_LOG_TTL_MS as f64).clamp(0.0, 1.0);
         let combined = (0.35 * regularity_score
             + 0.25 * frequency_score
             + 0.15 * duration_score
@@ -554,7 +558,10 @@ fn regularity_score(starts: &[u64]) -> f64 {
     if starts.len() < 2 {
         return 0.0;
     }
-    let mut intervals: Vec<u64> = starts.windows(2).map(|w| w[1].saturating_sub(w[0])).collect();
+    let mut intervals: Vec<u64> = starts
+        .windows(2)
+        .map(|w| w[1].saturating_sub(w[0]))
+        .collect();
     intervals.retain(|i| *i > 0);
     if intervals.is_empty() {
         return 0.0;
@@ -579,12 +586,7 @@ fn regularity_score(starts: &[u64]) -> f64 {
         let hour = ((t / 3_600_000) % 24) as usize;
         hour_counts[hour] = hour_counts[hour].saturating_add(1);
     }
-    let max_hour_frac = hour_counts
-        .iter()
-        .copied()
-        .max()
-        .unwrap_or(0) as f64
-        / starts.len() as f64;
+    let max_hour_frac = hour_counts.iter().copied().max().unwrap_or(0) as f64 / starts.len() as f64;
 
     let daily_bonus = if mean >= ONE_DAY_MS as f64 * 0.75 && mean <= ONE_DAY_MS as f64 * 1.25 {
         0.15
@@ -639,12 +641,17 @@ mod tests {
         for d in 0..5 {
             let start = hub + d * day;
             log.begin_co_encounter("carrier", "dest", start).unwrap();
-            log.end_co_encounter("carrier", "dest", start + 30 * 60_000).unwrap();
+            log.end_co_encounter("carrier", "dest", start + 30 * 60_000)
+                .unwrap();
         }
         let now = hub + 5 * day + 60_000;
         let est = log.delivery_probability("carrier", "dest", now).unwrap();
         assert!(est.co_encounter_count >= 5);
-        assert!(est.regularity_score > 0.5, "regularity={}", est.regularity_score);
+        assert!(
+            est.regularity_score > 0.5,
+            "regularity={}",
+            est.regularity_score
+        );
         assert!(est.combined > 0.4, "combined={}", est.combined);
     }
 
@@ -656,13 +663,19 @@ mod tests {
         let base = 1_700_000_000_000u64;
         for d in 0..4 {
             let start = base + d * day + 8 * 3_600_000;
-            log.begin_co_encounter("commuter", "receiver", start).unwrap();
-            log.end_co_encounter("commuter", "receiver", start + 20 * 60_000).unwrap();
+            log.begin_co_encounter("commuter", "receiver", start)
+                .unwrap();
+            log.end_co_encounter("commuter", "receiver", start + 20 * 60_000)
+                .unwrap();
         }
-        log.begin_encounter("commuter", base + 4 * day + 7 * 3_600_000).unwrap();
-        log.end_encounter("commuter", base + 4 * day + 7 * 3_600_000 + 60_000).unwrap();
-        log.begin_encounter("wanderer", base + 4 * day + 7 * 3_600_000 + 120_000).unwrap();
-        log.end_encounter("wanderer", base + 4 * day + 7 * 3_600_000 + 180_000).unwrap();
+        log.begin_encounter("commuter", base + 4 * day + 7 * 3_600_000)
+            .unwrap();
+        log.end_encounter("commuter", base + 4 * day + 7 * 3_600_000 + 60_000)
+            .unwrap();
+        log.begin_encounter("wanderer", base + 4 * day + 7 * 3_600_000 + 120_000)
+            .unwrap();
+        log.end_encounter("wanderer", base + 4 * day + 7 * 3_600_000 + 180_000)
+            .unwrap();
 
         let now = base + 4 * day + 7 * 3_600_000 + 200_000;
         let recency = log

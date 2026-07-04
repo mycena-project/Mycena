@@ -9,8 +9,8 @@ use mycelium_core::consistency::{
 use mycelium_core::transport::WireMessage;
 
 use crate::ingest_guard;
-use crate::NodeCommand;
 use crate::BroadcastPeerFilter;
+use crate::NodeCommand;
 
 impl NodeCommand {
     /// Consistency level for mesh-visible state changes (see ADR 006).
@@ -191,7 +191,8 @@ impl crate::NodeHandle {
 }
 
 #[cfg(test)]
-mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
+mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
 
     use super::*;
     use mycelium_core::consistency::OP_COIN_TRANSFER;
@@ -261,10 +262,7 @@ mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
             Consistency::EventuallyConsistent
         );
         assert_eq!(OP_SOS_BROADCAST.consistency(), Consistency::Local);
-        assert_eq!(
-            OP_RESOURCE_MAP_BROADCAST.consistency(),
-            Consistency::Local
-        );
+        assert_eq!(OP_RESOURCE_MAP_BROADCAST.consistency(), Consistency::Local);
         assert_eq!(
             OP_COIN_TRANSFER.consistency(),
             Consistency::SettlementRequired

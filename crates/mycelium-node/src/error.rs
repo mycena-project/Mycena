@@ -112,7 +112,8 @@ pub fn decode_peer_wire_message(payload: &[u8]) -> NodeResult<WireMessage> {
 }
 
 #[cfg(test)]
-mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
+mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
 
     use super::*;
     use mycelium_core::data::Envelope;

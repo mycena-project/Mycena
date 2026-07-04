@@ -6,9 +6,7 @@ use async_trait::async_trait;
 use libp2p::identity;
 use mycelium_core::crypto::ratchet::{self, E2E_VERSION_LEGACY, E2E_VERSION_RATCHET};
 use mycelium_core::e2e_direct_wrap;
-use mycelium_core::protocol_capabilities::{
-    custody, ratchet as cap_ratchet, ProtocolCapabilities,
-};
+use mycelium_core::protocol_capabilities::{custody, ratchet as cap_ratchet, ProtocolCapabilities};
 use mycelium_core::transport::{MeshTransport, TransportEvent, WireMessage};
 use mycelium_node::{IdentityBootstrap, NodeCommand, NodeConfig, NodeRunner};
 use std::collections::{HashMap, HashSet};

@@ -334,7 +334,8 @@ pub fn build_cover_envelope(from_peer: &str, to_peer: &str) -> Envelope {
 }
 
 #[cfg(test)]
-mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
+mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
 
     use super::*;
 

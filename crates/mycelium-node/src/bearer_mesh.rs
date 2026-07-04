@@ -60,15 +60,16 @@ impl BearerMeshRouter {
         &mut self.scores
     }
 
-    pub fn record_observation(
-        &mut self,
-        bearer: TransportBearer,
-        sample: TransportScoreSample,
-    ) {
+    pub fn record_observation(&mut self, bearer: TransportBearer, sample: TransportScoreSample) {
         self.scores.record(bearer, sample);
     }
 
-    pub fn set_peer_caps(&mut self, peer: &str, wire_version: BearerWireVersion, wifi_direct: bool) {
+    pub fn set_peer_caps(
+        &mut self,
+        peer: &str,
+        wire_version: BearerWireVersion,
+        wifi_direct: bool,
+    ) {
         self.peer_caps.insert(
             peer.to_string(),
             PeerBearerCaps {
@@ -134,8 +135,7 @@ impl BearerMeshRouter {
         let style = self.peer_wire_version(&to_peer);
         let now = now_ms();
         let wifi_cap = self.peer_wifi_allowed(&to_peer);
-        let prefer_wifi =
-            wifi_cap && self.scores.prefer_wifi_over_ble(payload.len(), false, now);
+        let prefer_wifi = wifi_cap && self.scores.prefer_wifi_over_ble(payload.len(), false, now);
         let max_len = if prefer_wifi {
             bearer_transport::WIFI_DIRECT_MAX_FRAME_LEN
         } else {
@@ -168,7 +168,9 @@ impl BearerMeshRouter {
                 self.note_outbound(TransportBearer::WifiDirect, frame.len(), now);
                 self.queue_wifi_frame(peer, frame);
             }
-            TransportPath::BleTrickle | TransportPath::InternetRelay | TransportPath::CustodyQueue => {
+            TransportPath::BleTrickle
+            | TransportPath::InternetRelay
+            | TransportPath::CustodyQueue => {
                 self.note_outbound(TransportBearer::Ble, frame.len(), now);
                 BearerTransport::send_frame(&mut self.ble, peer, &frame)?;
             }
@@ -261,9 +263,7 @@ impl BearerMeshRouter {
         let frame = encode_stream_frame_with_version(&cbor, style)?;
         let now = now_ms();
         let force = self.peer_wifi_allowed(to_peer)
-            && self
-                .scores
-                .prefer_wifi_over_ble(frame.len(), false, now);
+            && self.scores.prefer_wifi_over_ble(frame.len(), false, now);
         self.route_outbound_frame(to_peer, frame, force, now)
     }
 

@@ -3,8 +3,8 @@
 //! Persistent peer trust for SD-031 relay selection and Sybil resistance.
 
 use anyhow::Context;
-use serde::{Deserialize, Serialize};
 use mycelium_core::lock_or_recover;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Mutex;
@@ -292,7 +292,8 @@ impl PeerTrustStore {
 }
 
 #[cfg(test)]
-mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
+mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
 
     use super::*;
 

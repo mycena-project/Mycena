@@ -12,9 +12,9 @@ use libp2p::{
     swarm::{Swarm, SwarmEvent},
     tcp, yamux, Multiaddr, PeerId, SwarmBuilder,
 };
-use mycelium_core::data::now_ms;
 use mycelium_core::ble_multiaddr::is_ble_multiaddr;
 use mycelium_core::bootstrap::peer_id_from_parsed_multiaddr;
+use mycelium_core::data::now_ms;
 use mycelium_core::mesh_profile::MeshProfile;
 use mycelium_core::rate_limit::FixedWindowRateLimiter;
 use mycelium_core::relay_pool::RelayPool;

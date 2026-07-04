@@ -170,9 +170,7 @@ impl ProtocolCapabilities {
         NegotiatedProtocol {
             ratchet: local.ratchet_max.min(remote.ratchet_max),
             bearer_wire: local.bearer_wire_max.min(remote.bearer_wire_max),
-            payment_voucher: local
-                .payment_voucher_max
-                .min(remote.payment_voucher_max),
+            payment_voucher: local.payment_voucher_max.min(remote.payment_voucher_max),
             relay: local.relay_max.min(remote.relay_max),
             custody: local.custody_max.min(remote.custody_max),
             flags: local.flags.intersect(remote.flags),
@@ -225,7 +223,9 @@ impl NegotiatedProtocol {
 
     pub fn relay_diversity_allowed(&self) -> bool {
         self.relay >= relay::V2_DIVERSITY
-            && self.flags.contains(ProtocolCapabilityFlags::RELAY_DIVERSITY)
+            && self
+                .flags
+                .contains(ProtocolCapabilityFlags::RELAY_DIVERSITY)
     }
 
     pub fn wifi_direct_allowed(&self) -> bool {
@@ -317,14 +317,10 @@ mod tests {
     fn negotiate_relay_diversity_requires_flag_and_version() {
         let mut no_flag = new_caps();
         no_flag.flags = ProtocolCapabilityFlags(0);
-        assert!(
-            !ProtocolCapabilities::negotiate(&new_caps(), &no_flag).relay_diversity_allowed()
-        );
+        assert!(!ProtocolCapabilities::negotiate(&new_caps(), &no_flag).relay_diversity_allowed());
         let mut low_relay = new_caps();
         low_relay.relay_max = relay::V1_TRUST_SCORED;
-        assert!(
-            !ProtocolCapabilities::negotiate(&new_caps(), &low_relay).relay_diversity_allowed()
-        );
+        assert!(!ProtocolCapabilities::negotiate(&new_caps(), &low_relay).relay_diversity_allowed());
     }
 
     #[test]
@@ -366,8 +362,16 @@ mod tests {
 
     #[test]
     fn matrix_all_version_combinations_ratchet() {
-        for local in [ratchet::LEGACY_X25519, ratchet::V1_DOUBLE_RATCHET, ratchet::V2] {
-            for remote in [ratchet::LEGACY_X25519, ratchet::V1_DOUBLE_RATCHET, ratchet::V2] {
+        for local in [
+            ratchet::LEGACY_X25519,
+            ratchet::V1_DOUBLE_RATCHET,
+            ratchet::V2,
+        ] {
+            for remote in [
+                ratchet::LEGACY_X25519,
+                ratchet::V1_DOUBLE_RATCHET,
+                ratchet::V2,
+            ] {
                 let mut l = new_caps();
                 let mut r = new_caps();
                 l.ratchet_max = local;
@@ -393,7 +397,10 @@ mod tests {
                 r.custody_max = remote;
                 let n = ProtocolCapabilities::negotiate(&l, &r);
                 assert_eq!(n.custody, local.min(remote));
-                assert_eq!(n.custody_v1_allowed(), local >= custody::V1 && remote >= custody::V1);
+                assert_eq!(
+                    n.custody_v1_allowed(),
+                    local >= custody::V1 && remote >= custody::V1
+                );
             }
         }
     }
@@ -437,9 +444,24 @@ mod tests {
     #[test]
     fn matrix_old_new_client_quadrants() {
         let cases = [
-            (old_caps(), old_caps(), ratchet::LEGACY_X25519, custody::NONE),
-            (old_caps(), new_caps(), ratchet::LEGACY_X25519, custody::NONE),
-            (new_caps(), old_caps(), ratchet::LEGACY_X25519, custody::NONE),
+            (
+                old_caps(),
+                old_caps(),
+                ratchet::LEGACY_X25519,
+                custody::NONE,
+            ),
+            (
+                old_caps(),
+                new_caps(),
+                ratchet::LEGACY_X25519,
+                custody::NONE,
+            ),
+            (
+                new_caps(),
+                old_caps(),
+                ratchet::LEGACY_X25519,
+                custody::NONE,
+            ),
             (
                 new_caps(),
                 new_caps(),
