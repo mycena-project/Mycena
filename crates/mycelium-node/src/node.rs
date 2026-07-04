@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Mycelium Project
-use crate::custody::{CustodyConfig, CustodyQueue, DEFAULT_MAX_CUSTODY_SPRAY};
+use crate::custody::{CustodyConfig, CustodyQueue, CustodyRoutingContext, DEFAULT_MAX_CUSTODY_SPRAY};
 use crate::encounter_log::EncounterLogStore;
 use crate::forwarding::{
     EnergyPolicy, ForwardDecision, ForwardingPolicy, IngestPipeline, ProbabilisticForwardingPolicy,
     SeenCache, SimpleEnergyPolicy, TrafficClass, traffic_class_for_direct,
 };
 use crate::ingest_guard::{IngestGuard, IngestReject};
-use crate::security::{self, Sd030DropReason};
+use crate::security::{self, PeerDiversityConfig, Sd030DropReason};
 use crate::storage::SledMessageStore;
 use crate::transport::Libp2pTransport;
 use libp2p::{identity, Multiaddr, PeerId};
@@ -21,6 +21,7 @@ use mycelium_core::energy::NodeState;
 use mycelium_core::privacy_shaping::{
     self, BatchingScheduler, PrivacyShapingConfig, PrivacyShapingStats,
 };
+use mycelium_core::protocol_capabilities::{NegotiatedProtocol, ProtocolCapabilities};
 use mycelium_core::sync::BloomFilter;
 use mycelium_core::topic_shard;
 use mycelium_core::transport::{
@@ -104,6 +105,8 @@ pub struct NodeConfig {
     pub max_custody_spray: u8,
     /// SD-070: optional padding, batching, scope bucketing, cover traffic (default off).
     pub privacy_shaping: PrivacyShapingConfig,
+    /// Override advertised protocol capabilities (integration tests).
+    pub protocol_capabilities_override: Option<mycelium_core::protocol_capabilities::ProtocolCapabilities>,
 }
 
 fn default_crowd_density_enter() -> usize {
@@ -171,6 +174,7 @@ impl Default for NodeConfig {
             custody_enabled: default_custody_enabled(),
             max_custody_spray: default_max_custody_spray(),
             privacy_shaping: PrivacyShapingConfig::disabled(),
+            protocol_capabilities_override: None,
         }
     }
 }
@@ -202,6 +206,7 @@ impl NodeConfig {
             custody_enabled: default_custody_enabled(),
             max_custody_spray: default_max_custody_spray(),
             privacy_shaping: PrivacyShapingConfig::disabled(),
+            protocol_capabilities_override: None,
         }
     }
 }
@@ -251,6 +256,14 @@ impl RelayIdentity {
     }
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum BroadcastPeerFilter {
+    #[default]
+    All,
+    /// Only peers that negotiated payment voucher v1.
+    PaymentVoucherV1,
+}
+
 #[derive(Debug)]
 pub enum NodeCommand {
     SendDirect {
@@ -271,6 +284,7 @@ pub enum NodeCommand {
         scope: String,
         body: String,
         payload: Vec<u8>,
+        peer_filter: BroadcastPeerFilter,
     },
     SendWire {
         to_peer: String,
@@ -288,6 +302,11 @@ pub enum NodeCommand {
     SeedPeerRatchetBundle {
         peer_id: String,
         bundle: mycelium_core::crypto::ratchet::PrekeyBundle,
+    },
+    /// Query negotiated protocol levels for a peer (tests / coin gating).
+    QueryPeerProtocol {
+        peer: String,
+        reply: tokio::sync::oneshot::Sender<Option<NegotiatedProtocol>>,
     },
     /// Build signed v3 invite including live ratchet prekeys from the runner.
     BuildSignedInviteV3 {
@@ -630,6 +649,28 @@ impl NodeHandle {
         .await
     }
 
+    pub async fn query_negotiated_protocol(
+        &self,
+        peer: &str,
+    ) -> anyhow::Result<Option<NegotiatedProtocol>> {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        self.send(NodeCommand::QueryPeerProtocol {
+            peer: peer.to_string(),
+            reply: tx,
+        })
+        .await?;
+        rx.await
+            .map_err(|_| anyhow::anyhow!("protocol query response channel closed"))
+    }
+
+    pub async fn peer_payment_voucher_v1_allowed(&self, peer: &str) -> bool {
+        self.query_negotiated_protocol(peer)
+            .await
+            .ok()
+            .flatten()
+            .is_some_and(|n| n.payment_voucher_v1_allowed())
+    }
+
     pub async fn peer_x25519_public(&self, peer: &str) -> Option<crypto::X25519PublicKey> {
         self.peer_x25519
             .read()
@@ -686,6 +727,8 @@ pub struct NodeRunner {
     peers: Arc<RwLock<Vec<String>>>,
     subscribed_scopes: Arc<RwLock<HashSet<String>>>,
     peer_scopes: HashMap<String, HashSet<String>>,
+    /// Negotiated protocol levels per peer (after `PeerInfo` exchange).
+    peer_protocol_caps: HashMap<String, NegotiatedProtocol>,
     peer_trust: Arc<crate::peer_trust::PeerTrustStore>,
     cmd_rx: mpsc::Receiver<NodeCommand>,
     enc_keypair: EncryptionKeypair,
@@ -724,6 +767,7 @@ pub struct NodeRunner {
     crisis_state: mycelium_core::crisis_mode::CrisisModeState,
     crisis_params: mycelium_core::crisis_mode::CrisisRuntimeParams,
     crisis_auto_config: mycelium_core::crisis_mode::CrisisAutoConfig,
+    protocol_capabilities_override: Option<ProtocolCapabilities>,
     last_forward_at: Instant,
     last_sync_at: Instant,
 }
@@ -906,6 +950,7 @@ impl NodeRunner {
                 peers: peers.clone(),
                 subscribed_scopes: scopes.clone(),
                 peer_scopes: HashMap::new(),
+                peer_protocol_caps: HashMap::new(),
                 peer_trust: peer_trust.clone(),
                 cmd_rx,
                 enc_keypair,
@@ -950,6 +995,7 @@ impl NodeRunner {
                     },
                 ),
                 crisis_auto_config: mycelium_core::crisis_mode::CrisisAutoConfig::default(),
+                protocol_capabilities_override: config.protocol_capabilities_override,
                 last_forward_at: Instant::now(),
                 last_sync_at: Instant::now(),
             },
@@ -1079,6 +1125,83 @@ impl NodeRunner {
         } else {
             base
         }
+    }
+
+    fn local_protocol_capabilities(&self) -> ProtocolCapabilities {
+        if let Some(caps) = self.protocol_capabilities_override {
+            return caps;
+        }
+        ProtocolCapabilities::current(self.custody_enabled, true)
+    }
+
+    fn relay_diversity_config_for(&self, dest_peer: &str) -> PeerDiversityConfig {
+        if self
+            .negotiated_protocol_for(dest_peer)
+            .is_some_and(|n| n.relay_diversity_allowed())
+        {
+            PeerDiversityConfig::default()
+        } else {
+            PeerDiversityConfig::score_only()
+        }
+    }
+
+    fn peer_payment_voucher_v1_allowed(&self, peer: &str) -> bool {
+        self.negotiated_protocol_for(peer)
+            .is_some_and(|n| n.payment_voucher_v1_allowed())
+    }
+
+    fn apply_negotiated_bearer_caps(&mut self, peer: &str, negotiated: NegotiatedProtocol) {
+        let local_wire = self.local_protocol_capabilities().bearer_wire_max;
+        let wire = negotiated.bearer_wire.min(local_wire);
+        let style = if wire >= mycelium_core::protocol_capabilities::bearer::V1_MYBR {
+            mycelium_core::bearer_transport::BearerWireVersion::V1
+        } else {
+            mycelium_core::bearer_transport::BearerWireVersion::Legacy
+        };
+        let wifi = negotiated.wifi_direct_allowed();
+        self.transport
+            .set_peer_bearer_caps(peer, style, wifi);
+    }
+
+    fn peer_allowed_for_broadcast(&self, peer: &str, filter: BroadcastPeerFilter) -> bool {
+        match filter {
+            BroadcastPeerFilter::All => true,
+            BroadcastPeerFilter::PaymentVoucherV1 => self.peer_payment_voucher_v1_allowed(peer),
+        }
+    }
+
+    fn negotiated_protocol_for(&self, peer: &str) -> Option<NegotiatedProtocol> {
+        self.peer_protocol_caps.get(peer).copied()
+    }
+
+    fn peer_custody_allowed(&self, peer: &str) -> bool {
+        if !self.custody_enabled {
+            return false;
+        }
+        self.negotiated_protocol_for(peer)
+            .map(|n| n.custody_v1_allowed())
+            .unwrap_or(false)
+    }
+
+    fn build_routing_meta(
+        &self,
+        peers: &[String],
+        peer_trust: &HashMap<String, crate::peer_trust::PeerTrust>,
+    ) -> anyhow::Result<HashMap<String, security::PeerRoutingMeta>> {
+        let mut encounter_first = HashMap::new();
+        let mut transport_hints = HashMap::new();
+        for p in peers {
+            if let Ok(Some(rec)) = self.encounter_log.record(p) {
+                encounter_first.insert(p.clone(), rec.first_seen_ms);
+            }
+            transport_hints.insert(p.clone(), self.transport.peer_transport_hint(p));
+        }
+        Ok(security::build_routing_meta_map(
+            peers,
+            peer_trust,
+            &encounter_first,
+            &transport_hints,
+        ))
     }
 
     fn update_crowd_density_backoff(&mut self) {
@@ -1330,15 +1453,22 @@ impl NodeRunner {
                 .await?;
             }
             NodeCommand::Broadcast { scope, body } => {
-                self.broadcast_scoped(scope, body.clone(), body.into_bytes())
-                    .await?;
+                self.broadcast_scoped(
+                    scope,
+                    body.clone(),
+                    body.into_bytes(),
+                    BroadcastPeerFilter::All,
+                )
+                .await?;
             }
             NodeCommand::BroadcastPayload {
                 scope,
                 body,
                 payload,
+                peer_filter,
             } => {
-                self.broadcast_scoped(scope, body, payload).await?;
+                self.broadcast_scoped(scope, body, payload, peer_filter)
+                    .await?;
             }
             NodeCommand::SendWire {
                 to_peer,
@@ -1534,6 +1664,10 @@ impl NodeRunner {
                 } else {
                     info!("seeded ratchet bundle for {peer_id} from invite");
                 }
+            }
+            NodeCommand::QueryPeerProtocol { peer, reply } => {
+                let caps = self.negotiated_protocol_for(&peer);
+                let _ = reply.send(caps);
             }
             NodeCommand::BuildSignedInviteV3 {
                 peer_id,
@@ -1788,13 +1922,19 @@ impl NodeRunner {
             let now = now_ms();
             let peer_trust = self.peer_trust.load_all();
             let endorsement_boosts = self.local_endorsements.read().await.clone();
-            let relay_candidates = security::select_relay_candidates(
-                &peers,
-                &to_peer,
-                &peer_trust,
-                Some(&endorsement_boosts),
-                now,
-                self.effective_max_relay_fanout(),
+            let routing_meta = self.build_routing_meta(&peers, &peer_trust)?;
+            let diversity = self.relay_diversity_config_for(&to_peer);
+            let relay_candidates = security::select_relay_candidates_with_diversity(
+                &security::RelaySelectionRequest {
+                    peers: &peers,
+                    to_peer: &to_peer,
+                    peer_trust: &peer_trust,
+                    endorsement_boost: Some(&endorsement_boosts),
+                    now_ms: now,
+                    max_fanout: self.effective_max_relay_fanout(),
+                    routing_meta: Some(&routing_meta),
+                    diversity: Some(&diversity),
+                },
             );
             if relay_candidates.is_empty() {
                 warn!("SD-031: no suitable relay candidates for {}", to_peer);
@@ -1813,7 +1953,10 @@ impl NodeRunner {
                 self.queue_ble_wire(to_peer.clone(), wire);
             }
         }
-        if self.custody_enabled && !self.transport.is_peer_connected(&to_peer) {
+        if self.custody_enabled
+            && !self.transport.is_peer_connected(&to_peer)
+            && self.peer_custody_allowed(&to_peer)
+        {
             self.enqueue_outbound_custody(&to_peer, &msg, &body).await?;
         }
         Ok(())
@@ -2009,13 +2152,19 @@ impl NodeRunner {
             let now = now_ms();
             let peer_trust = self.peer_trust.load_all();
             let endorsement_boosts = self.local_endorsements.read().await.clone();
-            let relay_candidates = security::select_relay_candidates(
-                &peers,
-                to_peer,
-                &peer_trust,
-                Some(&endorsement_boosts),
-                now,
-                self.effective_max_relay_fanout(),
+            let routing_meta = self.build_routing_meta(&peers, &peer_trust)?;
+            let diversity = self.relay_diversity_config_for(to_peer);
+            let relay_candidates = security::select_relay_candidates_with_diversity(
+                &security::RelaySelectionRequest {
+                    peers: &peers,
+                    to_peer,
+                    peer_trust: &peer_trust,
+                    endorsement_boost: Some(&endorsement_boosts),
+                    now_ms: now,
+                    max_fanout: self.effective_max_relay_fanout(),
+                    routing_meta: Some(&routing_meta),
+                    diversity: Some(&diversity),
+                },
             );
             if relay_candidates.is_empty() && peers.is_empty() {
                 anyhow::bail!("no path to {to_peer}");
@@ -2048,6 +2197,9 @@ impl NodeRunner {
         if let Some(scopes) = self.peer_scopes.remove(old_peer_id) {
             self.peer_scopes.insert(new_peer_id.to_string(), scopes);
         }
+        if let Some(caps) = self.peer_protocol_caps.remove(old_peer_id) {
+            self.peer_protocol_caps.insert(new_peer_id.to_string(), caps);
+        }
         let now = now_ms();
         if let Some(trust) = self.peer_trust.load_all().get(old_peer_id).cloned() {
             let _ = self.peer_trust.with_peer(new_peer_id, now, |t| {
@@ -2062,6 +2214,7 @@ impl NodeRunner {
         scope: String,
         body: String,
         payload: Vec<u8>,
+        peer_filter: BroadcastPeerFilter,
     ) -> anyhow::Result<()> {
         if self.crisis_active()
             && mycelium_core::resource_map::should_defer_gossip_in_crisis(&scope)
@@ -2081,6 +2234,9 @@ impl NodeRunner {
             }
         }
         for to_peer in targets {
+            if !self.peer_allowed_for_broadcast(&to_peer, peer_filter) {
+                continue;
+            }
             let mut envelope = mycelium_core::data::Envelope::new(
                 self.local_peer_id.clone(),
                 None,
@@ -2176,6 +2332,10 @@ impl NodeRunner {
                 if let Err(e) = self.encounter_log.begin_encounter(&peer_id, now) {
                     warn!("encounter log begin failed for {peer_id}: {e:#}");
                 }
+                let transport_hint = self.transport.peer_transport_hint(&peer_id);
+                let _ = self.peer_trust.with_peer(&peer_id, now, |t| {
+                    t.note_transport_hint(&transport_hint);
+                });
                 {
                     let mut peers = self.peers.write().await;
                     if !peers.iter().any(|p| p == &peer_id) {
@@ -2200,6 +2360,7 @@ impl NodeRunner {
                     peers.retain(|p| p != &peer_id);
                 }
                 self.peer_scopes.remove(&peer_id);
+                self.peer_protocol_caps.remove(&peer_id);
                 self.update_crowd_density_backoff();
             }
             TransportEvent::DirectReceived { from_peer, message } => {
@@ -2539,7 +2700,7 @@ impl NodeRunner {
                 }
                 let essential =
                     traffic_class_for_direct(&message) == TrafficClass::Essential;
-                if !(self.crisis_active() && essential)
+                if (!self.crisis_active() || !essential)
                     && !self
                         .energy_policy
                         .can_forward(self.effective_forwarding_state(), message.envelope.priority)
@@ -2572,7 +2733,8 @@ impl NodeRunner {
                     let _ = self.maybe_enqueue_custody(&message).await;
                     return Ok(());
                 }
-                let decision = self.forwarding_policy.decide_crisis_aware(
+                let decision = ForwardingPolicy::decide_crisis_aware(
+                    &self.forwarding_policy,
                     &message,
                     &self.local_peer_id,
                     &peers,
@@ -2690,6 +2852,7 @@ impl NodeRunner {
                 ratchet_signed_prekey_sig_hex,
                 ratchet_one_time_prekey_id,
                 ratchet_one_time_prekey_hex,
+                protocol_capabilities,
                 ..
             } => {
                 let existing = self.peer_x25519.read().await.get(&from_peer).copied();
@@ -2763,7 +2926,14 @@ impl NodeRunner {
                         .or_default()
                         .extend(validated);
                 }
-                info!("stored peer info for {from_peer}");
+                let negotiated =
+                    ProtocolCapabilities::negotiate(&self.local_protocol_capabilities(), &protocol_capabilities);
+                self.peer_protocol_caps.insert(from_peer.clone(), negotiated);
+                self.apply_negotiated_bearer_caps(&from_peer, negotiated);
+                info!(
+                    "stored peer info for {from_peer} (ratchet={} custody={} relay={})",
+                    negotiated.ratchet, negotiated.custody, negotiated.relay
+                );
             }
             WireMessage::EncryptedDirect {
                 to_peer,
@@ -2903,7 +3073,7 @@ impl NodeRunner {
             }
             let essential =
                 traffic_class_for_direct(&pending.message) == TrafficClass::Essential;
-            if !(self.crisis_active() && essential)
+            if (!self.crisis_active() || !essential)
                 && !self.energy_policy.can_forward(
                     self.effective_forwarding_state(),
                     pending.message.envelope.priority,
@@ -2960,7 +3130,7 @@ impl NodeRunner {
         for (to_peer, message) in drained {
             self.pending.push_back(PendingMessage { to_peer, message });
         }
-        if !self.batch_scheduler.has_deadline() && self.batch_scheduler.len() > 0 {
+        if !self.batch_scheduler.has_deadline() && !self.batch_scheduler.is_empty() {
             self.batch_scheduler
                 .reschedule_flush(&self.effective_privacy_shaping());
         }
@@ -3056,10 +3226,20 @@ impl NodeRunner {
         let now = now_ms();
         let _ = self.custody_queue.prune_expired(now);
         let connected = self.transport.known_peers();
-        if let Some(plan) = self.custody_queue.next_forward_plan(
+        let peer_trust = self.peer_trust.load_all();
+        let routing_meta = self.build_routing_meta(&connected, &peer_trust)?;
+        let routing_ctx = CustodyRoutingContext {
+            peer_trust,
+            routing_meta,
+            diversity: PeerDiversityConfig::default(),
+            negotiated_caps: self.peer_protocol_caps.clone(),
+        };
+        if let Some(plan) = self.custody_queue.next_forward_plan_at(
             &self.local_peer_id,
             &connected,
             &self.encounter_log,
+            now,
+            Some(&routing_ctx),
         )? {
             self.enqueue(plan.to_peer, plan.message).await?;
             let mut metrics = self.metrics.write().await;
@@ -3152,6 +3332,7 @@ impl NodeRunner {
             ratchet_signed_prekey_sig_hex: Some(hex::encode(bundle.signed_prekey_sig)),
             ratchet_one_time_prekey_id: bundle.one_time_prekey_id,
             ratchet_one_time_prekey_hex: bundle.one_time_prekey.map(hex::encode),
+            protocol_capabilities: self.local_protocol_capabilities(),
         };
         self.transport.send_direct(peer_id, info).await
     }
@@ -3166,21 +3347,28 @@ impl NodeRunner {
             self, RatchetSession, E2E_VERSION_LEGACY, E2E_VERSION_RATCHET,
         };
 
-        if let Some(mut session) = self.ratchet_store.load_session(to_peer)? {
-            let wire = ratchet::ratchet_encrypt(&mut session, plaintext)?;
-            self.ratchet_store.save_session(&session)?;
-            return Ok((wire, E2E_VERSION_RATCHET));
-        }
-        if let Some(bundle) = self.ratchet_store.load_peer_bundle(to_peer)? {
-            if ratchet::verify_prekey_bundle(&bundle) {
-                let (session, wire) = RatchetSession::init_outbound(
-                    to_peer.to_string(),
-                    &self.enc_keypair,
-                    &bundle,
-                    plaintext,
-                )?;
+        let ratchet_allowed = self
+            .negotiated_protocol_for(to_peer)
+            .map(|n| n.ratchet_v1_allowed())
+            .unwrap_or(false);
+
+        if ratchet_allowed {
+            if let Some(mut session) = self.ratchet_store.load_session(to_peer)? {
+                let wire = ratchet::ratchet_encrypt(&mut session, plaintext)?;
                 self.ratchet_store.save_session(&session)?;
                 return Ok((wire, E2E_VERSION_RATCHET));
+            }
+            if let Some(bundle) = self.ratchet_store.load_peer_bundle(to_peer)? {
+                if ratchet::verify_prekey_bundle(&bundle) {
+                    let (session, wire) = RatchetSession::init_outbound(
+                        to_peer.to_string(),
+                        &self.enc_keypair,
+                        &bundle,
+                        plaintext,
+                    )?;
+                    self.ratchet_store.save_session(&session)?;
+                    return Ok((wire, E2E_VERSION_RATCHET));
+                }
             }
         }
         let pk_bytes = legacy_pk.ok_or_else(|| anyhow::anyhow!("no enc key for peer {to_peer}"))?;
@@ -3246,14 +3434,18 @@ impl NodeRunner {
                 let now = now_ms();
                 let peer_trust = self.peer_trust.load_all();
                 let boosts = self.local_endorsements.read().await.clone();
-                security::select_relay_candidates(
-                    &peers,
+                let routing_meta = self.build_routing_meta(&peers, &peer_trust)?;
+                let diversity = self.relay_diversity_config_for(to_peer);
+                security::select_relay_candidates_with_diversity(&security::RelaySelectionRequest {
+                    peers: &peers,
                     to_peer,
-                    &peer_trust,
-                    Some(&boosts),
-                    now,
-                    self.effective_max_relay_fanout(),
-                )
+                    peer_trust: &peer_trust,
+                    endorsement_boost: Some(&boosts),
+                    now_ms: now,
+                    max_fanout: self.effective_max_relay_fanout(),
+                    routing_meta: Some(&routing_meta),
+                    diversity: Some(&diversity),
+                })
             }
             _ => peers,
         };
@@ -3330,14 +3522,6 @@ impl NodeRunner {
 }
 
 impl NodeRunner {
-    fn config_forwarding_interval_ms(&self) -> u64 {
-        self.forwarding_interval_ms
-    }
-
-    fn config_sync_interval_secs(&self) -> u64 {
-        self.sync_interval_secs
-    }
-
     /// Test-only access for mutex-poison recovery integration tests.
     #[doc(hidden)]
     pub fn peer_trust_for_test(&self) -> &crate::peer_trust::PeerTrustStore {

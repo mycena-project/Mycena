@@ -2,15 +2,66 @@
 // Copyright (C) 2026 Mycelium Project
 //! Store-and-forward custody queue — spray-and-wait with bounded network copies.
 
-use crate::encounter_log::EncounterLogStore;
+use crate::encounter_log::{EncounterLogStore, ENCOUNTER_LOG_TTL_MS};
+use crate::peer_trust::PeerTrust;
+use crate::security::{
+    apply_peer_diversity, build_routing_meta_map, peer_routing_meta, PeerDiversityConfig,
+    PeerRoutingMeta,
+};
 use mycelium_core::data::now_ms;
+use mycelium_core::protocol_capabilities::NegotiatedProtocol;
 use mycelium_core::transport::DirectMessage;
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 /// Default max active custody copies in the mesh (spray-and-wait).
 pub const DEFAULT_MAX_CUSTODY_SPRAY: u8 = 3;
+
+/// Optional trust / diversity inputs for custody carrier selection.
+#[derive(Debug, Clone, Default)]
+pub struct CustodyRoutingContext {
+    pub peer_trust: HashMap<String, PeerTrust>,
+    pub routing_meta: HashMap<String, PeerRoutingMeta>,
+    pub diversity: PeerDiversityConfig,
+    pub negotiated_caps: HashMap<String, NegotiatedProtocol>,
+}
+
+impl CustodyRoutingContext {
+    pub fn diversity_for_dest(&self, dest_peer: Option<&str>) -> PeerDiversityConfig {
+        let Some(dest) = dest_peer.filter(|d| !d.is_empty()) else {
+            return self.diversity;
+        };
+        if self
+            .negotiated_caps
+            .get(dest)
+            .is_some_and(|n| n.relay_diversity_allowed())
+        {
+            self.diversity
+        } else {
+            PeerDiversityConfig::score_only()
+        }
+    }
+
+    pub fn from_encounters(
+        connected: &[String],
+        encounter_log: &EncounterLogStore,
+        _now: u64,
+    ) -> anyhow::Result<Self> {
+        let mut encounter_first = HashMap::new();
+        for p in connected {
+            if let Some(rec) = encounter_log.record(p)? {
+                encounter_first.insert(p.clone(), rec.first_seen_ms);
+            }
+        }
+        Ok(Self {
+            peer_trust: HashMap::new(),
+            routing_meta: build_routing_meta_map(connected, &HashMap::new(), &encounter_first, &HashMap::new()),
+            diversity: PeerDiversityConfig::default(),
+            negotiated_caps: HashMap::new(),
+        })
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CustodyConfig {
@@ -128,7 +179,7 @@ impl CustodyQueue {
         connected_peers: &[String],
         encounter_log: &EncounterLogStore,
     ) -> anyhow::Result<Option<CustodyForwardPlan>> {
-        self.next_forward_plan_at(local_peer, connected_peers, encounter_log, now_ms())
+        self.next_forward_plan_at(local_peer, connected_peers, encounter_log, now_ms(), None)
     }
 
     /// Plan at most one custody forward per tick (spray-and-wait pacing).
@@ -138,7 +189,12 @@ impl CustodyQueue {
         connected_peers: &[String],
         encounter_log: &EncounterLogStore,
         now: u64,
+        routing: Option<&CustodyRoutingContext>,
     ) -> anyhow::Result<Option<CustodyForwardPlan>> {
+        let routing_ctx = match routing {
+            Some(ctx) => ctx.clone(),
+            None => CustodyRoutingContext::from_encounters(connected_peers, encounter_log, now)?,
+        };
         let mut entries: Vec<(Vec<u8>, StoredCustody)> = Vec::new();
         for item in self.tree()?.iter() {
             let (k, v) = item?;
@@ -154,13 +210,17 @@ impl CustodyQueue {
                 continue;
             }
             let tried: Vec<String> = stored.targets_tried.iter().cloned().collect();
-            let mut candidates =
+            let candidates =
                 encounter_log.custody_candidates_at(connected_peers, local_peer, &tried, 8, now)?;
-            candidates.sort();
-            let Some(peer) = candidates
-                .into_iter()
-                .find(|p| Self::peer_allowed(&stored, p, local_peer))
-            else {
+            let peer = Self::pick_custody_carrier(
+                &candidates,
+                local_peer,
+                &stored,
+                encounter_log,
+                &routing_ctx,
+                now,
+            );
+            let Some(peer) = peer else {
                 continue;
             };
             stored.targets_tried.insert(peer.clone());
@@ -267,6 +327,76 @@ impl CustodyQueue {
     fn relay_allowed(stored: &StoredCustody, now: u64) -> bool {
         !stored.message.is_expired(now)
             && stored.message.envelope.hop_count < stored.message.envelope.max_hops
+    }
+
+    fn pick_custody_carrier(
+        candidates: &[String],
+        local_peer: &str,
+        stored: &StoredCustody,
+        encounter_log: &EncounterLogStore,
+        routing: &CustodyRoutingContext,
+        now: u64,
+    ) -> Option<String> {
+        let allowed: Vec<String> = candidates
+            .iter()
+            .filter(|p| Self::peer_allowed(stored, p, local_peer))
+            .cloned()
+            .collect();
+        if allowed.is_empty() {
+            return None;
+        }
+
+        let mut meta_map = routing.routing_meta.clone();
+        for p in &allowed {
+            if meta_map.contains_key(p) {
+                continue;
+            }
+            let trust = routing
+                .peer_trust
+                .get(p)
+                .cloned()
+                .unwrap_or_else(|| PeerTrust::cold_unknown(now));
+            let enc = encounter_log.record(p).ok().flatten();
+            meta_map.insert(
+                p.clone(),
+                peer_routing_meta(&trust, enc.map(|r| r.first_seen_ms), None),
+            );
+        }
+
+        let mut scored: Vec<(String, f64)> = allowed
+            .iter()
+            .map(|p| {
+                let trust = routing
+                    .peer_trust
+                    .get(p)
+                    .cloned()
+                    .unwrap_or_else(|| PeerTrust::cold_unknown(now));
+                let mut score = trust.relay_selection_score(now);
+                if let Ok(Some(rec)) = encounter_log.record(p) {
+                    let recency = now.saturating_sub(rec.last_seen_ms);
+                    score += 0.15
+                        * (1.0 - recency as f64 / ENCOUNTER_LOG_TTL_MS as f64).clamp(0.0, 1.0);
+                }
+                (p.clone(), score)
+            })
+            .collect();
+        scored.sort_by(|a, b| {
+            b.1.partial_cmp(&a.1)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| a.0.cmp(&b.0))
+        });
+
+        let dest = stored.message.envelope.to_peer.as_deref();
+        let diversity = routing.diversity_for_dest(dest);
+        let picks = apply_peer_diversity(
+            &scored,
+            &routing.peer_trust,
+            &meta_map,
+            now,
+            1,
+            &diversity,
+        );
+        picks.into_iter().next()
     }
 
     fn peer_allowed(stored: &StoredCustody, peer: &str, local_peer: &str) -> bool {

@@ -101,7 +101,7 @@ android {
 
 val copyMiniappBridge =
     tasks.register<Copy>("copyMiniappBridge") {
-        from(rootProject.projectDir.resolve("../crates/mycelium-app/src/miniapp/bridge_api.js"))
+        from(rootProject.projectDir.resolve("../crates/mycelium-miniapp/src/bridge_api.js"))
         into(layout.projectDirectory.dir("src/main/assets/miniapp"))
     }
 tasks.named("preBuild").configure { dependsOn(copyMiniappBridge) }

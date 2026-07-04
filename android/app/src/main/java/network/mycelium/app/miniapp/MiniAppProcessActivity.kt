@@ -5,6 +5,7 @@ package network.mycelium.app.miniapp
 import android.annotation.SuppressLint
 import android.app.AlertDialog
 import android.content.BroadcastReceiver
+import android.content.ComponentCallbacks2
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -17,6 +18,7 @@ import android.os.IBinder
 import android.os.Looper
 import android.view.ViewGroup
 import android.webkit.JavascriptInterface
+import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
@@ -61,8 +63,9 @@ import org.json.JSONObject
 /**
  * Mini-app host in isolated process `:miniapp` (H16). Bridge calls go to [MiniAppBridgeService].
  */
-class MiniAppProcessActivity : ComponentActivity() {
+class MiniAppProcessActivity : ComponentActivity(), ComponentCallbacks2 {
     private var bridge: IMiniAppBridge? = null
+    private var hostedWebView: WebView? = null
 
     private val connection =
         object : ServiceConnection {
@@ -86,19 +89,45 @@ class MiniAppProcessActivity : ComponentActivity() {
             connection,
             Context.BIND_AUTO_CREATE,
         )
+        application.registerComponentCallbacks(this)
         setContent {
             MiniAppProcessContent(
                 appId = appId,
                 bridgeProvider = { bridge },
                 onBack = { finish() },
+                onWebViewCreated = { hostedWebView = it },
             )
         }
     }
 
+    override fun onPause() {
+        hostedWebView?.onPause()
+        hostedWebView?.pauseTimers()
+        super.onPause()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        hostedWebView?.onResume()
+        hostedWebView?.resumeTimers()
+    }
+
     override fun onDestroy() {
+        application.unregisterComponentCallbacks(this)
+        hostedWebView?.destroy()
+        hostedWebView = null
         bridge?.revokeSession(intent.getStringExtra(EXTRA_APP_ID) ?: "")
         unbindService(connection)
         super.onDestroy()
+    }
+
+    override fun onTrimMemory(level: Int) {
+        MiniAppResourceGuard.onTrimMemory(level, hostedWebView) { finish() }
+    }
+
+    override fun onLowMemory() {
+        MiniAppResourceGuard.onLowMemory(hostedWebView) { finish() }
+        super.onLowMemory()
     }
 
     companion object {
@@ -115,6 +144,7 @@ private fun MiniAppProcessContent(
     appId: String,
     bridgeProvider: () -> IMiniAppBridge?,
     onBack: () -> Unit,
+    onWebViewCreated: (WebView) -> Unit,
 ) {
     val bridge = bridgeProvider()
     var displayName by remember { mutableStateOf(appId) }
@@ -206,7 +236,9 @@ private fun MiniAppProcessContent(
             if (bridge != null) {
                 AndroidView(
                     factory = { ctx ->
-                        createIsolatedMiniAppWebView(ctx, appId, bridge, displayName)
+                        createIsolatedMiniAppWebView(ctx, appId, bridge, displayName).also {
+                            onWebViewCreated(it)
+                        }
                     },
                     modifier = Modifier.fillMaxSize(),
                 )
@@ -258,6 +290,14 @@ private fun createIsolatedMiniAppWebView(
         )
         webViewClient =
             object : WebViewClient() {
+                override fun onRenderProcessGone(
+                    view: WebView,
+                    detail: RenderProcessGoneDetail,
+                ): Boolean {
+                    view.destroy()
+                    return true
+                }
+
                 override fun shouldOverrideUrlLoading(
                     view: WebView,
                     request: WebResourceRequest,
@@ -494,7 +534,13 @@ private class IsolatedMiniappJsBridge(
         }
         try {
             val bridgedArgs = withCapability(method, args)
-            val resultJson = bridge.bridgeCall(appId, method, bridgedArgs.toString())
+            val resultJson =
+                MiniAppResourceGuard.bridgeCallWithTimeout(
+                    bridge,
+                    appId,
+                    method,
+                    bridgedArgs.toString(),
+                )
             val result = JSONObject(resultJson)
             if (result.has("error")) {
                 throw Exception(result.getString("error"))

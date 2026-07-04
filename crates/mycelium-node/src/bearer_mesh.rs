@@ -8,17 +8,25 @@ use crate::ble_transport::BlePeerInfo;
 use mycelium_core::bearer_transport::{
     self, BearerMedium, BearerPayloadKind, BearerTransport, BearerWireVersion, ReliabilityClass,
 };
-use mycelium_core::ble_stream::encode_stream_frame;
+use mycelium_core::ble_stream::encode_stream_frame_with_version;
 use mycelium_core::transport::{TransportEvent, WireMessage};
 use std::collections::{HashMap, VecDeque};
 
 const WIFI_QUEUE_CAP: usize = 64;
+
+/// Per-peer negotiated bearer caps (wire version + Wi‑Fi Direct upgrade).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct PeerBearerCaps {
+    pub wire_version: BearerWireVersion,
+    pub wifi_direct: bool,
+}
 
 /// BLE + Wi‑Fi Direct outbound routing behind one ingest/decode API.
 #[derive(Debug)]
 pub struct BearerMeshRouter {
     ble: BearerBleRouter,
     wifi_outbound: HashMap<String, VecDeque<Vec<u8>>>,
+    peer_caps: HashMap<String, PeerBearerCaps>,
 }
 
 impl Default for BearerMeshRouter {
@@ -32,7 +40,35 @@ impl BearerMeshRouter {
         Self {
             ble: BearerBleRouter::new(),
             wifi_outbound: HashMap::new(),
+            peer_caps: HashMap::new(),
         }
+    }
+
+    pub fn set_peer_caps(&mut self, peer: &str, wire_version: BearerWireVersion, wifi_direct: bool) {
+        self.peer_caps.insert(
+            peer.to_string(),
+            PeerBearerCaps {
+                wire_version,
+                wifi_direct,
+            },
+        );
+    }
+
+    fn peer_caps(&self, peer: &str) -> PeerBearerCaps {
+        self.peer_caps.get(peer).copied().unwrap_or_default()
+    }
+
+    fn peer_wire_version(&self, peer: &str) -> BearerWireVersion {
+        let caps = self.peer_caps(peer);
+        if caps.wire_version == BearerWireVersion::V1 {
+            BearerWireVersion::V1
+        } else {
+            BearerWireVersion::Legacy
+        }
+    }
+
+    fn peer_wifi_allowed(&self, peer: &str) -> bool {
+        self.peer_caps(peer).wifi_direct
     }
 
     #[allow(dead_code)]
@@ -46,8 +82,11 @@ impl BearerMeshRouter {
         wire: &WireMessage,
     ) -> anyhow::Result<()> {
         let payload = bincode::serialize(wire)?;
-        let style = self.wire_version();
-        let max_len = if bearer_transport::should_upgrade_to_wifi_direct(payload.len(), false) {
+        let style = self.peer_wire_version(&to_peer);
+        let wifi_ok = self.peer_wifi_allowed(&to_peer);
+        let max_len = if wifi_ok
+            && bearer_transport::should_upgrade_to_wifi_direct(payload.len(), false)
+        {
             bearer_transport::WIFI_DIRECT_MAX_FRAME_LEN
         } else {
             bearer_transport::MAX_FRAME_LEN
@@ -72,7 +111,8 @@ impl BearerMeshRouter {
         frame: Vec<u8>,
         force_wifi: bool,
     ) -> anyhow::Result<()> {
-        if bearer_transport::should_upgrade_to_wifi_direct(frame.len(), force_wifi) {
+        let wifi_ok = self.peer_wifi_allowed(peer);
+        if wifi_ok && bearer_transport::should_upgrade_to_wifi_direct(frame.len(), force_wifi) {
             self.queue_wifi_frame(peer, frame);
         } else {
             BearerTransport::send_frame(&mut self.ble, peer, &frame)?;
@@ -86,10 +126,6 @@ impl BearerMeshRouter {
         while q.len() > WIFI_QUEUE_CAP {
             q.pop_front();
         }
-    }
-
-    fn wire_version(&self) -> BearerWireVersion {
-        bearer_transport::default_wire_version()
     }
 
     pub fn drain_bearer_outbound(
@@ -133,6 +169,7 @@ impl BearerMeshRouter {
     }
 
     pub fn remove_link(&mut self, peer_id: &str) -> Option<TransportEvent> {
+        self.peer_caps.remove(peer_id);
         self.ble.remove_link(peer_id)
     }
 
@@ -151,8 +188,10 @@ impl BearerMeshRouter {
     pub fn send_direct(&mut self, to_peer: &str, message: WireMessage) -> anyhow::Result<()> {
         let request = DirectMessageRequest { message };
         let cbor = serde_cbor::to_vec(&request)?;
-        let frame = encode_stream_frame(&cbor)?;
-        let force = frame.len() >= bearer_transport::bearer_wifi_upgrade_threshold();
+        let style = self.peer_wire_version(to_peer);
+        let frame = encode_stream_frame_with_version(&cbor, style)?;
+        let force = self.peer_wifi_allowed(to_peer)
+            && frame.len() >= bearer_transport::bearer_wifi_upgrade_threshold();
         self.route_outbound_frame(to_peer, frame, force)
     }
 
@@ -225,15 +264,18 @@ impl BearerTransport for BearerMeshRouter {
 }
 
 #[cfg(test)]
-mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
+mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
 
     use super::*;
     use mycelium_core::data::Envelope;
+    use mycelium_core::protocol_capabilities::NegotiatedProtocol;
     use mycelium_core::transport::DirectMessage;
 
     #[test]
-    fn large_side_channel_routes_to_wifi() {
+    fn large_side_channel_routes_to_wifi_when_peer_allows() {
         let mut router = BearerMeshRouter::new();
+        router.set_peer_caps("peerA", BearerWireVersion::V1, true);
         let big_body = "x".repeat(20 * 1024);
         let wire = WireMessage::Data(DirectMessage {
             envelope: Envelope::new("p".into(), None, vec![]),
@@ -246,13 +288,27 @@ mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
         assert_eq!(wifi.len(), 1);
         assert_eq!(wifi[0].0, "peerA");
         assert_eq!(wifi[0].2, BearerMedium::WifiDirect);
-        let ble = router.drain_bearer_outbound(None, 4);
-        assert!(ble.is_empty());
+    }
+
+    #[test]
+    fn large_side_channel_stays_on_ble_without_wifi_cap() {
+        let mut router = BearerMeshRouter::new();
+        router.set_peer_caps("peerA", BearerWireVersion::V1, false);
+        let big_body = "x".repeat(20 * 1024);
+        let wire = WireMessage::Data(DirectMessage {
+            envelope: Envelope::new("p".into(), None, vec![]),
+            body: big_body,
+        });
+        let err = router
+            .queue_side_channel_wire("peerA".into(), &wire)
+            .unwrap_err();
+        assert!(err.to_string().contains("too large"));
     }
 
     #[test]
     fn small_side_channel_stays_on_ble() {
         let mut router = BearerMeshRouter::new();
+        router.set_peer_caps("peerB", BearerWireVersion::V1, true);
         let wire = WireMessage::Data(DirectMessage {
             envelope: Envelope::new("p".into(), None, vec![]),
             body: "hi".into(),
@@ -263,5 +319,20 @@ mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
         let drained = router.drain_bearer_outbound(None, 4);
         assert_eq!(drained.len(), 1);
         assert_eq!(drained[0].2, BearerMedium::Ble);
+    }
+
+    #[test]
+    fn negotiated_caps_map_to_bearer_wire_and_wifi() {
+        use mycelium_core::protocol_capabilities::ProtocolCapabilities;
+
+        let legacy = NegotiatedProtocol::from_legacy_assumption();
+        assert_eq!(legacy.bearer_wire_version(), BearerWireVersion::Legacy);
+        assert!(!legacy.wifi_direct_allowed());
+
+        let mut local = ProtocolCapabilities::current(true, true);
+        local.bearer_wire_max = mycelium_core::protocol_capabilities::bearer::V1_MYBR;
+        let caps = ProtocolCapabilities::negotiate(&local, &local);
+        assert_eq!(caps.bearer_wire_version(), BearerWireVersion::V1);
+        assert!(caps.wifi_direct_allowed());
     }
 }

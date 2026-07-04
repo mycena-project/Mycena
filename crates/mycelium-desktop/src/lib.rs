@@ -250,6 +250,22 @@ impl CoinTransport for DesktopCoinTransport {
             .await
     }
 
+    async fn broadcast_coin_voucher_inner(&self, coin_inner: Vec<u8>) -> anyhow::Result<()> {
+        let payload = AppMessage::encode_coin_payload(&coin_inner)?;
+        self.handle
+            .mesh_broadcast_coin_voucher(
+                "mycelium/coin".to_string(),
+                "coin:broadcast".to_string(),
+                payload,
+                OP_GOSSIP_BULLETIN_PUBLISH,
+            )
+            .await
+    }
+
+    async fn peer_payment_voucher_v1_allowed(&self, peer: &str) -> bool {
+        self.handle.peer_payment_voucher_v1_allowed(peer).await
+    }
+
     async fn send_direct_coin_inner(
         &self,
         to_peer: String,
@@ -491,6 +507,7 @@ async fn start_node(
         custody_enabled: true,
         max_custody_spray: 3,
         privacy_shaping: mycelium_l0_facade::privacy_shaping::PrivacyShapingConfig::disabled(),
+        protocol_capabilities_override: None,
     };
     let (runner, handle) = NodeRunner::new(config).map_err(|e| e.to_string())?;
     let local_peer_id = runner.local_peer_id().to_string();
@@ -1719,7 +1736,9 @@ async fn miniapp_bridge_call(
         safe_mode,
         s.cap_mac_key,
     );
-    host.handle(&method, &args).await
+    host.handle(&method, &args)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 fn node_state_label(state: NodeState) -> &'static str {

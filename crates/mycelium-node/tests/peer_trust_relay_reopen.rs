@@ -21,6 +21,7 @@ fn established(now_ms: u64) -> PeerTrust {
         last_strike_ms: 0,
         throttled_until_ms: 0,
         last_updated_ms: now_ms,
+        transport_hint: None,
     }
 }
 

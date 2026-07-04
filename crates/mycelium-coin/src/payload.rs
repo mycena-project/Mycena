@@ -33,3 +33,15 @@ pub enum CoinPayload {
         redemptions: Vec<VoucherRedemption>,
     },
 }
+
+impl CoinPayload {
+    /// True when gossip requires peers to have negotiated payment voucher v1.
+    pub fn requires_voucher_v1_capability(&self) -> bool {
+        matches!(
+            self,
+            CoinPayload::PaymentVoucher(_)
+                | CoinPayload::VoucherRedemption(_)
+                | CoinPayload::VoucherSettlementSync { .. }
+        )
+    }
+}

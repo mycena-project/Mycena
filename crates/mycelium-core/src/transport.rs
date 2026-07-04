@@ -80,6 +80,9 @@ pub enum WireMessage {
         ratchet_one_time_prekey_id: Option<u32>,
         #[serde(default)]
         ratchet_one_time_prekey_hex: Option<String>,
+        /// Protocol levels supported by this node (SD-140); omitted on legacy clients.
+        #[serde(default)]
+        protocol_capabilities: crate::protocol_capabilities::ProtocolCapabilities,
     },
 }
 
@@ -301,6 +304,11 @@ pub trait MeshTransport: Send {
     fn is_peer_connected(&self, peer_id: &str) -> bool {
         self.known_peers().iter().any(|p| p == peer_id)
     }
+    /// Bearer / relay bucket for eclipse-resistant routing (`ble`, `tcp`, `relay`, …).
+    fn peer_transport_hint(&self, peer_id: &str) -> String {
+        let _ = peer_id;
+        "unknown".into()
+    }
     async fn next_event(&mut self) -> anyhow::Result<TransportEvent>;
     fn connected_peer_count(&self) -> usize {
         self.known_peers().len()
@@ -357,6 +365,14 @@ pub trait MeshTransport: Send {
     /// Queue bulk bytes on Wi‑Fi Direct bearer.
     fn queue_bearer_bulk(&mut self, _to_peer: String, _payload: Vec<u8>) -> anyhow::Result<()> {
         Ok(())
+    }
+    /// Store per-peer negotiated bearer wire version and Wi‑Fi Direct allowance.
+    fn set_peer_bearer_caps(
+        &mut self,
+        _peer: &str,
+        _wire: crate::bearer_transport::BearerWireVersion,
+        _wifi_direct: bool,
+    ) {
     }
     /// Start a Kademlia lookup for `target_peer_id` (no-op on transports without DHT).
     fn kad_find_peer(&mut self, _target_peer_id: &str) {}

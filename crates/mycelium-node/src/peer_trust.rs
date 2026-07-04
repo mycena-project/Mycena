@@ -34,6 +34,9 @@ pub struct PeerTrust {
     pub last_strike_ms: u64,
     pub throttled_until_ms: u64,
     pub last_updated_ms: u64,
+    /// Last observed bearer / relay bucket for eclipse-resistant routing (e.g. `ble`, `tcp`, `relay`).
+    #[serde(default)]
+    pub transport_hint: Option<String>,
 }
 
 impl Default for PeerTrust {
@@ -58,6 +61,7 @@ impl PeerTrust {
             last_strike_ms: 0,
             throttled_until_ms: 0,
             last_updated_ms: now_ms,
+            transport_hint: None,
         }
     }
 
@@ -77,6 +81,17 @@ impl PeerTrust {
             last_strike_ms: 0,
             throttled_until_ms: 0,
             last_updated_ms: now_ms,
+            transport_hint: None,
+        }
+    }
+
+    pub fn note_transport_hint(&mut self, hint: &str) {
+        let trimmed = hint.trim();
+        if trimmed.is_empty() {
+            return;
+        }
+        if self.transport_hint.as_deref() != Some(trimmed) {
+            self.transport_hint = Some(trimmed.to_string());
         }
     }
 

@@ -50,7 +50,7 @@ fn main() -> anyhow::Result<()> {
             csv,
             ci_mode,
         } => {
-            let p = LabPreset::from_str(&preset)
+            let p = LabPreset::parse_name(&preset)
                 .ok_or_else(|| anyhow::anyhow!("unknown preset: {preset}"))?;
             let config = preset_config(p, seed, nodes, ci_mode);
             let node_count = config.node_count;

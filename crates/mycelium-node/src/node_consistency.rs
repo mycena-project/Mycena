@@ -10,6 +10,7 @@ use mycelium_core::transport::WireMessage;
 
 use crate::ingest_guard;
 use crate::NodeCommand;
+use crate::BroadcastPeerFilter;
 
 impl NodeCommand {
     /// Consistency level for mesh-visible state changes (see ADR 006).
@@ -91,6 +92,25 @@ impl crate::NodeHandle {
             scope,
             body,
             payload,
+            peer_filter: BroadcastPeerFilter::All,
+        })
+        .await
+    }
+
+    /// Coin voucher gossip — only peers that negotiated payment voucher v1.
+    pub async fn mesh_broadcast_coin_voucher(
+        &self,
+        scope: String,
+        body: String,
+        payload: Vec<u8>,
+        _op: StateOp<EventuallyConsistentModel>,
+    ) -> anyhow::Result<()> {
+        debug_assert_eq!(_op.name, OP_GOSSIP_BULLETIN_PUBLISH.name);
+        self.send(NodeCommand::BroadcastPayload {
+            scope,
+            body,
+            payload,
+            peer_filter: BroadcastPeerFilter::PaymentVoucherV1,
         })
         .await
     }
@@ -108,6 +128,7 @@ impl crate::NodeHandle {
             scope,
             body,
             payload,
+            peer_filter: BroadcastPeerFilter::All,
         })
         .await
     }
@@ -125,6 +146,7 @@ impl crate::NodeHandle {
             scope,
             body,
             payload,
+            peer_filter: BroadcastPeerFilter::All,
         })
         .await
     }
@@ -189,6 +211,7 @@ mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
             scope: "mycelium/sos/v1".into(),
             body: "sos".into(),
             payload: vec![],
+            peer_filter: BroadcastPeerFilter::All,
         };
         assert_eq!(sos.mesh_consistency(), Some(Consistency::Local));
 
@@ -196,6 +219,7 @@ mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
             scope: "mycelium/resource-map/v1".into(),
             body: "water".into(),
             payload: vec![],
+            peer_filter: BroadcastPeerFilter::All,
         };
         assert_eq!(resource.mesh_consistency(), Some(Consistency::Local));
 
@@ -203,6 +227,7 @@ mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
             scope: "mycelium/chat".into(),
             body: "chat".into(),
             payload: vec![],
+            peer_filter: BroadcastPeerFilter::All,
         };
         assert_eq!(
             chat.mesh_consistency(),

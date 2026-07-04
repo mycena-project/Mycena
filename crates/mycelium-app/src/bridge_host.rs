@@ -10,7 +10,9 @@ use mycelium_coin::{CoinNode, PaymentRequest};
 use mycelium_l0_facade::data::now_ms;
 use serde_json::{json, Value};
 
-use crate::miniapp::bridge_limits::check_bridge_rate;
+use crate::miniapp::bridge_limits::{
+    check_bridge_rate, check_chain_budget, record_bridge_elapsed, BRIDGE_CALL_TIMEOUT_MS,
+};
 use crate::miniapp::bridge_session::validate_session;
 use crate::miniapp::capability_token::{permission_for_method, validate_capability};
 use crate::miniapp::manifest::Permission;
@@ -174,6 +176,21 @@ impl BridgeHost {
             let _ = self.app_store.record_bridge_anomaly(&self.app_id);
             return Err(e);
         }
+        check_chain_budget(&self.app_id, 0)?;
+        let started = now_ms();
+        let outcome = tokio::time::timeout(
+            std::time::Duration::from_millis(BRIDGE_CALL_TIMEOUT_MS),
+            self.handle_inner(method, args),
+        )
+        .await
+        .map_err(|_| {
+            format!("bridge call timed out ({BRIDGE_CALL_TIMEOUT_MS}ms)")
+        })?;
+        record_bridge_elapsed(&self.app_id, now_ms().saturating_sub(started));
+        outcome
+    }
+
+    async fn handle_inner(&self, method: &str, args: &Value) -> Result<Value, String> {
         self.require_not_blocked_by_safe_mode(method)?;
         self.require_capability(method, args)?;
 

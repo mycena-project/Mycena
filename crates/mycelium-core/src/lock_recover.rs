@@ -22,6 +22,7 @@ pub fn lock_mutex<'a, T>(mutex: &'a Mutex<T>, label: &'static str) -> MutexGuard
     })
 }
 
+#[allow(clippy::needless_lifetimes)]
 impl<'a, T> LockRecover for &'a Mutex<T> {
     type Target = T;
 
@@ -33,6 +34,7 @@ impl<'a, T> LockRecover for &'a Mutex<T> {
     }
 }
 
+#[allow(clippy::needless_lifetimes)]
 impl<'a, T> LockRecover for &'a Arc<Mutex<T>> {
     type Target = T;
 
@@ -44,6 +46,7 @@ impl<'a, T> LockRecover for &'a Arc<Mutex<T>> {
     }
 }
 
+#[allow(clippy::needless_lifetimes)]
 impl<'a, T> LockRecover for &'a LazyLock<Mutex<T>> {
     type Target = T;
 

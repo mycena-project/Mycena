@@ -796,6 +796,22 @@ impl MeshTransport for Libp2pTransport {
             .count()
     }
 
+    fn peer_transport_hint(&self, peer_id: &str) -> String {
+        if self.bearer.is_connected(peer_id) {
+            return "ble".into();
+        }
+        if self.is_known_relay_peer(peer_id) {
+            return "relay".into();
+        }
+        if PeerId::from_str(peer_id)
+            .ok()
+            .is_some_and(|id| self.swarm.is_connected(&id))
+        {
+            return "tcp".into();
+        }
+        "unknown".into()
+    }
+
     fn max_direct_peers(&self) -> usize {
         self.peer_cap.max_peers()
     }
@@ -944,6 +960,15 @@ impl MeshTransport for Libp2pTransport {
 
     fn queue_bearer_bulk(&mut self, to_peer: String, payload: Vec<u8>) -> anyhow::Result<()> {
         self.bearer.queue_bulk_frame(to_peer, payload)
+    }
+
+    fn set_peer_bearer_caps(
+        &mut self,
+        peer: &str,
+        wire: mycelium_core::bearer_transport::BearerWireVersion,
+        wifi_direct: bool,
+    ) {
+        self.bearer.set_peer_caps(peer, wire, wifi_direct);
     }
 
     fn drain_bearer_outbound(

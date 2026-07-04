@@ -180,6 +180,7 @@ async fn cmd_app_publish_live(
         custody_enabled: true,
         max_custody_spray: 3,
         privacy_shaping: mycelium_l0_facade::privacy_shaping::PrivacyShapingConfig::disabled(),
+        protocol_capabilities_override: None,
     };
     let (runner, handle) = NodeRunner::new(config)?;
     let publisher_peer = runner.local_peer_id().to_string();
@@ -241,6 +242,7 @@ async fn run_interactive_server(cli: RunArgs) -> anyhow::Result<()> {
         custody_enabled: true,
         max_custody_spray: 3,
         privacy_shaping: mycelium_l0_facade::privacy_shaping::PrivacyShapingConfig::disabled(),
+        protocol_capabilities_override: None,
     };
     let (runner, handle) = NodeRunner::new(config)?;
     let local_peer_id = runner.local_peer_id().to_string();

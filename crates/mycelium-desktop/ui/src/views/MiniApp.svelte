@@ -13,7 +13,20 @@
 
   const GRANTS_KEY = "mycelium_miniapp_grants";
   const MAX_SINGLE_PAYMENT = 100_000_000;
+  const BRIDGE_CALL_TIMEOUT_MS = 8000;
   const DEFAULT_FEE_MUON = 1000;
+
+  function invokeWithTimeout(label, promise) {
+    return Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        setTimeout(
+          () => reject(new Error(`${label} timed out (${BRIDGE_CALL_TIMEOUT_MS}ms)`)),
+          BRIDGE_CALL_TIMEOUT_MS
+        );
+      }),
+    ]);
+  }
 
   const CAP_METHOD_PERM = {
     "identity.get": "Identity",
@@ -340,11 +353,14 @@
 
     try {
       const bridgedArgs = await attachCapability(method, args ?? {});
-      const result = await invoke("miniapp_bridge_call", {
-        appId,
+      const result = await invokeWithTimeout(
         method,
-        args: bridgedArgs,
-      });
+        invoke("miniapp_bridge_call", {
+          appId,
+          method,
+          args: bridgedArgs,
+        })
+      );
       handleBridgeAction(id, result);
     } catch (err) {
       const msg = err?.message ?? String(err);

@@ -47,12 +47,13 @@ pub enum ForwardDecision {
 }
 
 pub trait ForwardingPolicy: Send + Sync {
-    fn decide(
+    fn decide_crisis_aware(
         &self,
         message: &DirectMessage,
         local_peer: &str,
         known_peers: &[String],
         node_state: NodeState,
+        crisis_active: bool,
     ) -> ForwardDecision;
 }
 
@@ -75,19 +76,7 @@ impl EnergyPolicy for SimpleEnergyPolicy {
 pub struct ProbabilisticForwardingPolicy;
 
 impl ForwardingPolicy for ProbabilisticForwardingPolicy {
-    fn decide(
-        &self,
-        message: &DirectMessage,
-        local_peer: &str,
-        known_peers: &[String],
-        node_state: NodeState,
-    ) -> ForwardDecision {
-        self.decide_crisis_aware(message, local_peer, known_peers, node_state, false)
-    }
-}
-
-impl ProbabilisticForwardingPolicy {
-    pub fn decide_crisis_aware(
+    fn decide_crisis_aware(
         &self,
         message: &DirectMessage,
         local_peer: &str,
@@ -313,7 +302,7 @@ mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
         let policy = ProbabilisticForwardingPolicy;
         let mut msg = mk_msg("hello");
         msg.envelope.to_peer = Some("local".to_string());
-        let d = policy.decide(&msg, "local", &["p1".to_string()], NodeState::Active);
+        let d = policy.decide_crisis_aware(&msg, "local", &["p1".to_string()], NodeState::Active, false);
         assert!(matches!(d, ForwardDecision::DeliverLocal));
     }
 

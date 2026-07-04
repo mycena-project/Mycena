@@ -16,7 +16,7 @@ use mycelium_app::storage::AppStorage;
 use mycelium_coin::{
     address_from_keypair, CoinNode, CoinTransport, HotWallet,
     HotWalletConfig as RustHotWalletConfig, LocalLedger, PaymentRequest, UserTrustStore,
-    VoucherRiskLevel, VoucherSettlementRegistry, DEFAULT_PRIORITY_DEPOSIT_MUON, MUON_PER_MXC,
+    VoucherRiskLevel, VoucherSettlementRegistry, DEFAULT_PRIORITY_DEPOSIT_MUON,
 };
 use mycelium_core::lock_or_recover;
 use mycelium_core::data::Priority;
@@ -203,12 +203,8 @@ fn wall_now_ms() -> u64 {
 }
 
 fn priority_for_deposit(deposit_muon: u64) -> Priority {
-    if deposit_muon >= MUON_PER_MXC / 10 {
+    if deposit_muon >= DEFAULT_PRIORITY_DEPOSIT_MUON {
         Priority::High
-    } else if deposit_muon >= DEFAULT_PRIORITY_DEPOSIT_MUON {
-        Priority::High
-    } else if deposit_muon > 0 {
-        Priority::Normal
     } else {
         Priority::Normal
     }
@@ -633,6 +629,22 @@ impl CoinTransport for FfiCoinTransport {
             .await
     }
 
+    async fn broadcast_coin_voucher_inner(&self, coin_inner: Vec<u8>) -> anyhow::Result<()> {
+        let payload = AppMessage::encode_coin_payload(&coin_inner)?;
+        self.handle
+            .mesh_broadcast_coin_voucher(
+                "mycelium/coin/v1".into(),
+                "[coin]".into(),
+                payload,
+                OP_GOSSIP_BULLETIN_PUBLISH,
+            )
+            .await
+    }
+
+    async fn peer_payment_voucher_v1_allowed(&self, peer: &str) -> bool {
+        self.handle.peer_payment_voucher_v1_allowed(peer).await
+    }
+
     async fn send_direct_coin_inner(
         &self,
         to_peer: String,
@@ -721,6 +733,7 @@ pub fn init_node(config: NodeConfig) {
             custody_enabled: true,
             max_custody_spray: 3,
             privacy_shaping: RustPrivacyShapingConfig::disabled(),
+            protocol_capabilities_override: None,
         };
 
         let (runner, handle) =

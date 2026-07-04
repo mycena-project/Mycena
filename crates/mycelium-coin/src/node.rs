@@ -25,6 +25,16 @@ pub trait CoinTransport: Send + Sync {
         to_peer: String,
         coin_inner: Vec<u8>,
     ) -> anyhow::Result<()>;
+
+    /// Voucher gossip — hosts should filter to voucher-capable peers.
+    async fn broadcast_coin_voucher_inner(&self, coin_inner: Vec<u8>) -> anyhow::Result<()> {
+        self.broadcast_coin_inner(coin_inner).await
+    }
+
+    /// Whether a peer negotiated payment voucher v1 (default: permissive for tests).
+    async fn peer_payment_voucher_v1_allowed(&self, _peer: &str) -> bool {
+        true
+    }
 }
 
 #[derive(Clone)]
@@ -85,7 +95,11 @@ impl CoinNode {
 
     pub async fn broadcast_coin_payload(&self, payload: CoinPayload) -> anyhow::Result<()> {
         let inner = bincode::serialize(&payload)?;
-        self.transport.broadcast_coin_inner(inner).await
+        if payload.requires_voucher_v1_capability() {
+            self.transport.broadcast_coin_voucher_inner(inner).await
+        } else {
+            self.transport.broadcast_coin_inner(inner).await
+        }
     }
 
     pub fn local_address(&self) -> &str {
@@ -156,6 +170,15 @@ impl CoinNode {
         payload: CoinPayload,
         from_peer: &str,
     ) -> anyhow::Result<()> {
+        if payload.requires_voucher_v1_capability()
+            && !self
+                .transport
+                .peer_payment_voucher_v1_allowed(from_peer)
+                .await
+        {
+            warn!("dropping voucher gossip from {from_peer}: payment voucher v1 not negotiated");
+            return Ok(());
+        }
         match payload {
             CoinPayload::Transaction(tx) => match self.ledger.apply_incoming_transaction(&tx)? {
                 ApplyResult::Accepted => {
@@ -344,7 +367,9 @@ impl CoinNode {
         self.handle_voucher_redemption(&redemption, Some(voucher))
             .await?;
         let inner = bincode::serialize(&CoinPayload::VoucherRedemption(redemption))?;
-        self.transport.broadcast_coin_inner(inner).await
+        self.transport
+            .broadcast_coin_voucher_inner(inner)
+            .await
     }
 
     /// Merge redemption gossip, settle when possible, broadcast sync frame.

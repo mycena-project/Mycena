@@ -79,7 +79,7 @@ pub struct LabRunner {
 impl LabRunner {
     pub fn new(config: PresetConfig) -> Self {
         let mut pending_events = config.events.clone();
-        pending_events.sort_by_key(|e| event_time_ms(e));
+        pending_events.sort_by_key(event_time_ms);
         Self {
             sim: SimulationRunner::new(0, config.seed),
             rng: SimRng::new(config.seed),
@@ -112,16 +112,16 @@ impl LabRunner {
         }
 
         let memory = estimate_memory_bytes(self.config.node_count);
-        LabReport::from_run(
-            &self.config.name,
-            self.config.seed,
-            self.config.node_count,
-            self.config.duration_ms,
-            self.attempted,
-            self.sim.metrics(),
-            self.battery.clone(),
-            memory,
-        )
+        LabReport::from_run(crate::lab::report::LabRunSummary {
+            scenario: self.config.name.clone(),
+            seed: self.config.seed,
+            node_count: self.config.node_count,
+            duration_ms: self.config.duration_ms,
+            attempted: self.attempted,
+            metrics: self.sim.metrics(),
+            battery: self.battery.clone(),
+            memory_estimate_bytes: memory,
+        })
     }
 
     fn bootstrap_nodes(&mut self) {
@@ -359,7 +359,7 @@ impl LabRunner {
         }
         let interval = (self.config.duration_ms / self.config.tick_ms)
             / u64::from(self.config.messages_per_node.max(1));
-        if interval == 0 || tick % interval.max(1) != 0 {
+        if interval == 0 || !tick.is_multiple_of(interval.max(1)) {
             return;
         }
         let from_idx = self.rng.gen_range_usize(0, self.nodes.len());

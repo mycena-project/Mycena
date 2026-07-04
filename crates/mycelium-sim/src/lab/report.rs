@@ -21,17 +21,30 @@ pub struct LabReport {
     pub git_commit: String,
 }
 
+#[derive(Debug, Clone)]
+pub struct LabRunSummary {
+    pub scenario: String,
+    pub seed: u64,
+    pub node_count: usize,
+    pub duration_ms: u64,
+    pub attempted: u64,
+    pub metrics: SimulationMetrics,
+    pub battery: BatteryTotals,
+    pub memory_estimate_bytes: u64,
+}
+
 impl LabReport {
-    pub fn from_run(
-        scenario: &str,
-        seed: u64,
-        node_count: usize,
-        duration_ms: u64,
-        attempted: u64,
-        metrics: SimulationMetrics,
-        battery: BatteryTotals,
-        memory_estimate_bytes: u64,
-    ) -> Self {
+    pub fn from_run(input: LabRunSummary) -> Self {
+        let LabRunSummary {
+            scenario,
+            seed,
+            node_count,
+            duration_ms,
+            attempted,
+            metrics,
+            battery,
+            memory_estimate_bytes,
+        } = input;
         let delivery_rate = if attempted == 0 {
             0.0
         } else {
@@ -51,7 +64,7 @@ impl LabReport {
             sorted[idx] as f64
         };
         Self {
-            scenario: scenario.to_string(),
+            scenario,
             seed,
             node_count,
             duration_ms,

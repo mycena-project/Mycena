@@ -275,6 +275,7 @@ fn run_city_custody_at(base: &Path, seed: u64, node_count: usize) -> CityCustody
                         &peers,
                         &node.encounter_log,
                         now,
+                        None,
                     );
                     (node.id.clone(), plan)
                 };

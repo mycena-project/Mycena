@@ -20,6 +20,7 @@ fn established_trust(now_ms: u64, reliability: f32, relay_rate: f32, age_days: u
         last_strike_ms: 0,
         throttled_until_ms: 0,
         last_updated_ms: now_ms,
+        transport_hint: None,
     }
 }
 

@@ -4,12 +4,450 @@
 
 use libp2p::PeerId;
 use mycelium_core::transport::DirectMessage;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 pub use crate::peer_trust::{PeerReputationSnapshot, PeerTrust, PeerTrustStore};
 
 /// Unsigned `WireMessage::Data` grace deadline (ms). `0` = disabled — unsigned messages are always rejected (SD-030).
 pub const UNSIGNED_GRACE_PERIOD_UNTIL_MS: u64 = 0;
+
+/// Per-peer routing metadata for eclipse-resistant relay / custody selection.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PeerRoutingMeta {
+    /// Bearer or relay bucket (`ble`, `tcp`, `relay`, operator-specific label).
+    pub transport_hint: String,
+    /// First encounter epoch ms (encounter log or trust `first_seen_ms`).
+    pub first_encounter_ms: u64,
+}
+
+impl Default for PeerRoutingMeta {
+    fn default() -> Self {
+        Self {
+            transport_hint: "unknown".into(),
+            first_encounter_ms: 0,
+        }
+    }
+}
+
+/// Tunables for transport, age, and social diversity during peer selection.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PeerDiversityConfig {
+    /// Reserve at least this many established peers when available.
+    pub min_established_slots: usize,
+    /// Peers older than this count as established for age diversity.
+    pub established_age_ms: u64,
+    /// Peers younger than this are treated as freshly appeared.
+    pub young_peer_max_age_ms: u64,
+    /// Max fraction of the fanout that may be young peers when established alternatives exist.
+    pub max_young_peer_fraction: f32,
+    /// Max fraction of the fanout that may share one transport bucket when alternatives exist.
+    pub max_same_transport_fraction: f32,
+    /// When true, avoid picking all peers from the same first-encounter time window.
+    pub require_social_spread: bool,
+    /// Width of social diversity buckets (first encounter ms / window).
+    pub social_window_ms: u64,
+}
+
+impl Default for PeerDiversityConfig {
+    fn default() -> Self {
+        Self {
+            min_established_slots: 1,
+            established_age_ms: 24 * 3_600_000,
+            young_peer_max_age_ms: 3_600_000,
+            max_young_peer_fraction: 0.66,
+            max_same_transport_fraction: 0.66,
+            require_social_spread: true,
+            social_window_ms: 30 * 60 * 1000,
+        }
+    }
+}
+
+impl PeerDiversityConfig {
+    /// Score-only selection (no diversity constraints) — baseline for regression / attack sims.
+    pub const fn score_only() -> Self {
+        Self {
+            min_established_slots: 0,
+            established_age_ms: 0,
+            young_peer_max_age_ms: 0,
+            max_young_peer_fraction: 1.0,
+            max_same_transport_fraction: 1.0,
+            require_social_spread: false,
+            social_window_ms: 0,
+        }
+    }
+
+    pub fn is_disabled(&self) -> bool {
+        self.min_established_slots == 0
+            && self.max_young_peer_fraction >= 1.0
+            && self.max_same_transport_fraction >= 1.0
+            && !self.require_social_spread
+    }
+}
+
+/// Build routing metadata for a peer from trust, optional encounter, and live transport hint.
+pub fn peer_routing_meta(
+    trust: &PeerTrust,
+    encounter_first_seen_ms: Option<u64>,
+    transport_hint: Option<&str>,
+) -> PeerRoutingMeta {
+    PeerRoutingMeta {
+        transport_hint: transport_hint
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_string)
+            .or_else(|| trust.transport_hint.clone())
+            .unwrap_or_else(|| "unknown".into()),
+        first_encounter_ms: encounter_first_seen_ms.unwrap_or(trust.first_seen_ms),
+    }
+}
+
+pub fn build_routing_meta_map(
+    peers: &[String],
+    peer_trust: &HashMap<String, PeerTrust>,
+    encounter_first_seen: &HashMap<String, u64>,
+    transport_hints: &HashMap<String, String>,
+) -> HashMap<String, PeerRoutingMeta> {
+    peers
+        .iter()
+        .map(|p| {
+            let trust = peer_trust
+                .get(p)
+                .cloned()
+                .unwrap_or_else(|| PeerTrust::cold_unknown(0));
+            let meta = peer_routing_meta(
+                &trust,
+                encounter_first_seen.get(p).copied(),
+                transport_hints.get(p).map(String::as_str),
+            );
+            (p.clone(), meta)
+        })
+        .collect()
+}
+
+fn is_established(trust: &PeerTrust, now_ms: u64, config: &PeerDiversityConfig) -> bool {
+    trust.mutual_contacts > 0 || trust.age_ms(now_ms) >= config.established_age_ms
+}
+
+fn is_young(trust: &PeerTrust, now_ms: u64, config: &PeerDiversityConfig) -> bool {
+    trust.mutual_contacts == 0 && trust.age_ms(now_ms) < config.young_peer_max_age_ms
+}
+
+fn social_bucket(meta: &PeerRoutingMeta, config: &PeerDiversityConfig) -> u64 {
+    if config.social_window_ms == 0 {
+        return meta.first_encounter_ms;
+    }
+    meta.first_encounter_ms / config.social_window_ms
+}
+
+fn max_same_transport_slots(max_fanout: usize, fraction: f32) -> usize {
+    if fraction >= 1.0 {
+        return max_fanout;
+    }
+    ((max_fanout as f32 * fraction).ceil() as usize).max(1)
+}
+
+fn max_young_slots(max_fanout: usize, fraction: f32) -> usize {
+    if fraction >= 1.0 {
+        return max_fanout;
+    }
+    (max_fanout as f32 * fraction).floor() as usize
+}
+
+fn young_count(
+    selected: &[String],
+    trust_for: &impl Fn(&str) -> PeerTrust,
+    now_ms: u64,
+    config: &PeerDiversityConfig,
+) -> usize {
+    selected
+        .iter()
+        .filter(|p| is_young(&trust_for(p), now_ms, config))
+        .count()
+}
+
+fn social_buckets_in(
+    selected: &[String],
+    meta_for: &impl Fn(&str) -> PeerRoutingMeta,
+    config: &PeerDiversityConfig,
+) -> HashSet<u64> {
+    selected
+        .iter()
+        .map(|p| social_bucket(&meta_for(p), config))
+        .collect()
+}
+
+fn pool_has_established(
+    scored: &[(String, f64)],
+    trust_for: &impl Fn(&str) -> PeerTrust,
+    now_ms: u64,
+    config: &PeerDiversityConfig,
+) -> bool {
+    scored
+        .iter()
+        .any(|(p, _)| is_established(&trust_for(p), now_ms, config))
+}
+
+fn pool_transport_alternatives(
+    scored: &[(String, f64)],
+    meta_for: &impl Fn(&str) -> PeerRoutingMeta,
+) -> HashSet<String> {
+    scored
+        .iter()
+        .map(|(p, _)| meta_for(p).transport_hint)
+        .collect()
+}
+
+fn pool_social_alternatives(
+    scored: &[(String, f64)],
+    meta_for: &impl Fn(&str) -> PeerRoutingMeta,
+    config: &PeerDiversityConfig,
+) -> HashSet<u64> {
+    scored
+        .iter()
+        .map(|(p, _)| social_bucket(&meta_for(p), config))
+        .collect()
+}
+
+struct DiversityTrial<'a> {
+    selected: &'a [String],
+    candidate: &'a str,
+    scored: &'a [(String, f64)],
+    routing_meta: &'a HashMap<String, PeerRoutingMeta>,
+    peer_trust: &'a HashMap<String, PeerTrust>,
+    now_ms: u64,
+    max_fanout: usize,
+    config: &'a PeerDiversityConfig,
+}
+
+fn adding_violates_diversity(trial: &DiversityTrial<'_>) -> bool {
+    let config = trial.config;
+    if config.is_disabled() {
+        return false;
+    }
+    let meta_for = |p: &str| {
+        trial
+            .routing_meta
+            .get(p)
+            .cloned()
+            .unwrap_or_default()
+    };
+    let trust_for = |p: &str| {
+        trial
+            .peer_trust
+            .get(p)
+            .cloned()
+            .unwrap_or_else(|| PeerTrust::cold_unknown(trial.now_ms))
+    };
+    let peer = trial.candidate;
+
+    let mut trial_peers = trial.selected.to_vec();
+    trial_peers.push(peer.to_string());
+    let trial_len = trial_peers.len();
+
+    let transports = pool_transport_alternatives(trial.scored, &meta_for);
+    if transports.len() > 1 {
+        let max_same = max_same_transport_slots(trial.max_fanout, config.max_same_transport_fraction);
+        let hint = meta_for(peer).transport_hint;
+        let same = trial_peers
+            .iter()
+            .filter(|p| meta_for(p).transport_hint == hint)
+            .count();
+        if same > max_same {
+            let has_alt = trial.scored.iter().any(|(p, _)| {
+                !trial_peers.contains(p) && meta_for(p).transport_hint != hint
+            });
+            if has_alt {
+                return true;
+            }
+        }
+    }
+
+    if pool_has_established(trial.scored, &trust_for, trial.now_ms, config) {
+        let max_young = max_young_slots(trial.max_fanout, config.max_young_peer_fraction);
+        if is_young(&trust_for(peer), trial.now_ms, config) {
+            let young = young_count(&trial_peers, &trust_for, trial.now_ms, config);
+            if young > max_young {
+                let has_old = trial.scored.iter().any(|(p, _)| {
+                    !trial_peers.contains(p) && !is_young(&trust_for(p), trial.now_ms, config)
+                });
+                if has_old {
+                    return true;
+                }
+            }
+        }
+    }
+
+    if config.require_social_spread && config.social_window_ms > 0 {
+        let buckets = pool_social_alternatives(trial.scored, &meta_for, config);
+        if buckets.len() > 1 && trial_len >= 2 {
+            let trial_buckets = social_buckets_in(&trial_peers, &meta_for, config);
+            if trial_buckets.len() == 1 && trial_len == trial.max_fanout.min(trial.scored.len()) {
+                let only_bucket = trial_buckets.iter().next();
+                let has_alt = trial.scored.iter().any(|(p, _)| {
+                    !trial_peers.contains(p)
+                        && only_bucket.is_some_and(|b| social_bucket(&meta_for(p), config) != *b)
+                });
+                if has_alt {
+                    return true;
+                }
+            }
+        }
+    }
+
+    false
+}
+
+/// Apply transport / age / social diversity on a score-sorted candidate list.
+pub fn apply_peer_diversity(
+    scored: &[(String, f64)],
+    peer_trust: &HashMap<String, PeerTrust>,
+    routing_meta: &HashMap<String, PeerRoutingMeta>,
+    now_ms: u64,
+    max_fanout: usize,
+    config: &PeerDiversityConfig,
+) -> Vec<String> {
+    if max_fanout == 0 || scored.is_empty() {
+        return Vec::new();
+    }
+    if config.is_disabled() {
+        return scored
+            .iter()
+            .take(max_fanout)
+            .map(|(p, _)| p.clone())
+            .collect();
+    }
+
+    let meta_for = |p: &str| -> PeerRoutingMeta {
+        routing_meta.get(p).cloned().unwrap_or_else(|| {
+            let trust = peer_trust
+                .get(p)
+                .cloned()
+                .unwrap_or_else(|| PeerTrust::cold_unknown(now_ms));
+            peer_routing_meta(&trust, None, None)
+        })
+    };
+    let trust_for = |p: &str| -> PeerTrust {
+        peer_trust
+            .get(p)
+            .cloned()
+            .unwrap_or_else(|| PeerTrust::cold_unknown(now_ms))
+    };
+
+    let mut selected = Vec::new();
+    let mut used = HashSet::new();
+
+    if config.min_established_slots > 0 && pool_has_established(scored, &trust_for, now_ms, config)
+    {
+        for (peer, _) in scored {
+            if is_established(&trust_for(peer), now_ms, config) {
+                selected.push(peer.clone());
+                used.insert(peer.clone());
+                break;
+            }
+        }
+    }
+
+    let mut deferred = Vec::new();
+    for (peer, _) in scored {
+        if selected.len() >= max_fanout {
+            break;
+        }
+        if used.contains(peer) {
+            continue;
+        }
+        if is_young(&trust_for(peer), now_ms, config)
+            && scored.iter().any(|(p, _)| {
+                !used.contains(p) && is_established(&trust_for(p), now_ms, config)
+            })
+        {
+            deferred.push(peer.clone());
+            continue;
+        }
+        if adding_violates_diversity(&DiversityTrial {
+            selected: &selected,
+            candidate: peer,
+            scored,
+            routing_meta,
+            peer_trust,
+            now_ms,
+            max_fanout,
+            config,
+        }) {
+            deferred.push(peer.clone());
+            continue;
+        }
+        selected.push(peer.clone());
+        used.insert(peer.clone());
+    }
+
+    if selected.len() < max_fanout {
+        for peer in deferred {
+            if selected.len() >= max_fanout {
+                break;
+            }
+            if used.contains(&peer) {
+                continue;
+            }
+            if is_young(&trust_for(&peer), now_ms, config)
+                && scored.iter().any(|(p, _)| {
+                    !used.contains(p) && is_established(&trust_for(p), now_ms, config)
+                })
+            {
+                continue;
+            }
+            let transports = pool_transport_alternatives(scored, &meta_for);
+            if transports.len() > 1 {
+                let max_same =
+                    max_same_transport_slots(max_fanout, config.max_same_transport_fraction);
+                let hint = meta_for(&peer).transport_hint;
+                let same = selected
+                    .iter()
+                    .filter(|p| meta_for(p).transport_hint == hint)
+                    .count()
+                    + 1;
+                if same > max_same {
+                    continue;
+                }
+            }
+            selected.push(peer.clone());
+            used.insert(peer);
+        }
+    }
+
+    if selected.len() < max_fanout {
+        for (peer, _) in scored {
+            if selected.len() >= max_fanout {
+                break;
+            }
+            if used.contains(peer) {
+                continue;
+            }
+            if is_young(&trust_for(peer), now_ms, config)
+                && scored.iter().any(|(p, _)| {
+                    !used.contains(p) && is_established(&trust_for(p), now_ms, config)
+                })
+            {
+                continue;
+            }
+            selected.push(peer.clone());
+            used.insert(peer.clone());
+        }
+    }
+
+    if selected.len() < max_fanout {
+        for (peer, _) in scored {
+            if selected.len() >= max_fanout {
+                break;
+            }
+            if !used.contains(peer) {
+                selected.push(peer.clone());
+                used.insert(peer.clone());
+            }
+        }
+    }
+
+    selected
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Sd030DropReason {
@@ -48,6 +486,19 @@ pub fn validate_data_message_signature(
     }
 }
 
+/// Relay selection inputs (SD-031 + optional diversity metadata).
+#[derive(Clone, Copy)]
+pub struct RelaySelectionRequest<'a> {
+    pub peers: &'a [String],
+    pub to_peer: &'a str,
+    pub peer_trust: &'a HashMap<String, PeerTrust>,
+    pub endorsement_boost: Option<&'a HashMap<String, f32>>,
+    pub now_ms: u64,
+    pub max_fanout: usize,
+    pub routing_meta: Option<&'a HashMap<String, PeerRoutingMeta>>,
+    pub diversity: Option<&'a PeerDiversityConfig>,
+}
+
 /// SD-031: pick up to `max_fanout` relay peers by weighted trust score (Sybil-resistant).
 ///
 /// `endorsement_boost`: local social trust from [`UserTrustStore`](../../mycelium-coin/src/user_trust.rs)
@@ -60,17 +511,38 @@ pub fn select_relay_candidates(
     now_ms: u64,
     max_fanout: usize,
 ) -> Vec<String> {
+    select_relay_candidates_with_diversity(&RelaySelectionRequest {
+        peers,
+        to_peer,
+        peer_trust,
+        endorsement_boost,
+        now_ms,
+        max_fanout,
+        routing_meta: None,
+        diversity: None,
+    })
+}
+
+/// Like [`select_relay_candidates`] with explicit routing metadata and diversity tunables.
+pub fn select_relay_candidates_with_diversity(req: &RelaySelectionRequest<'_>) -> Vec<String> {
     const ENDORSEMENT_WEIGHT: f64 = 0.15;
-    let mut scored: Vec<(String, f64)> = peers
+    let config = req.diversity.copied().unwrap_or_default();
+    let meta_map = req.routing_meta.cloned().unwrap_or_else(|| {
+        build_routing_meta_map(req.peers, req.peer_trust, &HashMap::new(), &HashMap::new())
+    });
+
+    let mut scored: Vec<(String, f64)> = req
+        .peers
         .iter()
-        .filter(|p| *p != to_peer)
+        .filter(|p| *p != req.to_peer)
         .map(|p| {
-            let trust = peer_trust
+            let trust = req
+                .peer_trust
                 .get(p)
                 .cloned()
-                .unwrap_or_else(|| PeerTrust::cold_unknown(now_ms));
-            let mut score = trust.relay_selection_score(now_ms);
-            if let Some(boosts) = endorsement_boost {
+                .unwrap_or_else(|| PeerTrust::cold_unknown(req.now_ms));
+            let mut score = trust.relay_selection_score(req.now_ms);
+            if let Some(boosts) = req.endorsement_boost {
                 if let Some(b) = boosts.get(p) {
                     score += ENDORSEMENT_WEIGHT * f64::from(*b);
                 }
@@ -83,15 +555,19 @@ pub fn select_relay_candidates(
             .unwrap_or(std::cmp::Ordering::Equal)
             .then_with(|| a.0.cmp(&b.0))
     });
-    scored
-        .into_iter()
-        .take(max_fanout)
-        .map(|(peer, _)| peer)
-        .collect()
+    apply_peer_diversity(
+        &scored,
+        req.peer_trust,
+        &meta_map,
+        req.now_ms,
+        req.max_fanout,
+        &config,
+    )
 }
 
 #[cfg(test)]
-mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
+mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
 
     use super::*;
     use libp2p::identity;
@@ -132,7 +608,91 @@ mod tests {    #![allow(clippy::unwrap_used, clippy::expect_used)]
             last_strike_ms: 0,
             throttled_until_ms: 0,
             last_updated_ms: now_ms,
+            transport_hint: None,
         }
+    }
+
+    fn sybil_gaming_trust(now_ms: u64, reliability: f32, idx: u64) -> PeerTrust {
+        PeerTrust {
+            first_seen_ms: now_ms.saturating_sub(30 * 86_400_000 + idx * 86_400_000),
+            reliability,
+            spam_score: 0.01,
+            relay_success_rate: reliability,
+            relay_success_count: 200,
+            relay_failure_count: 2,
+            mutual_contacts: 0,
+            messages_accepted: 800,
+            messages_rejected: 0,
+            strike_count: 0,
+            last_strike_ms: 0,
+            throttled_until_ms: 0,
+            last_updated_ms: now_ms,
+            transport_hint: Some("attacker-relay".into()),
+        }
+    }
+
+    #[test]
+    fn eclipse_swarm_blocked_without_diversity() {
+        let now = 1_700_000_000_000u64;
+        let mut trust = HashMap::new();
+        let mut meta = HashMap::new();
+        let mut peers = Vec::new();
+        for i in 0..9 {
+            let id = format!("sybil_{i}");
+            peers.push(id.clone());
+            trust.insert(id.clone(), sybil_gaming_trust(now, 0.96, i as u64));
+            meta.insert(
+                id,
+                PeerRoutingMeta {
+                    transport_hint: "attacker-relay".into(),
+                    first_encounter_ms: now.saturating_sub(3 * 86_400_000),
+                },
+            );
+        }
+        peers.push("legit".into());
+        trust.insert(
+            "legit".into(),
+            established_trust(now, 0.82, 0.80, 45),
+        );
+        meta.insert(
+            "legit".into(),
+            PeerRoutingMeta {
+                transport_hint: "mesh-lan".into(),
+                first_encounter_ms: now.saturating_sub(45 * 86_400_000),
+            },
+        );
+
+        let naive = select_relay_candidates_with_diversity(&RelaySelectionRequest {
+            peers: &peers,
+            to_peer: "dest",
+            peer_trust: &trust,
+            endorsement_boost: None,
+            now_ms: now,
+            max_fanout: 3,
+            routing_meta: Some(&meta),
+            diversity: Some(&PeerDiversityConfig::score_only()),
+        });
+        assert_eq!(naive.len(), 3);
+        assert!(
+            naive.iter().all(|p| p.starts_with("sybil_")),
+            "score-only should eclipse victim: {naive:?}"
+        );
+
+        let diverse = select_relay_candidates_with_diversity(&RelaySelectionRequest {
+            peers: &peers,
+            to_peer: "dest",
+            peer_trust: &trust,
+            endorsement_boost: None,
+            now_ms: now,
+            max_fanout: 3,
+            routing_meta: Some(&meta),
+            diversity: None,
+        });
+        assert_eq!(diverse.len(), 3);
+        assert!(
+            diverse.contains(&"legit".to_string()),
+            "diversity must retain established legit peer: {diverse:?}"
+        );
     }
 
     #[test]

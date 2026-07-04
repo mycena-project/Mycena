@@ -32,7 +32,7 @@ impl LabPreset {
         }
     }
 
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse_name(s: &str) -> Option<Self> {
         match s {
             "city_walk" | "stadtspaziergang" => Some(Self::CityWalk),
             "stadium" | "stadion" => Some(Self::Stadium),

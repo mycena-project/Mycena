@@ -433,6 +433,7 @@ impl SimulationRunner {
             custody_enabled: true,
             max_custody_spray: 3,
             privacy_shaping: mycelium_core::privacy_shaping::PrivacyShapingConfig::disabled(),
+            protocol_capabilities_override: None,
         };
         let (node_runner, handle) = NodeRunner::new_with_transport(
             config,

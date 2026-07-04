@@ -13,11 +13,15 @@ pub const MAX_STREAM_PAYLOAD: usize = bearer_transport::MAX_FRAME_LEN;
 
 /// Encode stream payload (legacy `MYLP` on wire by default).
 pub fn encode_stream_frame(payload: &[u8]) -> anyhow::Result<Vec<u8>> {
-    bearer_transport::encode_bearer_frame(
-        BearerPayloadKind::StreamDirect,
-        payload,
-        bearer_transport::default_wire_version(),
-    )
+    encode_stream_frame_with_version(payload, bearer_transport::default_wire_version())
+}
+
+/// Encode stream payload using a negotiated bearer wire version.
+pub fn encode_stream_frame_with_version(
+    payload: &[u8],
+    style: bearer_transport::BearerWireVersion,
+) -> anyhow::Result<Vec<u8>> {
+    bearer_transport::encode_bearer_frame(BearerPayloadKind::StreamDirect, payload, style)
 }
 
 pub fn decode_stream_frame(bytes: &[u8]) -> anyhow::Result<Vec<u8>> {

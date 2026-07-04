@@ -17,6 +17,9 @@ window.mycelium = (() => {
     else p.resolve(result);
   };
 
+  /** Native bridge timeout (ms) — must stay above Rust [`BRIDGE_CALL_TIMEOUT_MS`]. */
+  const BRIDGE_CALL_TIMEOUT_MS = 8000;
+
   const CAP_PERMS = {
     "identity.get": "Identity",
     "messaging.send": "Messaging",
@@ -37,7 +40,21 @@ window.mycelium = (() => {
   function call(method, args = {}) {
     return new Promise((resolve, reject) => {
       const id = ++callId;
-      pending[id] = { resolve, reject };
+      const timer = setTimeout(() => {
+        if (!pending[id]) return;
+        delete pending[id];
+        reject(new Error(`bridge call timed out (${BRIDGE_CALL_TIMEOUT_MS}ms)`));
+      }, BRIDGE_CALL_TIMEOUT_MS);
+      pending[id] = {
+        resolve: (value) => {
+          clearTimeout(timer);
+          resolve(value);
+        },
+        reject: (err) => {
+          clearTimeout(timer);
+          reject(err);
+        },
+      };
       const payload = { ...args };
       if (window.__mycelium_session) {
         payload._session = window.__mycelium_session;
