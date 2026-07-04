@@ -16,6 +16,7 @@
   import Setup from "./views/Setup.svelte";
   import MiniApp from "./views/MiniApp.svelte";
   import MiniAppStore from "./views/MiniAppStore.svelte";
+  import More from "./views/More.svelte";
   import ConnectionStatus from "./components/ConnectionStatus.svelte";
 
   let booting = $state(true);
@@ -34,6 +35,7 @@
     { id: "sos", label: "SOS" },
     { id: "peers", label: "Connect" },
     { id: "share", label: "Share" },
+    { id: "more", label: "More" },
     { id: "wallet", label: "Wallet" },
     { id: "miniapp", label: "Mini apps" },
     { id: "settings", label: "Settings" },
@@ -159,6 +161,8 @@
         <Peers {peerId} />
       {:else if activeView === "share"}
         <Share />
+      {:else if activeView === "more"}
+        <More />
       {:else if activeView === "wallet"}
         <Wallet />
       {:else if activeView === "miniapp"}

@@ -22,6 +22,7 @@ pub use mycelium_core::e2e_direct_wrap;
 pub use mycelium_core::energy;
 pub use mycelium_core::identity_rotation;
 pub use mycelium_core::invite;
+pub use mycelium_core::privacy_shaping;
 pub use mycelium_core::relay_pool;
 pub use mycelium_core::relay_registry;
 pub use mycelium_core::relay_status;

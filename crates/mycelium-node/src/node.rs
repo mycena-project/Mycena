@@ -1041,6 +1041,17 @@ impl NodeRunner {
         }
     }
 
+    fn effective_privacy_shaping(&self) -> PrivacyShapingConfig {
+        if !self.crisis_active() {
+            return self.privacy_shaping.clone();
+        }
+        let mut cfg = self.privacy_shaping.clone();
+        let (min, max) = self.effective_crisis_batch_window();
+        cfg.batch_min_ms = min;
+        cfg.batch_max_ms = max;
+        cfg
+    }
+
     fn update_transport_metrics(&self, metrics: &mut NodeMetrics) {
         metrics.connected_peers = self.transport.connected_peer_count();
         metrics.max_peers = self.transport.max_direct_peers();
@@ -2054,6 +2065,11 @@ impl NodeRunner {
         body: String,
         payload: Vec<u8>,
     ) -> anyhow::Result<()> {
+        if self.crisis_active()
+            && mycelium_core::resource_map::should_defer_gossip_in_crisis(&scope)
+        {
+            return Ok(());
+        }
         let mut targets: HashSet<String> = self.targets_for_scope(&scope).into_iter().collect();
         // Bulletin posts must reach every connected peer — ScopeAnnounce can be
         // missed when peer_cap has not recorded the sender yet (asymmetric LAN sync).
@@ -2226,7 +2242,7 @@ impl NodeRunner {
                 }
                 let now = now_ms();
                 if self.crisis_active()
-                    && mycelium_core::resource_map::is_background_gossip_scope(&scope)
+                    && mycelium_core::resource_map::should_defer_gossip_in_crisis(&scope)
                 {
                     return Ok(());
                 }
@@ -2947,7 +2963,8 @@ impl NodeRunner {
             self.pending.push_back(PendingMessage { to_peer, message });
         }
         if !self.batch_scheduler.has_deadline() && self.batch_scheduler.len() > 0 {
-            self.batch_scheduler.reschedule_flush(&self.privacy_shaping);
+            self.batch_scheduler
+                .reschedule_flush(&self.effective_privacy_shaping());
         }
         Ok(())
     }
@@ -3258,12 +3275,11 @@ impl NodeRunner {
         }
         let essential =
             self.crisis_active() && traffic_class_for_direct(&message) == TrafficClass::Essential;
-        if !essential
-            && privacy_shaping::should_batch(message.envelope.priority, &self.privacy_shaping)
-        {
+        let shaping = self.effective_privacy_shaping();
+        if !essential && privacy_shaping::should_batch(message.envelope.priority, &shaping) {
             self.batch_scheduler.push(to_peer, message);
             if !self.batch_scheduler.has_deadline() {
-                self.batch_scheduler.reschedule_flush(&self.privacy_shaping);
+                self.batch_scheduler.reschedule_flush(&shaping);
             }
             return Ok(());
         }

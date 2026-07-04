@@ -10,7 +10,7 @@ use mycelium_app::groups::Group;
 use mycelium_app::node::{AppInbox, AppNode};
 use mycelium_app::notify::NotificationSink;
 use mycelium_app::storage::AppStorage;
-use mycelium_coin::{address_from_keypair, CoinNode, CoinTransport, LocalLedger};
+use mycelium_coin::{address_from_keypair, CoinNode, CoinTransport, LocalLedger, UserTrustStore};
 use mycelium_l0_facade::bootstrap::{load_custom_bootstrap_peers, save_custom_bootstrap_peers};
 use mycelium_l0_facade::energy::NodeState;
 use mycelium_l1_facade::consistency::{OP_DIRECT_MESSAGE_SEND, OP_GOSSIP_BULLETIN_PUBLISH};
@@ -29,6 +29,9 @@ pub struct AppState {
     app_storage: Arc<AppStorage>,
     app_store: Arc<mycelium_app::miniapp::AppStore>,
     coin_node: Arc<CoinNode>,
+    user_trust: Arc<UserTrustStore>,
+    #[allow(dead_code)]
+    user_trust_task: tauri::async_runtime::JoinHandle<()>,
     local_peer_id: String,
     coin_identity_path: String,
     db_path: String,
@@ -79,6 +82,46 @@ async fn connectivity_snapshot(s: &AppState) -> serde_json::Value {
 
 fn emit_settings_updated(app: &AppHandle, snapshot: serde_json::Value) {
     let _ = app.emit("settings-updated", snapshot);
+}
+
+struct DesktopUserTrustSync {
+    messages_forwarded: u64,
+    messages_delivered_local: u64,
+}
+
+fn wall_now_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
+}
+
+async fn sync_desktop_user_trust(
+    handle: &NodeHandle,
+    store: &UserTrustStore,
+    sync: &mut DesktopUserTrustSync,
+) {
+    let m = handle.metrics().await;
+    let now = wall_now_ms();
+    if m.messages_forwarded > sync.messages_forwarded {
+        let delta = (m.messages_forwarded - sync.messages_forwarded) as u32;
+        let _ = store.record_relay_forward(now, delta);
+        sync.messages_forwarded = m.messages_forwarded;
+    }
+    if m.messages_delivered_local > sync.messages_delivered_local {
+        let delta = (m.messages_delivered_local - sync.messages_delivered_local) as u32;
+        for _ in 0..delta {
+            let _ = store.record_delivery(now);
+        }
+        sync.messages_delivered_local = m.messages_delivered_local;
+    }
+}
+
+async fn push_desktop_endorsements(handle: &NodeHandle, store: &UserTrustStore) {
+    let map = store.endorsement_boost_map();
+    let _ = handle
+        .send(NodeCommand::SetLocalEndorsements(map))
+        .await;
 }
 
 type SharedState = Arc<RwLock<Option<AppState>>>;
@@ -447,7 +490,7 @@ async fn start_node(
         crowd_density_clear: 20,
         custody_enabled: true,
         max_custody_spray: 3,
-        privacy_shaping: mycelium_core::privacy_shaping::PrivacyShapingConfig::disabled(),
+        privacy_shaping: mycelium_l0_facade::privacy_shaping::PrivacyShapingConfig::disabled(),
     };
     let (runner, handle) = NodeRunner::new(config).map_err(|e| e.to_string())?;
     let local_peer_id = runner.local_peer_id().to_string();
@@ -499,6 +542,30 @@ async fn start_node(
     }
     setup_inbox_emitter(app, inbox);
 
+    let user_trust =
+        Arc::new(UserTrustStore::open(&db_path).map_err(|e| e.to_string())?);
+    let ut_handle = handle.clone();
+    let ut_store = user_trust.clone();
+    let user_trust_task = tauri::async_runtime::spawn(async move {
+        let mut sync = DesktopUserTrustSync {
+            messages_forwarded: 0,
+            messages_delivered_local: 0,
+        };
+        push_desktop_endorsements(&ut_handle, &ut_store).await;
+        let mut metrics_tick = tokio::time::interval(std::time::Duration::from_secs(30));
+        let mut uptime_tick = tokio::time::interval(std::time::Duration::from_secs(60));
+        loop {
+            tokio::select! {
+                _ = metrics_tick.tick() => {
+                    sync_desktop_user_trust(&ut_handle, &ut_store, &mut sync).await;
+                }
+                _ = uptime_tick.tick() => {
+                    let _ = ut_store.tick_uptime(wall_now_ms(), 60);
+                }
+            }
+        }
+    });
+
     let ble_host = ble::DesktopBleHost::start(
         handle.clone(),
         app_node.clone(),
@@ -513,6 +580,8 @@ async fn start_node(
         app_storage,
         app_store,
         coin_node,
+        user_trust,
+        user_trust_task,
         local_peer_id: local_peer_id.clone(),
         coin_identity_path: format!("{db_path}/identity"),
         db_path: db_path.clone(),
@@ -916,6 +985,23 @@ async fn list_resource_map_entries(
             })
         })
         .collect())
+}
+
+#[tauri::command]
+async fn user_trust_summary(state: State<'_, SharedState>) -> Result<serde_json::Value, String> {
+    let guard = state.read().await;
+    let s = guard
+        .as_ref()
+        .ok_or_else(|| "node not started".to_string())?;
+    let summary = s.user_trust.snapshot();
+    Ok(json!({
+        "relay_contribution": summary.relay_contribution,
+        "uptime_secs": summary.uptime_secs,
+        "successful_deliveries": summary.successful_deliveries,
+        "local_endorsements": summary.local_endorsements,
+        "contribution_score": summary.contribution_score,
+        "contribution_tier": summary.contribution_tier,
+    }))
 }
 
 #[tauri::command]
@@ -2136,6 +2222,7 @@ pub fn run() {
             refresh_crisis_auto,
             post_resource_map,
             list_resource_map_entries,
+            user_trust_summary,
             get_metrics,
             send_chat,
             peer_has_enc_key,

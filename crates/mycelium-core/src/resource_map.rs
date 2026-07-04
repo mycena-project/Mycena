@@ -119,6 +119,24 @@ pub fn is_background_gossip_scope(scope: &str) -> bool {
         || scope.starts_with("mycelium/appstore/bundles")
 }
 
+/// Non-emergency gossip deferred while Crisis Mode is active (bulletin boards, coin, app store).
+pub fn should_defer_gossip_in_crisis(scope: &str) -> bool {
+    if is_essential_gossip_scope(scope) {
+        return false;
+    }
+    if is_background_gossip_scope(scope) {
+        return true;
+    }
+    if scope.starts_with("mycelium/chat")
+        || scope.starts_with("mycelium/group/")
+        || scope.starts_with("mycelium/identity/")
+        || scope.starts_with("mycelium/proximity/")
+    {
+        return false;
+    }
+    scope.starts_with("mycelium/")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -138,5 +156,12 @@ mod tests {
         assert_eq!(back.category, ResourceCategory::Water);
         assert!(!e.is_expired(500));
         assert!(e.is_expired(4_000_000));
+    }
+
+    #[test]
+    fn defer_bulletin_not_chat_in_crisis() {
+        assert!(should_defer_gossip_in_crisis("mycelium/general"));
+        assert!(!should_defer_gossip_in_crisis("mycelium/chat"));
+        assert!(!should_defer_gossip_in_crisis("mycelium/sos/v1"));
     }
 }
