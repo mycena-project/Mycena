@@ -13,9 +13,10 @@ use libp2p::{
     tcp, yamux, Multiaddr, PeerId, SwarmBuilder,
 };
 use mycelium_core::ble_multiaddr::is_ble_multiaddr;
-use mycelium_core::bootstrap::{is_relay_peer, peer_id_from_parsed_multiaddr};
+use mycelium_core::bootstrap::peer_id_from_parsed_multiaddr;
 use mycelium_core::mesh_profile::MeshProfile;
 use mycelium_core::relay_pool::RelayPool;
+use mycelium_core::relay_registry::{include_catalog_relays, load_relay_manifest};
 use mycelium_core::transport::{
     ConnectivityMode, MeshTransport, MessageAck, ScopeId, TransportEvent, WireMessage,
 };
@@ -166,6 +167,7 @@ impl Libp2pTransport {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         listen_addr: Multiaddr,
+        db_path: &str,
         keypair_path: Option<String>,
         bootstrap_peers: Vec<String>,
         connectivity_rx: Option<watch::Receiver<ConnectivityMode>>,
@@ -182,7 +184,15 @@ impl Libp2pTransport {
         } else {
             MeshProfile::from_env()
         };
-        let relay_pool = RelayPool::from_bootstrap_peers(&bootstrap_peers);
+        let relay_pool = {
+            let manifest = load_relay_manifest(db_path);
+            let pool = RelayPool::from_registry_manifest(&manifest, include_catalog_relays());
+            if pool.is_empty() {
+                RelayPool::from_bootstrap_peers(&bootstrap_peers)
+            } else {
+                pool
+            }
+        };
         let active_relay_index = relay_pool.select_index_for(&local_peer_id.to_string());
         // DNS transport required for /dns4/ bootstrap + relay-circuit multiaddrs.
         // Use hickory defaults (Android has no /etc/resolv.conf for system resolver).
@@ -293,7 +303,7 @@ impl Libp2pTransport {
         true
     }
 
-    fn failover_relay(&mut self) {
+    fn rotate_active_relay(&mut self) {
         if !self.internet_dials_enabled() {
             return;
         }
@@ -323,6 +333,27 @@ impl Libp2pTransport {
                 }
             }
         }
+    }
+
+    fn relay_failure_at(&mut self, failed_peer: &PeerId) {
+        let pid = failed_peer.to_string();
+        let Some(idx) = self
+            .relay_pool
+            .entries()
+            .iter()
+            .position(|e| e.peer_id == pid)
+        else {
+            return;
+        };
+        self.relay_pool.mark_failure(idx);
+        if idx == self.active_relay_index {
+            self.rotate_active_relay();
+        }
+    }
+
+    fn failover_relay(&mut self) {
+        self.relay_pool.mark_failure(self.active_relay_index);
+        self.rotate_active_relay();
     }
 
     fn setup_kad(&mut self) {
@@ -363,7 +394,7 @@ impl Libp2pTransport {
     }
 
     fn kad_maybe_dial(&mut self, peer: PeerId, addrs: impl IntoIterator<Item = Multiaddr>) {
-        if peer == self.local_peer_id || is_relay_peer(&peer.to_string()) {
+        if peer == self.local_peer_id || self.is_known_relay_peer(&peer.to_string()) {
             return;
         }
         for addr in addrs {
@@ -400,12 +431,18 @@ impl Libp2pTransport {
         addr.iter().any(|p| matches!(p, Protocol::P2pCircuit))
     }
 
-    fn relay_peer_id(&self) -> Option<PeerId> {
-        PeerId::from_str(mycelium_core::bootstrap::RELAY_PEER_ID).ok()
+    fn is_known_relay_peer(&self, peer_id: &str) -> bool {
+        self.relay_pool.is_relay_peer(peer_id)
+    }
+
+    fn active_relay_peer_id(&self) -> Option<PeerId> {
+        self.relay_pool
+            .entry(self.active_relay_index)
+            .and_then(|e| PeerId::from_str(&e.peer_id).ok())
     }
 
     fn relay_connected(&self) -> bool {
-        self.relay_peer_id()
+        self.active_relay_peer_id()
             .is_some_and(|id| self.swarm.is_connected(&id))
     }
 
@@ -437,7 +474,7 @@ impl Libp2pTransport {
                 continue;
             }
             if peer_id_from_parsed_multiaddr(addr)
-                .is_some_and(|pid| is_relay_peer(&pid.to_string()))
+                .is_some_and(|pid| self.is_known_relay_peer(&pid.to_string()))
             {
                 return format!("{addr_str}/p2p-circuit").parse().ok();
             }
@@ -483,7 +520,7 @@ impl Libp2pTransport {
             let Some(peer_id) = peer_id_from_parsed_multiaddr(&addr) else {
                 continue;
             };
-            if peer_id == self.local_peer_id || is_relay_peer(&peer_id.to_string()) {
+            if peer_id == self.local_peer_id || self.is_known_relay_peer(&peer_id.to_string()) {
                 continue;
             }
             if self.swarm.is_connected(&peer_id) {
@@ -523,7 +560,7 @@ impl Libp2pTransport {
                 continue;
             }
             if let Some(peer_id) = peer_id_from_parsed_multiaddr(&addr) {
-                if is_relay_peer(&peer_id.to_string()) {
+                if self.is_known_relay_peer(&peer_id.to_string()) {
                     continue;
                 }
                 if self.swarm.is_connected(&peer_id) {
@@ -547,7 +584,7 @@ impl Libp2pTransport {
             let Some(peer_id) = peer_id_from_parsed_multiaddr(&addr) else {
                 continue;
             };
-            if peer_id == self.local_peer_id || is_relay_peer(&peer_id.to_string()) {
+            if peer_id == self.local_peer_id || self.is_known_relay_peer(&peer_id.to_string()) {
                 continue;
             }
             if self.swarm.is_connected(&peer_id) {
@@ -586,7 +623,7 @@ impl Libp2pTransport {
     }
 
     fn handle_connection_established(&mut self, peer_id: PeerId) -> bool {
-        if peer_id == self.local_peer_id || is_relay_peer(&peer_id.to_string()) {
+        if peer_id == self.local_peer_id || self.is_known_relay_peer(&peer_id.to_string()) {
             return false;
         }
         if self.peer_cap.contains(&peer_id) {
@@ -665,10 +702,10 @@ impl MeshTransport for Libp2pTransport {
             .peers
             .iter()
             .map(ToString::to_string)
-            .filter(|p| !is_relay_peer(p))
+            .filter(|p| !self.is_known_relay_peer(p))
             .collect();
         for p in self.ble.known_peers() {
-            if !peers.contains(&p) && !is_relay_peer(&p) {
+            if !peers.contains(&p) && !self.is_known_relay_peer(&p) {
                 peers.push(p);
             }
         }
@@ -928,7 +965,7 @@ impl Libp2pTransport {
             SwarmEvent::Behaviour(MeshEvent::Mdns(mdns::Event::Expired(list))) => {
                 // mDNS TTL expiry ≠ TCP disconnect; only adjust gossip if not connected.
                 for (peer, _) in list {
-                    if peer == self.local_peer_id || is_relay_peer(&peer.to_string()) {
+                    if peer == self.local_peer_id || self.is_known_relay_peer(&peer.to_string()) {
                         continue;
                     }
                     if self.swarm.is_connected(&peer) {
@@ -941,11 +978,26 @@ impl Libp2pTransport {
                 }
             }
             SwarmEvent::OutgoingConnectionError { peer_id, error, .. } => {
+                if let Some(pid) = peer_id {
+                    if self.relay_pool.is_relay_peer(&pid.to_string()) {
+                        tracing::warn!("relay dial error peer={pid}: {error}");
+                        self.relay_failure_at(&pid);
+                    }
+                }
                 tracing::warn!("outgoing connection error peer={peer_id:?}: {error}");
             }
             SwarmEvent::ConnectionEstablished { peer_id, .. }
-                if is_relay_peer(&peer_id.to_string()) =>
+                if self.relay_pool.is_relay_peer(&peer_id.to_string()) =>
             {
+                if let Some(idx) = self
+                    .relay_pool
+                    .entries()
+                    .iter()
+                    .position(|e| e.peer_id == peer_id.to_string())
+                {
+                    self.active_relay_index = idx;
+                    self.relay_pool.mark_success(idx);
+                }
                 tracing::info!("connected to relay {peer_id}");
                 self.enable_relay_inbound_listen();
             }
@@ -960,12 +1012,12 @@ impl Libp2pTransport {
                     peer_id: peer_id.to_string(),
                 }));
             }
-            SwarmEvent::ConnectionClosed { peer_id, .. } if is_relay_peer(&peer_id.to_string()) => {
+            SwarmEvent::ConnectionClosed { peer_id, .. } if self.is_known_relay_peer(&peer_id.to_string()) => {
                 self.note_relay_disconnected();
                 self.failover_relay();
             }
             SwarmEvent::ConnectionClosed { peer_id, .. }
-                if !is_relay_peer(&peer_id.to_string()) && self.peer_cap.contains(&peer_id) =>
+                if !self.is_known_relay_peer(&peer_id.to_string()) && self.peer_cap.contains(&peer_id) =>
             {
                 self.peer_cap.remove(&peer_id);
                 self.swarm
@@ -1053,7 +1105,7 @@ impl Libp2pTransport {
             }
             SwarmEvent::Behaviour(MeshEvent::Relay(
                 libp2p::relay::client::Event::ReservationReqAccepted { relay_peer_id, .. },
-            )) if self.relay_peer_id().is_some_and(|id| id == relay_peer_id) => {
+            )) if self.is_known_relay_peer(&relay_peer_id.to_string()) => {
                 self.relay_reservation_confirmed = true;
                 tracing::info!("relay reservation accepted via {relay_peer_id}");
                 self.try_deferred_circuit_dials();

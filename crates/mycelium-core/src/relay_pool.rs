@@ -2,7 +2,8 @@
 // Copyright (C) 2026 Mycelium Project
 //! Multi-relay bootstrap pool with hash-based client rotation (Phase D2, SD-071).
 
-use crate::bootstrap::{peer_id_from_multiaddr, RELAY_PEER_ID};
+use crate::bootstrap::{peer_id_from_multiaddr, BOOTSTRAP_PEERS, RELAY_PEER_ID};
+use crate::relay_registry::{RelayRegistration, RelayRegistryManifest, VerifiedRelayRegistry};
 
 /// One public relay reachable via raw TCP (and optional QUIC in bootstrap list).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -10,6 +11,10 @@ pub struct RelayEntry {
     pub peer_id: String,
     /// TCP multiaddr including `/p2p/<relay_id>` (no circuit suffix).
     pub tcp_multiaddr: String,
+    pub operator_label: String,
+    pub region: String,
+    /// Client-side consecutive dial/reservation failures (not persisted).
+    pub consecutive_failures: u8,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -35,15 +40,48 @@ impl RelayPool {
             entries.push(RelayEntry {
                 peer_id: relay_id,
                 tcp_multiaddr: s.to_string(),
+                operator_label: String::new(),
+                region: String::new(),
+                consecutive_failures: 0,
             });
         }
         if entries.is_empty() {
             entries.push(RelayEntry {
                 peer_id: RELAY_PEER_ID.to_string(),
-                tcp_multiaddr: crate::bootstrap::BOOTSTRAP_PEERS[0].to_string(),
+                tcp_multiaddr: BOOTSTRAP_PEERS[0].to_string(),
+                operator_label: "mycelium-core-fly".into(),
+                region: "sin".into(),
+                consecutive_failures: 0,
             });
         }
         Self { entries }
+    }
+
+    /// Federated pool from a verified registry manifest.
+    pub fn from_verified_registry(verified: &VerifiedRelayRegistry) -> Self {
+        let mut entries: Vec<RelayEntry> = Vec::new();
+        for reg in &verified.dialable {
+            if let Some(new_entry) = relay_entry_from_registration(reg) {
+                if entries
+                    .iter()
+                    .any(|existing| existing.peer_id == new_entry.peer_id)
+                {
+                    continue;
+                }
+                entries.push(new_entry);
+            }
+        }
+        if entries.is_empty() {
+            return Self::from_bootstrap_peers(&[] as &[&str]);
+        }
+        Self { entries }
+    }
+
+    pub fn from_registry_manifest(manifest: &RelayRegistryManifest, include_catalog: bool) -> Self {
+        match manifest.verify_and_filter(include_catalog) {
+            Ok(v) => Self::from_verified_registry(&v),
+            Err(_) => Self::from_bootstrap_peers(&[] as &[&str]),
+        }
     }
 
     pub fn len(&self) -> usize {
@@ -65,23 +103,66 @@ impl RelayPool {
 
     /// Stable relay pick for a remote peer (spreads load across the pool).
     pub fn select_index_for(&self, seed: &str) -> usize {
+        self.select_index_for_with_skip(seed, &[])
+    }
+
+    /// Pick relay index skipping failed/unhealthy entries when possible.
+    pub fn select_index_for_with_skip(&self, seed: &str, skip: &[usize]) -> usize {
         if self.entries.is_empty() {
             return 0;
         }
         let h = blake3::hash(seed.as_bytes());
-        // INVARIANT: blake3 output is 32 bytes; slicing [0..8] always fits [u8; 8].
-        usize::from_le_bytes(h.as_bytes()[0..8].try_into().expect("8 bytes")) % self.entries.len()
+        let b = h.as_bytes();
+        let base = usize::from_le_bytes([b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7]]) % self.entries.len();
+        for offset in 0..self.entries.len() {
+            let idx = (base + offset) % self.entries.len();
+            if skip.contains(&idx) {
+                continue;
+            }
+            if self.entries[idx].consecutive_failures >= 3 {
+                continue;
+            }
+            return idx;
+        }
+        base
     }
 
     pub fn entry(&self, index: usize) -> Option<&RelayEntry> {
         self.entries.get(index % self.entries.len().max(1))
     }
 
+    pub fn entry_mut(&mut self, index: usize) -> Option<&mut RelayEntry> {
+        if self.entries.is_empty() {
+            return None;
+        }
+        let idx = index % self.entries.len();
+        self.entries.get_mut(idx)
+    }
+
+    /// Rotate to next healthy relay after failure.
     pub fn rotate_index(&self, current: usize) -> usize {
         if self.entries.len() <= 1 {
             return current;
         }
+        for step in 1..=self.entries.len() {
+            let idx = (current + step) % self.entries.len();
+            if self.entries[idx].consecutive_failures < 3 {
+                return idx;
+            }
+        }
         (current + 1) % self.entries.len()
+    }
+
+    pub fn mark_failure(&mut self, index: usize) {
+        if let Some(e) = self.entry_mut(index) {
+            e.consecutive_failures = e.consecutive_failures.saturating_add(1);
+        }
+    }
+
+    pub fn mark_success(&mut self, index: usize) {
+        if let Some(e) = self.entry_mut(index) {
+            e.consecutive_failures = 0;
+        }
     }
 
     /// Circuit multiaddr to reach `remote_peer_id` via relay at `relay_index`.
@@ -116,6 +197,17 @@ impl RelayPool {
     }
 }
 
+fn relay_entry_from_registration(reg: &RelayRegistration) -> Option<RelayEntry> {
+    let tcp = reg.primary_tcp_multiaddr()?.to_string();
+    Some(RelayEntry {
+        peer_id: reg.peer_id.clone(),
+        tcp_multiaddr: tcp,
+        operator_label: reg.operator_label.clone(),
+        region: reg.region.clone(),
+        consecutive_failures: 0,
+    })
+}
+
 /// True when `peer_id` matches any relay in the built-in bootstrap pool.
 pub fn is_relay_peer_in_pool(peer_id: &str, bootstrap_peers: &[impl AsRef<str>]) -> bool {
     RelayPool::from_bootstrap_peers(bootstrap_peers).is_relay_peer(peer_id)
@@ -124,6 +216,7 @@ pub fn is_relay_peer_in_pool(peer_id: &str, bootstrap_peers: &[impl AsRef<str>])
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::relay_registry::RelayRegistryManifest;
     use libp2p::identity;
 
     fn relay_addr(ip: &str) -> String {
@@ -158,7 +251,6 @@ mod tests {
     fn festival_soak_500_nodes_no_relay_collapse() {
         let pool = sample_pool();
         let share = RelayPool::max_relay_share(500, &pool);
-        // With 3 relays, uniform hashing should stay well below 50% on one host.
         assert!(
             share < 0.45,
             "single relay share {share} too high for 500-node soak"
@@ -187,5 +279,23 @@ mod tests {
             pool.select_index_for("peer-xyz"),
             pool.select_index_for("peer-xyz")
         );
+    }
+
+    #[test]
+    fn federated_pool_from_default_manifest() {
+        let manifest = RelayRegistryManifest::default_embedded();
+        let pool = RelayPool::from_registry_manifest(&manifest, false);
+        assert!(pool.len() >= 1);
+        assert!(pool.is_relay_peer(RELAY_PEER_ID));
+    }
+
+    #[test]
+    fn failure_tracking_skips_unhealthy() {
+        let mut pool = sample_pool();
+        pool.mark_failure(0);
+        pool.mark_failure(0);
+        pool.mark_failure(0);
+        let idx = pool.select_index_for_with_skip("seed", &[]);
+        assert_ne!(idx, 0);
     }
 }

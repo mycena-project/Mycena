@@ -47,7 +47,7 @@ This ledger describes **systemic** risks arising from architectural choices—no
 
 | Risk ID | Domain | Description | Blast radius | Detectability | Residual risk after beta mitigations |
 |---------|--------|-------------|--------------|---------------|--------------------------------------|
-| AR-01 | **Concentration** | Single public relay + embedded bootstrap | Global Internet path | Outage obvious | High — mesh LAN still works |
+| AR-01 | **Concentration** | Federated relay registry + client failover (was: single Fly.io bootstrap) | Global Internet path if all listed relays fail | Outage obvious; per-relay failure triggers rotation | **Medium** — mesh LAN still works; production still relies on one primary relay until community relays ship |
 | AR-02 | **Amplification** | Store-and-forward without authenticated routing | Network-wide flood | Metrics queue growth | High until SD-031 fixed |
 | AR-03 | **Identity binding** | libp2p PeerId == user identity forever | Lifetime tracking | Passive | Critical for activists |
 | AR-04 | **E2E model** | v1 Double Ratchet + v0 legacy fallback ([ADR 004](./adr/004-double-ratchet-e2e.md)) | Message content | User mistake / pre-bootstrap v0 | Medium |
@@ -85,7 +85,7 @@ This ledger describes **systemic** risks arising from architectural choices—no
 
 | Mode | Trigger | Outcome |
 |------|---------|---------|
-| Relay outage | Fly.io / DNS | Internet path degraded |
+| Relay outage | Fly.io / DNS / all federated relays | Internet path degraded; client rotates pool |
 | Queue flood | SD-030/031 | Battery + storage exhaustion |
 | Bloom sync storm | Large id sets | CPU / bandwidth spike |
 | Play Store removal | Policy violation | Distribution collapse |
@@ -199,6 +199,7 @@ Architecture currently **O(peers)** fanout on unknown destinations—does not sc
 | Date | Decision | Risk accepted |
 |------|----------|---------------|
 | 2026-05 | libp2p relay on Fly.io as default bootstrap | AR-01, AR-10 |
+| 2026-07 | Federated signed relay registry + pool failover ([RELAY_OPERATOR_GUIDE](./RELAY_OPERATOR_GUIDE.md)) | Reduces AR-01; Sybil caps via curator endorsements |
 | 2026-05 | MeshCoin local ledger + witnesses (preview) | AR-06 |
 | 2026-05 | Mini-apps in WebView not native SDK | AR-07 |
 | 2026-05 | EncryptedDirect requires mesh_signature | Reduces AR-02 partial |

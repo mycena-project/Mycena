@@ -2,10 +2,9 @@
 // Copyright (C) 2026 Mycelium Project
 //! Öffentliche Bootstrap-Peers für das Mycelium-Netzwerk.
 //!
-//! Nach einem Relay-Redeployment:
-//! 1. `curl -s https://mycelium-relay.fly.dev/` → `peer_id`
-//! 2. [`RELAY_PEER_ID`] und [`BOOTSTRAP_PEERS`] aktualisieren (TCP via dedicated `/ip4/…`)
-//! 3. Commit + Build → Clients dialen den Relay korrekt
+//! Federated relay registry (signed operator entries) replaces a single hard-coded
+//! relay as the only bootstrap path — see [`crate::relay_registry`] and
+//! [`RELAY_OPERATOR_GUIDE.md`](../../docs/RELAY_OPERATOR_GUIDE.md).
 
 /// Fly.io dedicated IPv4 (raw libp2p TCP/UDP; shared ingress breaks Noise handshake).
 pub const RELAY_IPV4: &str = "149.248.194.198";
@@ -18,7 +17,13 @@ pub fn is_relay_peer(peer_id: &str) -> bool {
     if p == RELAY_PEER_ID {
         return true;
     }
-    crate::relay_pool::RelayPool::from_bootstrap_peers(BOOTSTRAP_PEERS).is_relay_peer(p)
+    let manifest = crate::relay_registry::load_relay_manifest("");
+    crate::relay_pool::RelayPool::from_registry_manifest(&manifest, false).is_relay_peer(p)
+}
+
+/// Verified federated relay multiaddrs (embedded manifest + optional `relay_registry.json`).
+pub fn federated_bootstrap_multiaddrs(db_path: &str) -> Vec<String> {
+    crate::relay_registry::federated_bootstrap_peers(db_path)
 }
 
 /// True for a libp2p PeerId string (not a multiaddr or truncated garbage).
@@ -61,7 +66,8 @@ pub fn relay_circuit_multiaddr_with_relay(
     remote_peer_id: &str,
     relay_index: Option<usize>,
 ) -> Option<String> {
-    let pool = crate::relay_pool::RelayPool::from_bootstrap_peers(BOOTSTRAP_PEERS);
+    let manifest = crate::relay_registry::load_relay_manifest("");
+    let pool = crate::relay_pool::RelayPool::from_registry_manifest(&manifest, false);
     let idx = relay_index.unwrap_or_else(|| pool.select_index_for(remote_peer_id));
     pool.circuit_multiaddr(remote_peer_id, idx)
 }
@@ -137,7 +143,8 @@ pub fn shareable_dial_multiaddrs(
 /// Lädt Bootstrap-Peers mit folgender Priorität:
 /// 1. Umgebungsvariable `MYCELIUM_BOOTSTRAP_PEERS` (kommasepariert)
 /// 2. Datei `<db_path>/bootstrap.txt` (eine Adresse pro Zeile, # = Kommentar)
-/// 3. Eingebettete Konstanten aus [`BOOTSTRAP_PEERS`]
+/// 3. Verified federated relay registry (embedded + `<db_path>/relay_registry.json`)
+/// 4. Legacy embedded [`BOOTSTRAP_PEERS`]
 pub fn load_bootstrap_peers(db_path: &str) -> Vec<String> {
     if let Ok(env_peers) = std::env::var("MYCELIUM_BOOTSTRAP_PEERS") {
         let peers: Vec<String> = env_peers
@@ -179,7 +186,11 @@ pub fn load_bootstrap_peers(db_path: &str) -> Vec<String> {
         "bootstrap: using {} built-in peer(s)",
         BOOTSTRAP_PEERS.len()
     );
-    BOOTSTRAP_PEERS.iter().map(|s| (*s).to_string()).collect()
+    let mut peers: Vec<String> = federated_bootstrap_multiaddrs(db_path);
+    if peers.is_empty() {
+        peers = BOOTSTRAP_PEERS.iter().map(|s| (*s).to_string()).collect();
+    }
+    peers
 }
 
 /// Reads custom bootstrap peers from `<db_path>/bootstrap.txt` only (no env / built-in fallback).

@@ -676,6 +676,7 @@ impl NodeRunner {
         )?;
         let transport = Libp2pTransport::new(
             config.listen_addr.clone(),
+            &config.db_path,
             keypair_path,
             bootstrap_peers,
             config.connectivity_rx.clone(),
