@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Mycelium Project
 //! NodeHandle ↔ BLE host bridge (same commands as Android FFI).
+#![allow(dead_code)] // F2/F3 drain helpers; desktop relay uses `drain_bearer_outbound` today.
 
 use mycelium_app::node::AppNode;
 use mycelium_l1_facade::{NodeCommand, NodeHandle};

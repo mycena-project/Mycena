@@ -49,6 +49,7 @@ impl LinkRegistry {
             .cloned()
     }
 
+    #[allow(dead_code)] // Used when desktop BLE drain enumerates linked peers.
     pub fn all_peers(&self) -> Vec<String> {
         self.peer_to_device
             .lock()
