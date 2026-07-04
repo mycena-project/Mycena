@@ -321,6 +321,22 @@ pub trait MeshTransport: Send {
     fn drain_pending_ble_events(&mut self) -> Vec<TransportEvent> {
         Vec::new()
     }
+    /// Queue F2 side-channel wire message on the unified bearer (best-effort).
+    fn queue_bearer_side_wire(
+        &mut self,
+        _to_peer: String,
+        _message: WireMessage,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+    /// Drain encoded bearer frames from the F2 side queue.
+    fn drain_bearer_side_outbound(
+        &mut self,
+        _to_peer: Option<&str>,
+        _max: usize,
+    ) -> Vec<(String, Vec<u8>)> {
+        Vec::new()
+    }
     /// Start a Kademlia lookup for `target_peer_id` (no-op on transports without DHT).
     fn kad_find_peer(&mut self, _target_peer_id: &str) {}
     /// Adjust Kademlia activity for connectivity mode changes.

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Mycelium Project
 pub mod behaviour;
+mod bearer_ble;
 mod ble_transport;
 pub mod connectivity;
 mod custody;
@@ -26,8 +27,8 @@ pub use connectivity::{kad_action_for_mode, ConnectivityMonitor, KadConnectivity
 pub use custody::{CustodyConfig, CustodyForwardPlan, CustodyQueue, DEFAULT_MAX_CUSTODY_SPRAY};
 pub use encounter_log::{EncounterLogStore, EncounterRecord, ENCOUNTER_LOG_TTL_MS};
 pub use error::{
-    decode_peer_ble_stream_frame, decode_peer_ble_wire_frame, decode_peer_wire_message, NodeError,
-    NodeResult,
+    decode_peer_bearer_frame, decode_peer_ble_stream_frame, decode_peer_ble_wire_frame,
+    decode_peer_wire_message, NodeError, NodeResult,
 };
 pub use mycelium_core::at_rest::parse_storage_key_hex;
 pub use mycelium_core::transport::{ConnectivityMode, DirectMessage, StoreStats, WireMessage};

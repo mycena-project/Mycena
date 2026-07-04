@@ -3,6 +3,7 @@
 use crate::behaviour::{
     make_direct_response, DirectMessageRequest, DirectMessageResponse, MeshBehaviour,
 };
+use crate::bearer_ble::BearerBleRouter;
 use crate::ble_transport::BleTransportRegistry;
 use crate::connectivity::{kad_action_for_mode, KadConnectivityAction};
 use futures::StreamExt;
@@ -152,7 +153,7 @@ pub struct Libp2pTransport {
     active_relay_index: usize,
     mdns_dials_in_window: u32,
     mdns_window_start: Option<Instant>,
-    ble: BleTransportRegistry,
+    bearer: BearerBleRouter,
     /// Throttle redials to stale LAN addrs (e.g. phone in flight mode).
     last_lan_dial: HashMap<String, Instant>,
 }
@@ -258,7 +259,7 @@ impl Libp2pTransport {
             active_relay_index,
             mdns_dials_in_window: 0,
             mdns_window_start: None,
-            ble: BleTransportRegistry::new(),
+            bearer: BearerBleRouter::new(),
             last_lan_dial: HashMap::new(),
         };
         if transport.internet_dials_enabled() {
@@ -651,7 +652,7 @@ impl Libp2pTransport {
 
     fn queue_dial_target(&mut self, multiaddr: String) -> anyhow::Result<()> {
         if is_ble_multiaddr(&multiaddr) {
-            return self.ble.queue_dial(&multiaddr);
+            return self.bearer.queue_dial(&multiaddr);
         }
         let addr: Multiaddr = multiaddr.parse()?;
         if Self::is_circuit_dial(&addr) {
@@ -704,7 +705,7 @@ impl MeshTransport for Libp2pTransport {
             .map(ToString::to_string)
             .filter(|p| !self.is_known_relay_peer(p))
             .collect();
-        for p in self.ble.known_peers() {
+        for p in self.bearer.known_peers() {
             if !peers.contains(&p) && !self.is_known_relay_peer(&p) {
                 peers.push(p);
             }
@@ -717,7 +718,7 @@ impl MeshTransport for Libp2pTransport {
     }
 
     fn is_peer_connected(&self, peer_id: &str) -> bool {
-        if self.ble.is_connected(peer_id) {
+        if self.bearer.is_connected(peer_id) {
             return true;
         }
         PeerId::from_str(peer_id)
@@ -777,8 +778,8 @@ impl MeshTransport for Libp2pTransport {
     }
 
     async fn send_direct(&mut self, to_peer: String, message: WireMessage) -> anyhow::Result<()> {
-        if self.ble.is_connected(&to_peer) {
-            return self.ble.send_direct(&to_peer, message);
+        if self.bearer.is_connected(&to_peer) {
+            return self.bearer.send_direct(&to_peer, message);
         }
         let peer = PeerId::from_str(&to_peer)?;
         self.peer_cap.touch(peer);
@@ -852,15 +853,31 @@ impl MeshTransport for Libp2pTransport {
 
     fn drain_pending_ble_events(&mut self) -> Vec<TransportEvent> {
         let mut out = Vec::new();
-        while let Some(ev) = self.ble.try_recv_event() {
+        while let Some(ev) = self.bearer.try_recv_event() {
             out.push(ev);
         }
         out
     }
 
+    fn queue_bearer_side_wire(
+        &mut self,
+        to_peer: String,
+        message: WireMessage,
+    ) -> anyhow::Result<()> {
+        self.bearer.queue_side_channel_wire(to_peer, &message)
+    }
+
+    fn drain_bearer_side_outbound(
+        &mut self,
+        to_peer: Option<&str>,
+        max: usize,
+    ) -> Vec<(String, Vec<u8>)> {
+        self.bearer.drain_side_outbound(to_peer, max)
+    }
+
     async fn next_event(&mut self) -> anyhow::Result<TransportEvent> {
         loop {
-            if let Some(ev) = self.ble.try_recv_event() {
+            if let Some(ev) = self.bearer.try_recv_event() {
                 return Ok(ev);
             }
             if let Some(rx) = &mut self.connectivity_rx {
@@ -897,23 +914,23 @@ impl Libp2pTransport {
         device_id: &str,
     ) -> Option<TransportEvent> {
         tracing::info!("BLE libp2p link registered for {peer_id} ({device_id})");
-        self.ble.register_link(peer_id, device_id)
+        self.bearer.register_link(peer_id, device_id)
     }
 
     pub fn remove_ble_link(&mut self, peer_id: &str) -> Option<TransportEvent> {
-        self.ble.remove_link(peer_id)
+        self.bearer.remove_link(peer_id)
     }
 
     pub fn ingest_ble_stream_frame(&mut self, from_peer: &str, frame: &[u8]) -> anyhow::Result<()> {
-        self.ble.ingest_stream_frame(from_peer, frame)
+        self.bearer.ingest_stream_frame(from_peer, frame)
     }
 
     pub fn drain_ble_stream_outbound(&mut self, to_peer: &str, max: usize) -> Vec<Vec<u8>> {
-        self.ble.drain_outbound(to_peer, max)
+        self.bearer.drain_stream_outbound(to_peer, max)
     }
 
     pub fn ble_peer_addrs(&self) -> Vec<String> {
-        self.ble
+        self.bearer
             .all_peer_infos()
             .into_iter()
             .map(|p| p.multiaddr)

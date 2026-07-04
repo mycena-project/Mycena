@@ -1,34 +1,32 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Mycelium Project
 //! BLE side-channel framing for wire messages (ADR 002 F2).
+//!
+//! Public API preserved; implementation delegates to [`crate::bearer_transport`].
 
+use crate::bearer_transport::{self, BearerPayloadKind};
 use crate::contact_hello::ContactHello;
 use crate::transport::WireMessage;
 
-pub const FRAME_MAGIC: [u8; 4] = *b"MYBL";
-pub const CHUNK_MAGIC: [u8; 4] = *b"MYLC";
-/// Max encoded wire frame (excluding chunk wrappers).
-pub const MAX_FRAME_LEN: usize = 4096;
-/// Payload bytes per GATT chunk (after 4-byte chunk header).
-pub const GATT_CHUNK_PAYLOAD: usize = 476;
+pub use bearer_transport::chunk_frame;
+pub use bearer_transport::ChunkAssembler;
 
-/// Encode a [`WireMessage`] for BLE transfer: `MYBL | u32 BE len | bincode(wire)`.
+pub const FRAME_MAGIC: [u8; 4] = bearer_transport::LEGACY_WIRE_MAGIC;
+pub const CHUNK_MAGIC: [u8; 4] = bearer_transport::CHUNK_MAGIC;
+pub const MAX_FRAME_LEN: usize = bearer_transport::MAX_FRAME_LEN;
+pub const GATT_CHUNK_PAYLOAD: usize = bearer_transport::GATT_CHUNK_PAYLOAD;
+
+/// Encode a [`WireMessage`] for BLE transfer (legacy `MYBL` on wire by default).
 pub fn encode_wire(wire: &WireMessage) -> anyhow::Result<Vec<u8>> {
     let payload = bincode::serialize(wire)?;
-    if payload.len() > MAX_FRAME_LEN {
-        anyhow::bail!(
-            "wire message too large for BLE ({payload_len} > {MAX_FRAME_LEN})",
-            payload_len = payload.len()
-        );
-    }
-    let mut out = Vec::with_capacity(8 + payload.len());
-    out.extend_from_slice(&FRAME_MAGIC);
-    out.extend_from_slice(&(payload.len() as u32).to_be_bytes());
-    out.extend_from_slice(&payload);
-    Ok(out)
+    bearer_transport::encode_bearer_frame(
+        BearerPayloadKind::SideChannelWire,
+        &payload,
+        bearer_transport::default_wire_version(),
+    )
 }
 
-/// Sender libp2p peer id from a reassembled MYBL frame (contact hello or envelope).
+/// Sender libp2p peer id from a reassembled frame (contact hello or envelope).
 pub fn sender_peer_from_frame(bytes: &[u8]) -> Option<String> {
     let wire = decode_frame(bytes).ok()?;
     match wire {
@@ -48,91 +46,16 @@ pub fn sender_peer_from_frame(bytes: &[u8]) -> Option<String> {
     }
 }
 
-/// Decode a full frame produced by [`encode_wire`].
+/// Decode a full F2 wire frame (MYBR v1 or MYBL legacy).
 pub fn decode_frame(bytes: &[u8]) -> anyhow::Result<WireMessage> {
-    if bytes.len() < 8 {
-        anyhow::bail!("BLE frame too short");
-    }
-    if bytes[..4] != FRAME_MAGIC {
-        anyhow::bail!("invalid BLE frame magic");
-    }
-    let len = u32::from_be_bytes(bytes[4..8].try_into()?) as usize;
-    if len > MAX_FRAME_LEN {
-        anyhow::bail!("BLE frame length exceeds max");
-    }
-    if bytes.len() < 8 + len {
-        anyhow::bail!("BLE frame truncated");
-    }
-    let wire: WireMessage = bincode::deserialize(&bytes[8..8 + len])?;
-    Ok(wire)
-}
-
-/// Split a frame into GATT-sized chunks: `MYLC | idx u8 | total u8 | payload`.
-pub fn chunk_frame(frame: &[u8]) -> Vec<Vec<u8>> {
-    if frame.is_empty() {
-        return Vec::new();
-    }
-    let chunk_count = frame.len().div_ceil(GATT_CHUNK_PAYLOAD).min(255) as u8;
-    let mut out = Vec::with_capacity(chunk_count as usize);
-    for (idx, piece) in frame.chunks(GATT_CHUNK_PAYLOAD).enumerate() {
-        if idx >= 255 {
-            break;
+    let frame = bearer_transport::decode_bearer_frame(bytes)?;
+    match frame.kind {
+        BearerPayloadKind::SideChannelWire | BearerPayloadKind::LegacyWire => {
+            Ok(bincode::deserialize(&frame.payload)?)
         }
-        let mut chunk = Vec::with_capacity(4 + 2 + piece.len());
-        chunk.extend_from_slice(&CHUNK_MAGIC);
-        chunk.push(idx as u8);
-        chunk.push(chunk_count);
-        chunk.extend_from_slice(piece);
-        out.push(chunk);
-    }
-    out
-}
-
-/// Incrementally reassemble chunked frames; returns full frame when complete.
-#[derive(Debug, Default)]
-pub struct ChunkAssembler {
-    total: u8,
-    parts: Vec<Option<Vec<u8>>>,
-}
-
-impl ChunkAssembler {
-    pub fn reset(&mut self) {
-        self.total = 0;
-        self.parts.clear();
-    }
-
-    /// Feed one GATT chunk; `Some(frame)` when reassembly completes.
-    pub fn push_chunk(&mut self, chunk: &[u8]) -> anyhow::Result<Option<Vec<u8>>> {
-        if chunk.len() < 6 || chunk[..4] != CHUNK_MAGIC {
-            anyhow::bail!("invalid BLE chunk");
+        BearerPayloadKind::StreamDirect | BearerPayloadKind::LegacyStream => {
+            anyhow::bail!("stream bearer frame — use ble_stream::decode_stream_frame")
         }
-        let idx = chunk[4] as usize;
-        let total = chunk[5];
-        if total == 0 {
-            anyhow::bail!("invalid chunk total");
-        }
-        if idx >= total as usize {
-            anyhow::bail!("chunk index out of range");
-        }
-        if self.total == 0 {
-            self.total = total;
-            self.parts = vec![None; total as usize];
-        } else if self.total != total {
-            self.reset();
-            self.total = total;
-            self.parts = vec![None; total as usize];
-        }
-        self.parts[idx] = Some(chunk[6..].to_vec());
-        if self.parts.iter().any(|p| p.is_none()) {
-            return Ok(None);
-        }
-        let mut frame = Vec::new();
-        for part in self.parts.drain(..) {
-            // INVARIANT: every slot is Some — we return early above if any part is missing.
-            frame.extend_from_slice(&part.unwrap_or_default());
-        }
-        self.total = 0;
-        Ok(Some(frame))
     }
 }
 

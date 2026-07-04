@@ -2,7 +2,6 @@
 // Copyright (C) 2026 Mycelium Project
 use crate::custody::{CustodyConfig, CustodyQueue, DEFAULT_MAX_CUSTODY_SPRAY};
 use crate::encounter_log::EncounterLogStore;
-use crate::error::decode_peer_ble_wire_frame;
 use crate::forwarding::{
     EnergyPolicy, ForwardDecision, ForwardingPolicy, IngestPipeline, ProbabilisticForwardingPolicy,
     SeenCache, SimpleEnergyPolicy,
@@ -610,8 +609,6 @@ pub struct NodeRunner {
     pending_identity_rotation: Option<mycelium_core::identity_rotation::IdentityRotationGossip>,
     crowd_mode: Arc<AtomicBool>,
     rendezvous_dial_bucket: u32,
-    ble_outbound: VecDeque<(String, Vec<u8>)>,
-    ble_outbound_cap: usize,
     ratchet_store: Arc<crate::ratchet_store::RatchetSessionStore>,
     local_prekeys: Arc<Mutex<mycelium_core::crypto::ratchet::LocalPrekeyStore>>,
     encounter_log: EncounterLogStore,
@@ -812,8 +809,6 @@ impl NodeRunner {
                 pending_identity_rotation,
                 crowd_mode: crowd_mode.clone(),
                 rendezvous_dial_bucket: 0,
-                ble_outbound: VecDeque::new(),
-                ble_outbound_cap: 128,
                 ratchet_store: ratchet_store.clone(),
                 local_prekeys: local_prekeys.clone(),
                 encounter_log,
@@ -1130,28 +1125,18 @@ impl NodeRunner {
                 }
             }
             NodeCommand::IngestBleFrame { from_peer, frame } => {
-                if self.try_ingest_ble_assembled(&from_peer, &frame).await? {
+                if self.ingest_bearer_frame(&from_peer, &frame).await? {
                     return Ok(());
                 }
-                let wire = decode_peer_ble_wire_frame(&frame)?;
-                self.handle_incoming_direct(from_peer, wire).await?;
             }
             NodeCommand::DrainBleOutbound {
                 to_peer,
                 max,
                 reply,
             } => {
-                let mut drained = Vec::new();
-                let mut rest = VecDeque::new();
-                while let Some((peer, frame)) = self.ble_outbound.pop_front() {
-                    let matches = to_peer.as_ref().is_none_or(|p| p == &peer);
-                    if matches && drained.len() < max {
-                        drained.push((peer, frame));
-                    } else {
-                        rest.push_back((peer, frame));
-                    }
-                }
-                self.ble_outbound = rest;
+                let drained = self
+                    .transport
+                    .drain_bearer_side_outbound(to_peer.as_deref(), max);
                 if let Some(tx) = reply {
                     let _ = tx.send(drained);
                 }
@@ -1420,34 +1405,38 @@ impl NodeRunner {
         Ok(())
     }
 
-    async fn try_ingest_ble_assembled(
+    async fn ingest_bearer_frame(
         &mut self,
         from_peer: &str,
         frame: &[u8],
     ) -> anyhow::Result<bool> {
-        if frame.len() >= 4 && frame[..4] == mycelium_core::ble_stream::STREAM_MAGIC {
-            self.transport.ingest_ble_stream_frame(from_peer, frame)?;
-            for ev in self.transport.drain_pending_ble_events() {
-                self.handle_transport_event(ev).await?;
+        use crate::bearer_ble::{BearerBleRouter, BearerIngestAction};
+        match BearerBleRouter::decode_ingest(frame) {
+            Ok(BearerIngestAction::StreamFrame(payload)) => {
+                let encoded = mycelium_core::ble_stream::encode_stream_frame(&payload)?;
+                self.transport
+                    .ingest_ble_stream_frame(from_peer, &encoded)?;
+                for ev in self.transport.drain_pending_ble_events() {
+                    self.handle_transport_event(ev).await?;
+                }
+                Ok(true)
             }
-            return Ok(true);
+            Ok(BearerIngestAction::Wire(wire)) => {
+                self.handle_incoming_direct(from_peer.to_string(), wire)
+                    .await?;
+                Ok(true)
+            }
+            Err(e) => {
+                warn!("bearer frame decode from {from_peer}: {e:#}");
+                Ok(false)
+            }
         }
-        Ok(false)
     }
 
     fn queue_ble_wire(&mut self, to_peer: String, wire: WireMessage) {
-        match mycelium_core::ble_mesh::encode_wire(&wire) {
-            Ok(frame) => {
-                self.ble_outbound.push_back((to_peer.clone(), frame));
-                while self.ble_outbound.len() > self.ble_outbound_cap {
-                    self.ble_outbound.pop_front();
-                }
-                info!(
-                    "queued BLE frame for {to_peer} ({} bytes)",
-                    self.ble_outbound.back().map(|(_, f)| f.len()).unwrap_or(0)
-                );
-            }
-            Err(e) => warn!("BLE encode for {to_peer}: {e:#}"),
+        match self.transport.queue_bearer_side_wire(to_peer.clone(), wire) {
+            Ok(()) => info!("queued bearer side frame for {to_peer}"),
+            Err(e) => warn!("bearer side queue for {to_peer}: {e:#}"),
         }
     }
 

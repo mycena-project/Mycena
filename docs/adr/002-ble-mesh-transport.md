@@ -71,6 +71,25 @@ We will treat Bluetooth as **three layers**, rolled out in order. Chat/mail/bull
 
 ---
 
+## F2 / F3 — unified bearer framing (2026-07)
+
+F2 (`MYBL`) and F3 (`MYLP`) shared GATT chunking (`MYLC`) but duplicated inner framing and node queues. Both now route through [`bearer_transport`](../../crates/mycelium-core/src/bearer_transport.rs):
+
+| Layer | Format |
+|-------|--------|
+| GATT chunk | `MYLC \| idx \| total \| payload` (unchanged) |
+| Inner frame v1 | `MYBR \| version \| kind \| flags \| len \| payload` |
+| Legacy F2 | `MYBL \| len \| bincode(WireMessage)` |
+| Legacy F3 | `MYLP \| len \| cbor` |
+
+[`BearerTransport`](../../crates/mycelium-core/src/bearer_transport.rs) trait: `send_frame`, `recv_frame`, `mtu`, `reliability_class`. BLE implementation: [`BearerBleRouter`](../../crates/mycelium-node/src/bearer_ble.rs).
+
+**Wire compat:** decode accepts MYBR + MYBL + MYLP; encode defaults to legacy magics (`MYCELIUM_BEARER_WIRE_V1=1` for MYBR). Host FFI (`drainBleOutbound` / `drainBleStreamOutbound`) unchanged.
+
+Future bearers (Wi‑Fi Direct, LoRa) implement the same trait with different MTU/chunk drivers.
+
+---
+
 ## F2 — BLE data bridge (shipped Android)
 
 When libp2p has **no connected path** to a peer but BLE GATT link exists:

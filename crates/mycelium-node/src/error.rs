@@ -87,6 +87,12 @@ impl NodeError {
     }
 }
 
+/// Decode any bearer frame (MYBR v1, MYBL, MYLP) from a peer.
+pub fn decode_peer_bearer_frame(frame: &[u8]) -> NodeResult<mycelium_core::bearer_transport::BearerFrame> {
+    mycelium_core::bearer_transport::decode_bearer_frame(frame)
+        .map_err(NodeError::invalid_ble_frame)
+}
+
 /// Decode an F2 MYBL wire frame from a peer; never panics on malformed bytes.
 pub fn decode_peer_ble_wire_frame(frame: &[u8]) -> NodeResult<WireMessage> {
     mycelium_core::ble_mesh::decode_frame(frame).map_err(NodeError::invalid_ble_frame)
