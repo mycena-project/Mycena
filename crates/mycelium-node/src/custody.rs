@@ -68,7 +68,7 @@ impl CustodyRoutingContext {
                 &encounter_first,
                 &HashMap::new(),
             ),
-            diversity: PeerDiversityConfig::score_only(),
+            diversity: PeerDiversityConfig::default(),
             negotiated_caps: HashMap::new(),
             candidate_scoring: CustodyCandidateScoring::RecencyOnly,
         })

@@ -66,11 +66,15 @@ impl FixedWindowRateLimiter {
     }
 
     fn allow(&mut self, key: &str, now_ms: u64) -> bool {
+        self.allow_with_limit(key, now_ms, self.limit)
+    }
+
+    fn allow_with_limit(&mut self, key: &str, now_ms: u64, limit: u32) -> bool {
         let entry = self.buckets.entry(key.to_string()).or_insert((0, now_ms));
         if now_ms.saturating_sub(entry.1) >= self.window_ms {
             *entry = (0, now_ms);
         }
-        if entry.0 >= self.limit {
+        if entry.0 >= limit {
             return false;
         }
         entry.0 += 1;
@@ -174,7 +178,21 @@ impl IngestGuard {
         geohash: Option<&str>,
         now_ms: u64,
     ) -> Result<(), IngestReject> {
-        if !self.rate_sos.allow(from_peer, now_ms) {
+        self.check_sos_gossip_with_limit(from_peer, geohash, SOS_RATE_PER_MINUTE, now_ms)
+    }
+
+    /// SOS gossip with caller-selected per-relay cap (reputation-tiered ingest).
+    pub fn check_sos_gossip_with_limit(
+        &mut self,
+        from_peer: &str,
+        geohash: Option<&str>,
+        peer_limit: u32,
+        now_ms: u64,
+    ) -> Result<(), IngestReject> {
+        if !self
+            .rate_sos
+            .allow_with_limit(from_peer, now_ms, peer_limit)
+        {
             return Err(IngestReject::RateLimit);
         }
         if let Some(gh) = geohash.map(str::trim).filter(|s| !s.is_empty()) {

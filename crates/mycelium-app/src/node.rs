@@ -19,7 +19,7 @@ use mycelium_coin::CoinNode;
 use mycelium_l0_facade::consistency::{
     OP_DIRECT_MESSAGE_SEND, OP_GOSSIP_BULLETIN_PUBLISH, OP_RESOURCE_MAP_BROADCAST, OP_SOS_BROADCAST,
 };
-use mycelium_l0_facade::crisis_mode::{geohash_nearby, CrisisAutoConfig, CrisisManualMode};
+use mycelium_l0_facade::crisis_mode::CrisisManualMode;
 use mycelium_l0_facade::data::now_ms;
 use mycelium_l0_facade::data::Priority;
 use mycelium_l0_facade::resource_map::{
@@ -1578,18 +1578,8 @@ impl AppNode {
         local_geohash_prefix: Option<&str>,
     ) -> anyhow::Result<()> {
         let listen = self.listen_sos.load(Ordering::Relaxed);
-        let cfg = CrisisAutoConfig::default();
-        let nearby = local_geohash_prefix
-            .filter(|p| !p.is_empty())
-            .map(|prefix| {
-                self.list_sos_posts()
-                    .unwrap_or_default()
-                    .into_iter()
-                    .any(|s| geohash_nearby(prefix, &s.geohash, cfg.geohash_prefix_len))
-            })
-            .unwrap_or(false);
         self.handle
-            .update_crisis_auto(internet_reachable, listen, nearby)
+            .update_crisis_auto(internet_reachable, listen, local_geohash_prefix)
             .await
     }
 

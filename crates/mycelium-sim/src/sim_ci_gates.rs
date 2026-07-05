@@ -8,6 +8,8 @@
 use crate::commuter_custody_scenarios::commuter_custody_comparison;
 use crate::custody_scenarios::city_custody_delivery;
 use crate::dense_cluster::dense_cluster_shard_containment;
+use crate::local_sybil_dense::run_local_sybil_dense_ci_gate as run_local_sybil_dense_gate;
+use crate::sos_flood_scenarios::run_sos_flood_ci_gate;
 use crate::eclipse_scenarios::eclipse_relay_resilience;
 use crate::lab::gates::lab_delivery_thresholds;
 use crate::lab::preset::LabPreset;
@@ -97,6 +99,16 @@ pub fn run_eclipse_ci_gate() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Local dense Sybil (200 legit + 500 co-located fakes): diversity preserves legit delivery.
+pub fn run_local_sybil_dense_ci_gate() -> anyhow::Result<()> {
+    run_local_sybil_dense_gate().map(|_| ())
+}
+
+/// SOS Sybil flood must not trigger global crisis; three legit sources must.
+pub fn run_sos_flood_ci_gate_wrapper() -> anyhow::Result<()> {
+    run_sos_flood_ci_gate().map(|_| ())
+}
+
 /// Dense cluster gossip shard containment (520 nodes analytical model).
 pub fn run_dense_cluster_ci_gate() -> anyhow::Result<()> {
     let report = dense_cluster_shard_containment(520);
@@ -119,6 +131,8 @@ pub fn run_all_sim_ci_gates() -> anyhow::Result<Vec<LabReport>> {
     run_custody_ci_gate()?;
     run_commuter_custody_ci_gate()?;
     run_eclipse_ci_gate()?;
+    run_local_sybil_dense_ci_gate()?;
+    run_sos_flood_ci_gate_wrapper()?;
     run_dense_cluster_ci_gate()?;
     Ok(lab_reports)
 }

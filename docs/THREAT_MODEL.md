@@ -1,11 +1,13 @@
 # Mycelium — Threat Model
 
 **Status:** Pre–public release · **required input for external security review**  
-**Version:** 1.0 · July 2026  
+**Version:** 1.1 · July 2026  
 **Audience:** Security reviewers, engineering, product, legal  
 **Tone:** Hostile networks, malicious peers, compromised devices, selective nation-state interest.
 
 This document is the **adversary and asset model** that unifies existing security work. It does **not** replace detailed debt tracking or privacy planning — it links them.
+
+**Scope boundary:** [§2 Out of scope and explicit design goals](#2-out-of-scope-and-explicit-design-goals) states what Mycelium deliberately does **not** promise (e.g. nation-state targeting of an individual). Read it before comparing the project to Tor, whistleblower tools, or forensic-resistance products.
 
 | Document | Role |
 |----------|------|
@@ -39,7 +41,48 @@ Each threat below references **Security Debt IDs** (`SD-*`) and, where applicabl
 
 ---
 
-## 2. System context and trust boundaries
+## 2. Out of scope and explicit design goals
+
+This section is **public by design**. It defines the boundary of what Mycelium is built for so reviewers, users, and critics can judge the project against its **stated intent** — not against every conceivable adversary.
+
+### 2.1 Not in scope — do not expect these protections
+
+Mycelium is **not** designed to protect a **specific targeted individual** against a **resource-rich state-level adversary** that can combine long-term surveillance, legal compulsion, infrastructure control, and targeted operations. **This is not a whistleblower tool** and must not be marketed or evaluated as one.
+
+The following are **explicitly out of scope** (non-goals, not “future phases we forgot to ship”):
+
+| Out of scope | Meaning for users and reviewers |
+|--------------|----------------------------------|
+| **Tor-class traffic-analysis resistance** | Default paths leak timing, volume, and interest patterns to peers, LAN observers, and relay operators. We do not claim metadata anonymity comparable to Tor or mix networks on stock settings. |
+| **Duress / coercion unlock on mobile** | No decoy PIN, panic unlock that presents a benign vault, or cryptographic proof that the user acted under coercion. Device unlock is the OS boundary. |
+| **Forensic device-seizure resistance** | Seized, unlocked, or rooted devices may yield keys, history, and cached state. Panic wipe clears **local** state only; mesh copies elsewhere may persist until TTL (see [§6.7](#67-mesh-copies-are-not-erasable-centrally)). |
+| **Attacker with physical access to the target device** | Shoulder surfing, unlocked-phone use, adb/debugging, chip-off storage, or coercion at the keyboard are outside the threat model we optimize for. |
+
+If your threat model requires any row above, use additional tools (Tor, dedicated secure messengers with documented nation-state posture, hardware tokens, operational security) — **not Mycelium alone**.
+
+### 2.2 In scope — what we treat as design goals
+
+These are **first-class objectives**; engineering and security debt work (`SD-*`) are prioritized against them:
+
+| In scope | Design intent |
+|----------|----------------|
+| **Core function during complete Internet outage** | Mesh relay, custody DTN, SOS/resource-map scopes, and crisis-mode prioritization remain usable when upstream connectivity is gone. |
+| **No single organization or jurisdiction can shut down the entire network** | Decentralized peers, multi-relay bootstrap, and local mesh paths — no one operator is a global kill switch. |
+| **Everyday security against common threats** | Data loss, crashes, known software vulnerabilities (tracked in [SECURITY_DEBT_REGISTER.md](./SECURITY_DEBT_REGISTER.md)), coarse abuse (spam, Sybil floods, SOS/custody stuffing), and honest-user mistakes — mitigated with rate limits, reputation gating, E2E where enabled, and fail-closed defaults. |
+
+Nation-state **mass** surveillance and **local** Sybil/eclipse attacks **are** considered where they affect mesh **availability** for ordinary users (see [§5.4 Sybil swarm](#54-sybil-swarm-in-local-mesh), SOS crisis gating). That is **not** the same as protecting one high-value individual from a **focused** state campaign.
+
+### 2.3 How to use this section
+
+- **Product and store copy** must not imply whistleblower-grade or Tor-grade anonymity.
+- **Security reviews** should map findings to §2.1 (accepted non-goal) vs §2.2 (in-scope gap requiring `SD-*`).
+- **Unfair criticism** — e.g. “does not resist forensic seizure” — is answered here: **correct, by design**.
+
+Related: [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md) (feature limits), [SECURITY_ASSUMPTIONS.md](./SECURITY_ASSUMPTIONS.md) (user-facing trust text).
+
+---
+
+## 3. System context and trust boundaries
 
 ```mermaid
 flowchart TB
@@ -83,9 +126,9 @@ flowchart TB
 
 ---
 
-## 3. Assets
+## 4. Assets
 
-### 3.1 Identity keys
+### 4.1 Identity keys
 
 **What:** Ed25519 account identity, libp2p transport keypair, X25519 encryption keys, Double Ratchet session state, mini-app signing keys, hot-wallet spending keys.
 
@@ -109,7 +152,7 @@ flowchart TB
 
 ---
 
-### 3.2 Message content
+### 4.2 Message content
 
 **What:** Chat, mail, bulletin body, group ciphertext, SOS payloads, coin gossip inner payloads (when not E2E).
 
@@ -133,7 +176,7 @@ flowchart TB
 
 ---
 
-### 3.3 Payment vouchers and MeshCoin ledger
+### 4.3 Payment vouchers and MeshCoin ledger
 
 **What:** `PaymentVoucher`, redemption records, `LocalLedger` balances, witness sets, hot-wallet cache, unsettled voucher exposure.
 
@@ -146,7 +189,7 @@ flowchart TB
 | Concern | Primary debt IDs | Privacy phase |
 |---------|------------------|---------------|
 | Sybil witness quorum | SD-011 | — (preview-only OK) |
-| Offline / partition double-spend | SD-011, SD-061 | — (see §5.1) |
+| Offline / partition double-spend | SD-011, SD-061 | — (see §6.1) |
 | Tx replay across peers | SD-061 | — |
 | Balance gossip metadata | SD-002 | B |
 | Hot wallet on device | SD-160 | — |
@@ -155,7 +198,7 @@ flowchart TB
 
 ---
 
-### 3.4 Custody queue (DTN store-and-forward)
+### 4.4 Custody queue (DTN store-and-forward)
 
 **What:** `CustodyQueue` entries, `Envelope::custody` blobs, encounter log (peer meeting metadata), spray/transfer state.
 
@@ -167,7 +210,7 @@ flowchart TB
 
 | Concern | Primary debt IDs | Privacy phase |
 |---------|------------------|---------------|
-| Carrier sees ciphertext only | — (design assumption §5.2) | — |
+| Carrier sees ciphertext only | — (design assumption §6.2) | — |
 | Carrier sees metadata | SD-001, SD-070, SD-004 | C |
 | Spray budget Sybil bypass | SD-010 | — |
 | Storage DoS via large blobs | SD-241 | B |
@@ -176,7 +219,7 @@ flowchart TB
 
 ---
 
-### 3.5 Relay reputation (PeerTrust + UserTrust)
+### 4.5 Relay reputation (PeerTrust + UserTrust)
 
 **What:** `PeerTrustStore` (strikes, relay success, spam score), `UserTrustStore` (local contribution, endorsements), relay selection scores — **non-transferable, not on ledger**.
 
@@ -196,9 +239,11 @@ flowchart TB
 
 ---
 
-## 4. Adversary profiles
+## 5. Adversary profiles
 
-### 4.1 Nation-state with network surveillance
+### 5.1 Nation-state with network surveillance
+
+> **Scope note:** Mass surveillance and infrastructure pressure are in scope for **metadata and availability** analysis. **Targeted protection of one individual** against a resource-rich state actor is **out of scope** — see [§2.1](#21-not-in-scope--do-not-expect-these-protections).
 
 | | |
 |---|---|
@@ -213,7 +258,7 @@ flowchart TB
 
 ---
 
-### 4.2 Malicious mini-app
+### 5.2 Malicious mini-app
 
 | | |
 |---|---|
@@ -227,7 +272,7 @@ flowchart TB
 
 ---
 
-### 4.3 Physical device theft
+### 5.3 Physical device theft
 
 | | |
 |---|---|
@@ -241,7 +286,7 @@ flowchart TB
 
 ---
 
-### 4.4 Sybil swarm in local mesh
+### 5.4 Sybil swarm in local mesh
 
 | | |
 |---|---|
@@ -255,7 +300,7 @@ flowchart TB
 
 ---
 
-### 4.5 Malicious relay operator
+### 5.5 Malicious relay operator
 
 | | |
 |---|---|
@@ -269,7 +314,7 @@ flowchart TB
 
 ---
 
-### 4.6 Compromised custody carrier
+### 5.6 Compromised custody carrier
 
 | | |
 |---|---|
@@ -283,11 +328,11 @@ flowchart TB
 
 ---
 
-## 5. Explicit assumptions and accepted residual risks
+## 6. Explicit assumptions and accepted residual risks
 
 These are **design commitments**, not bugs. External reviewers must sign off or reject explicitly.
 
-### 5.1 Offline double-spend is accepted until settlement
+### 6.1 Offline double-spend is accepted until settlement
 
 **Assumption:** Partitioned MeshCoin spends and voucher redemptions may conflict. Global consistency is **retroactive** at relay merge, not preventive offline.
 
@@ -300,7 +345,7 @@ These are **design commitments**, not bugs. External reviewers must sign off or 
 
 ---
 
-### 5.2 Custody carriers cannot read message content but see metadata
+### 6.2 Custody carriers cannot read message content but see metadata
 
 **Assumption:** Custody envelopes are encrypted end-to-end for the recipient. Carriers observe:
 
@@ -313,7 +358,7 @@ They **cannot** read plaintext chat/mail body without recipient keys. Metadata e
 
 ---
 
-### 5.3 Metadata is not confidential on default paths
+### 6.3 Metadata is not confidential on default paths
 
 **Assumption:** Gossip scopes, sync blooms, PeerInfo, connection persistence, and coin gossip leak interest and activity patterns to peers, LAN observers, and relay operators.
 
@@ -323,25 +368,25 @@ E2E protects **content**, not **who talks to whom, when, or how much** (`SD-001`
 
 ---
 
-### 5.4 No honest majority of peers
+### 6.4 No honest majority of peers
 
 **Assumption:** Any peer may be malicious. Local reputation and witness counts are **heuristic**, not proof.
 
 ---
 
-### 5.5 WebView / OS are partial trust anchors
+### 6.5 WebView / OS are partial trust anchors
 
 **Assumption:** Mini-apps run inside platform WebView; Chromium CVEs are residual (`SD-050`). Rooted Android bypasses Keystore (`SD-120`).
 
 ---
 
-### 5.6 MXC is preview utility, not bank money
+### 6.6 MXC is preview utility, not bank money
 
 **Assumption:** Unless product positioning changes, MeshCoin is experimental with caps and disclaimers. Sybil witnesses and local ledger views are not global consensus (`SD-011`, `SD-161`).
 
 ---
 
-### 5.7 Mesh copies are not erasable centrally
+### 6.7 Mesh copies are not erasable centrally
 
 **Assumption:** Panic wipe clears **local** state. Gossip-replicated bulletins, custody copies, and witness gossip on other devices may persist until TTL/GC (`SD-230`).
 
@@ -349,7 +394,7 @@ E2E protects **content**, not **who talks to whom, when, or how much** (`SD-001`
 
 ---
 
-## 6. Threat matrix (asset × adversary)
+## 7. Threat matrix (asset × adversary)
 
 Abbreviated cross-reference for reviewers. Full mitigation status lives in [SECURITY_DEBT_REGISTER.md](./SECURITY_DEBT_REGISTER.md).
 
@@ -371,46 +416,48 @@ Abbreviated cross-reference for reviewers. Full mitigation status lives in [SECU
 
 ---
 
-## 7. Mapping to existing registers (anti-duplication)
+## 8. Mapping to existing registers (anti-duplication)
 
 Use this table to navigate — **do not maintain parallel issue lists in this file**.
 
 | Threat model section | Security debt register | Privacy roadmap |
 |---------------------|------------------------|-----------------|
-| §3.1 Identity keys | SD-080 – SD-102, SD-110 – SD-131, SD-170, SD-190, SD-191 | Phase B, C, D |
-| §3.2 Message content | SD-001, SD-004, SD-030 – SD-032, SD-060, SD-070 – SD-081, SD-140, SD-141, SD-230 – SD-242 | Phase B, C |
-| §3.3 Payment vouchers | SD-002, SD-011, SD-061, SD-160, SD-161 | Phase A, B |
-| §3.4 Custody queue | SD-001, SD-010, SD-070, SD-241 | Phase C |
-| §3.5 Relay reputation | SD-010, SD-011, SD-030, SD-080 | — |
-| §4.1 Nation-state | SD-001, SD-070, SD-071, SD-180, SD-190, SD-210, SD-220 | Phase C, D |
-| §4.2 Malicious mini-app | SD-040 – SD-042, SD-050, SD-051, SD-240 | Phase A |
-| §4.3 Device theft | SD-110, SD-130, SD-160, SD-171, SD-201, SD-211 | Phase A, D |
-| §4.4 Sybil swarm | SD-010, SD-011, SD-030 – SD-032, SD-061 | Phase B |
-| §4.5 Relay operator | SD-003, SD-020 – SD-022, SD-071, SD-181, SD-210 – SD-221 | Phase B, C |
-| §4.6 Custody carrier | SD-001, SD-004, SD-070, SD-241 | Phase C |
-| §5 Residual risks | SD-011, SD-061, SD-230 | Phase A (disclosure) |
+| §2 Out of scope / design goals | — (boundary doc; not `SD-*`) | — |
+| §4.1 Identity keys | SD-080 – SD-102, SD-110 – SD-131, SD-170, SD-190, SD-191 | Phase B, C, D |
+| §4.2 Message content | SD-001, SD-004, SD-030 – SD-032, SD-060, SD-070 – SD-081, SD-140, SD-141, SD-230 – SD-242 | Phase B, C |
+| §4.3 Payment vouchers | SD-002, SD-011, SD-061, SD-160, SD-161 | Phase A, B |
+| §4.4 Custody queue | SD-001, SD-010, SD-070, SD-241 | Phase C |
+| §4.5 Relay reputation | SD-010, SD-011, SD-030, SD-080 | — |
+| §5.1 Nation-state | SD-001, SD-070, SD-071, SD-180, SD-190, SD-210, SD-220 | Phase C, D |
+| §5.2 Malicious mini-app | SD-040 – SD-042, SD-050, SD-051, SD-240 | Phase A |
+| §5.3 Device theft | SD-110, SD-130, SD-160, SD-171, SD-201, SD-211 | Phase A, D |
+| §5.4 Sybil swarm | SD-010, SD-011, SD-030 – SD-032, SD-061 | Phase B |
+| §5.5 Relay operator | SD-003, SD-020 – SD-022, SD-071, SD-181, SD-210 – SD-221 | Phase B, C |
+| §5.6 Custody carrier | SD-001, SD-004, SD-070, SD-241 | Phase C |
+| §6 Residual risks | SD-011, SD-061, SD-230 | Phase A (disclosure) |
 
 **Beta-blockers** remain authoritative in the register’s summary table — not copied here to avoid drift.
 
 ---
 
-## 8. External security review checklist
+## 9. External security review checklist
 
 Before public release, reviewers should confirm:
 
-1. **Scope** — Adversaries in §4 match product threat claims in store listing and [security-for-users.md](./security-for-users.md).
-2. **Residuals** — §5 assumptions explicitly accepted or scheduled; voucher/custody UX matches [VOUCHER_SETTLEMENT.md](./VOUCHER_SETTLEMENT.md) and [CUSTODY_DTN.md](./CUSTODY_DTN.md).
+1. **Scope** — [§2](#2-out-of-scope-and-explicit-design-goals) boundaries accepted; adversaries in §5 match product claims in store listing and [security-for-users.md](./security-for-users.md).
+2. **Residuals** — §6 assumptions explicitly accepted or scheduled; voucher/custody UX matches [VOUCHER_SETTLEMENT.md](./VOUCHER_SETTLEMENT.md) and [CUSTODY_DTN.md](./CUSTODY_DTN.md).
 3. **Debt closure** — All `beta-blocker: yes` rows in [SECURITY_DEBT_REGISTER.md](./SECURITY_DEBT_REGISTER.md) are mitigated or waivers signed.
 4. **Privacy alignment** — Phase A items in [PRIVACY_ROADMAP.md](./PRIVACY_ROADMAP.md) complete (policy, relay logging stance, backup flags).
 5. **Asset tests** — Spot-check: E2E fail-closed send (SD-081), sideload signature (SD-041), ingest rate limits (SD-032), voucher sim double-spend clawback.
-6. **Out of scope** — Reviewer agrees we do **not** claim nation-state content protection without device compromise, global Sybil resistance, or metadata privacy on default settings.
+6. **Out of scope acknowledged** — Reviewer confirms §2.1 non-goals are **not** treated as product defects (whistleblower / Tor-class / duress / forensic / physical-access scenarios).
 
-**Deliverable from review:** Signed statement referencing this document version + register snapshot date, listing accepted residuals from §5 and any new `SD-*` rows.
+**Deliverable from review:** Signed statement referencing this document version + register snapshot date, listing accepted residuals from §6 and any new `SD-*` rows.
 
 ---
 
-## 9. Change log
+## 10. Change log
 
 | Date | Change |
 |------|--------|
+| Jul 2026 | §2 Out of scope and explicit design goals — public boundary (not whistleblower tool; Tor-class TA, duress, forensic, physical access out of scope) |
 | Jul 2026 | Initial threat model for pre–public release review; links to SD register and Privacy Roadmap phases |

@@ -67,6 +67,8 @@ pub struct CrisisAutoConfig {
     pub sos_activity_window_ms: u64,
     /// Minimum geohash prefix overlap (chars) for “nearby” SOS.
     pub geohash_prefix_len: usize,
+    /// Independent trusted SOS relay peers required before auto crisis activates.
+    pub min_trusted_sos_sources: usize,
 }
 
 impl Default for CrisisAutoConfig {
@@ -74,6 +76,7 @@ impl Default for CrisisAutoConfig {
         Self {
             sos_activity_window_ms: 15 * 60 * 1000,
             geohash_prefix_len: 4,
+            min_trusted_sos_sources: 3,
         }
     }
 }
@@ -102,14 +105,17 @@ impl CrisisModeState {
     }
 }
 
-/// Auto-activate when internet is down, user listens for SOS, and nearby SOS exists.
+/// Auto-activate when internet is down, user listens for SOS, and enough trusted
+/// independent SOS sources were observed nearby (see [`CrisisAutoConfig::min_trusted_sos_sources`]).
 pub fn evaluate_auto_activation(
-    _config: &CrisisAutoConfig,
+    config: &CrisisAutoConfig,
     internet_reachable: bool,
     listen_sos: bool,
-    nearby_sos_recent: bool,
+    trusted_nearby_sos_sources: usize,
 ) -> bool {
-    !internet_reachable && listen_sos && nearby_sos_recent
+    !internet_reachable
+        && listen_sos
+        && trusted_nearby_sos_sources >= config.min_trusted_sos_sources
 }
 
 /// True when `sos_geohash` is “near” `local_prefix` (shared prefix).
@@ -143,9 +149,18 @@ mod tests {
     #[test]
     fn auto_requires_all_signals() {
         let cfg = CrisisAutoConfig::default();
-        assert!(!evaluate_auto_activation(&cfg, true, true, true));
-        assert!(!evaluate_auto_activation(&cfg, false, false, true));
-        assert!(evaluate_auto_activation(&cfg, false, true, true));
+        assert!(!evaluate_auto_activation(&cfg, true, true, 3));
+        assert!(!evaluate_auto_activation(&cfg, false, false, 3));
+        assert!(!evaluate_auto_activation(&cfg, false, true, 0));
+        assert!(!evaluate_auto_activation(&cfg, false, true, 1));
+        assert!(!evaluate_auto_activation(&cfg, false, true, 2));
+        assert!(evaluate_auto_activation(&cfg, false, true, 3));
+    }
+
+    #[test]
+    fn single_sos_does_not_activate_crisis() {
+        let cfg = CrisisAutoConfig::default();
+        assert!(!evaluate_auto_activation(&cfg, false, true, 1));
     }
 
     #[test]

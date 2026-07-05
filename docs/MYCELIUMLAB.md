@@ -85,6 +85,8 @@ Also via CLI: `myceliumlab ci-gate`
 | Custody city delivery | Message delivered via `CustodyQueue` (80-node city sim) |
 | Commuter custody | Delivery-probability delivers in ≤ steps and ≤ latency vs recency-only |
 | Eclipse relay | Score-only picks 0 legit peers; diversity picks legit in every round |
+| Local dense Sybil | 200 legit + 500 co-located fakes; diverse legit→legit delivery **≥55%** (score-only must stay **≥10pp** lower) |
+| SOS flood | 120 Sybil peers × 8 SOS each; crisis **off** until **≥3** trusted independent sources nearby |
 | Dense cluster shards | Shard fanout ratio < 0.15 at 520 nodes; density backoff triggers |
 
 **Custody cold start:** When no `PeerTrust` map is present and scoring is `RecencyOnly`, carrier spray uses stable alphabetical order (DTN bootstrap). Production custody with co-encounter history uses `DeliveryProbabilityAndRecency` by default.

@@ -19,6 +19,7 @@ mod peer_trust;
 mod ratchet_store;
 pub mod secrets;
 pub mod security;
+mod sos_crisis_gate;
 mod storage;
 mod transport;
 mod transport_meta;
@@ -59,6 +60,12 @@ pub use security::{
     apply_peer_diversity, build_routing_meta_map, peer_routing_meta, select_relay_candidates,
     select_relay_candidates_with_diversity, PeerDiversityConfig, PeerRoutingMeta, PeerTrust,
     PeerTrustStore, RelaySelectionRequest,
+};
+pub use ingest_guard::{IngestGuard, IngestReject};
+pub use sos_crisis_gate::{
+    check_sos_ingest, is_sos_source_sybil_suspicious, is_sos_source_trusted_for_crisis,
+    sos_rate_limit_for_peer, SosCrisisTracker, SosIngestReject, SosSecurityConfig,
+    COLD_SOS_RATE_PER_MINUTE, SUSPICIOUS_SOS_RATE_PER_MINUTE, TRUSTED_SOS_RATE_PER_MINUTE,
 };
 
 /// Load or create the libp2p identity using OS keyring / encrypted storage (no explicit storage key).

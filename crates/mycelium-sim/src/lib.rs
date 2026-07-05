@@ -6,11 +6,13 @@ pub mod commuter_custody_scenarios;
 pub mod custody_scenarios;
 pub mod dense_cluster;
 pub mod eclipse_scenarios;
+pub mod local_sybil_dense;
 pub mod lab;
 pub mod runner;
 pub mod scenarios;
 pub mod scheduler;
 pub mod sim_ci_gates;
+pub mod sos_flood_scenarios;
 pub mod transport;
 
 pub use lab::{LabPreset, LabReport, LabRunner, PresetConfig};

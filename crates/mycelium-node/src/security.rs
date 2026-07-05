@@ -76,6 +76,20 @@ impl PeerDiversityConfig {
         }
     }
 
+    /// Dense local Sybil flood: many co-located fake devices sharing one transport bucket.
+    /// Stricter caps than [`Default`] so established / varied-transport peers keep relay slots.
+    pub const fn dense_local_sybil() -> Self {
+        Self {
+            min_established_slots: 2,
+            established_age_ms: 24 * 3_600_000,
+            young_peer_max_age_ms: 2 * 3_600_000,
+            max_young_peer_fraction: 0.34,
+            max_same_transport_fraction: 0.34,
+            require_social_spread: true,
+            social_window_ms: 15 * 60 * 1000,
+        }
+    }
+
     pub fn is_disabled(&self) -> bool {
         self.min_established_slots == 0
             && self.max_young_peer_fraction >= 1.0

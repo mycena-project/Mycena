@@ -392,11 +392,11 @@ pub enum NodeCommand {
     SetLocalEndorsements(HashMap<String, f32>),
     /// Manual crisis mode override (auto when [`CrisisManualMode::FollowAuto`]).
     SetCrisisManual(mycelium_core::crisis_mode::CrisisManualMode),
-    /// Auto crisis signals from app (internet + nearby SOS).
+    /// Auto crisis signals from app (internet + trusted nearby SOS sources).
     UpdateCrisisAuto {
         internet_reachable: bool,
         listen_sos: bool,
-        nearby_sos_recent: bool,
+        local_geohash_prefix: Option<String>,
     },
     /// Follow a contact's signed transport PeerId rotation (SD-190).
     RemapTransportPeer {
@@ -428,7 +428,7 @@ pub struct NodeMetrics {
     pub crisis_active: bool,
 }
 
-use crate::peer_trust::PeerReputationSnapshot;
+use crate::peer_trust::{PeerReputationSnapshot, PeerTrust};
 
 #[derive(Clone)]
 pub struct NodeHandle {
@@ -553,12 +553,12 @@ impl NodeHandle {
         &self,
         internet_reachable: bool,
         listen_sos: bool,
-        nearby_sos_recent: bool,
+        local_geohash_prefix: Option<&str>,
     ) -> anyhow::Result<()> {
         self.send(NodeCommand::UpdateCrisisAuto {
             internet_reachable,
             listen_sos,
-            nearby_sos_recent,
+            local_geohash_prefix: local_geohash_prefix.map(str::to_string),
         })
         .await
     }
@@ -771,6 +771,7 @@ pub struct NodeRunner {
     crisis_state: mycelium_core::crisis_mode::CrisisModeState,
     crisis_params: mycelium_core::crisis_mode::CrisisRuntimeParams,
     crisis_auto_config: mycelium_core::crisis_mode::CrisisAutoConfig,
+    sos_crisis_tracker: crate::sos_crisis_gate::SosCrisisTracker,
     protocol_capabilities_override: Option<ProtocolCapabilities>,
     last_forward_at: Instant,
     last_sync_at: Instant,
@@ -999,6 +1000,7 @@ impl NodeRunner {
                     },
                 ),
                 crisis_auto_config: mycelium_core::crisis_mode::CrisisAutoConfig::default(),
+                sos_crisis_tracker: crate::sos_crisis_gate::SosCrisisTracker::default(),
                 protocol_capabilities_override: config.protocol_capabilities_override,
                 last_forward_at: Instant::now(),
                 last_sync_at: Instant::now(),
@@ -1139,13 +1141,16 @@ impl NodeRunner {
     }
 
     fn relay_diversity_config_for(&self, dest_peer: &str) -> PeerDiversityConfig {
-        if self
+        if !self
             .negotiated_protocol_for(dest_peer)
             .is_some_and(|n| n.relay_diversity_allowed())
         {
-            PeerDiversityConfig::default()
+            return PeerDiversityConfig::score_only();
+        }
+        if self.crowd_density_active {
+            PeerDiversityConfig::dense_local_sybil()
         } else {
-            PeerDiversityConfig::score_only()
+            PeerDiversityConfig::default()
         }
     }
 
@@ -1833,14 +1838,22 @@ impl NodeRunner {
             NodeCommand::UpdateCrisisAuto {
                 internet_reachable,
                 listen_sos,
-                nearby_sos_recent,
+                local_geohash_prefix,
             } => {
+                let trusted_nearby = local_geohash_prefix
+                    .as_deref()
+                    .filter(|p| !p.is_empty())
+                    .map(|prefix| {
+                        self.sos_crisis_tracker
+                            .trusted_independent_sources_nearby(prefix, now_ms())
+                    })
+                    .unwrap_or(0);
                 self.crisis_state.auto_active =
                     mycelium_core::crisis_mode::evaluate_auto_activation(
                         &self.crisis_auto_config,
                         internet_reachable,
                         listen_sos,
-                        nearby_sos_recent,
+                        trusted_nearby,
                     );
                 let active = self.crisis_state.is_active();
                 self.metrics.write().await.crisis_active = active;
@@ -2304,6 +2317,19 @@ impl NodeRunner {
         payload: Vec<u8>,
         peer_filter: BroadcastPeerFilter,
     ) -> anyhow::Result<()> {
+        if crate::ingest_guard::is_sos_scope(&scope) {
+            if let Some(gh) = mycelium_core::sos::geohash_from_payload_bytes(&payload) {
+                let now = now_ms();
+                let trust = self
+                    .peer_trust
+                    .load_all()
+                    .get(&self.local_peer_id)
+                    .cloned()
+                    .unwrap_or_else(|| PeerTrust::new_peer(now));
+                self.sos_crisis_tracker
+                    .record_observation(&self.local_peer_id, &gh, &trust, now);
+            }
+        }
         if self.crisis_active()
             && mycelium_core::resource_map::should_defer_gossip_in_crisis(&scope)
         {
@@ -2519,7 +2545,30 @@ impl NodeRunner {
                     } else {
                         mycelium_core::resource_map::geohash_from_resource_payload_bytes(&payload)
                     };
-                    if let Err(reason) =
+                    if crate::ingest_guard::is_sos_scope(&scope) {
+                        let trust = self
+                            .peer_trust
+                            .load_all()
+                            .get(&from_peer)
+                            .cloned()
+                            .unwrap_or_else(|| PeerTrust::cold_unknown(now));
+                        let security = self.sos_crisis_tracker.security_config();
+                        if let Err(reason) = crate::sos_crisis_gate::check_sos_ingest(
+                            &mut self.ingest_guard,
+                            &from_peer,
+                            geohash.as_deref(),
+                            &trust,
+                            now,
+                            security,
+                        ) {
+                            self.record_sos_ingest_reject(reason);
+                            return Ok(());
+                        }
+                        if let Some(gh) = geohash.as_deref() {
+                            self.sos_crisis_tracker
+                                .record_observation(&from_peer, gh, &trust, now);
+                        }
+                    } else if let Err(reason) =
                         self.ingest_guard
                             .check_sos_gossip(&from_peer, geohash.as_deref(), now)
                     {
@@ -3338,7 +3387,11 @@ impl NodeRunner {
         let routing_ctx = CustodyRoutingContext {
             peer_trust,
             routing_meta,
-            diversity: PeerDiversityConfig::default(),
+            diversity: if self.crowd_density_active {
+                PeerDiversityConfig::dense_local_sybil()
+            } else {
+                PeerDiversityConfig::default()
+            },
             negotiated_caps: self.peer_protocol_caps.clone(),
             candidate_scoring: Default::default(),
         };
@@ -3652,6 +3705,19 @@ impl NodeRunner {
 
     fn is_throttled(&self, peer: &str) -> bool {
         self.peer_trust.is_throttled(peer, now_ms())
+    }
+
+    fn record_sos_ingest_reject(&self, reason: crate::sos_crisis_gate::SosIngestReject) {
+        use crate::sos_crisis_gate::SosIngestReject;
+        let metrics = self.metrics.clone();
+        tokio::spawn(async move {
+            let mut m = metrics.write().await;
+            match reason {
+                SosIngestReject::RateLimit | SosIngestReject::ThrottledPeer => {
+                    m.messages_dropped_rate_limit += 1;
+                }
+            }
+        });
     }
 
     fn record_ingest_reject(&self, reason: IngestReject) {
