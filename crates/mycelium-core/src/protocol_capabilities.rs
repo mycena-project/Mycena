@@ -94,6 +94,8 @@ bitfield_like_flags!(
         const SIGNED_DATA_V1 = 1 << 1;
         /// Peer diversity checks during relay selection.
         const RELAY_DIVERSITY = 1 << 2;
+        /// WebRTC RTCDataChannel bearer (desktop / browser clients).
+        const WEBRTC = 1 << 3;
     }
 );
 
@@ -230,6 +232,10 @@ impl NegotiatedProtocol {
 
     pub fn wifi_direct_allowed(&self) -> bool {
         self.flags.contains(ProtocolCapabilityFlags::WIFI_DIRECT)
+    }
+
+    pub fn webrtc_allowed(&self) -> bool {
+        self.flags.contains(ProtocolCapabilityFlags::WEBRTC)
     }
 
     pub fn bearer_wire_version(&self) -> BearerWireVersion {

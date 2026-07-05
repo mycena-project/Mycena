@@ -26,6 +26,11 @@
     <string name="chat_peer_subtitle_online">%1$s · آنلاین</string>
     <string name="chat_pending_requests">درخواست‌های مخاطب</string>
     <string name="chat_reject_contact">رد</string>
+    <string name="chat_custody_carriers_many">%1$d حامل احتمالی در نزدیکی</string>
+    <string name="chat_custody_carriers_none">حامل در نزدیکی نیست</string>
+    <string name="chat_custody_carriers_one">۱ حامل احتمالی در نزدیکی</string>
+    <string name="chat_custody_message_status">ذخیره محلی · تحویل مورد انتظار: %1$d–%2$d دقیقه · %3$s</string>
+    <string name="chat_custody_waiting_nearby">ذخیره محلی · هنگام حضور فردی در نزدیکی تحویل داده می‌شود</string>
     <string name="chat_send">ارسال</string>
     <string name="chat_sending_encrypted">🔒 ارسال رمزگذاری شده…</string>
     <string name="chat_share_location">اشتراک موقعیت من</string>
@@ -162,6 +167,16 @@
     <string name="notification_channel_name">شبکه میسلیوم</string>
     <string name="notification_peers">%1$d همتا متصل شد</string>
     <string name="notification_running">شبکه میسلیوم فعال است</string>
+    <string name="peers_discovery_searching_title">جستجوی دستگاه‌های نزدیک…</string>
+    <string name="peers_discovery_searching_body">بلوتوث و Wi‑Fi در پس‌زمینه روشن می‌مانند. ممکن است تا یک دقیقه طول بکشد.</string>
+    <string name="peers_discovery_nobody_title">فعلاً کسی در نزدیکی نیست</string>
+    <string name="peers_discovery_nobody_body">این طبیعی است. «اتصال» را روی گوشی دیگری در نزدیکی باز کنید، یا یک‌بار QR یکدیگر را اسکن کنید.</string>
+    <string name="peers_discovery_nearby_found_title">دستگاه‌های نزدیک</string>
+    <string name="peers_discovery_nearby_found_body">دستگاه‌های Mycelium در برد هستند. در حال اتصال خودکار…</string>
+    <string name="peers_discovery_connecting_title">در حال اتصال…</string>
+    <string name="peers_discovery_connecting_body">در حال برقراری ارتباط امن. معمولاً چند ثانیه طول می‌کشد.</string>
+    <string name="peers_discovery_idle_title">کشف دستگاه‌های نزدیک خاموش است</string>
+    <string name="peers_discovery_idle_body">برای اتصال خودکار نزدیک، mesh بلوتوث را در تنظیمات روشن کنید، یا QR بالا را اسکن کنید.</string>
     <string name="peers_connected">%1$d متصل شد</string>
     <string name="peers_connected_count">%1$d متصل</string>
     <string name="peers_delivered">تحویل داده شد</string>
@@ -184,6 +199,7 @@
     <string name="settings_bootstrap_peers">همتایان بوت استرپ سفارشی</string>
     <string name="settings_clear_store">پیام های قدیمی را پاک کنید</string>
     <string name="settings_danger_zone">منطقه خطر</string>
+    <string name="settings_data_handling">Mycelium چگونه با داده‌های شما برخورد می‌کند</string>
     <string name="settings_display_name">نام نمایشی</string>
     <string name="settings_display_name_hint">نام شما در شبکه</string>
     <string name="settings_energy">حالت انرژی</string>

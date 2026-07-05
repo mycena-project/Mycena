@@ -201,6 +201,8 @@
     <string name="peers_discovery_connecting_body">Setting up a secure link. This usually takes a few seconds.</string>
     <string name="peers_discovery_idle_title">Nearby discovery is off</string>
     <string name="peers_discovery_idle_body">Turn on Bluetooth mesh in Settings for automatic nearby connections, or scan a QR code above.</string>
+    <string name="peers_nfc_tap">Tap NFC</string>
+    <string name="peers_nfc_unavailable">NFC is off or unavailable on this device.</string>
     <string name="peers_connected">%1$d connected</string>
     <string name="peers_connected_count">%1$d connected</string>
     <string name="peers_endorse_button">Endorse</string>

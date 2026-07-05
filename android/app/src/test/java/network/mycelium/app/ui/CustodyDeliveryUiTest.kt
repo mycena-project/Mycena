@@ -11,11 +11,12 @@ import org.junit.Test
 import network.mycelium.bindings.ExpectedDeliveryBasis
 
 class CustodyDeliveryUiTest {
-    private fun status(body: String, enqueuedMs: ULong = 1_000u) =
+    private fun status(body: String, enqueuedMs: ULong = 1_000u, appChatId: String = "chat-1") =
         CustodyPendingStatus(
             messageId = "mid",
             destPeer = "peer-z",
             chatBody = body,
+            appChatId = appChatId,
             enqueuedAtMs = enqueuedMs,
             spraysReleased = 0u,
             maxSpray = 3u,
@@ -77,6 +78,19 @@ class CustodyDeliveryUiTest {
                 meshOnly = true,
             ),
         )
+    }
+
+    @Test
+    fun matchesByAppChatId() {
+        val pending = listOf(status("different body", appChatId = "chat-1"))
+        val match =
+            custodyStatusForMessage(
+                message("hello", ts = 9_999u),
+                pending,
+                isOwn = true,
+                meshOnly = true,
+            )
+        assertEquals("mid", match?.messageId)
     }
 
     @Test

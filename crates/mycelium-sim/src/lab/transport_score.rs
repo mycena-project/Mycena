@@ -47,9 +47,11 @@ pub fn bearer_for_link_scored(
         ble: *distance_m <= radio.ble_range_m,
         lora: false,
         wifi_aware: false,
+        webrtc: false,
     };
     match decide_transport_path(&availability, scores, *payload_bytes, false, *now) {
         TransportPath::InternetRelay => Some(BearerKind::Relay),
+        TransportPath::WebRtc => Some(BearerKind::Relay),
         TransportPath::WifiDirect => Some(BearerKind::Wifi),
         TransportPath::BleTrickle => Some(BearerKind::Ble),
         TransportPath::CustodyQueue => None,

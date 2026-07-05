@@ -10,6 +10,7 @@
     sanitizeUserError,
     userVisibleContactName,
   } from "../lib/contactDisplay.js";
+  import { PeersDiscoveryPhase, reduce } from "../lib/peersDiscovery.js";
 
   let peers = $state([]);
   let acceptedContacts = $state([]);
@@ -21,6 +22,7 @@
   let rendezvousEnabled = $state(false);
   let connectMessage = $state("");
   let showAdvanced = $state(false);
+  let discoveryPresentation = $state(null);
 
   const connectedLabels = $derived(
     peers.map((peerId) => {
@@ -48,8 +50,21 @@
     }
   }
 
+  async function refreshDiscovery() {
+    try {
+      const snapshot = await invoke("get_mesh_discovery_snapshot");
+      discoveryPresentation = reduce({
+        ...snapshot,
+        connectedPeerCount: peers.length,
+      });
+    } catch {
+      discoveryPresentation = null;
+    }
+  }
+
   async function refreshAll() {
     await Promise.all([refreshPeers(), refreshInvite()]);
+    await refreshDiscovery();
   }
 
   async function applyInvite() {
@@ -83,6 +98,7 @@
   onMount(() => {
     refreshAll();
     const retryInvite = setTimeout(refreshInvite, 3_000);
+    const discoveryPoll = setInterval(refreshDiscovery, 2_000);
     let unlistenMetrics = () => {};
     let unlistenContacts = () => {};
     (async () => {
@@ -91,6 +107,7 @@
     })();
     return () => {
       clearTimeout(retryInvite);
+      clearInterval(discoveryPoll);
       unlistenMetrics();
       unlistenContacts();
     };
@@ -153,6 +170,25 @@
       <p class="muted">Starting node…</p>
     {/if}
   </section>
+
+  {#if discoveryPresentation && discoveryPresentation.phase !== PeersDiscoveryPhase.Connected && discoveryPresentation.title}
+    <section
+      class="discovery-banner"
+      class:discovery-active={discoveryPresentation.showProgress}
+      class:discovery-quiet={discoveryPresentation.phase === PeersDiscoveryPhase.NobodyInRange ||
+        discoveryPresentation.phase === PeersDiscoveryPhase.Idle}
+    >
+      <div class="discovery-row">
+        {#if discoveryPresentation.showProgress}
+          <div class="discovery-spinner" aria-hidden="true"></div>
+        {/if}
+        <div>
+          <h3 class="discovery-title">{discoveryPresentation.title}</h3>
+          <p class="discovery-body">{discoveryPresentation.body}</p>
+        </div>
+      </div>
+    </section>
+  {/if}
 
   <section>
     <button type="button" class="linkish" onclick={() => (showAdvanced = !showAdvanced)}>
@@ -273,6 +309,42 @@
   }
   .scan-hint {
     margin: 0 0 8px;
+  }
+  .discovery-banner {
+    background: color-mix(in srgb, var(--accent) 12%, var(--surface, #f4f4f5));
+  }
+  .discovery-banner.discovery-quiet {
+    background: var(--surface, #f4f4f5);
+  }
+  .discovery-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .discovery-spinner {
+    width: 28px;
+    height: 28px;
+    border: 3px solid color-mix(in srgb, var(--accent) 25%, transparent);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-top: 2px;
+    animation: discovery-spin 0.9s linear infinite;
+  }
+  @keyframes discovery-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  .discovery-title {
+    margin: 0;
+    font-size: 14px;
+  }
+  .discovery-body {
+    margin: 4px 0 0;
+    font-size: 13px;
+    color: var(--text-muted);
+    line-height: 1.45;
   }
   .device-name {
     margin: 6px 0;

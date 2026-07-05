@@ -741,10 +741,12 @@ impl AppNode {
                 if self.handle.connectivity_mode().await == ConnectivityMode::MeshOnly {
                     self.storage.save_chat(&to_peer, &chat)?;
                     self.handle
-                        .mesh_send_direct(
+                        .enqueue_encrypted_direct_custody(
                             to_peer.clone(),
-                            body.clone(),
                             plaintext.clone(),
+                            priority,
+                            Some(chat.id.to_string()),
+                            body.clone(),
                             OP_DIRECT_MESSAGE_SEND,
                         )
                         .await?;

@@ -110,6 +110,7 @@ impl BearerMeshRouter {
             ble: self.ble.is_connected(peer),
             lora: false,
             wifi_aware: false,
+            webrtc: false,
         }
     }
 
@@ -184,6 +185,7 @@ impl BearerMeshRouter {
             }
             TransportPath::BleTrickle
             | TransportPath::InternetRelay
+            | TransportPath::WebRtc
             | TransportPath::CustodyQueue => {
                 self.note_outbound(TransportBearer::Ble, frame.len(), now);
                 BearerTransport::send_frame(&mut self.ble, peer, &frame)?;

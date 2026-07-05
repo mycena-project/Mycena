@@ -14,6 +14,8 @@ pub enum TransportBearer {
     LoRa = 3,
     /// Wi‑Fi Aware / NSD discovery (small announcements only).
     WifiAware = 4,
+    /// WebRTC RTCDataChannel (direct when ICE succeeds).
+    WebRtc = 5,
 }
 
 impl TransportBearer {
@@ -24,6 +26,7 @@ impl TransportBearer {
             Self::Ble,
             Self::LoRa,
             Self::WifiAware,
+            Self::WebRtc,
         ]
     }
 
@@ -70,6 +73,14 @@ impl TransportBearer {
                 sample_count: 0,
                 last_observed_ms: 0,
             },
+            Self::WebRtc => TransportScore {
+                avg_latency_ms: 15.0,
+                packet_loss_rate: 0.008,
+                avg_throughput_bps: 384.0 * 1024.0,
+                energy_joules_per_byte: 3e-8,
+                sample_count: 0,
+                last_observed_ms: 0,
+            },
         }
     }
 }
@@ -99,6 +110,8 @@ pub struct TransportScore {
 pub enum TransportPath {
     /// libp2p relay / circuit when internet is reachable.
     InternetRelay,
+    /// WebRTC data channel (ICE/STUN direct path for desktop/browser peers).
+    WebRtc,
     /// Wi‑Fi Direct bulk upgrade while BLE stays up for discovery.
     WifiDirect,
     /// BLE GATT trickle (small frames, low duty).
@@ -115,6 +128,8 @@ pub struct TransportAvailability {
     pub ble: bool,
     pub lora: bool,
     pub wifi_aware: bool,
+    /// Established RTCDataChannel toward peer (signaling already done via relay).
+    pub webrtc: bool,
 }
 
 const DEFAULT_SAMPLE_WINDOW: usize = 32;
@@ -283,7 +298,7 @@ fn recency_bonus(score: TransportScore, now: u64) -> f64 {
     (0.05 * (1.0 - age_ms as f64 / (7.0 * 24.0 * 60.0 * 60.0 * 1000.0))).clamp(0.0, 0.05)
 }
 
-/// Automatic path selection: Internet → Wi‑Fi Direct → BLE trickle → custody queue.
+/// Automatic path selection: WebRTC → Internet → Wi‑Fi Direct → BLE trickle → custody queue.
 pub fn decide_transport_path(
     availability: &TransportAvailability,
     scores: &TransportScoreStore,
@@ -291,6 +306,9 @@ pub fn decide_transport_path(
     force_bulk: bool,
     now: u64,
 ) -> TransportPath {
+    if availability.webrtc {
+        return TransportPath::WebRtc;
+    }
     if availability.internet {
         return TransportPath::InternetRelay;
     }
@@ -353,9 +371,21 @@ pub fn verify_transport_score_invariants() -> Result<(), String> {
         ble: true,
         lora: false,
         wifi_aware: false,
+        webrtc: false,
     };
     if decide_transport_path(&all_up, &store, 4096, false, now) != TransportPath::InternetRelay {
         return Err("internet should win when relay is available".into());
+    }
+    let webrtc_up = TransportAvailability {
+        internet: true,
+        wifi_direct: true,
+        ble: true,
+        lora: false,
+        wifi_aware: false,
+        webrtc: true,
+    };
+    if decide_transport_path(&webrtc_up, &store, 4096, false, now) != TransportPath::WebRtc {
+        return Err("WebRTC should bypass relay when data channel is ready".into());
     }
     let mesh_only = TransportAvailability {
         internet: false,
@@ -363,6 +393,7 @@ pub fn verify_transport_score_invariants() -> Result<(), String> {
         ble: true,
         lora: false,
         wifi_aware: false,
+        webrtc: false,
     };
     if decide_transport_path(&mesh_only, &store, 64 * 1024, false, now) != TransportPath::WifiDirect
     {
@@ -375,6 +406,7 @@ pub fn verify_transport_score_invariants() -> Result<(), String> {
             ble: true,
             lora: false,
             wifi_aware: false,
+            webrtc: false,
         },
         &store,
         512,
@@ -391,6 +423,7 @@ pub fn verify_transport_score_invariants() -> Result<(), String> {
             ble: false,
             lora: false,
             wifi_aware: false,
+            webrtc: false,
         },
         &store,
         512,
@@ -436,6 +469,7 @@ pub fn bearer_medium_to_transport(
         super::bearer_transport::BearerMedium::Ble => TransportBearer::Ble,
         super::bearer_transport::BearerMedium::WifiDirect => TransportBearer::WifiDirect,
         super::bearer_transport::BearerMedium::WifiAware => TransportBearer::WifiAware,
+        super::bearer_transport::BearerMedium::WebRtc => TransportBearer::WebRtc,
     }
 }
 
@@ -446,6 +480,7 @@ pub fn transport_bearer_to_medium(
         TransportBearer::Ble => Some(super::bearer_transport::BearerMedium::Ble),
         TransportBearer::WifiDirect => Some(super::bearer_transport::BearerMedium::WifiDirect),
         TransportBearer::WifiAware => Some(super::bearer_transport::BearerMedium::WifiAware),
+        TransportBearer::WebRtc => Some(super::bearer_transport::BearerMedium::WebRtc),
         TransportBearer::InternetRelay | TransportBearer::LoRa => None,
     }
 }
@@ -519,6 +554,7 @@ mod tests {
                 ble: true,
                 lora: false,
                 wifi_aware: false,
+                webrtc: false,
             },
             &store,
             64,

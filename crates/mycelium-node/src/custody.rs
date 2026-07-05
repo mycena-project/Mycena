@@ -13,7 +13,7 @@ use crate::security::{
 };
 use mycelium_core::data::now_ms;
 use mycelium_core::protocol_capabilities::NegotiatedProtocol;
-use mycelium_core::transport::DirectMessage;
+use mycelium_core::transport::{DirectMessage, WireMessage};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
@@ -108,6 +108,10 @@ struct StoredCustody {
     /// Origin-only: custody copies released into the mesh.
     #[serde(default)]
     sprays_released: u8,
+    #[serde(default)]
+    app_chat_id: Option<String>,
+    #[serde(default)]
+    encrypted_wire: Option<WireMessage>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -145,6 +149,7 @@ pub struct CustodyPendingStatus {
     pub dest_peer: Option<String>,
     /// Plaintext body from the stored custody message (for UI correlation with chat).
     pub chat_body: String,
+    pub app_chat_id: String,
     pub enqueued_at_ms: u64,
     pub sprays_released: u8,
     pub max_spray: u8,
@@ -157,6 +162,7 @@ pub struct CustodyForwardPlan {
     pub message_id: String,
     pub to_peer: String,
     pub message: DirectMessage,
+    pub wire: Option<WireMessage>,
 }
 
 #[derive(Debug)]
@@ -189,6 +195,15 @@ impl CustodyQueue {
     }
 
     pub fn enqueue(&self, message: &DirectMessage) -> anyhow::Result<bool> {
+        self.enqueue_with_meta(message, None, None)
+    }
+
+    pub fn enqueue_with_meta(
+        &self,
+        message: &DirectMessage,
+        app_chat_id: Option<String>,
+        encrypted_wire: Option<WireMessage>,
+    ) -> anyhow::Result<bool> {
         if !Self::eligible_for_custody(message) {
             return Ok(false);
         }
@@ -205,6 +220,8 @@ impl CustodyQueue {
             targets_tried: HashSet::new(),
             enqueued_at_ms: now_ms(),
             sprays_released: 0,
+            app_chat_id,
+            encrypted_wire,
         };
         tree.insert(id.as_bytes(), bincode::serialize(&stored)?)?;
         Ok(true)
@@ -297,6 +314,7 @@ impl CustodyQueue {
                 message_id: stored.message.envelope.id.0.clone(),
                 to_peer: peer,
                 message: outbound,
+                wire: stored.encrypted_wire.clone(),
             }));
         }
         Ok(None)
@@ -353,6 +371,7 @@ impl CustodyQueue {
                 message_id: stored.message.envelope.id.0.clone(),
                 to_peer: encounter_peer.to_string(),
                 message: outbound,
+                wire: stored.encrypted_wire.clone(),
             });
         }
         Ok(out)
@@ -401,6 +420,7 @@ impl CustodyQueue {
                 message_id: stored.message.envelope.id.0.clone(),
                 dest_peer: stored.message.envelope.to_peer.clone(),
                 chat_body: stored.message.body.clone(),
+                app_chat_id: stored.app_chat_id.clone().unwrap_or_default(),
                 enqueued_at_ms: stored.enqueued_at_ms,
                 sprays_released: stored.sprays_released,
                 max_spray: stored.message.envelope.max_custody_spray,

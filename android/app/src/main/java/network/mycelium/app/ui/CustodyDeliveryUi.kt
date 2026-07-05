@@ -29,8 +29,10 @@ internal fun custodyStatusForMessage(
 ): CustodyPendingStatus? {
     if (!isOwn || !meshOnly) return null
     return pending.firstOrNull { status ->
-        status.chatBody == message.body &&
-            abs(status.enqueuedAtMs.toLong() - message.timestampMs.toLong()) <= 120_000
+        status.appChatId == message.id ||
+            (status.appChatId.isEmpty() &&
+                status.chatBody == message.body &&
+                abs(status.enqueuedAtMs.toLong() - message.timestampMs.toLong()) <= 120_000)
     }
 }
 

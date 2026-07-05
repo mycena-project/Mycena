@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Mycelium Project
 mod ble;
+mod discovery;
 mod share_server;
 
 use async_trait::async_trait;
@@ -42,6 +43,7 @@ pub struct AppState {
     connectivity_mode: Arc<RwLock<ConnectivityMode>>,
     runner_task: tauri::async_runtime::JoinHandle<()>,
     ble_host: Option<ble::DesktopBleHost>,
+    discovery: Arc<discovery::MeshDiscoveryState>,
 }
 
 fn connectivity_label(mode: ConnectivityMode) -> &'static str {
@@ -580,11 +582,17 @@ async fn start_node(
         }
     });
 
+    let discovery = discovery::MeshDiscoveryState::new();
+    discovery
+        .set_ble_bootstrap_enabled(ui_settings.ble_bootstrap)
+        .await;
+
     let ble_host = ble::DesktopBleHost::start(
         handle.clone(),
         app_node.clone(),
         local_peer_id.clone(),
         ui_settings.ble_bootstrap,
+        discovery.clone(),
     );
 
     let cap_mac_key = mycelium_app::miniapp::mac_key_from_db_path(&db_path);
@@ -606,6 +614,7 @@ async fn start_node(
         connectivity_mode: connectivity_mode.clone(),
         runner_task,
         ble_host,
+        discovery,
     });
 
     Ok(local_peer_id)
@@ -653,17 +662,53 @@ async fn connect_peer_id(
     state: State<'_, SharedState>,
     peer_id: String,
 ) -> Result<(), String> {
+    let discovery = {
+        let guard = state.read().await;
+        let s = guard
+            .as_ref()
+            .ok_or_else(|| "node not started".to_string())?;
+        s.discovery.set_connecting_from_invite(true).await;
+        s.discovery.clone()
+    };
+    let discovery_timeout = discovery.clone();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_secs(45)).await;
+        discovery_timeout
+            .set_connecting_from_invite(false)
+            .await;
+    });
+
+    let result = {
+        let guard = state.read().await;
+        let s = guard
+            .as_ref()
+            .ok_or_else(|| "node not started".to_string())?;
+        s.app_node
+            .clone()
+            .connect_from_invite(&peer_id)
+            .await
+            .map_err(|e| e.to_string())
+    };
+
+    discovery.set_connecting_from_invite(false).await;
+
+    result?;
+    let _ = app.emit("contacts-updated", ());
+    Ok(())
+}
+
+#[tauri::command]
+async fn get_mesh_discovery_snapshot(
+    state: State<'_, SharedState>,
+) -> Result<serde_json::Value, String> {
     let guard = state.read().await;
     let s = guard
         .as_ref()
         .ok_or_else(|| "node not started".to_string())?;
-    s.app_node
-        .clone()
-        .connect_from_invite(&peer_id)
-        .await
-        .map_err(|e| e.to_string())?;
-    let _ = app.emit("contacts-updated", ());
-    Ok(())
+    let connected = s.handle.connected_peers().await.len() as u32;
+    s.discovery.set_connected_peer_count(connected).await;
+    let snap = s.discovery.snapshot().await;
+    serde_json::to_value(snap).map_err(|e| e.to_string())
 }
 
 fn contact_json(c: Contact) -> serde_json::Value {
@@ -2019,6 +2064,7 @@ async fn set_ble_bootstrap(
         let mut ui = load_ui_settings(&s.db_path);
         ui.ble_bootstrap = enabled;
         save_ui_settings(&s.db_path, &ui)?;
+        s.discovery.set_ble_bootstrap_enabled(enabled).await;
         if let Some(host) = s.ble_host.take() {
             host.stop_and_wait().await;
         }
@@ -2027,11 +2073,183 @@ async fn set_ble_bootstrap(
             s.app_node.clone(),
             s.local_peer_id.clone(),
             enabled,
+            s.discovery.clone(),
         );
         connectivity_snapshot(s).await
     };
     emit_settings_updated(&app, snapshot);
     Ok(())
+}
+
+#[tauri::command]
+async fn webrtc_set_available(state: State<'_, SharedState>, available: bool) -> Result<(), String> {
+    let guard = state.read().await;
+    let s = guard
+        .as_ref()
+        .ok_or_else(|| "node not started".to_string())?;
+    s.handle
+        .send(NodeCommand::SetWebRtcAvailable(available))
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn webrtc_set_link_ready(
+    state: State<'_, SharedState>,
+    peer: String,
+    ready: bool,
+) -> Result<(), String> {
+    let guard = state.read().await;
+    let s = guard
+        .as_ref()
+        .ok_or_else(|| "node not started".to_string())?;
+    s.handle
+        .send(NodeCommand::SetWebRtcLinkReady { peer, ready })
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn webrtc_ingest_frame(
+    state: State<'_, SharedState>,
+    from_peer: String,
+    frame: Vec<u8>,
+) -> Result<(), String> {
+    let guard = state.read().await;
+    let s = guard
+        .as_ref()
+        .ok_or_else(|| "node not started".to_string())?;
+    s.handle
+        .send(NodeCommand::IngestWebRtcFrame { from_peer, frame })
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn webrtc_post_signal(
+    state: State<'_, SharedState>,
+    to_peer: String,
+    session_id: String,
+    kind: u8,
+    payload: String,
+    ice_mline_index: Option<u32>,
+) -> Result<(), String> {
+    let guard = state.read().await;
+    let s = guard
+        .as_ref()
+        .ok_or_else(|| "node not started".to_string())?;
+    s.handle
+        .send(NodeCommand::PostWebRtcSignal {
+            to_peer,
+            session_id,
+            kind,
+            payload,
+            ice_mline_index,
+        })
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[derive(serde::Serialize)]
+struct WebRtcSignalJson {
+    from_peer: String,
+    session_id: String,
+    kind: u8,
+    payload: String,
+    ice_mline_index: Option<u32>,
+}
+
+#[tauri::command]
+async fn webrtc_drain_signaling_inbound(
+    state: State<'_, SharedState>,
+    max: u32,
+) -> Result<Vec<WebRtcSignalJson>, String> {
+    let guard = state.read().await;
+    let s = guard
+        .as_ref()
+        .ok_or_else(|| "node not started".to_string())?;
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    s.handle
+        .send(NodeCommand::DrainWebRtcSignalingInbound {
+            max: max as usize,
+            reply: tx,
+        })
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(rx
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .map(|sig| WebRtcSignalJson {
+            from_peer: sig.from_peer,
+            session_id: sig.session_id,
+            kind: sig.kind as u8,
+            payload: sig.payload,
+            ice_mline_index: sig.ice_mline_index,
+        })
+        .collect())
+}
+
+#[tauri::command]
+async fn webrtc_drain_negotiation_requests(
+    state: State<'_, SharedState>,
+    max: u32,
+) -> Result<Vec<String>, String> {
+    let guard = state.read().await;
+    let s = guard
+        .as_ref()
+        .ok_or_else(|| "node not started".to_string())?;
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    s.handle
+        .send(NodeCommand::DrainWebRtcNegotiationRequests {
+            max: max as usize,
+            reply: tx,
+        })
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(rx.await.unwrap_or_default())
+}
+
+#[tauri::command]
+fn webrtc_stun_servers() -> Vec<String> {
+    mycelium_l0_facade::webrtc_signaling::default_stun_servers()
+}
+
+#[derive(serde::Serialize)]
+struct BearerOutboundJson {
+    to_peer: String,
+    frame: Vec<u8>,
+    medium: u8,
+}
+
+#[tauri::command]
+async fn webrtc_drain_bearer_outbound(
+    state: State<'_, SharedState>,
+    max: u32,
+) -> Result<Vec<BearerOutboundJson>, String> {
+    let guard = state.read().await;
+    let s = guard
+        .as_ref()
+        .ok_or_else(|| "node not started".to_string())?;
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    s.handle
+        .send(NodeCommand::DrainBearerOutbound {
+            to_peer: None,
+            max: max as usize,
+            reply: Some(tx),
+        })
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(rx
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .map(|(to_peer, frame, medium)| BearerOutboundJson {
+            to_peer,
+            frame,
+            medium: medium as u8,
+        })
+        .collect())
 }
 
 #[tauri::command]
@@ -2315,6 +2533,7 @@ pub fn run() {
             get_peers,
             get_relay_status,
             get_shareable_multiaddrs,
+            get_mesh_discovery_snapshot,
             connect_peer_id,
             get_chat_contacts,
             list_contacts,
@@ -2381,6 +2600,14 @@ pub fn run() {
             set_internet_enabled,
             set_max_connectivity,
             set_ble_bootstrap,
+            webrtc_set_available,
+            webrtc_set_link_ready,
+            webrtc_ingest_frame,
+            webrtc_post_signal,
+            webrtc_drain_signaling_inbound,
+            webrtc_drain_negotiation_requests,
+            webrtc_stun_servers,
+            webrtc_drain_bearer_outbound,
             set_crowd_mode,
             get_store_stats,
             run_gc,

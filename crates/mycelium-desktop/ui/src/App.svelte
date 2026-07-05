@@ -18,6 +18,7 @@
   import MiniAppStore from "./views/MiniAppStore.svelte";
   import More from "./views/More.svelte";
   import ConnectionStatus from "./components/ConnectionStatus.svelte";
+  import { startWebRtcHost } from "./lib/webrtcHost";
 
   let booting = $state(true);
   let nodeStarted = $state(false);
@@ -44,6 +45,7 @@
   let internetEnabled = $state(true);
   let rendezvousEnabled = $state(false);
   let connectivityDetail = $state("");
+  let stopWebRtc = null;
 
   async function startNode(config) {
     peerId = await invoke("start_node", {
@@ -52,6 +54,8 @@
       bootstrapPeers: config.bootstrapPeers ?? [],
     });
     nodeStarted = true;
+    stopWebRtc?.();
+    stopWebRtc = startWebRtcHost();
   }
 
   onMount(async () => {
@@ -64,6 +68,8 @@
           bootstrapPeers: [],
         });
         nodeStarted = true;
+        stopWebRtc?.();
+        stopWebRtc = startWebRtcHost();
       }
     } catch {
       /* first launch or corrupt profile — show setup */

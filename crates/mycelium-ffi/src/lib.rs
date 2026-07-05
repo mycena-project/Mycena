@@ -193,6 +193,7 @@ pub struct CustodyPendingStatus {
     pub message_id: String,
     pub dest_peer: Option<String>,
     pub chat_body: String,
+    pub app_chat_id: String,
     pub enqueued_at_ms: u64,
     pub sprays_released: u8,
     pub max_spray: u8,
@@ -221,6 +222,7 @@ fn custody_pending_from_node(s: mycelium_node::CustodyPendingStatus) -> CustodyP
         message_id: s.message_id,
         dest_peer: s.dest_peer,
         chat_body: s.chat_body,
+        app_chat_id: s.app_chat_id,
         enqueued_at_ms: s.enqueued_at_ms,
         sprays_released: s.sprays_released,
         max_spray: s.max_spray,
@@ -2076,8 +2078,17 @@ pub fn add_bootstrap_peer(multiaddr: String) {
 pub struct BleOutboundFrame {
     pub to_peer: String,
     pub frame: Vec<u8>,
-    /// 0 = BLE, 1 = Wi‑Fi Direct, 2 = Wi‑Fi Aware discovery (see `BearerMedium`).
+    /// 0 = BLE, 1 = Wi‑Fi Direct, 2 = Wi‑Fi Aware discovery, 3 = WebRTC (see `BearerMedium`).
     pub medium: u8,
+}
+
+#[derive(Debug, Clone)]
+pub struct WebRtcSignalFrame {
+    pub from_peer: String,
+    pub session_id: String,
+    pub kind: u8,
+    pub payload: String,
+    pub ice_mline_index: Option<u32>,
 }
 
 pub fn connect_invite(raw: String) -> Result<(), MyceliumException> {
@@ -2267,6 +2278,110 @@ pub fn drain_bearer_outbound(to_peer: Option<String>, max: u32) -> Vec<BleOutbou
             })
             .collect()
     })
+}
+
+pub fn set_webrtc_available(available: bool) {
+    let state = state_arc();
+    runtime().block_on(async {
+        let st = state.read().await;
+        let _ = st
+            .handle
+            .send(NodeCommand::SetWebRtcAvailable(available))
+            .await;
+    });
+}
+
+pub fn set_webrtc_link_ready(peer: String, ready: bool) {
+    let state = state_arc();
+    runtime().block_on(async {
+        let st = state.read().await;
+        let _ = st
+            .handle
+            .send(NodeCommand::SetWebRtcLinkReady { peer, ready })
+            .await;
+    });
+}
+
+pub fn ingest_webrtc_frame(from_peer: String, frame: Vec<u8>) -> Result<(), MyceliumException> {
+    let state = state_arc();
+    runtime().block_on(async {
+        let st = state.read().await;
+        st.handle
+            .send(NodeCommand::IngestWebRtcFrame { from_peer, frame })
+            .await
+            .map_err(|e| MyceliumException::ChatError {
+                detail: e.to_string(),
+            })
+    })
+}
+
+pub fn post_webrtc_signal(
+    to_peer: String,
+    session_id: String,
+    kind: u8,
+    payload: String,
+    ice_mline_index: Option<u32>,
+) {
+    let state = state_arc();
+    runtime().block_on(async {
+        let st = state.read().await;
+        let _ = st
+            .handle
+            .send(NodeCommand::PostWebRtcSignal {
+                to_peer,
+                session_id,
+                kind,
+                payload,
+                ice_mline_index,
+            })
+            .await;
+    });
+}
+
+pub fn drain_webrtc_signaling_inbound(max: u32) -> Vec<WebRtcSignalFrame> {
+    let state = state_arc();
+    runtime().block_on(async {
+        let st = state.read().await;
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        let _ = st
+            .handle
+            .send(NodeCommand::DrainWebRtcSignalingInbound {
+                max: max as usize,
+                reply: tx,
+            })
+            .await;
+        rx.await
+            .unwrap_or_default()
+            .into_iter()
+            .map(|s| WebRtcSignalFrame {
+                from_peer: s.from_peer,
+                session_id: s.session_id,
+                kind: s.kind as u8,
+                payload: s.payload,
+                ice_mline_index: s.ice_mline_index,
+            })
+            .collect()
+    })
+}
+
+pub fn drain_webrtc_negotiation_requests(max: u32) -> Vec<String> {
+    let state = state_arc();
+    runtime().block_on(async {
+        let st = state.read().await;
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        let _ = st
+            .handle
+            .send(NodeCommand::DrainWebRtcNegotiationRequests {
+                max: max as usize,
+                reply: tx,
+            })
+            .await;
+        rx.await.unwrap_or_default()
+    })
+}
+
+pub fn webrtc_stun_servers() -> Vec<String> {
+    mycelium_core::webrtc_signaling::default_stun_servers()
 }
 
 pub fn queue_bearer_bulk(to_peer: String, payload: Vec<u8>) -> Result<(), MyceliumException> {

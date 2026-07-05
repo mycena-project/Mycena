@@ -4,6 +4,7 @@
 
 mod bearer_ble;
 mod bearer_mesh;
+mod bearer_webrtc;
 mod bearer_wifi_aware;
 pub mod behaviour;
 mod ble_transport;
@@ -57,6 +58,8 @@ pub use mycelium_core::transport_score::{
     TransportAvailability, TransportBearer, TransportPath, TransportScore, TransportScoreSample,
     TransportScoreStore,
 };
+pub use bearer_webrtc::BearerWebRtcRouter;
+pub use mycelium_core::webrtc_signaling::WebRtcSignalInbound;
 pub use mycelium_l0_facade::EncKey;
 pub use node::{
     BroadcastPeerFilter, NodeCommand, NodeConfig, NodeHandle, NodeMetrics, NodeRunner,

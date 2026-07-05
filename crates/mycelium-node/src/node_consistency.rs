@@ -20,7 +20,8 @@ impl NodeCommand {
             | NodeCommand::SendDirectPayload { .. }
             | NodeCommand::SendWire { .. }
             | NodeCommand::SendWireOrQueueBle { .. }
-            | NodeCommand::SendEncryptedDirect { .. } => Some(Consistency::EventuallyConsistent),
+            | NodeCommand::SendEncryptedDirect { .. }
+            | NodeCommand::EnqueueEncryptedDirectCustody { .. } => Some(Consistency::EventuallyConsistent),
             NodeCommand::Broadcast { scope, .. } | NodeCommand::BroadcastPayload { scope, .. } => {
                 if ingest_guard::is_sos_scope(scope)
                     || scope.starts_with(mycelium_core::resource_map::RESOURCE_MAP_SCOPE)
@@ -76,6 +77,28 @@ impl crate::NodeHandle {
             body,
             payload,
             priority,
+            app_chat_id: None,
+        })
+        .await
+    }
+
+    /// Encrypted direct message queued for DTN custody when peer is offline ([`OP_DIRECT_MESSAGE_SEND`]).
+    pub async fn enqueue_encrypted_direct_custody(
+        &self,
+        to_peer: String,
+        inner_plaintext: Vec<u8>,
+        priority: mycelium_core::data::Priority,
+        app_chat_id: Option<String>,
+        display_body: String,
+        _op: StateOp<EventuallyConsistentModel>,
+    ) -> anyhow::Result<()> {
+        debug_assert_eq!(_op.name, OP_DIRECT_MESSAGE_SEND.name);
+        self.send(NodeCommand::EnqueueEncryptedDirectCustody {
+            to_peer,
+            inner_plaintext,
+            priority,
+            app_chat_id,
+            display_body,
         })
         .await
     }

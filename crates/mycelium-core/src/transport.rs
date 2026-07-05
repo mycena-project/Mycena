@@ -84,6 +84,16 @@ pub enum WireMessage {
         #[serde(default)]
         protocol_capabilities: crate::protocol_capabilities::ProtocolCapabilities,
     },
+    /// WebRTC SDP/ICE signaling (libp2p relay only — not mesh gossip).
+    WebRtcSignal {
+        to_peer: String,
+        #[serde(default)]
+        session_id: String,
+        kind: u8,
+        payload: String,
+        #[serde(default)]
+        ice_mline_index: Option<u32>,
+    },
 }
 
 fn default_max_hops() -> u8 {
@@ -382,6 +392,29 @@ pub trait MeshTransport: Send {
     fn set_density_backoff(&mut self, _active: bool, _max_direct_peers: usize) {}
     /// Apply thermal/movement-aware bearer throttling (Wi‑Fi Direct caps).
     fn set_energy_profile(&mut self, _profile: crate::energy::EnergyProfile) {}
+    /// Host can create RTCPeerConnection (desktop / browser / optional Android).
+    fn set_webrtc_host_available(&mut self, _available: bool) {}
+    fn webrtc_host_available(&self) -> bool {
+        false
+    }
+    fn set_webrtc_link_ready(&mut self, _peer: &str, _ready: bool) {}
+    fn webrtc_link_ready(&self, _peer: &str) -> bool {
+        false
+    }
+    fn schedule_webrtc_negotiation(&mut self, _peer: &str) {}
+    fn drain_webrtc_negotiation_requests(&mut self, _max: usize) -> Vec<String> {
+        Vec::new()
+    }
+    fn push_webrtc_inbound_signal(&mut self, _signal: crate::webrtc_signaling::WebRtcSignalInbound) {}
+    fn drain_webrtc_inbound_signals(
+        &mut self,
+        _max: usize,
+    ) -> Vec<crate::webrtc_signaling::WebRtcSignalInbound> {
+        Vec::new()
+    }
+    fn queue_webrtc_wire(&mut self, _to_peer: &str, _wire: WireMessage) -> anyhow::Result<()> {
+        Ok(())
+    }
     /// Current wide-area reachability (Internet vs mesh-only).
     fn connectivity_mode(&self) -> ConnectivityMode {
         ConnectivityMode::MeshOnly
@@ -408,6 +441,7 @@ pub trait MeshTransport: Send {
             ble: self.bearer_is_connected(peer_id) || mesh_peers_nonempty,
             lora: false,
             wifi_aware: false,
+            webrtc: false,
         }
     }
     /// Score-aware outbound path (Internet → Wi‑Fi Direct → BLE → custody).

@@ -30,6 +30,7 @@ import network.mycelium.app.bootstrap.BleMeshRelay
 import network.mycelium.app.bootstrap.WifiDirectBearerHost
 import network.mycelium.app.bootstrap.WifiDirectRelay
 import network.mycelium.app.bootstrap.TransportInviteHandoff
+import network.mycelium.app.bootstrap.WebRtcDiscoveryHost
 import network.mycelium.app.bootstrap.WifiAwareDiscoveryHost
 import network.mycelium.app.bootstrap.WifiMulticastLock
 import network.mycelium.app.viewmodel.SettingsViewModel
@@ -56,6 +57,7 @@ class MeshService : Service() {
     private var bleCollectJob: kotlinx.coroutines.Job? = null
     private var wifiDirectHost: WifiDirectBearerHost? = null
     private var wifiAwareDiscovery: WifiAwareDiscoveryHost? = null
+    private var webrtcHost: WebRtcDiscoveryHost? = null
     private val notifiedAddresses = mutableSetOf<String>()
     private var nodeInitialized = false
     private var wifiMulticastLock: WifiMulticastLock? = null
@@ -205,8 +207,21 @@ class MeshService : Service() {
         nodeInitialized = true
         nodeReady = true
         MeshUiState.start(this)
+        startWebRtcHost()
         updateBleBootstrap()
         return START_STICKY
+    }
+
+    private fun startWebRtcHost() {
+        val prefs = getSharedPreferences("settings", MODE_PRIVATE)
+        if (!prefs.getBoolean("internet_enabled", true)) return
+        webrtcHost?.stop()
+        webrtcHost = WebRtcDiscoveryHost(this, serviceScope).also { it.start() }
+    }
+
+    private fun stopWebRtcHost() {
+        webrtcHost?.stop()
+        webrtcHost = null
     }
 
     private fun updateBleBootstrap() {
@@ -488,6 +503,7 @@ class MeshService : Service() {
     override fun onDestroy() {
         crisisRefreshJob?.cancel()
         stopBleBootstrap()
+        stopWebRtcHost()
         wifiMulticastLock?.release()
         wifiMulticastLock = null
         serviceScope.cancel()

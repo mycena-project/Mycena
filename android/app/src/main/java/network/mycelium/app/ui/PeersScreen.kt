@@ -3,8 +3,10 @@
 package network.mycelium.app.ui
 
 import android.Manifest
+import android.app.Activity
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.nfc.NfcAdapter
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -40,6 +42,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -71,6 +74,7 @@ import network.mycelium.app.bootstrap.InviteConnect
 import network.mycelium.app.bootstrap.PeerInvite
 import network.mycelium.app.discovery.PeersDiscoveryPhase
 import network.mycelium.app.discovery.PeersDiscoveryPresentation
+import network.mycelium.app.nfc.NfcInviteReader
 import network.mycelium.app.viewmodel.PeersViewModel
 import network.mycelium.app.util.sharePlainText
 import network.mycelium.app.util.userVisibleContactName
@@ -213,6 +217,8 @@ fun PeersScreen(navController: NavController, vm: PeersViewModel = viewModel()) 
     var showMyQr by remember { mutableStateOf(false) }
     var pasteInvite by remember { mutableStateOf("") }
     var showAdvanced by remember { mutableStateOf(false) }
+    val nfcAvailable = remember { NfcAdapter.getDefaultAdapter(context) != null }
+    var nfcListening by remember { mutableStateOf(false) }
 
     fun onInviteApplied(successMessage: String, peerId: String?) {
         scope.launch {
@@ -229,6 +235,44 @@ fun PeersScreen(navController: NavController, vm: PeersViewModel = viewModel()) 
                 navController.navigate("chat/$peerId")
             }
         }
+    }
+
+    val nfcReader =
+        remember(context) {
+            (context as? Activity)?.let { activity ->
+                NfcInviteReader(
+                    activity = activity,
+                    onInvite = { raw ->
+                        nfcListening = false
+                        vm.onInviteConnectStarted()
+                        InviteConnect.apply(raw)
+                            .onSuccess { peerId ->
+                                onInviteApplied(context.getString(R.string.connect_success), peerId)
+                            }
+                            .onFailure {
+                                vm.onInviteConnectFinished()
+                                scope.launch {
+                                    snackbar.showSnackbar(context.getString(R.string.error_invalid_qr))
+                                }
+                            }
+                    },
+                    onUnavailable = {
+                        nfcListening = false
+                        scope.launch {
+                            snackbar.showSnackbar(context.getString(R.string.peers_nfc_unavailable))
+                        }
+                    },
+                )
+            }
+        }
+
+    DisposableEffect(nfcListening, nfcReader) {
+        if (nfcListening) {
+            nfcReader?.enable()
+        } else {
+            nfcReader?.disable()
+        }
+        onDispose { nfcReader?.disable() }
     }
 
     val scannerLauncher =
@@ -399,6 +443,20 @@ fun PeersScreen(navController: NavController, vm: PeersViewModel = viewModel()) 
                 ) {
                     Button(onClick = { launchScanner() }, modifier = Modifier.fillMaxWidth()) {
                         Text(stringResource(R.string.connect_scan_button))
+                    }
+                    if (nfcAvailable) {
+                        OutlinedButton(
+                            onClick = { nfcListening = !nfcListening },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(
+                                if (nfcListening) {
+                                    stringResource(R.string.peers_nfc_tap) + "…"
+                                } else {
+                                    stringResource(R.string.peers_nfc_tap)
+                                },
+                            )
+                        }
                     }
                     OutlinedButton(onClick = { showMyQr = true }, modifier = Modifier.fillMaxWidth()) {
                         Text(stringResource(R.string.connect_show_qr_button))

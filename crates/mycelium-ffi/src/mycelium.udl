@@ -124,6 +124,14 @@ namespace mycelium {
   void ingest_wifi_aware_discovery(string peer_hint, string invite_uri, u64 latency_ms);
   void record_ble_discovery_observation(u64 latency_ms, u32 bytes, boolean success);
   sequence<string> drain_discovery_announcements(u32 max);
+  void set_webrtc_available(boolean available);
+  void set_webrtc_link_ready(string peer, boolean ready);
+  [Throws=MyceliumException]
+  void ingest_webrtc_frame(string from_peer, bytes frame);
+  void post_webrtc_signal(string to_peer, string session_id, u8 kind, string payload, u32? ice_mline_index);
+  sequence<WebRtcSignalFrame> drain_webrtc_signaling_inbound(u32 max);
+  sequence<string> drain_webrtc_negotiation_requests(u32 max);
+  sequence<string> webrtc_stun_servers();
   [Throws=MyceliumException]
   void ingest_ble_frame(string from_peer, bytes frame);
   string? peer_id_from_ble_frame(bytes frame);
@@ -213,6 +221,14 @@ dictionary BleOutboundFrame {
   u8 medium;
 };
 
+dictionary WebRtcSignalFrame {
+  string from_peer;
+  string session_id;
+  u8 kind;
+  string payload;
+  u32? ice_mline_index;
+};
+
 dictionary NodeConfig {
   string db_path;
   string listen_addr;
@@ -262,6 +278,7 @@ dictionary CustodyPendingStatus {
   string message_id;
   string? dest_peer;
   string chat_body;
+  string app_chat_id;
   u64 enqueued_at_ms;
   u8 sprays_released;
   u8 max_spray;

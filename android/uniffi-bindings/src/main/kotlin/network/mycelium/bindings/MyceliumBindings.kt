@@ -129,6 +129,23 @@ object mycelium {
         uniffi.mycelium.recordBleDiscoveryObservation(latencyMs, bytes, success)
     fun drainDiscoveryAnnouncements(max: UInt): List<String> =
         uniffi.mycelium.drainDiscoveryAnnouncements(max)
+    fun setWebRtcAvailable(available: Boolean) = uniffi.mycelium.setWebrtcAvailable(available)
+    fun setWebRtcLinkReady(peer: String, ready: Boolean) =
+        uniffi.mycelium.setWebrtcLinkReady(peer, ready)
+    fun ingestWebRtcFrame(fromPeer: String, frame: ByteArray) =
+        uniffi.mycelium.ingestWebrtcFrame(fromPeer, frame)
+    fun postWebRtcSignal(
+        toPeer: String,
+        sessionId: String,
+        kind: UByte,
+        payload: String,
+        iceMlineIndex: UInt?,
+    ) = uniffi.mycelium.postWebrtcSignal(toPeer, sessionId, kind, payload, iceMlineIndex)
+    fun drainWebRtcSignalingInbound(max: UInt): List<uniffi.mycelium.WebRtcSignalFrame> =
+        uniffi.mycelium.drainWebrtcSignalingInbound(max)
+    fun drainWebRtcNegotiationRequests(max: UInt): List<String> =
+        uniffi.mycelium.drainWebrtcNegotiationRequests(max)
+    fun webrtcStunServers(): List<String> = uniffi.mycelium.webrtcStunServers()
     fun setThermalState(state: ThermalState) = uniffi.mycelium.setThermalState(state)
     fun energyProfile(): EnergyProfileData = uniffi.mycelium.energyProfile()
     fun addBootstrapPeer(multiaddr: String) = uniffi.mycelium.addBootstrapPeer(multiaddr)

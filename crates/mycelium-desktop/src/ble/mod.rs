@@ -12,6 +12,7 @@ mod link_registry;
 #[cfg(any(target_os = "macos", target_os = "linux"))]
 mod host;
 
+use crate::discovery::MeshDiscoveryState;
 use mycelium_app::node::AppNode;
 use mycelium_l1_facade::NodeHandle;
 use std::sync::Arc;
@@ -31,6 +32,7 @@ impl DesktopBleHost {
         app_node: Arc<AppNode>,
         local_peer_id: String,
         enabled: bool,
+        discovery: Arc<MeshDiscoveryState>,
     ) -> Option<Self> {
         if !enabled {
             return None;
@@ -45,6 +47,7 @@ impl DesktopBleHost {
                 app_node,
                 local_peer_id,
                 links,
+                discovery,
             };
             let task = tauri::async_runtime::spawn(async move {
                 host::run(ctx, shutdown_rx).await;

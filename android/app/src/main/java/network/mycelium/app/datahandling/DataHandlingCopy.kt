@@ -38,6 +38,10 @@ object DataHandlingCopyLoader {
         val locale = Locale.getDefault()
         return when (locale.language) {
             "de" -> "de"
+            "ar" -> "ar"
+            "ru" -> "ru"
+            "fa" -> "fa"
+            "zh" -> "zh"
             else -> "en"
         }
     }

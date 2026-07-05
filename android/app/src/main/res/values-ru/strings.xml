@@ -26,6 +26,11 @@
     <string name="chat_peer_subtitle_online">%1$s · онлайн</string>
     <string name="chat_pending_requests">Запросы контактов</string>
     <string name="chat_reject_contact">Отклонить</string>
+    <string name="chat_custody_carriers_many">%1$d возможных носителей рядом</string>
+    <string name="chat_custody_carriers_none">нет носителей рядом</string>
+    <string name="chat_custody_carriers_one">1 возможный носитель рядом</string>
+    <string name="chat_custody_message_status">Сохранено локально · ожидаемая доставка: %1$d–%2$d мин · %3$s</string>
+    <string name="chat_custody_waiting_nearby">Сохранено локально · будет доставлено, когда кто-то окажется рядом</string>
     <string name="chat_send">Отправить</string>
     <string name="chat_sending_encrypted">🔒 Отправка зашифрованного…</string>
     <string name="chat_share_location">Поделиться местоположением</string>
@@ -162,6 +167,16 @@
     <string name="notification_channel_name">Сеть мицелия</string>
     <string name="notification_peers">Подключено %1$d одноранговых узлов</string>
     <string name="notification_running">Сеть Мицелий активна</string>
+    <string name="peers_discovery_searching_title">Поиск устройств рядом…</string>
+    <string name="peers_discovery_searching_body">Bluetooth и Wi‑Fi остаются включёнными в фоне. Это может занять до минуты.</string>
+    <string name="peers_discovery_nobody_title">Сейчас никого рядом нет</string>
+    <string name="peers_discovery_nobody_body">Это нормально. Откройте «Подключение» на другом телефоне рядом или один раз отсканируйте QR-коды друг друга.</string>
+    <string name="peers_discovery_nearby_found_title">Устройства рядом</string>
+    <string name="peers_discovery_nearby_found_body">Устройства Mycelium в зоне доступа. Подключение автоматически…</string>
+    <string name="peers_discovery_connecting_title">Подключение…</string>
+    <string name="peers_discovery_connecting_body">Настраивается защищённое соединение. Обычно это занимает несколько секунд.</string>
+    <string name="peers_discovery_idle_title">Поиск устройств рядом выключен</string>
+    <string name="peers_discovery_idle_body">Включите Bluetooth mesh в настройках для автоматических подключений рядом или отсканируйте QR-код выше.</string>
     <string name="peers_connected">%1$d подключен</string>
     <string name="peers_connected_count">Подключено: %1$d</string>
     <string name="peers_delivered">Доставленный</string>
@@ -184,6 +199,7 @@
     <string name="settings_bootstrap_peers">Пользовательские узлы начальной загрузки</string>
     <string name="settings_clear_store">Очистить старые сообщения</string>
     <string name="settings_danger_zone">Опасная зона</string>
+    <string name="settings_data_handling">Как Mycelium обрабатывает ваши данные</string>
     <string name="settings_display_name">Отображаемое имя</string>
     <string name="settings_display_name_hint">Ваше имя в сети</string>
     <string name="settings_energy">Энергетический режим</string>

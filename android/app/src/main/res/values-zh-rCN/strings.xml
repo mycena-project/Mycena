@@ -26,6 +26,11 @@
     <string name="chat_peer_subtitle_online">%1$s · 在线</string>
     <string name="chat_pending_requests">联系人请求</string>
     <string name="chat_reject_contact">拒绝</string>
+    <string name="chat_custody_carriers_many">附近有 %1$d 个可能的载体</string>
+    <string name="chat_custody_carriers_none">附近无载体</string>
+    <string name="chat_custody_carriers_one">附近有 1 个可能的载体</string>
+    <string name="chat_custody_message_status">本地存储 · 预计送达：%1$d–%2$d 分钟 · %3$s</string>
+    <string name="chat_custody_waiting_nearby">本地存储 · 附近有人时将送达</string>
     <string name="chat_send">发送</string>
     <string name="chat_sending_encrypted">🔒 发送加密...</string>
     <string name="chat_share_location">分享我的位置</string>
@@ -163,6 +168,16 @@
     <string name="notification_peers">%1$d 个对等点已连接</string>
     <string name="notification_running">菌丝网络运行中</string>
     <string name="notification_new_message_from">来自 %1$s 的新消息</string>
+    <string name="peers_discovery_searching_title">正在搜索附近设备…</string>
+    <string name="peers_discovery_searching_body">蓝牙和 Wi‑Fi 会在后台保持开启，最多可能需要一分钟。</string>
+    <string name="peers_discovery_nobody_title">附近暂时没有人</string>
+    <string name="peers_discovery_nobody_body">这很正常。在附近的另一部手机上打开「连接」，或互相扫描一次二维码。</string>
+    <string name="peers_discovery_nearby_found_title">附近设备</string>
+    <string name="peers_discovery_nearby_found_body">Mycelium 设备在范围内，正在自动连接…</string>
+    <string name="peers_discovery_connecting_title">正在连接…</string>
+    <string name="peers_discovery_connecting_body">正在建立安全连接，通常只需几秒钟。</string>
+    <string name="peers_discovery_idle_title">附近发现已关闭</string>
+    <string name="peers_discovery_idle_body">在设置中开启蓝牙网状网络以自动连接附近设备，或扫描上方二维码。</string>
     <string name="peers_connected">%1$d 已连接</string>
     <string name="peers_connected_count">已连接 %1$d 个</string>
     <string name="peers_delivered">发表</string>
@@ -185,6 +200,7 @@
     <string name="settings_bootstrap_peers">自定义引导程序对等点</string>
     <string name="settings_clear_store">清除旧消息</string>
     <string name="settings_danger_zone">危险区域</string>
+    <string name="settings_data_handling">Mycelium 如何处理你的数据</string>
     <string name="settings_display_name">显示名称</string>
     <string name="settings_display_name_hint">你在网络中的名字</string>
     <string name="settings_energy">能量模式</string>

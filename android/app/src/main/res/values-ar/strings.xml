@@ -27,6 +27,11 @@
     <string name="chat_peer_subtitle_online">%1$s · متصل</string>
     <string name="chat_pending_requests">طلبات جهات الاتصال</string>
     <string name="chat_reject_contact">رفض</string>
+    <string name="chat_custody_carriers_many">%1$d ناقل محتمل في الجوار</string>
+    <string name="chat_custody_carriers_none">لا يوجد ناقلات في الجوار</string>
+    <string name="chat_custody_carriers_one">ناقل واحد محتمل في الجوار</string>
+    <string name="chat_custody_message_status">مخزّن محليًا · التسليم المتوقع: %1$d–%2$d د · %3$s</string>
+    <string name="chat_custody_waiting_nearby">مخزّن محليًا · سيتم التسليم عند وجود شخص في الجوار</string>
     <string name="chat_send">إرسال</string>
     <string name="chat_sending_encrypted">🔒الإرسال مشفر…</string>
     <string name="chat_share_location">مشاركة موقعي</string>
@@ -163,6 +168,16 @@
     <string name="notification_channel_name">شبكة الميسليوم</string>
     <string name="notification_peers">تم توصيل %1$d من النظراء</string>
     <string name="notification_running">شبكة مايسيليوم نشطة</string>
+    <string name="peers_discovery_searching_title">البحث عن أجهزة قريبة…</string>
+    <string name="peers_discovery_searching_body">يبقى Bluetooth وWi‑Fi قيد التشغيل في الخلفية. قد يستغرق ذلك دقيقة واحدة.</string>
+    <string name="peers_discovery_nobody_title">لا أحد في الجوار حاليًا</string>
+    <string name="peers_discovery_nobody_body">هذا طبيعي. افتح «اتصال» على هاتف آخر قريب، أو امسحا رمز QR لبعضهما مرة واحدة.</string>
+    <string name="peers_discovery_nearby_found_title">أجهزة في الجوار</string>
+    <string name="peers_discovery_nearby_found_body">أجهزة Mycelium في النطاق. جارٍ الاتصال تلقائيًا…</string>
+    <string name="peers_discovery_connecting_title">جارٍ الاتصال…</string>
+    <string name="peers_discovery_connecting_body">جارٍ إعداد اتصال آمن. يستغرق ذلك عادةً بضع ثوانٍ.</string>
+    <string name="peers_discovery_idle_title">اكتشاف الأجهزة القريبة مغلق</string>
+    <string name="peers_discovery_idle_body">فعّل شبكة Bluetooth في الإعدادات للاتصالات التلقائية القريبة، أو امسح رمز QR أعلاه.</string>
     <string name="peers_connected">تم توصيل %1$d</string>
     <string name="peers_connected_count">%1$d متصل</string>
     <string name="peers_delivered">تم التوصيل</string>
@@ -185,6 +200,7 @@
     <string name="settings_bootstrap_peers">أقران التمهيد المخصص</string>
     <string name="settings_clear_store">مسح الرسائل القديمة</string>
     <string name="settings_danger_zone">منطقة الخطر</string>
+    <string name="settings_data_handling">كيف يتعامل Mycelium مع بياناتك</string>
     <string name="settings_display_name">اسم العرض</string>
     <string name="settings_display_name_hint">اسمك في الشبكة</string>
     <string name="settings_energy">وضع الطاقة</string>

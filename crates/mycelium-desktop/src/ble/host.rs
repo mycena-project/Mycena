@@ -5,6 +5,7 @@
 use crate::ble::bridge;
 use crate::ble::gatt::{INVITE_CHAR_UUID, MESH_DATA_CHAR_UUID, SERVICE_UUID};
 use crate::ble::link_registry::LinkRegistry;
+use crate::discovery::MeshDiscoveryState;
 use blew::central::{CentralEvent, ScanFilter, ScanMode, WriteType};
 use blew::gatt::props::{AttributePermissions, CharacteristicProperties};
 use blew::gatt::service::{GattCharacteristic, GattService};
@@ -37,6 +38,7 @@ pub struct BleHostContext {
     pub app_node: Arc<AppNode>,
     pub local_peer_id: String,
     pub links: Arc<LinkRegistry>,
+    pub discovery: Arc<MeshDiscoveryState>,
 }
 
 pub async fn run(ctx: BleHostContext, mut shutdown: watch::Receiver<bool>) {
@@ -101,6 +103,7 @@ async fn run_inner(
             mode: ScanMode::LowLatency,
         })
         .await?;
+    ctx.discovery.on_ble_bootstrap_started().await;
     info!("desktop BLE: scanning for Mycelium peers (broad scan)");
 
     peripheral
@@ -193,6 +196,7 @@ async fn run_inner(
                         }
                         mycelium_seen = mycelium_seen.saturating_add(1);
                         let device_id = device.id.as_str().to_string();
+                        ctx.discovery.on_nearby_sighting(&device_id).await;
                         debug!(
                             "BLE peer discovered id={device_id} rssi={:?} name={:?}",
                             device.rssi, device.name
@@ -232,6 +236,7 @@ async fn run_inner(
 
     let _ = central.stop_scan().await;
     let _ = peripheral.stop_advertising().await;
+    ctx.discovery.on_ble_bootstrap_stopped().await;
     info!("desktop BLE host shut down");
     Ok(())
 }
@@ -243,6 +248,7 @@ impl BleHostContext {
             app_node: Arc::clone(&self.app_node),
             local_peer_id: self.local_peer_id.clone(),
             links: Arc::clone(&self.links),
+            discovery: Arc::clone(&self.discovery),
         }
     }
 }

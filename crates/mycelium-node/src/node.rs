@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Mycelium Project
 use crate::bearer_wifi_aware::BearerWifiAwareRouter;
 use crate::custody::{
-    CustodyConfig, CustodyPendingStatus, CustodyQueue, CustodyRoutingContext,
+    CustodyConfig, CustodyForwardPlan, CustodyPendingStatus, CustodyQueue, CustodyRoutingContext,
     DEFAULT_MAX_CUSTODY_SPRAY,
 };
 use crate::encounter_log::EncounterLogStore;
@@ -21,6 +21,7 @@ use mycelium_core::crypto::EncryptionKeypair;
 use mycelium_core::crypto::{self};
 use mycelium_core::data::{now_ms, Priority};
 use mycelium_core::energy::{EnergyProfile, MovementIndicator, NodeState, ThermalState};
+use mycelium_core::webrtc_signaling::{WebRtcSignalInbound, WebRtcSignalKind, MAX_SIGNALING_PAYLOAD};
 use mycelium_core::lock_or_recover;
 use mycelium_core::privacy_shaping::{
     self, BatchingScheduler, PrivacyShapingConfig, PrivacyShapingStats,
@@ -282,6 +283,7 @@ pub enum NodeCommand {
         body: String,
         payload: Vec<u8>,
         priority: Option<Priority>,
+        app_chat_id: Option<String>,
     },
     Broadcast {
         scope: String,
@@ -461,6 +463,43 @@ pub enum NodeCommand {
         to_peer: String,
         inner_plaintext: Vec<u8>,
         priority: Priority,
+    },
+    EnqueueEncryptedDirectCustody {
+        to_peer: String,
+        inner_plaintext: Vec<u8>,
+        priority: Priority,
+        app_chat_id: Option<String>,
+        display_body: String,
+    },
+    /// Host reports WebRTC stack availability (desktop / browser / Android).
+    SetWebRtcAvailable(bool),
+    /// Host reports RTCDataChannel open/closed toward peer.
+    SetWebRtcLinkReady {
+        peer: String,
+        ready: bool,
+    },
+    /// Ingest MYBR frame from RTCDataChannel.
+    IngestWebRtcFrame {
+        from_peer: String,
+        frame: Vec<u8>,
+    },
+    /// Send SDP/ICE over libp2p relay toward peer.
+    PostWebRtcSignal {
+        to_peer: String,
+        session_id: String,
+        kind: u8,
+        payload: String,
+        ice_mline_index: Option<u32>,
+    },
+    /// Host polls inbound signaling from mesh.
+    DrainWebRtcSignalingInbound {
+        max: usize,
+        reply: tokio::sync::oneshot::Sender<Vec<WebRtcSignalInbound>>,
+    },
+    /// Host polls peers that need an SDP offer (lower libp2p PeerId initiates).
+    DrainWebRtcNegotiationRequests {
+        max: usize,
+        reply: tokio::sync::oneshot::Sender<Vec<String>>,
     },
 }
 
@@ -1403,6 +1442,29 @@ impl NodeRunner {
         self.transport.set_peer_bearer_caps(peer, style, wifi);
     }
 
+    fn maybe_schedule_webrtc_negotiation(&mut self, peer: &str) {
+        if !self.transport.webrtc_host_available() {
+            return;
+        }
+        if self.transport.webrtc_link_ready(peer) {
+            return;
+        }
+        if !self
+            .peer_protocol_caps
+            .get(peer)
+            .is_some_and(|n| n.webrtc_allowed())
+        {
+            return;
+        }
+        if !self.transport.is_peer_connected(peer) {
+            return;
+        }
+        if self.local_peer_id.as_str() >= peer {
+            return;
+        }
+        self.transport.schedule_webrtc_negotiation(peer);
+    }
+
     fn peer_allowed_for_broadcast(&self, peer: &str, filter: BroadcastPeerFilter) -> bool {
         match filter {
             BroadcastPeerFilter::All => true,
@@ -1675,6 +1737,7 @@ impl NodeRunner {
                     body.clone(),
                     body.into_bytes(),
                     Priority::Normal,
+                    None,
                 )
                 .await?;
             }
@@ -1683,12 +1746,14 @@ impl NodeRunner {
                 body,
                 payload,
                 priority,
+                app_chat_id,
             } => {
                 self.send_direct_internal(
                     to_peer,
                     body,
                     payload,
                     priority.unwrap_or(Priority::Normal),
+                    app_chat_id,
                 )
                 .await?;
             }
@@ -2281,6 +2346,61 @@ impl NodeRunner {
                 self.send_encrypted_direct_internal(&to_peer, &inner_plaintext, priority)
                     .await?;
             }
+            NodeCommand::EnqueueEncryptedDirectCustody {
+                to_peer,
+                inner_plaintext,
+                priority,
+                app_chat_id,
+                display_body,
+            } => {
+                self.enqueue_encrypted_outbound_custody(
+                    &to_peer,
+                    &inner_plaintext,
+                    priority,
+                    app_chat_id,
+                    &display_body,
+                )
+                .await?;
+            }
+            NodeCommand::SetWebRtcAvailable(available) => {
+                self.transport.set_webrtc_host_available(available);
+            }
+            NodeCommand::SetWebRtcLinkReady { peer, ready } => {
+                self.transport.set_webrtc_link_ready(&peer, ready);
+            }
+            NodeCommand::IngestWebRtcFrame { from_peer, frame } => {
+                let _ = self.ingest_bearer_frame(&from_peer, &frame).await;
+            }
+            NodeCommand::PostWebRtcSignal {
+                to_peer,
+                session_id,
+                kind,
+                payload,
+                ice_mline_index,
+            } => {
+                if payload.len() > MAX_SIGNALING_PAYLOAD {
+                    warn!("webrtc signal to {to_peer} exceeds max payload");
+                } else if WebRtcSignalKind::from_u8(kind).is_some() {
+                    let wire = WireMessage::WebRtcSignal {
+                        to_peer: to_peer.clone(),
+                        session_id,
+                        kind,
+                        payload,
+                        ice_mline_index,
+                    };
+                    if let Err(e) = self.transport.send_direct(to_peer, wire).await {
+                        warn!("post webrtc signal: {e:#}");
+                    }
+                }
+            }
+            NodeCommand::DrainWebRtcSignalingInbound { max, reply } => {
+                let drained = self.transport.drain_webrtc_inbound_signals(max);
+                let _ = reply.send(drained);
+            }
+            NodeCommand::DrainWebRtcNegotiationRequests { max, reply } => {
+                let drained = self.transport.drain_webrtc_negotiation_requests(max);
+                let _ = reply.send(drained);
+            }
         }
         Ok(())
     }
@@ -2322,6 +2442,7 @@ impl NodeRunner {
         body: String,
         payload: Vec<u8>,
         priority: Priority,
+        app_chat_id: Option<String>,
     ) -> anyhow::Result<()> {
         let mut envelope = mycelium_core::data::Envelope::new(
             self.local_peer_id.clone(),
@@ -2363,6 +2484,9 @@ impl NodeRunner {
                 self.forward_direct_internet(&to_peer, &msg, &wire, &peers)
                     .await?;
             }
+            TransportPath::WebRtc => {
+                self.forward_direct_webrtc(&to_peer, &wire).await?;
+            }
             TransportPath::WifiDirect | TransportPath::BleTrickle => {
                 self.forward_direct_mesh_bearer(&to_peer, &msg, &wire, &peers)
                     .await?;
@@ -2372,7 +2496,21 @@ impl NodeRunner {
             && !self.transport.is_peer_connected(&to_peer)
             && self.peer_custody_allowed(&to_peer)
         {
-            self.enqueue_outbound_custody(&to_peer, &msg, &body).await?;
+            self.enqueue_outbound_custody(&to_peer, &msg, &body, app_chat_id)
+                .await?;
+        }
+        Ok(())
+    }
+
+    async fn forward_direct_webrtc(
+        &mut self,
+        to_peer: &str,
+        wire: &WireMessage,
+    ) -> anyhow::Result<()> {
+        if let Err(e) = self.transport.queue_webrtc_wire(to_peer, wire.clone()) {
+            warn!("webrtc queue for {to_peer}: {e:#}");
+        } else {
+            info!("direct message queued for {to_peer} (WebRTC data channel)");
         }
         Ok(())
     }
@@ -2476,6 +2614,7 @@ impl NodeRunner {
         to_peer: &str,
         msg: &DirectMessage,
         body: &str,
+        app_chat_id: Option<String>,
     ) -> anyhow::Result<()> {
         if !self.custody_origin_allowed(to_peer) {
             return Ok(());
@@ -2491,11 +2630,88 @@ impl NodeRunner {
             envelope,
             body: body.to_string(),
         };
-        if self.custody_queue.enqueue(&custody_msg)? {
+        if self
+            .custody_queue
+            .enqueue_with_meta(&custody_msg, app_chat_id, None)?
+        {
             debug!(
                 "custody enqueued outbound message_id={} target={to_peer}",
                 custody_msg.envelope.id.0
             );
+        }
+        Ok(())
+    }
+
+    async fn enqueue_encrypted_outbound_custody(
+        &mut self,
+        to_peer: &str,
+        inner_plaintext: &[u8],
+        priority: Priority,
+        app_chat_id: Option<String>,
+        display_body: &str,
+    ) -> anyhow::Result<()> {
+        if !self.custody_enabled || !self.peer_custody_allowed(to_peer) {
+            return Ok(());
+        }
+        if !self.custody_origin_allowed(to_peer) {
+            return Ok(());
+        }
+        let wrapped =
+            mycelium_core::e2e_direct_wrap::wrap_inner(&self.local_peer_id, inner_plaintext);
+        let legacy_pk = self.peer_x25519.read().await.get(to_peer).copied();
+        let (encrypted_payload, e2e_version) =
+            self.encrypt_e2e_for_peer_sync(to_peer, &wrapped, legacy_pk)?;
+        let sender_enc_pubkey = self.enc_keypair.public_hex();
+        let mut wire = WireMessage::EncryptedDirect {
+            to_peer: to_peer.to_string(),
+            sender_enc_pubkey,
+            encrypted_payload,
+            mesh_signature: None,
+            hop_count: 0,
+            max_hops: 8,
+            e2e_version,
+            priority,
+        };
+        if let Some(keypair) = &self.keypair {
+            mycelium_core::transport::sign_encrypted_direct(&mut wire, keypair)?;
+        } else {
+            anyhow::bail!("cannot enqueue EncryptedDirect custody without local keypair");
+        }
+        let mut envelope = mycelium_core::data::Envelope::new(
+            self.local_peer_id.clone(),
+            Some(to_peer.to_string()),
+            Vec::new(),
+        );
+        envelope.custody = true;
+        envelope.max_hops = mycelium_core::data::CUSTODY_DEFAULT_MAX_HOPS;
+        envelope.ttl_secs = 48 * 60 * 60;
+        envelope.priority = priority;
+        if let Some(keypair) = &self.keypair {
+            let _ = envelope.sign(keypair);
+        }
+        let custody_msg = DirectMessage {
+            envelope,
+            body: display_body.to_string(),
+        };
+        if self
+            .custody_queue
+            .enqueue_with_meta(&custody_msg, app_chat_id, Some(wire))?
+        {
+            debug!(
+                "custody enqueued encrypted outbound message_id={} target={to_peer}",
+                custody_msg.envelope.id.0
+            );
+        }
+        Ok(())
+    }
+
+    async fn forward_custody_plan(&mut self, plan: CustodyForwardPlan) -> anyhow::Result<()> {
+        if let Some(wire) = plan.wire {
+            self.transport
+                .send_direct(plan.to_peer.clone(), wire)
+                .await?;
+        } else {
+            self.enqueue(plan.to_peer, plan.message).await?;
         }
         Ok(())
     }
@@ -2928,6 +3144,7 @@ impl NodeRunner {
                 self.flush_custody_to_peer(&peer_id).await?;
                 self.retry_identity_rotation_to_peer(&peer_id).await;
                 self.update_crowd_density_backoff();
+                self.maybe_schedule_webrtc_negotiation(&peer_id);
             }
             TransportEvent::PeerDown { peer_id } => {
                 info!("expired peer={peer_id}");
@@ -2950,6 +3167,7 @@ impl NodeRunner {
                 }
                 self.peer_scopes.remove(&peer_id);
                 self.peer_protocol_caps.remove(&peer_id);
+                self.transport.set_webrtc_link_ready(&peer_id, false);
                 self.update_crowd_density_backoff();
             }
             TransportEvent::DirectReceived { from_peer, message } => {
@@ -3552,9 +3770,40 @@ impl NodeRunner {
                     .insert(from_peer.clone(), negotiated);
                 self.apply_negotiated_bearer_caps(&from_peer, negotiated);
                 info!(
-                    "stored peer info for {from_peer} (ratchet={} custody={} relay={})",
-                    negotiated.ratchet, negotiated.custody, negotiated.relay
+                    "stored peer info for {from_peer} (ratchet={} custody={} relay={} webrtc={})",
+                    negotiated.ratchet,
+                    negotiated.custody,
+                    negotiated.relay,
+                    negotiated.webrtc_allowed()
                 );
+                self.maybe_schedule_webrtc_negotiation(&from_peer);
+            }
+            WireMessage::WebRtcSignal {
+                to_peer,
+                session_id,
+                kind,
+                payload,
+                ice_mline_index,
+            } => {
+                if to_peer != self.local_peer_id {
+                    return Ok(());
+                }
+                let Some(signal_kind) = WebRtcSignalKind::from_u8(kind) else {
+                    return Ok(());
+                };
+                if payload.len() > MAX_SIGNALING_PAYLOAD {
+                    return Ok(());
+                }
+                self.transport.push_webrtc_inbound_signal(WebRtcSignalInbound {
+                    from_peer: from_peer.clone(),
+                    session_id,
+                    kind: signal_kind,
+                    payload,
+                    ice_mline_index,
+                });
+                if signal_kind == WebRtcSignalKind::DataChannelOpen {
+                    self.transport.set_webrtc_link_ready(&from_peer, true);
+                }
             }
             WireMessage::EncryptedDirect {
                 to_peer,
@@ -3872,7 +4121,7 @@ impl NodeRunner {
             now,
             Some(&routing_ctx),
         )? {
-            self.enqueue(plan.to_peer, plan.message).await?;
+            self.forward_custody_plan(plan).await?;
             let mut metrics = self.metrics.write().await;
             metrics.custody_forwards += 1;
         }
@@ -3885,7 +4134,7 @@ impl NodeRunner {
                 now,
                 Some(&routing_ctx),
             )? {
-                self.enqueue(plan.to_peer, plan.message).await?;
+                self.forward_custody_plan(plan).await?;
                 let mut metrics = self.metrics.write().await;
                 metrics.custody_forwards += 1;
             } else {
@@ -3905,7 +4154,7 @@ impl NodeRunner {
             .custody_queue
             .plans_for_encounter(&self.local_peer_id, peer, 2)?;
         for plan in plans {
-            self.enqueue(plan.to_peer, plan.message).await?;
+            self.forward_custody_plan(plan).await?;
             let mut metrics = self.metrics.write().await;
             metrics.custody_forwards += 1;
         }

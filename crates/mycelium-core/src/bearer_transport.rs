@@ -80,6 +80,8 @@ pub enum BearerMedium {
     WifiDirect = 1,
     /// Discovery-only: low-duty peer presence (Android Wi‑Fi Aware / NSD). Not used for bulk data.
     WifiAware = 2,
+    /// WebRTC RTCDataChannel (phone↔desktop/browser). Signaling rides libp2p relay; data is direct.
+    WebRtc = 3,
 }
 
 impl BearerMedium {
@@ -88,6 +90,7 @@ impl BearerMedium {
             0 => Some(Self::Ble),
             1 => Some(Self::WifiDirect),
             2 => Some(Self::WifiAware),
+            3 => Some(Self::WebRtc),
             _ => None,
         }
     }
@@ -99,11 +102,20 @@ impl BearerMedium {
 
 pub const WIFI_DIRECT_MAX_FRAME_LEN: usize = 65_536;
 pub const WIFI_DIRECT_CHUNK_PAYLOAD: usize = 60_000;
+pub const WEBRTC_MAX_FRAME_LEN: usize = 65_536;
+pub const WEBRTC_CHUNK_PAYLOAD: usize = 60_000;
 
 pub fn wifi_direct_mtu() -> BearerMtu {
     BearerMtu {
         max_frame: WIFI_DIRECT_MAX_FRAME_LEN,
         chunk_payload: WIFI_DIRECT_CHUNK_PAYLOAD,
+    }
+}
+
+pub fn webrtc_mtu() -> BearerMtu {
+    BearerMtu {
+        max_frame: WEBRTC_MAX_FRAME_LEN,
+        chunk_payload: WEBRTC_CHUNK_PAYLOAD,
     }
 }
 

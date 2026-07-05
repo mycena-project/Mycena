@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Mycelium Project
 use crate::bearer_mesh::BearerMeshRouter;
+use crate::bearer_webrtc::BearerWebRtcRouter;
 use crate::behaviour::{
     make_direct_response, DirectMessageRequest, DirectMessageResponse, MeshBehaviour,
 };
@@ -178,6 +179,7 @@ pub struct Libp2pTransport {
     mdns_window_start: Option<Instant>,
     kad_query_limiter: FixedWindowRateLimiter,
     bearer: BearerMeshRouter,
+    webrtc: BearerWebRtcRouter,
     connectivity_mode: ConnectivityMode,
     /// Throttle redials to stale LAN addrs (e.g. phone in flight mode).
     last_lan_dial: HashMap<String, Instant>,
@@ -296,6 +298,7 @@ impl Libp2pTransport {
                 KAD_QUERY_WINDOW.as_millis() as u64,
             ),
             bearer: BearerMeshRouter::new(),
+            webrtc: BearerWebRtcRouter::new(),
             connectivity_mode: initial_connectivity,
             last_lan_dial: HashMap::new(),
         };
@@ -883,6 +886,7 @@ impl MeshTransport for Libp2pTransport {
             ble: bearer_up || mesh_peers_nonempty,
             lora: false,
             wifi_aware: false,
+            webrtc: self.webrtc.is_link_ready(peer_id),
         }
     }
 
@@ -1072,6 +1076,48 @@ impl MeshTransport for Libp2pTransport {
         self.bearer.set_energy_profile(profile);
     }
 
+    fn set_webrtc_host_available(&mut self, available: bool) {
+        Libp2pTransport::set_webrtc_host_available(self, available);
+    }
+
+    fn webrtc_host_available(&self) -> bool {
+        self.webrtc.host_available()
+    }
+
+    fn set_webrtc_link_ready(&mut self, peer: &str, ready: bool) {
+        Libp2pTransport::set_webrtc_link_ready(self, peer, ready);
+    }
+
+    fn webrtc_link_ready(&self, peer: &str) -> bool {
+        Libp2pTransport::webrtc_link_ready(self, peer)
+    }
+
+    fn schedule_webrtc_negotiation(&mut self, peer: &str) {
+        self.webrtc.schedule_negotiation(peer);
+    }
+
+    fn drain_webrtc_negotiation_requests(&mut self, max: usize) -> Vec<String> {
+        self.webrtc.drain_negotiation_requests(max)
+    }
+
+    fn push_webrtc_inbound_signal(
+        &mut self,
+        signal: mycelium_core::webrtc_signaling::WebRtcSignalInbound,
+    ) {
+        self.webrtc.push_inbound_signal(signal);
+    }
+
+    fn drain_webrtc_inbound_signals(
+        &mut self,
+        max: usize,
+    ) -> Vec<mycelium_core::webrtc_signaling::WebRtcSignalInbound> {
+        self.webrtc.drain_inbound_signals(max)
+    }
+
+    fn queue_webrtc_wire(&mut self, to_peer: &str, wire: WireMessage) -> anyhow::Result<()> {
+        Libp2pTransport::queue_webrtc_wire(self, to_peer, wire)
+    }
+
     fn drain_bearer_outbound(
         &mut self,
         to_peer: Option<&str>,
@@ -1081,7 +1127,12 @@ impl MeshTransport for Libp2pTransport {
         Vec<u8>,
         mycelium_core::bearer_transport::BearerMedium,
     )> {
-        self.bearer.drain_bearer_outbound(to_peer, max)
+        let mut out = self.webrtc.drain_outbound(to_peer, max);
+        let remaining = max.saturating_sub(out.len());
+        if remaining > 0 {
+            out.extend(self.bearer.drain_bearer_outbound(to_peer, remaining));
+        }
+        out
     }
 
     async fn next_event(&mut self) -> anyhow::Result<TransportEvent> {
@@ -1144,6 +1195,31 @@ impl Libp2pTransport {
             .into_iter()
             .map(|p| p.multiaddr)
             .collect()
+    }
+
+    pub fn set_webrtc_host_available(&mut self, available: bool) {
+        self.webrtc.set_host_available(available);
+    }
+
+    pub fn set_webrtc_link_ready(&mut self, peer: &str, ready: bool) {
+        self.webrtc.set_link_ready(peer, ready);
+    }
+
+    pub fn webrtc_link_ready(&self, peer: &str) -> bool {
+        self.webrtc.is_link_ready(peer)
+    }
+
+    pub fn queue_webrtc_wire(&mut self, to_peer: &str, wire: WireMessage) -> anyhow::Result<()> {
+        let payload = bincode::serialize(&wire)?;
+        let style = mycelium_core::bearer_transport::default_wire_version();
+        let encoded = mycelium_core::bearer_transport::encode_bearer_frame_with_limit(
+            mycelium_core::bearer_transport::BearerPayloadKind::SideChannelWire,
+            &payload,
+            style,
+            mycelium_core::bearer_transport::WEBRTC_MAX_FRAME_LEN,
+        )?;
+        self.webrtc.queue_frame(to_peer, encoded);
+        Ok(())
     }
 
     fn handle_swarm_event(
@@ -1431,6 +1507,17 @@ fn message_id_for_wire(message: &WireMessage) -> String {
             format!(
                 "peer_info:{}",
                 blake3::hash(enc_pubkey_hex.as_bytes()).to_hex()
+            )
+        }
+        WireMessage::WebRtcSignal {
+            session_id,
+            kind,
+            payload,
+            ..
+        } => {
+            format!(
+                "webrtc_sig:{session_id}:{kind}:{}",
+                blake3::hash(payload.as_bytes()).to_hex()
             )
         }
     }

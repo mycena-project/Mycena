@@ -99,9 +99,11 @@
     return (
       pendingCustody.find(
         (entry) =>
-          entry.chat_body === msg.body &&
-          Math.abs(Number(entry.enqueued_at_ms) - Number(msg.timestamp_ms)) <=
-            120_000,
+          entry.app_chat_id === msg.id ||
+          (!entry.app_chat_id &&
+            entry.chat_body === msg.body &&
+            Math.abs(Number(entry.enqueued_at_ms) - Number(msg.timestamp_ms)) <=
+              120_000),
       ) ?? null
     );
   }

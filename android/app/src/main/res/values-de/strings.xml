@@ -186,6 +186,8 @@
     <string name="peers_discovery_connecting_body">Sichere Verbindung wird eingerichtet. Das dauert meist nur wenige Sekunden.</string>
     <string name="peers_discovery_idle_title">Gerätesuche ist aus</string>
     <string name="peers_discovery_idle_body">Aktiviere Bluetooth-Mesh in den Einstellungen für automatische Verbindungen — oder scanne oben einen QR-Code.</string>
+    <string name="peers_nfc_tap">NFC tippen</string>
+    <string name="peers_nfc_unavailable">NFC ist aus oder auf diesem Gerät nicht verfügbar.</string>
     <string name="peers_connected">%1$d verbunden</string>
     <string name="peers_connected_count">%1$d verbunden</string>
     <string name="peers_endorse_button">Bestätigen</string>
