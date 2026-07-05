@@ -1,0 +1,105 @@
+# Dependency risk register
+
+Supply-chain gates: `deny.toml`, `./scripts/check-dependencies.sh` (cargo-deny + cargo-audit), CycloneDX SBOM on release (`./scripts/generate-sbom.sh`).
+
+Review cadence: **quarterly** or on any `Cargo.lock` change touching a row below.
+
+---
+
+## CI gates
+
+| Tool | Purpose | Fail condition |
+|------|---------|----------------|
+| **cargo-deny** | SPDX license allow-list; RustSec advisories; duplicate bans | Unlisted license; vulnerability/unsound not in `deny.toml` ignore |
+| **cargo-audit** | Second opinion on RustSec DB | Critical/high severity, DoS/RCE categories, or CVSS ≥ 7 — unless listed in [`DEPENDENCY_ADVISORY_ALLOWLIST.tsv`](./DEPENDENCY_ADVISORY_ALLOWLIST.tsv) |
+| **cargo-cyclonedx** | SBOM artifact | Release workflow attaches `mycelium-sbom-*.cdx.json` |
+
+Allowlisted advisories **must** have a `review_by` date; expired rows fail `./scripts/check-advisory-allowlist.sh` (called from `check-dependencies.sh`).
+
+---
+
+## sled — embedded datastore (decision: **observe + plan migration**)
+
+Mycelium pins **`sled 0.34.7`** (`Cargo.toml` workspace dependency). It is the default on-device KV for messages, coin ledger, mini-app store, ratchet sessions, trust caches, and more (see [ARCHITECTURE_RISKS.md §5.3](./ARCHITECTURE_RISKS.md)).
+
+### Maintenance assessment (2026-07-05)
+
+| Signal | Value |
+|--------|--------|
+| **Pinned release** | `0.34.7` published **2021-09-12** ([crates.io](https://crates.io/crates/sled/0.34.7)) |
+| **Latest stable line used** | No `0.34.x` release in ~5 years |
+| **Alpha line** | `1.0.0-alpha.124` on **2024-10-11** — API/storage rewrite, **not semver-compatible** with 0.34 |
+| **Repository activity** | [spacejam/sled](https://github.com/spacejam/sled): ~9k stars, **171 open issues**, last push **2026-04-04** |
+| **Critical GitHub issues** | No `critical` label issues open; reliability concerns tracked generically (data loss, corruption reports in issues #1444, #1534) |
+| **Author stance** | README: *“if reliability is your primary constraint, use SQLite”*; 1.0 blocked on [Komora/marble](https://github.com/komora-io) storage rewrite |
+| **RustSec** | No current CVE for `sled 0.34.7` in RustSec DB |
+
+### Risk summary
+
+- **Stagnation:** stable branch effectively frozen; production fixes unlikely without migrating to alpha/Komora stack.
+- **On-disk format:** upstream warns format may change before 1.0 — we already persist many trees; migration tooling would be required.
+- **Operational:** single-writer embedded DB fits mesh nodes; corruption/panic during write is mitigated by `lock_or_recover` but not by engine guarantees.
+- **Blast radius:** universal datastore — a sled bug affects messages, coin, mini-apps, and identity-adjacent trees together.
+
+### Decision (2026-07-05)
+
+**Status: continue using sled 0.34.7, active monitoring, staged migration planning.**
+
+Rationale:
+
+1. No RustSec CVE and no practical drop-in replacement without a multi-crate migration sprint.
+2. Alpha 1.0 line is unsuitable for silent upgrade (API + on-disk break).
+3. Immediate rewrite to SQLite/redb would touch every persistence module — high regression risk before field beta.
+
+### Action plan
+
+| Horizon | Action |
+|---------|--------|
+| **Now – 2026-09-30** | Monitor [sled releases](https://github.com/spacejam/sled/releases) and RustSec; run `make check-dependencies` in CI; export SBOM each release. |
+| **2026-Q4** | Spike: **redb** vs **SQLite** (via `rusqlite`) for *one* non-critical tree (e.g. `transport_meta`) behind feature flag; document export/import from sled. |
+| **2027-H1** | If no maintained `0.34.x` patch **or** Komora 1.0 remains alpha-only: execute phased migration (messages + app storage first, coin/ledger last); require `sled export` → new engine import in upgrade path. |
+| **Trigger to accelerate** | RustSec advisory on sled; reproducible corruption in field; or two consecutive quarters with zero upstream maintenance commits on `main`. |
+
+---
+
+## libp2p transitive stack (hickory / quinn / quick-xml)
+
+| Advisory | Crate | Via | Exposure | Remediation |
+|----------|-------|-----|----------|-------------|
+| RUSTSEC-2026-0118/0119 | hickory-proto 0.25.2 | libp2p-dns, libp2p-mdns | DNS DoS if validating malicious DNSSEC responses | Upgrade when [rust-libp2p](https://github.com/libp2p/rust-libp2p) ships hickory ≥ 0.26.1 (**target 2026-09-30**) |
+| RUSTSEC-2026-0185 | quinn-proto 0.11.14 | libp2p-quic | Memory exhaustion on hostile QUIC streams | libp2p-quic bump; mesh uses authenticated libp2p only |
+| RUSTSEC-2026-0194/0195 | quick-xml 0.37/0.39 | uniffi, plist | XML bomb if parsing untrusted XML | No peer XML ingest; bump uniffi/plist when fixed |
+
+Allowlisted until **2026-09-30** — see [`DEPENDENCY_ADVISORY_ALLOWLIST.tsv`](./DEPENDENCY_ADVISORY_ALLOWLIST.tsv).
+
+---
+
+## Unmaintained (informational, not CI-blocking)
+
+| Crate | Advisory | Used for | Plan |
+|-------|----------|----------|------|
+| serde_cbor 0.11 | RUSTSEC-2021-0127 | libp2p CBOR codecs | Migrate when libp2p moves to ciborium/minicbor |
+| bincode 1.x | RUSTSEC-2024-0437 | legacy serde snapshots | Replace with postcard/bincode 2 in non-wire paths (coin already uses serde_json for wire) |
+
+---
+
+## SBOM
+
+Each tagged release publishes:
+
+- `mycelium-sbom-<tag>.cdx.json` — CycloneDX JSON (workspace, all features)
+- `sbom-manifest.json` — generator metadata
+
+Regenerate locally:
+
+```bash
+./scripts/generate-sbom.sh v0.1.62
+```
+
+---
+
+## Related documents
+
+- [RELEASE_INTEGRITY.md](./RELEASE_INTEGRITY.md) — reproducible builds + M-of-N signing
+- [SECURITY_DEBT_REGISTER.md](./SECURITY_DEBT_REGISTER.md) — application-level debt
+- [ARCHITECTURE_RISKS.md](./ARCHITECTURE_RISKS.md) — sled blast radius

@@ -10,6 +10,7 @@ Semantic Versioning (`MAJOR.MINOR.PATCH`).
 4. GitHub Actions **Release** (`.github/workflows/release.yml`) builds:
    - Android APK via **reproducible container** (`scripts/reproducible-build.sh`)
    - Unsigned `release-integrity-*.json` + `build-report.json` (M-of-N co-sign offline per [docs/RELEASE_INTEGRITY.md](docs/RELEASE_INTEGRITY.md))
+   - CycloneDX SBOM (`mycelium-sbom-*.cdx.json`) — see [docs/DEPENDENCY_RISK.md](docs/DEPENDENCY_RISK.md)
    - Tauri desktop bundles (Linux / macOS / Windows)
    - `SHA256SUMS.txt` for all artifacts
 5. Verify the GitHub Release page and install smoke-test on one platform.

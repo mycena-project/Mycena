@@ -105,8 +105,29 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
+  sbom:
+    if: github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: dtolnay/rust-toolchain@1.85.0
+
+      - name: Generate CycloneDX SBOM
+        run: ./scripts/generate-sbom.sh "${{ github.ref_name }}" target/sbom
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v7
+        with:
+          name: sbom
+          path: |
+            target/sbom/*.cdx.json
+            target/sbom/sbom-manifest.json
+          retention-days: 90
+
   publish:
-    needs: [android, desktop]
+    needs: [android, desktop, sbom]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -134,6 +155,11 @@ jobs:
           find artifacts -type f \( \
             -name '*.AppImage' -o -name '*.deb' -o -name '*.dmg' -o -name '*.msi' \
           \) -exec cp {} "$STAGING/" \;
+
+          if [ -d artifacts/sbom ]; then
+            cp artifacts/sbom/*.cdx.json "$STAGING/" 2>/dev/null || true
+            cp artifacts/sbom/sbom-manifest.json "$STAGING/" 2>/dev/null || true
+          fi
 
           if [ -z "$(ls -A "$STAGING" 2>/dev/null)" ]; then
             echo "::error::No release artifacts found."
@@ -163,6 +189,8 @@ jobs:
             | `mycelium-*-android.apk` | Android (reproducible debug-signed sideload) |
             | `release-integrity-*.json` | BLAKE3 + recipe digest (M-of-N co-sign before **official**) |
             | `build-report.json` | Reproducible build report from CI container |
+            | `mycelium-sbom-*.cdx.json` | CycloneDX SBOM (workspace dependencies) |
+            | `sbom-manifest.json` | SBOM generator metadata |
             | `*.AppImage` / `*.deb` | Linux desktop |
             | `*.dmg` | macOS desktop |
             | `*.msi` | Windows desktop |

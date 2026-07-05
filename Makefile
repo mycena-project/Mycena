@@ -1,6 +1,6 @@
 SHELL := /bin/zsh
 
-.PHONY: help desktop-dev desktop-stop desktop-nuke desktop-check-relay android-apk android-apk-ci android-apk-local android-install android-deploy android-nuke clean test test-fast test-integration test-unit test-sim check check-app-layer check-layer-boundaries check-unwrap-audit check-invariant-whitelist check-no-unwrap-prod clippy ci fmt fuzz-smoke docker-android-ci docker-compose-android gradle-wrapper sync-privacy-policy reproducible-build release-verify
+.PHONY: help desktop-dev desktop-stop desktop-nuke desktop-check-relay android-apk android-apk-ci android-apk-local android-install android-deploy android-nuke clean test test-fast test-integration test-unit test-sim check check-app-layer check-layer-boundaries check-unwrap-audit check-invariant-whitelist check-no-unwrap-prod check-dependencies clippy ci fmt fuzz-smoke docker-android-ci docker-compose-android gradle-wrapper sync-privacy-policy reproducible-build release-verify generate-sbom
 
 help:
 	@echo "Mycelium — the maintainer mesh client (no server stack)"
@@ -72,7 +72,10 @@ check-invariant-whitelist:
 check-no-unwrap-prod:
 	./scripts/check-no-unwrap-prod.sh
 
-ci: check test-fast test-integration check-app-layer check-layer-boundaries check-no-unwrap-prod check-invariant-whitelist check-unwrap-audit clippy
+check-dependencies:
+	./scripts/check-dependencies.sh
+
+ci: check test-fast test-integration check-app-layer check-layer-boundaries check-no-unwrap-prod check-invariant-whitelist check-unwrap-audit check-dependencies clippy
 	CARGO_HOME="$(CURDIR)/.cargo-home" cargo test -p mycelium-core release_integrity --lib
 	CARGO_HOME="$(CURDIR)/.cargo-home" cargo test -p mycelium-node --test mutex_poison_recovery
 	CARGO_HOME="$(CURDIR)/.cargo-home" cargo test -p mycelium-ffi ffi_global_slots_survive_mutex_poison --lib
@@ -131,6 +134,9 @@ reproducible-build:
 release-verify:
 	@test -n "$(MANIFEST)" && test -n "$(ARTIFACT)" || (echo "Usage: make release-verify MANIFEST=release.json ARTIFACT=app.apk" >&2; exit 2)
 	./scripts/release-verify.sh "$(MANIFEST)" "$(ARTIFACT)"
+
+generate-sbom:
+	./scripts/generate-sbom.sh
 
 clean:
 	./scripts/clean-repo.sh --deep
