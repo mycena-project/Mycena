@@ -32,7 +32,7 @@ impl PaymentRequest {
             uri.push_str(&format!("&memo={}", urlencoding::encode(memo)));
         }
         if let Some(exp) = self.expires_at_ms {
-            uri.push_str(&format!("&expires={}", exp));
+            uri.push_str(&format!("&expires={exp}"));
         }
         uri
     }

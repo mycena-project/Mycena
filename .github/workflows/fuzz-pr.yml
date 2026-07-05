@@ -44,7 +44,10 @@ jobs:
     if: |
       github.actor != 'dependabot[bot]' &&
       needs.changes.outputs.fuzz == 'true' &&
-      (github.event_name == 'pull_request' || env.CI_TIER == 'budget' || env.CI_TIER == 'full')
+      (github.event_name == 'pull_request' ||
+        vars.MYCELIUM_CI_TIER == 'budget' ||
+        vars.MYCELIUM_CI_TIER == 'full' ||
+        vars.MYCELIUM_CI_TIER == '')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
