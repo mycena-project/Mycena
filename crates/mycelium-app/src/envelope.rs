@@ -18,6 +18,9 @@ pub enum AppId {
     AppStore,
     MiniAppRevocation,
     MiniAppBundleChunk,
+    ContactCrdt,
+    GroupCrdt,
+    MarketplaceStock,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -33,6 +36,12 @@ pub enum AppPayload {
     MiniAppRevocation(Box<crate::miniapp::revocation::RevocationGossip>),
     /// Chunked mini-app bundle bytes on scope `mycelium/appstore/bundles/v1`.
     MiniAppBundleChunk(Box<crate::miniapp_epidemic::MiniAppBundleChunk>),
+    /// Contact book CRDT document (direct sync between accepted contacts).
+    ContactCrdt(mycelium_l0_facade::crdt::ContactDocument),
+    /// Group membership / name CRDT (gossip on `mycelium/group-meta/{id}`).
+    GroupCrdt(mycelium_l0_facade::crdt::GroupDocument),
+    /// Marketplace listing stock PN-Counter (gossip on `mycelium/marketplace/stock/v1`).
+    MarketplaceStock(mycelium_l0_facade::crdt::MarketplaceStock),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

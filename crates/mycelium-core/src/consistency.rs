@@ -121,7 +121,17 @@ pub const OP_GOSSIP_BULLETIN_PUBLISH: StateOp<EventuallyConsistentModel> = State
 
 pub const OP_CONTACT_UPSERT: StateOp<EventuallyConsistentModel> = StateOp::new(
     "contact.upsert",
-    "Contact book merge (status, display name); last-writer-wins per field policy",
+    "Contact book merge: LWW-Register per field (HLC timestamps); OR-Set for previous peer ids",
+);
+
+pub const OP_GROUP_MEMBERSHIP: StateOp<EventuallyConsistentModel> = StateOp::new(
+    "group.membership",
+    "Group membership OR-Set (add/remove with tag compaction); group name LWW via HLC",
+);
+
+pub const OP_MARKETPLACE_STOCK: StateOp<EventuallyConsistentModel> = StateOp::new(
+    "marketplace.stock",
+    "Listing stock PN-Counter — conflict surfaced on oversell, no silent LWW merge",
 );
 
 pub const OP_INVITE_PARSE: StateOp<EventuallyConsistentModel> = StateOp::new(

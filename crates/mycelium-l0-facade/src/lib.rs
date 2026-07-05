@@ -15,6 +15,7 @@ pub use mycelium_core::bearer_transport;
 pub use mycelium_core::ble_mesh;
 pub use mycelium_core::bootstrap;
 pub use mycelium_core::consistency;
+pub use mycelium_core::crdt;
 pub use mycelium_core::contact_hello;
 pub use mycelium_core::crisis_mode;
 pub use mycelium_core::data;
@@ -30,6 +31,7 @@ pub use mycelium_core::relay_registry;
 pub use mycelium_core::relay_status;
 pub use mycelium_core::resource_map;
 pub use mycelium_core::sos;
+pub use mycelium_core::webrtc_signaling;
 
 pub use crypto::{
     decrypt_group, encrypt_for, encrypt_group, parse_x25519_public_hex, public_key_from_bytes,

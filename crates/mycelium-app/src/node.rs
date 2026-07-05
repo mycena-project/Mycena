@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Mycelium Project
 use crate::contacts::{Contact, ContactStatus};
+use crate::crdt_sync::{self, CONTACT_CRDT_BODY, MARKETPLACE_STOCK_SCOPE};
 use crate::envelope::{
     AppId, AppMessage, AppPayload, Attachment, BulletinPost, ChatMessage, MailMessage,
 };
@@ -17,7 +18,11 @@ use crate::scope_key::ScopeKey;
 use crate::storage::AppStorage;
 use mycelium_coin::CoinNode;
 use mycelium_l0_facade::consistency::{
-    OP_DIRECT_MESSAGE_SEND, OP_GOSSIP_BULLETIN_PUBLISH, OP_RESOURCE_MAP_BROADCAST, OP_SOS_BROADCAST,
+    OP_CONTACT_UPSERT, OP_DIRECT_MESSAGE_SEND, OP_GOSSIP_BULLETIN_PUBLISH,
+    OP_GROUP_MEMBERSHIP, OP_MARKETPLACE_STOCK, OP_RESOURCE_MAP_BROADCAST, OP_SOS_BROADCAST,
+};
+use mycelium_l0_facade::crdt::{
+    ContactDocument, GroupDocument, MarketplaceStock, StockQuantity, StockResolution,
 };
 use mycelium_l0_facade::crisis_mode::CrisisManualMode;
 use mycelium_l0_facade::data::now_ms;
@@ -335,7 +340,7 @@ impl AppNode {
                                         warn!("failed to save group chat: {err}");
                                     }
                                     if let Err(err) =
-                                        self.storage.group_record_peer_seen(&group_id, &from)
+                                        self.record_group_peer_seen(&group_id, &from).await
                                     {
                                         warn!("group member record failed: {err}");
                                     }
@@ -382,6 +387,11 @@ impl AppNode {
         }
         if msg.body == "[contact:hello]" {
             self.handle_contact_hello(&msg.envelope.from_peer, &msg.envelope.payload)
+                .await;
+            return;
+        }
+        if msg.body == CONTACT_CRDT_BODY {
+            self.handle_contact_crdt(&msg.envelope.from_peer, &msg.envelope.payload)
                 .await;
             return;
         }
@@ -543,6 +553,20 @@ impl AppNode {
                         }
                     }
                 }
+                AppPayload::ContactCrdt(doc) => {
+                    self.ingest_contact_crdt(&msg.envelope.from_peer, doc)
+                        .await;
+                }
+                AppPayload::GroupCrdt(doc) => {
+                    if let Err(e) = self.ingest_group_crdt(doc).await {
+                        warn!("group crdt merge failed: {e}");
+                    }
+                }
+                AppPayload::MarketplaceStock(stock) => {
+                    if let Err(e) = self.ingest_marketplace_stock(stock).await {
+                        warn!("marketplace stock merge failed: {e}");
+                    }
+                }
             },
             Err(err) => {
                 if msg.body == "[encrypted]" {
@@ -701,8 +725,8 @@ impl AppNode {
 
     pub async fn send_group_message(&self, group: &Group, body: String) -> anyhow::Result<()> {
         let _ = self
-            .storage
-            .group_record_peer_seen(&group.id, &self.local_peer_id);
+            .record_group_peer_seen(&group.id, &self.local_peer_id)
+            .await;
         let display_name = self.display_name.read().await.clone();
         let chat = ChatMessage {
             id: uuid::Uuid::new_v4(),
@@ -1413,6 +1437,11 @@ impl AppNode {
                 ) {
                     Ok(c) => {
                         self.notifier.on_contact_added(from_peer, &c.display_name);
+                        if let Some(doc) = c.crdt {
+                            if let Err(e) = self.send_contact_crdt(from_peer, &doc).await {
+                                warn!("contact crdt push to {from_peer}: {e}");
+                            }
+                        }
                     }
                     Err(e) => warn!("contact hello upsert {from_peer}: {e}"),
                 }
@@ -1857,6 +1886,207 @@ impl AppNode {
 
     pub fn is_mail_read(&self, mail_id: &uuid::Uuid) -> anyhow::Result<bool> {
         self.storage.is_read(mail_id)
+    }
+
+    // ── CRDT mesh sync ───────────────────────────────────────────────────────
+
+    pub async fn ensure_crdt_gossip_subscriptions(&self) -> anyhow::Result<()> {
+        self.handle
+            .send(NodeCommand::SubscribeBulletinScope(
+                MARKETPLACE_STOCK_SCOPE.into(),
+            ))
+            .await
+    }
+
+    async fn send_contact_crdt(
+        &self,
+        to_peer: &str,
+        doc: &ContactDocument,
+    ) -> anyhow::Result<()> {
+        if doc.peer_id == self.local_peer_id {
+            return Ok(());
+        }
+        let payload = AppMessage {
+            app_id: AppId::ContactCrdt,
+            payload: AppPayload::ContactCrdt(doc.clone()),
+        }
+        .encode()?;
+        self.handle
+            .mesh_send_direct(
+                to_peer.to_string(),
+                CONTACT_CRDT_BODY.into(),
+                payload,
+                OP_CONTACT_UPSERT,
+            )
+            .await
+    }
+
+    async fn handle_contact_crdt(&self, from_peer: &str, payload: &[u8]) {
+        match AppMessage::decode(payload) {
+            Ok(app_msg) if app_msg.app_id == AppId::ContactCrdt => {
+                if let AppPayload::ContactCrdt(doc) = app_msg.payload {
+                    self.ingest_contact_crdt(from_peer, doc).await;
+                }
+            }
+            Ok(_) => warn!("contact crdt from {from_peer}: unexpected app_id"),
+            Err(e) => warn!("contact crdt decode from {from_peer}: {e}"),
+        }
+    }
+
+    async fn ingest_contact_crdt(&self, from_peer: &str, doc: ContactDocument) {
+        if doc.peer_id == self.local_peer_id {
+            return;
+        }
+        if self.storage.is_peer_blocked(from_peer).unwrap_or(false) {
+            return;
+        }
+        match self.storage.merge_contact_document(doc) {
+            Ok(c) => {
+                tracing::debug!(
+                    "merged contact crdt for {} from {from_peer}",
+                    c.peer_id
+                );
+            }
+            Err(e) => warn!("contact crdt merge from {from_peer}: {e}"),
+        }
+    }
+
+    pub async fn record_group_peer_seen(
+        &self,
+        group_id: &str,
+        peer_id: &str,
+    ) -> anyhow::Result<()> {
+        self.storage.group_record_peer_seen(group_id, peer_id)?;
+        if let Some(group) = self.storage.group_by_id(group_id)? {
+            if let Some(doc) = group.crdt {
+                self.publish_group_crdt(&doc).await?;
+            }
+        }
+        Ok(())
+    }
+
+    async fn publish_group_crdt(&self, doc: &GroupDocument) -> anyhow::Result<()> {
+        let scope = crdt_sync::group_meta_scope(&doc.id);
+        self.handle
+            .send(NodeCommand::SubscribeBulletinScope(scope.clone()))
+            .await?;
+        let payload = AppMessage {
+            app_id: AppId::GroupCrdt,
+            payload: AppPayload::GroupCrdt(doc.clone()),
+        }
+        .encode()?;
+        self.handle
+            .mesh_broadcast(
+                scope,
+                format!("[crdt:group:{}]", doc.id),
+                payload,
+                OP_GROUP_MEMBERSHIP,
+            )
+            .await
+    }
+
+    async fn ingest_group_crdt(&self, doc: GroupDocument) -> anyhow::Result<()> {
+        let _ = self
+            .handle
+            .send(NodeCommand::SubscribeBulletinScope(crdt_sync::group_meta_scope(
+                &doc.id,
+            )))
+            .await;
+        self.storage.merge_group_document(doc)?;
+        Ok(())
+    }
+
+    pub async fn publish_marketplace_stock(&self, stock: &MarketplaceStock) -> anyhow::Result<()> {
+        self.ensure_crdt_gossip_subscriptions().await?;
+        let payload = AppMessage {
+            app_id: AppId::MarketplaceStock,
+            payload: AppPayload::MarketplaceStock(stock.clone()),
+        }
+        .encode()?;
+        self.handle
+            .mesh_broadcast(
+                MARKETPLACE_STOCK_SCOPE.into(),
+                format!("[crdt:stock:{}]", stock.listing_id),
+                payload,
+                OP_MARKETPLACE_STOCK,
+            )
+            .await
+    }
+
+    async fn ingest_marketplace_stock(&self, remote: MarketplaceStock) -> anyhow::Result<()> {
+        self.ensure_crdt_gossip_subscriptions().await?;
+        let merged = self.storage.merge_marketplace_stock(remote)?;
+        if matches!(merged.quantity(), StockQuantity::Conflict(_)) {
+            tracing::warn!(
+                "marketplace oversell conflict on listing {}",
+                merged.listing_id
+            );
+        }
+        Ok(())
+    }
+
+    pub async fn marketplace_stock_init(
+        &self,
+        listing_id: &str,
+        initial_qty: u64,
+    ) -> anyhow::Result<StockQuantity> {
+        let actor = self.storage.crdt_actor_id()?;
+        let stock = MarketplaceStock::new(listing_id.to_string(), initial_qty, &actor);
+        self.storage.save_marketplace_stock(&stock)?;
+        self.publish_marketplace_stock(&stock).await?;
+        Ok(stock.quantity())
+    }
+
+    pub async fn marketplace_stock_record_sale(
+        &self,
+        listing_id: &str,
+        qty: u64,
+    ) -> anyhow::Result<StockQuantity> {
+        let actor = self.storage.crdt_actor_id()?;
+        let mut stock = self
+            .storage
+            .marketplace_stock(listing_id)?
+            .unwrap_or_else(|| MarketplaceStock::new(listing_id.to_string(), 0, &actor));
+        stock.record_sale(&actor, qty);
+        self.storage.save_marketplace_stock(&stock)?;
+        self.publish_marketplace_stock(&stock).await?;
+        Ok(stock.quantity())
+    }
+
+    pub async fn marketplace_stock_record_restock(
+        &self,
+        listing_id: &str,
+        qty: u64,
+    ) -> anyhow::Result<StockQuantity> {
+        let actor = self.storage.crdt_actor_id()?;
+        let mut stock = self
+            .storage
+            .marketplace_stock(listing_id)?
+            .unwrap_or_else(|| MarketplaceStock::new(listing_id.to_string(), 0, &actor));
+        stock.record_restock(&actor, qty);
+        self.storage.save_marketplace_stock(&stock)?;
+        self.publish_marketplace_stock(&stock).await?;
+        Ok(stock.quantity())
+    }
+
+    pub async fn marketplace_stock_resolve(
+        &self,
+        listing_id: &str,
+        quantity: u64,
+    ) -> anyhow::Result<StockQuantity> {
+        let actor = self.storage.crdt_actor_id()?;
+        let mut stock = self
+            .storage
+            .marketplace_stock(listing_id)?
+            .ok_or_else(|| anyhow::anyhow!("listing stock not found"))?;
+        stock.apply_resolution(StockResolution::SetOnHand {
+            quantity,
+            actor,
+            at_ms: now_ms(),
+        });
+        self.storage.save_marketplace_stock(&stock)?;
+        self.publish_marketplace_stock(&stock).await?;
+        Ok(stock.quantity())
     }
 }
 

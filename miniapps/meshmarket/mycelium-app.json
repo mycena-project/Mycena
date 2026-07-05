@@ -2,7 +2,7 @@
   "id": "network.mycelium.meshmarket",
   "name": "MeshMarket",
   "description": "Buy, sell, and trade locally — no internet, no fees.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "developer": "Mycelium",
   "entry": "index.html",
   "permissions": ["Messaging", "BulletinRead", "BulletinWrite", "Payments", "Storage"],

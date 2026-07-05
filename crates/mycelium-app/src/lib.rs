@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Mycelium Project
 pub mod api;
 pub mod bridge_host;
+pub mod crdt_sync;
 pub mod wasm_bridge_host;
 pub mod contacts;
 pub mod envelope;
@@ -54,6 +55,19 @@ mod tests {
             AppPayload::Chat(c) => assert_eq!(c.body, "hello"),
             _ => panic!("expected chat payload"),
         }
+    }
+
+    #[test]
+    fn crdt_app_message_roundtrip() {
+        use mycelium_l0_facade::crdt::MarketplaceStock;
+        let stock = MarketplaceStock::new("listing-1".into(), 3, "seller");
+        let msg = AppMessage {
+            app_id: AppId::MarketplaceStock,
+            payload: AppPayload::MarketplaceStock(stock),
+        };
+        let bytes = msg.encode().expect("encode");
+        let decoded = AppMessage::decode(&bytes).expect("decode");
+        assert!(matches!(decoded.payload, AppPayload::MarketplaceStock(_)));
     }
 
     #[tokio::test]

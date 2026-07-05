@@ -10,10 +10,37 @@ const CATEGORIES = [
   const STORAGE_KEY = 'meshmarket_listings';
   let category = 'food';
   let listings = [];
+  let stockById = {};
   let myPeerId = '';
 
   function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
   function scopeFor(cat) { return `market/${cat}`; }
+
+  async function fetchStock(listingId) {
+    try {
+      const s = await window.mycelium?.marketplaceStock?.get(listingId);
+      if (s) stockById[listingId] = s;
+      return s;
+    } catch { return null; }
+  }
+
+  async function loadStockForListings() {
+    await Promise.all(listings.map(l => fetchStock(l.id)));
+  }
+
+  function stockLabel(listingId) {
+    const s = stockById[listingId];
+    if (!s || s.status === 'unknown') return '';
+    if (s.status === 'conflict') {
+      return `<span class="stock conflict">⚠ Stock conflict (oversold ${s.oversold_by || '?'})</span>`;
+    }
+    if (s.qty === 0) return `<span class="stock out">Out of stock</span>`;
+    return `<span class="stock">${s.qty} available</span>`;
+  }
+
+  function isOwnListing(l) {
+    return l.seller_peer && myPeerId && l.seller_peer === myPeerId;
+  }
 
   async function init() {
     try {
@@ -48,6 +75,7 @@ const CATEGORIES = [
         } catch {}
       });
       listings.sort((a,b) => b.created_at - a.created_at);
+      await loadStockForListings();
       await window.mycelium?.storage.set(STORAGE_KEY + ':' + category, JSON.stringify(listings));
     } catch (e) { console.error(e); }
     renderListings();
@@ -64,23 +92,36 @@ const CATEGORIES = [
       const priceLabel = l.price_type === 'trade'
         ? 'Trade / barter<span class="trade-badge">swap</span>'
         : `${l.price_muon || 0} μMXC`;
+      const stock = stockLabel(l.id);
+      const own = isOwnListing(l);
+      const s = stockById[l.id];
+      const canBuy = !own && s && s.status === 'available' && s.qty > 0;
+      const conflict = s && s.status === 'conflict';
       return `<div class="card">
         ${l.photo_base64 ? `<img class="card-img" src="data:image/png;base64,${l.photo_base64}">` : ''}
         <div class="card-body">
           <div style="font-weight:500;font-size:15px">${esc(l.title)}</div>
           <div class="price">${priceLabel}</div>
+          ${stock ? `<div>${stock}</div>` : ''}
           <div class="meta">${esc(l.seller_name || 'Seller')} · ${new Date(l.created_at).toLocaleDateString()}</div>
           ${l.description ? `<div class="desc">${esc(l.description)}</div>` : ''}
           <div class="actions">
             <button class="btn" data-msg="${l.id}">💬 Contact</button>
-            ${l.price_type === 'mxc' && l.price_muon > 0
+            ${own && conflict
+              ? `<button class="btn primary" data-resolve="${l.id}">Resolve stock</button>`
+              : ''}
+            ${canBuy && l.price_type === 'mxc' && l.price_muon > 0
               ? `<button class="btn primary" data-pay="${l.id}">Pay ${l.price_muon} μ</button>` : ''}
+            ${canBuy && l.price_type === 'trade'
+              ? `<button class="btn primary" data-reserve="${l.id}">Reserve</button>` : ''}
           </div>
         </div>
       </div>`;
     }).join('');
     document.querySelectorAll('[data-msg]').forEach(btn => btn.addEventListener('click', () => contactSeller(btn.dataset.msg)));
     document.querySelectorAll('[data-pay]').forEach(btn => btn.addEventListener('click', () => paySeller(btn.dataset.pay)));
+    document.querySelectorAll('[data-reserve]').forEach(btn => btn.addEventListener('click', () => reserveListing(btn.dataset.reserve)));
+    document.querySelectorAll('[data-resolve]').forEach(btn => btn.addEventListener('click', () => resolveStock(btn.dataset.resolve)));
   }
 
   async function contactSeller(listingId) {
@@ -96,6 +137,15 @@ const CATEGORIES = [
     } catch (e) { alert('Failed: ' + e.message); }
   }
 
+  async function recordSale(listingId, qty = 1) {
+    const result = await window.mycelium?.marketplaceStock?.recordSale(listingId, qty);
+    stockById[listingId] = result;
+    if (result?.status === 'conflict') {
+      throw new Error(`Stock conflict — oversold by ${result.oversold_by}`);
+    }
+    return result;
+  }
+
   async function paySeller(listingId) {
     const l = listings.find(x => x.id === listingId);
     if (!l || !l.price_muon) return;
@@ -104,9 +154,33 @@ const CATEGORIES = [
       return;
     }
     try {
+      await recordSale(listingId, 1);
       await window.mycelium?.requestPayment(l.price_muon, `MeshMarket: ${l.title}`);
       alert('Payment initiated — confirm in the host app.');
+      renderListings();
     } catch (e) { alert('Payment failed: ' + e.message); }
+  }
+
+  async function reserveListing(listingId) {
+    const l = listings.find(x => x.id === listingId);
+    if (!l) return;
+    if (!confirm(`Reserve "${l.title}"? This records a sale locally and syncs over mesh.`)) return;
+    try {
+      await recordSale(listingId, 1);
+      alert('Reserved — seller will see updated stock when devices sync.');
+      renderListings();
+    } catch (e) { alert('Failed: ' + e.message); }
+  }
+
+  async function resolveStock(listingId) {
+    const qty = parseInt(prompt('Set authoritative on-hand quantity:', '0') || '0', 10);
+    if (Number.isNaN(qty) || qty < 0) return;
+    try {
+      const result = await window.mycelium?.marketplaceStock?.resolve(listingId, qty);
+      stockById[listingId] = result;
+      alert('Stock conflict resolved.');
+      renderListings();
+    } catch (e) { alert('Failed: ' + e.message); }
   }
 
   document.getElementById('f-price-type').addEventListener('change', (e) => {
@@ -123,6 +197,7 @@ const CATEGORIES = [
     if (!title) { alert('Title required'); return; }
     const priceType = document.getElementById('f-price-type').value;
     const ttl = parseInt(document.getElementById('f-ttl').value, 10);
+    const initialQty = Math.max(0, parseInt(document.getElementById('f-qty').value || '1', 10));
     let photo_base64 = null;
     const file = document.getElementById('f-photo').files?.[0];
     if (file) {
@@ -147,12 +222,19 @@ const CATEGORIES = [
       seller_name: 'You',
       payment_address,
       photo_base64,
+      initial_qty: initialQty,
       created_at: Date.now(),
       expires_at: Date.now() + ttl * 1000,
     };
     listings.unshift(listing);
     await window.mycelium?.storage.set(STORAGE_KEY + ':' + category, JSON.stringify(listings));
     await window.mycelium?.postBulletin(scopeFor(category), listing.title, JSON.stringify(listing), ttl);
+    try {
+      const stock = await window.mycelium?.marketplaceStock?.init(listing.id, initialQty);
+      stockById[listing.id] = stock;
+    } catch (e) {
+      console.warn('stock init failed', e);
+    }
     document.getElementById('modal').classList.remove('open');
     document.getElementById('f-title').value = '';
     document.getElementById('f-desc').value = '';

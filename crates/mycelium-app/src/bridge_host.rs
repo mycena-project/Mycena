@@ -10,6 +10,7 @@ use mycelium_l0_facade::data::now_ms;
 use mycelium_l0_facade::lock_or_recover;
 use serde_json::{json, Value};
 
+use crate::crdt_sync;
 use crate::miniapp::bridge_limits::{
     check_bridge_rate, check_chain_budget, record_bridge_elapsed, BRIDGE_CALL_TIMEOUT_MS,
 };
@@ -358,6 +359,91 @@ impl BridgeHost {
                     .filter_map(|k| k.strip_prefix(&strip).map(str::to_string))
                     .collect();
                 Ok(json!(out))
+            }
+
+            "marketplace.stock.get" => {
+                self.require_permission(Permission::Storage)?;
+                let listing_id = args
+                    .get("listing_id")
+                    .and_then(|x| x.as_str())
+                    .ok_or_else(|| "missing listing_id".to_string())?;
+                match self
+                    .app_storage
+                    .marketplace_stock(listing_id)
+                    .map_err(|e| e.to_string())?
+                {
+                    Some(stock) => Ok(crdt_sync::marketplace_stock_json(&stock)),
+                    None => Ok(json!({ "status": "unknown", "listing_id": listing_id })),
+                }
+            }
+
+            "marketplace.stock.init" => {
+                self.require_permission(Permission::Storage)?;
+                let listing_id = args
+                    .get("listing_id")
+                    .and_then(|x| x.as_str())
+                    .ok_or_else(|| "missing listing_id".to_string())?;
+                let initial_qty = args
+                    .get("initial_qty")
+                    .and_then(json_as_u64)
+                    .unwrap_or(0);
+                let q = self
+                    .app_node
+                    .marketplace_stock_init(listing_id, initial_qty)
+                    .await
+                    .map_err(|e| e.to_string())?;
+                Ok(crdt_sync::stock_quantity_json(&q))
+            }
+
+            "marketplace.stock.record_sale" => {
+                self.require_permission(Permission::Storage)?;
+                let listing_id = args
+                    .get("listing_id")
+                    .and_then(|x| x.as_str())
+                    .ok_or_else(|| "missing listing_id".to_string())?;
+                let qty = args.get("qty").and_then(json_as_u64).unwrap_or(1).max(1);
+                let q = self
+                    .app_node
+                    .marketplace_stock_record_sale(listing_id, qty)
+                    .await
+                    .map_err(|e| e.to_string())?;
+                Ok(crdt_sync::stock_quantity_json(&q))
+            }
+
+            "marketplace.stock.record_restock" => {
+                self.require_permission(Permission::Storage)?;
+                let listing_id = args
+                    .get("listing_id")
+                    .and_then(|x| x.as_str())
+                    .ok_or_else(|| "missing listing_id".to_string())?;
+                let qty = args
+                    .get("qty")
+                    .and_then(json_as_u64)
+                    .ok_or_else(|| "missing qty".to_string())?;
+                let q = self
+                    .app_node
+                    .marketplace_stock_record_restock(listing_id, qty)
+                    .await
+                    .map_err(|e| e.to_string())?;
+                Ok(crdt_sync::stock_quantity_json(&q))
+            }
+
+            "marketplace.stock.resolve" => {
+                self.require_permission(Permission::Storage)?;
+                let listing_id = args
+                    .get("listing_id")
+                    .and_then(|x| x.as_str())
+                    .ok_or_else(|| "missing listing_id".to_string())?;
+                let quantity = args
+                    .get("quantity")
+                    .and_then(json_as_u64)
+                    .ok_or_else(|| "missing quantity".to_string())?;
+                let q = self
+                    .app_node
+                    .marketplace_stock_resolve(listing_id, quantity)
+                    .await
+                    .map_err(|e| e.to_string())?;
+                Ok(crdt_sync::stock_quantity_json(&q))
             }
 
             "bulletin.get" => {

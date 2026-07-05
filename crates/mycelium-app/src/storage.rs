@@ -4,6 +4,7 @@ use crate::contacts::{Contact, ContactStatus};
 use crate::envelope::{BulletinPost, ChatMessage, MailMessage};
 use crate::groups::Group;
 use crate::scope_key::ScopeKey;
+use mycelium_l0_facade::crdt::{ContactDocument, ContactStatusWire, GroupDocument, HlcClock};
 use mycelium_l0_facade::data::now_ms;
 use uuid::Uuid;
 
@@ -101,15 +102,28 @@ impl AppStorage {
         display_name: &str,
         status: ContactStatus,
     ) -> anyhow::Result<Contact> {
-        let contact = match self.contact_by_id(peer_id)? {
+        let actor = self.crdt_actor_id()?;
+        let ts = self.next_hlc_timestamp()?;
+        let mut contact = match self.contact_by_id(peer_id)? {
             Some(mut existing) => {
-                if !display_name.is_empty() {
-                    existing.display_name = display_name.to_string();
-                }
-                existing.status = status;
+                existing.ensure_crdt(&actor);
+                existing.apply_crdt_update(&actor, ts, |doc| {
+                    if !display_name.is_empty() {
+                        doc.set_display_name(display_name.to_string(), ts);
+                    }
+                    doc.set_status(ContactStatusWire::from(status), ts);
+                });
                 existing
             }
-            None => Contact::new(peer_id.to_string(), display_name.to_string(), status),
+            None => {
+                let mut c = Contact::new(peer_id.to_string(), display_name.to_string(), status);
+                c.ensure_crdt(&actor);
+                c.apply_crdt_update(&actor, ts, |doc| {
+                    doc.set_display_name(display_name.to_string(), ts);
+                    doc.set_status(ContactStatusWire::from(status), ts);
+                });
+                c
+            }
         };
         self.save_contact(&contact)?;
         Ok(contact)
@@ -179,6 +193,12 @@ impl AppStorage {
                 contact.previous_peer_ids.remove(0);
             }
         }
+        let actor = self.crdt_actor_id()?;
+        contact.ensure_crdt(&actor);
+        if let Some(doc) = contact.crdt.as_mut() {
+            doc.note_previous_peer(old_peer_id.clone());
+        }
+        contact.sync_from_crdt();
         let tree = self.db.open_tree("contacts:data")?;
         tree.remove(old_peer_id.as_bytes())?;
         contact.peer_id = new_peer_id.to_string();
@@ -369,13 +389,138 @@ impl AppStorage {
         Ok(out)
     }
 
-    /// Records a libp2p peer id as having been seen in this group (best-effort membership).
+    /// Records a libp2p peer id as having been seen in this group (OR-Set membership).
     pub fn group_record_peer_seen(&self, group_id: &str, peer_id: &str) -> anyhow::Result<()> {
         let Some(mut g) = self.group_by_id(group_id)? else {
             return Ok(());
         };
-        g.record_peer_seen(peer_id.to_string());
+        let actor = self.crdt_actor_id()?;
+        g.record_peer_seen_crdt(peer_id.to_string(), &actor);
         self.save_group(&g)
+    }
+
+    pub fn merge_contact_document(&self, remote: ContactDocument) -> anyhow::Result<Contact> {
+        let actor = self.crdt_actor_id()?;
+        let mut clock = self.load_hlc_clock()?;
+        let contact = match self.contact_by_id(&remote.peer_id)? {
+            Some(mut local) => {
+                local.ensure_crdt(&actor);
+                if let Some(doc) = local.crdt.as_mut() {
+                    doc.merge(&remote, &mut clock);
+                }
+                local.sync_from_crdt();
+                local
+            }
+            None => {
+                let mut c = Contact::new(
+                    remote.peer_id.clone(),
+                    remote.materialized_display_name().to_string(),
+                    remote.materialized_status().into(),
+                );
+                c.crdt = Some(remote);
+                c.sync_from_crdt();
+                c
+            }
+        };
+        self.save_hlc_clock(&clock)?;
+        self.save_contact(&contact)?;
+        Ok(contact)
+    }
+
+    pub fn merge_group_document(&self, remote: GroupDocument) -> anyhow::Result<Group> {
+        let actor = self.crdt_actor_id()?;
+        let mut clock = self.load_hlc_clock()?;
+        let group = match self.group_by_id(&remote.id)? {
+            Some(mut local) => {
+                local.ensure_crdt(&actor);
+                if let Some(doc) = local.crdt.as_mut() {
+                    doc.merge(&remote, &mut clock);
+                }
+                local.sync_from_crdt();
+                local
+            }
+            None => {
+                let mut g = Group {
+                    id: remote.id.clone(),
+                    name: remote.materialized_name().to_string(),
+                    key: remote.key,
+                    members: remote.materialized_members(),
+                    created_at_ms: remote.materialized_created_at_ms(),
+                    crdt: Some(remote),
+                };
+                g.sync_from_crdt();
+                g
+            }
+        };
+        self.save_hlc_clock(&clock)?;
+        self.save_group(&group)?;
+        Ok(group)
+    }
+
+    pub fn crdt_actor_id(&self) -> anyhow::Result<String> {
+        let tree = self.db.open_tree("meta:crdt")?;
+        if let Some(v) = tree.get(b"actor_id")? {
+            return Ok(String::from_utf8_lossy(&v).to_string());
+        }
+        let id = Uuid::new_v4().to_string();
+        tree.insert(b"actor_id", id.as_bytes())?;
+        Ok(id)
+    }
+
+    pub fn load_hlc_clock(&self) -> anyhow::Result<HlcClock> {
+        let tree = self.db.open_tree("meta:crdt")?;
+        Ok(match tree.get(b"hlc_clock")? {
+            Some(v) => bincode::deserialize(&v)?,
+            None => HlcClock::new(&self.crdt_actor_id()?),
+        })
+    }
+
+    fn save_hlc_clock(&self, clock: &HlcClock) -> anyhow::Result<()> {
+        let tree = self.db.open_tree("meta:crdt")?;
+        tree.insert(b"hlc_clock", bincode::serialize(clock)?)?;
+        Ok(())
+    }
+
+    pub fn next_hlc_timestamp(&self) -> anyhow::Result<mycelium_l0_facade::crdt::HlcTimestamp> {
+        let mut clock = self.load_hlc_clock()?;
+        let ts = clock.tick(now_ms());
+        self.save_hlc_clock(&clock)?;
+        Ok(ts)
+    }
+
+    pub fn save_marketplace_stock(
+        &self,
+        stock: &mycelium_l0_facade::crdt::MarketplaceStock,
+    ) -> anyhow::Result<()> {
+        let tree = self.db.open_tree("marketplace:stock")?;
+        tree.insert(stock.listing_id.as_bytes(), bincode::serialize(stock)?)?;
+        Ok(())
+    }
+
+    pub fn marketplace_stock(
+        &self,
+        listing_id: &str,
+    ) -> anyhow::Result<Option<mycelium_l0_facade::crdt::MarketplaceStock>> {
+        let tree = self.db.open_tree("marketplace:stock")?;
+        Ok(match tree.get(listing_id.as_bytes())? {
+            Some(v) => Some(bincode::deserialize(&v)?),
+            None => None,
+        })
+    }
+
+    pub fn merge_marketplace_stock(
+        &self,
+        remote: mycelium_l0_facade::crdt::MarketplaceStock,
+    ) -> anyhow::Result<mycelium_l0_facade::crdt::MarketplaceStock> {
+        let actor = self.crdt_actor_id()?;
+        let mut local = self
+            .marketplace_stock(&remote.listing_id)?
+            .unwrap_or_else(|| {
+                mycelium_l0_facade::crdt::MarketplaceStock::new(remote.listing_id.clone(), 0, &actor)
+            });
+        local.merge(&remote);
+        self.save_marketplace_stock(&local)?;
+        Ok(local)
     }
 
     pub fn save_group_chat(&self, group_id: &str, msg: &ChatMessage) -> anyhow::Result<()> {
@@ -551,5 +696,42 @@ mod tests {
         storage.miniapp_clear_all_for_app("com.app.a").unwrap();
         let b_val = storage.miniapp_get("app:com.app.b:key1").unwrap();
         assert_eq!(b_val.as_deref(), Some("value_b"));
+    }
+
+    #[test]
+    fn group_without_crdt_sled_roundtrip() {
+        let dir = tempfile::tempdir().unwrap();
+        let storage = AppStorage::open(dir.path().to_str().unwrap()).unwrap();
+        let g = Group::new("Team".into());
+        storage.save_group(&g).unwrap();
+        let loaded = storage.group_by_id(&g.id).unwrap().expect("exists");
+        assert_eq!(loaded.name, "Team");
+    }
+
+    #[test]
+    fn group_crdt_bincode_roundtrip() {
+        let mut g = Group::new("Team".into());
+        g.record_peer_seen_crdt("12D3KooWpeer".into(), "local-actor");
+        let bytes = bincode::serialize(&g).expect("serialize");
+        let loaded: Group = bincode::deserialize(&bytes).expect("deserialize");
+        assert!(loaded.members.contains(&"12D3KooWpeer".to_string()));
+    }
+
+    #[test]
+    fn marketplace_stock_merge_surfaces_oversell_conflict() {
+        use mycelium_l0_facade::crdt::{MarketplaceStock, StockQuantity};
+
+        let dir = tempfile::tempdir().unwrap();
+        let storage = AppStorage::open(dir.path().to_str().unwrap()).unwrap();
+        let actor = storage.crdt_actor_id().unwrap();
+
+        let mut local = MarketplaceStock::new("listing-1".into(), 1, &actor);
+        local.record_sale(&actor, 1);
+        storage.save_marketplace_stock(&local).unwrap();
+
+        let mut remote = MarketplaceStock::new("listing-1".into(), 0, "peer-b");
+        remote.record_sale("peer-b", 1);
+        let merged = storage.merge_marketplace_stock(remote).unwrap();
+        assert!(matches!(merged.quantity(), StockQuantity::Conflict(_)));
     }
 }

@@ -86,6 +86,17 @@ window.mycelium = (() => {
       delete: (key) => call("storage.delete", { key }),
       list: (prefix) => call("storage.list", { prefix }),
     },
+    marketplaceStock: {
+      get: (listing_id) => call("marketplace.stock.get", { listing_id }),
+      init: (listing_id, initial_qty) =>
+        call("marketplace.stock.init", { listing_id, initial_qty }),
+      recordSale: (listing_id, qty = 1) =>
+        call("marketplace.stock.record_sale", { listing_id, qty }),
+      recordRestock: (listing_id, qty) =>
+        call("marketplace.stock.record_restock", { listing_id, qty }),
+      resolve: (listing_id, quantity) =>
+        call("marketplace.stock.resolve", { listing_id, quantity }),
+    },
     getBulletins: (scope) => call("bulletin.get", { scope }),
     postBulletin: (scope, title, body, ttl_secs) =>
       call("bulletin.post", { scope, title, body, ttl_secs }),
