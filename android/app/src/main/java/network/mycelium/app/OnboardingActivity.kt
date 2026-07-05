@@ -16,6 +16,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -133,6 +134,8 @@ private fun OnboardingScaffold(
             content = content,
         )
         Spacer(Modifier.height(16.dp))
+        DataHandlingLink()
+        Spacer(Modifier.height(8.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -153,6 +156,20 @@ private fun OnboardingScaffold(
                 Text(nextLabel)
             }
         }
+    }
+}
+
+@Composable
+private fun DataHandlingLink() {
+    val context = LocalContext.current
+    TextButton(
+        onClick = { openDataHandling(context) },
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(
+            stringResource(R.string.settings_data_handling),
+            style = MaterialTheme.typography.bodySmall,
+        )
     }
 }
 

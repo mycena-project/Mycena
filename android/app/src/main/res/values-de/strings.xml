@@ -277,6 +277,9 @@
     <string name="settings_spread_title">Myzelium verbreiten helfen</string>
     <string name="settings_store_size">Gespeicherte Nachrichten</string>
     <string name="settings_title">Einstellungen</string>
+    <string name="settings_legal_title">Rechtliches</string>
+    <string name="settings_data_handling">Wie Mycelium mit deinen Daten umgeht</string>
+    <string name="settings_privacy_policy">Datenschutzerklärung</string>
     <string name="settings_version">Version</string>
     <string name="settings_version_format">Version %1$s (Build %2$d)</string>
     <string name="share_app_description">Jemand in der Nähe kann Myzelium ohne Internet installieren. Gleiches WLAN oder Hotspot, dann QR-Code scannen.</string>

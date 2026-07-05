@@ -1,0 +1,36 @@
+{
+  "locale": "de",
+  "title": "Wie Mycelium mit deinen Daten umgeht",
+  "intro": "Das Wichtigste in einfachen Worten — etwa eine Minute Lesezeit.",
+  "sections": [
+    {
+      "heading": "Was auf deinem Gerät bleibt",
+      "bullets": [
+        "Deine Nachrichten und Kontakte",
+        "Der Anzeigename, den du wählst",
+        "Schlüssel, damit Chats geschützt bleiben",
+        "Alles liegt auf deinem Handy oder Computer — nicht auf unseren Servern"
+      ]
+    },
+    {
+      "heading": "Was nicht an einen zentralen Server geht",
+      "bullets": [
+        "Kein Nachrichten-Archiv bei uns, dem du vertrauen müsstest",
+        "Keine Konzern-Konten-Datenbank",
+        "Kein Werbe-Tracking",
+        "Nachrichten gehen von Gerät zu Gerät — wir können sie nicht mitlesen"
+      ]
+    },
+    {
+      "heading": "Wer die App betreibt",
+      "paragraphs": [
+        "Herausgegeben von the maintainer.",
+        "Mycelium ist Open-Source-Software — der Quellcode ist einsehbar.",
+        "Fragen: privacy@example.invalid"
+      ]
+    }
+  ],
+  "footnote": "Wenn du dich mit anderen verbindest, können deren Geräte Kopien deiner Nachrichten speichern — wie bei jedem Messenger zwischen Freunden.",
+  "technical_policy_link_label": "Technische Datenschutzerklärung (vollständiger Rechtstext)",
+  "close_button": "Schließen"
+}

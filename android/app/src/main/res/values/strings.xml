@@ -295,6 +295,7 @@
     <string name="settings_crowd_mode_sub">Caps mDNS dials and uses dense gossip tuning. Full transport limits apply after app restart.</string>
     <string name="settings_privacy_title">Network privacy</string>
     <string name="settings_legal_title">Legal</string>
+    <string name="settings_data_handling">How Mycelium handles your data</string>
     <string name="settings_privacy_policy">Privacy policy</string>
     <string name="settings_relay_key_rotation">Relay identity rotates in %1$d hours</string>
     <string name="settings_relay_key_explanation">When your device relays messages for others, it uses a temporary identity that changes every 24 hours. Your personal identity is separate and never revealed during relaying.</string>

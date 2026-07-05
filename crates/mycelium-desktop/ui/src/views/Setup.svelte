@@ -3,12 +3,17 @@
   // Copyright (C) 2026 Mycelium Project
   import { invoke } from "@tauri-apps/api/core";
   import { loadOnboardingCopy, resolvePositioningVariant } from "../lib/onboardingCopy.js";
+  import { loadDataHandlingCopy } from "../lib/dataHandlingCopy.js";
+  import DataHandling from "./DataHandling.svelte";
 
   /** @type {{ onstart?: (config: { dbPath: string; displayName: string; bootstrapPeers: string[] }) => void | Promise<void> }} */
   let { onstart } = $props();
 
   const copy = loadOnboardingCopy();
   const positioningVariant = resolvePositioningVariant(copy);
+  const dataHandlingCopy = loadDataHandlingCopy();
+
+  let showDataHandling = $state(false);
 
   let step = $state(0);
   let displayName = $state("");
@@ -150,7 +155,14 @@
       </div>
     </div>
   {/if}
+  <p class="data-handling-link-wrap">
+    <button type="button" class="data-handling-link" onclick={() => (showDataHandling = true)}>
+      {dataHandlingCopy.title}
+    </button>
+  </p>
 </div>
+
+<DataHandling bind:open={showDataHandling} />
 
 <style>
   .onboarding-shell {
@@ -314,5 +326,24 @@
   button:disabled {
     opacity: 0.4;
     cursor: not-allowed;
+  }
+  .data-handling-link-wrap {
+    position: fixed;
+    bottom: 16px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    margin: 0;
+    pointer-events: none;
+  }
+  .data-handling-link {
+    pointer-events: auto;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 13px;
+    text-decoration: underline;
+    cursor: pointer;
+    padding: 8px 12px;
   }
 </style>

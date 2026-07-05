@@ -119,9 +119,16 @@ val copyOnboardingCopy =
         into(layout.projectDirectory.dir("src/main/assets/onboarding"))
         include("*.json")
     }
+val copyDataHandlingCopy =
+    tasks.register<Copy>("copyDataHandlingCopy") {
+        from(rootProject.projectDir.resolve("../ui-copy/data-handling"))
+        into(layout.projectDirectory.dir("src/main/assets/data-handling"))
+        include("*.json")
+    }
 tasks.named("preBuild").configure {
     dependsOn(copyMiniappBridge)
     dependsOn(copyOnboardingCopy)
+    dependsOn(copyDataHandlingCopy)
 }
 
 dependencies {

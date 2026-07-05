@@ -5,8 +5,13 @@
   import { getVersion } from '@tauri-apps/api/app';
   import { listen } from '@tauri-apps/api/event';
   import { onMount } from 'svelte';
+  import { loadDataHandlingCopy } from '../lib/dataHandlingCopy.js';
+  import DataHandling from './DataHandling.svelte';
 
   let { peerId } = $props();
+
+  const dataHandlingCopy = loadDataHandlingCopy();
+  let showDataHandling = $state(false);
 
   let displayName = $state('');
   let energyState = $state('Active');
@@ -301,6 +306,20 @@
     <p class="version">Version {appVersion}</p>
   {/if}
 
+  <section>
+    <h4>Legal &amp; privacy</h4>
+    <button type="button" class="linkish" onclick={() => (showDataHandling = true)}>
+      {dataHandlingCopy.title}
+    </button>
+    <button
+      type="button"
+      class="linkish"
+      onclick={() => window.open('/privacy_policy.html', '_blank', 'noopener,noreferrer')}
+    >
+      {dataHandlingCopy.technical_policy_link_label}
+    </button>
+  </section>
+
   <section class="danger-zone">
     <h4>⚠ Danger zone</h4>
     <p>
@@ -320,6 +339,8 @@
     {/if}
   </section>
 </div>
+
+<DataHandling bind:open={showDataHandling} />
 
 <style>
   .settings {

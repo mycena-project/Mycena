@@ -1,0 +1,36 @@
+{
+  "locale": "en",
+  "title": "How Mycelium handles your data",
+  "intro": "The essentials in plain language — about one minute to read.",
+  "sections": [
+    {
+      "heading": "What stays on your device",
+      "bullets": [
+        "Your messages and contacts",
+        "The display name you choose",
+        "Security keys so chats stay private",
+        "Everything is stored on your phone or computer — not on our servers"
+      ]
+    },
+    {
+      "heading": "What does not go to a central server",
+      "bullets": [
+        "We do not run a message archive you have to trust",
+        "No corporate account database",
+        "No ad tracking or profiling",
+        "Messages travel from device to device — we cannot read them"
+      ]
+    },
+    {
+      "heading": "Who runs this app",
+      "paragraphs": [
+        "Published by the maintainer.",
+        "Mycelium is open-source software — anyone can review the code.",
+        "Questions: privacy@example.invalid"
+      ]
+    }
+  ],
+  "footnote": "When you connect with someone, their device may keep a copy of what you send — like any messenger between friends.",
+  "technical_policy_link_label": "Technical privacy policy (full legal text)",
+  "close_button": "Close"
+}

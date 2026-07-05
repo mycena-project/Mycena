@@ -456,6 +456,15 @@ fun LegalSettingsSection() {
             TextButton(
                 onClick = {
                     context.startActivity(
+                        android.content.Intent(context, network.mycelium.app.DataHandlingActivity::class.java),
+                    )
+                },
+            ) {
+                Text(stringResource(R.string.settings_data_handling))
+            }
+            TextButton(
+                onClick = {
+                    context.startActivity(
                         android.content.Intent(context, network.mycelium.app.LegalDocumentActivity::class.java),
                     )
                 },

@@ -12,6 +12,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@onboarding-copy": path.resolve(uiRoot, "../../../ui-copy/onboarding"),
+      "@data-handling-copy": path.resolve(uiRoot, "../../../ui-copy/data-handling"),
     },
   },
   server: {
