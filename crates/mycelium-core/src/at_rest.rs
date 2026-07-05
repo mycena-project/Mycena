@@ -3,7 +3,8 @@
 //! Encrypt sensitive key material at rest (identity Ed25519, X25519 enc key).
 //!
 //! Master key resolution (first match):
-//! 1. Explicit `storage_key` (32 bytes) — Android passes a key from Keystore-backed prefs.
+//! 1. Explicit `storage_key` (32 bytes) — Android host passes key from EncryptedSharedPreferences
+//!    (Keystore-backed MasterKey for prefs only; see docs/SECURE_HARDWARE_STATUS.md).
 //! 2. OS keyring entry scoped per `db_path`.
 //! 3. Random per-device file-based key (fallback; weaker than keyring, not path-derived).
 

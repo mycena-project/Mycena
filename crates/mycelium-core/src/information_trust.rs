@@ -101,6 +101,9 @@ pub struct SourceObservation {
     pub trusted_independent: bool,
     pub transport_hint: String,
     pub first_encounter_ms: u64,
+    /// Coarse geohash bucket for geographic corroboration diversity.
+    #[serde(default)]
+    pub geohash_bucket: Option<String>,
 }
 
 /// Stable key identifying a specific claim variant at a location.
@@ -356,6 +359,7 @@ mod tests {
             trusted_independent: trusted,
             transport_hint: transport.to_string(),
             first_encounter_ms: at_ms.saturating_sub(86_400_000),
+            geohash_bucket: None,
         }
     }
 

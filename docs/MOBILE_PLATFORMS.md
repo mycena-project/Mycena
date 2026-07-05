@@ -5,7 +5,7 @@
 
 This document records how Mycelium splits **shared Rust** from **native mobile shells**, so Android development can continue unchanged while iOS is added with minimal rework.
 
-Related: [architecture.md](./architecture.md) · [SECURITY.md](./SECURITY.md) · [DISCOVERY.md](./DISCOVERY.md) · [ADR 001](./adr/001-mobile-host-architecture.md)
+Related: [architecture.md](./architecture.md) · [SECURITY.md](./SECURITY.md) · [SECURE_HARDWARE_STATUS.md](./SECURE_HARDWARE_STATUS.md) · [DISCOVERY.md](./DISCOVERY.md) · [ADR 001](./adr/001-mobile-host-architecture.md)
 
 ---
 
@@ -85,7 +85,7 @@ These are **intentionally** not in shared Rust:
 | Feature | Location | iOS equivalent (later) |
 |---------|----------|------------------------|
 | Foreground mesh service | `MeshService.kt` | `BGProcessingTask` / limited BG fetch |
-| Encrypted prefs master key | `StorageKeyHelper.kt` | Keychain wrapper |
+| Encrypted prefs master key | `StorageKeyHelper.kt` (EncryptedSharedPreferences — **not** full Keystore identity binding) | Keychain wrapper (**planned**, [SECURE_HARDWARE_STATUS.md](./SECURE_HARDWARE_STATUS.md)) |
 | BLE bootstrap advertise/scan + peripheral GATT | `bootstrap/BleBootstrap*.kt`, `BleInviteGattServer.kt` | `ios/Mycelium/BLE/` (`BleMeshHost`, restoration IDs) |
 | Wi‑Fi multicast lock | `bootstrap/WifiMulticastLock.kt` | iOS mDNS without extra lock |
 | Mesh event bus | `MeshEventBus.kt` | `NotificationCenter` / async stream |

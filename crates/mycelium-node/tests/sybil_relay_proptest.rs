@@ -21,6 +21,8 @@ fn established_trust(now_ms: u64, reliability: f32, relay_rate: f32, age_days: u
         throttled_until_ms: 0,
         last_updated_ms: now_ms,
         transport_hint: None,
+        last_geohash_bucket: None,
+        last_geohash_ms: 0,
     }
 }
 

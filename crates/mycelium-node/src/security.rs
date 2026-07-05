@@ -19,6 +19,8 @@ pub struct PeerRoutingMeta {
     pub transport_hint: String,
     /// First encounter epoch ms (encounter log or trust `first_seen_ms`).
     pub first_encounter_ms: u64,
+    /// Coarse geohash bucket for local mesh geographic diversity (SOS gossip or co-presence).
+    pub geohash_bucket: Option<String>,
 }
 
 impl Default for PeerRoutingMeta {
@@ -26,11 +28,12 @@ impl Default for PeerRoutingMeta {
         Self {
             transport_hint: "unknown".into(),
             first_encounter_ms: 0,
+            geohash_bucket: None,
         }
     }
 }
 
-/// Tunables for transport, age, and social diversity during peer selection.
+/// Tunables for transport, age, social, and geographic (geohash) diversity during peer selection.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct PeerDiversityConfig {
     /// Reserve at least this many established peers when available.
@@ -47,6 +50,12 @@ pub struct PeerDiversityConfig {
     pub require_social_spread: bool,
     /// Width of social diversity buckets (first encounter ms / window).
     pub social_window_ms: u64,
+    /// Geohash prefix length for spatial buckets (`0` disables geographic diversity).
+    pub geohash_bucket_chars: usize,
+    /// Max fraction of fanout from one geohash bucket when spatial alternatives exist.
+    pub max_same_geohash_fraction: f32,
+    /// When true, avoid an all-same-bucket fanout when geohash alternatives exist.
+    pub require_geographic_spread: bool,
 }
 
 impl Default for PeerDiversityConfig {
@@ -59,6 +68,9 @@ impl Default for PeerDiversityConfig {
             max_same_transport_fraction: 0.66,
             require_social_spread: true,
             social_window_ms: 30 * 60 * 1000,
+            geohash_bucket_chars: mycelium_core::sos::GEOHASH_DIVERSITY_PREFIX_LEN,
+            max_same_geohash_fraction: 0.66,
+            require_geographic_spread: true,
         }
     }
 }
@@ -74,6 +86,9 @@ impl PeerDiversityConfig {
             max_same_transport_fraction: 1.0,
             require_social_spread: false,
             social_window_ms: 0,
+            geohash_bucket_chars: 0,
+            max_same_geohash_fraction: 1.0,
+            require_geographic_spread: false,
         }
     }
 
@@ -88,6 +103,9 @@ impl PeerDiversityConfig {
             max_same_transport_fraction: 0.34,
             require_social_spread: true,
             social_window_ms: 15 * 60 * 1000,
+            geohash_bucket_chars: mycelium_core::sos::GEOHASH_DIVERSITY_PREFIX_LEN,
+            max_same_geohash_fraction: 0.34,
+            require_geographic_spread: true,
         }
     }
 
@@ -96,6 +114,8 @@ impl PeerDiversityConfig {
             && self.max_young_peer_fraction >= 1.0
             && self.max_same_transport_fraction >= 1.0
             && !self.require_social_spread
+            && (self.geohash_bucket_chars == 0 || self.max_same_geohash_fraction >= 1.0)
+            && !self.require_geographic_spread
     }
 }
 
@@ -113,6 +133,7 @@ pub fn peer_routing_meta(
             .or_else(|| trust.transport_hint.clone())
             .unwrap_or_else(|| "unknown".into()),
         first_encounter_ms: encounter_first_seen_ms.unwrap_or(trust.first_seen_ms),
+        geohash_bucket: trust.last_geohash_bucket.clone(),
     }
 }
 
@@ -166,6 +187,30 @@ fn max_young_slots(max_fanout: usize, fraction: f32) -> usize {
         return max_fanout;
     }
     (max_fanout as f32 * fraction).floor() as usize
+}
+
+fn max_same_geohash_slots(max_fanout: usize, fraction: f32) -> usize {
+    if fraction >= 1.0 {
+        return max_fanout;
+    }
+    ((max_fanout as f32 * fraction).ceil() as usize).max(1)
+}
+
+fn geo_bucket(meta: &PeerRoutingMeta) -> Option<&str> {
+    meta.geohash_bucket
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+}
+
+fn pool_geohash_alternatives(
+    scored: &[(String, f64)],
+    meta_for: &impl Fn(&str) -> PeerRoutingMeta,
+) -> HashSet<String> {
+    scored
+        .iter()
+        .filter_map(|(p, _)| geo_bucket(&meta_for(p)).map(str::to_string))
+        .collect()
 }
 
 fn young_count(
@@ -305,10 +350,54 @@ fn adding_violates_diversity(trial: &DiversityTrial<'_>) -> bool {
         }
     }
 
+    if config.geohash_bucket_chars > 0 {
+        let geo_alts = pool_geohash_alternatives(trial.scored, &meta_for);
+        if geo_alts.len() > 1 {
+            let max_same =
+                max_same_geohash_slots(trial.max_fanout, config.max_same_geohash_fraction);
+            if let Some(hint) = geo_bucket(&meta_for(peer)) {
+                let same = trial_peers
+                    .iter()
+                    .filter(|p| geo_bucket(&meta_for(p)) == Some(hint))
+                    .count();
+                if same > max_same {
+                    let has_alt = trial.scored.iter().any(|(p, _)| {
+                        !trial_peers.contains(p)
+                            && geo_bucket(&meta_for(p)).is_some_and(|b| b != hint)
+                    });
+                    if has_alt {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        if config.require_geographic_spread && trial_len >= 2 {
+            let geo_alts = pool_geohash_alternatives(trial.scored, &meta_for);
+            if geo_alts.len() > 1 && trial_len == trial.max_fanout.min(trial.scored.len()) {
+                let trial_buckets: HashSet<String> = trial_peers
+                    .iter()
+                    .filter_map(|p| geo_bucket(&meta_for(p)).map(str::to_string))
+                    .collect();
+                if trial_buckets.len() == 1 {
+                    let only = trial_buckets.iter().next().cloned();
+                    let has_alt = trial.scored.iter().any(|(p, _)| {
+                        !trial_peers.contains(p)
+                            && geo_bucket(&meta_for(p))
+                                .is_some_and(|b| only.as_deref() != Some(b))
+                    });
+                    if has_alt {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+
     false
 }
 
-/// Apply transport / age / social diversity on a score-sorted candidate list.
+/// Apply transport / age / social / geographic diversity on a score-sorted candidate list.
 pub fn apply_peer_diversity(
     scored: &[(String, f64)],
     peer_trust: &HashMap<String, PeerTrust>,
@@ -418,6 +507,23 @@ pub fn apply_peer_diversity(
                     + 1;
                 if same > max_same {
                     continue;
+                }
+            }
+            if config.geohash_bucket_chars > 0 {
+                let geo_alts = pool_geohash_alternatives(scored, &meta_for);
+                if geo_alts.len() > 1 {
+                    let max_same =
+                        max_same_geohash_slots(max_fanout, config.max_same_geohash_fraction);
+                    if let Some(hint) = geo_bucket(&meta_for(&peer)) {
+                        let same = selected
+                            .iter()
+                            .filter(|p| geo_bucket(&meta_for(p)) == Some(hint))
+                            .count()
+                            + 1;
+                        if same > max_same {
+                            continue;
+                        }
+                    }
                 }
             }
             selected.push(peer.clone());
@@ -595,11 +701,29 @@ pub fn corroboration_source_diversity(
         .iter()
         .map(|o| social_bucket_from_ms(o.first_encounter_ms, config))
         .collect();
+    let geo_buckets: HashSet<&str> = trusted_obs
+        .iter()
+        .filter_map(|o| o.geohash_bucket.as_deref())
+        .collect();
 
-    let mut score = 0.5 * (transports.len() as f32 / n as f32)
-        + 0.5 * (social_buckets.len() as f32 / n as f32);
+    let mut score = if geo_buckets.is_empty() {
+        0.5 * (transports.len() as f32 / n as f32)
+            + 0.5 * (social_buckets.len() as f32 / n as f32)
+    } else {
+        0.34 * (transports.len() as f32 / n as f32)
+            + 0.33 * (social_buckets.len() as f32 / n as f32)
+            + 0.33 * (geo_buckets.len() as f32 / n as f32)
+    };
 
     if config.require_social_spread && n >= 2 && social_buckets.len() == 1 {
+        score *= 0.5;
+    }
+    if config.require_geographic_spread
+        && config.geohash_bucket_chars > 0
+        && n >= 2
+        && geo_buckets.len() == 1
+        && trusted_obs.iter().any(|o| o.geohash_bucket.is_some())
+    {
         score *= 0.5;
     }
 
@@ -631,6 +755,23 @@ pub fn corroboration_source_diversity(
         if transports.len() > 1 && same_frac > config.max_same_transport_fraction {
             let over = same_frac - config.max_same_transport_fraction;
             score *= (1.0 - over).clamp(0.25, 1.0);
+        }
+    }
+
+    if config.geohash_bucket_chars > 0 && geo_buckets.len() > 1 {
+        let mut geo_counts: HashMap<&str, usize> = HashMap::new();
+        for obs in trusted_obs {
+            if let Some(gh) = obs.geohash_bucket.as_deref() {
+                *geo_counts.entry(gh).or_default() += 1;
+            }
+        }
+        if let Some(max_same) = geo_counts.values().max().copied() {
+            let geo_n = geo_counts.values().sum::<usize>().max(1);
+            let same_frac = max_same as f32 / geo_n as f32;
+            if same_frac > config.max_same_geohash_fraction {
+                let over = same_frac - config.max_same_geohash_fraction;
+                score *= (1.0 - over).clamp(0.25, 1.0);
+            }
         }
     }
 
@@ -689,6 +830,8 @@ mod tests {
             throttled_until_ms: 0,
             last_updated_ms: now_ms,
             transport_hint: None,
+            last_geohash_bucket: None,
+            last_geohash_ms: 0,
         }
     }
 
@@ -708,6 +851,8 @@ mod tests {
             throttled_until_ms: 0,
             last_updated_ms: now_ms,
             transport_hint: Some("attacker-relay".into()),
+            last_geohash_bucket: None,
+            last_geohash_ms: 0,
         }
     }
 
@@ -726,6 +871,7 @@ mod tests {
                 PeerRoutingMeta {
                     transport_hint: "attacker-relay".into(),
                     first_encounter_ms: now.saturating_sub(3 * 86_400_000),
+                    geohash_bucket: None,
                 },
             );
         }
@@ -736,6 +882,7 @@ mod tests {
             PeerRoutingMeta {
                 transport_hint: "mesh-lan".into(),
                 first_encounter_ms: now.saturating_sub(45 * 86_400_000),
+                geohash_bucket: None,
             },
         );
 
@@ -921,5 +1068,54 @@ mod tests {
         boosts.insert("endorsed".to_string(), 1.0f32);
         let selected = select_relay_candidates(&peers, "dest", &trust, Some(&boosts), now, 1);
         assert_eq!(selected, vec!["endorsed".to_string()]);
+    }
+
+    #[test]
+    fn geographic_diversity_defers_same_geohash_cluster() {
+        let now = 1_700_000_000_000u64;
+        let config = PeerDiversityConfig::default();
+        let mut trust = HashMap::new();
+        let mut meta = HashMap::new();
+        let mut scored = Vec::new();
+
+        for i in 0..4 {
+            let id = format!("local_{i}");
+            let mut t = established_trust(now, 0.95 - i as f32 * 0.01, 0.90, 30);
+            t.last_geohash_bucket = Some("u4pr".into());
+            trust.insert(id.clone(), t);
+            meta.insert(
+                id.clone(),
+                PeerRoutingMeta {
+                    transport_hint: "ble".into(),
+                    first_encounter_ms: now.saturating_sub(30 * 86_400_000),
+                    geohash_bucket: Some("u4pr".into()),
+                },
+            );
+            scored.push((id, 1.0 - i as f64 * 0.01));
+        }
+
+        let mut distant = established_trust(now, 0.88, 0.85, 30);
+        distant.last_geohash_bucket = Some("u33d".into());
+        trust.insert("distant".into(), distant);
+        meta.insert(
+            "distant".into(),
+            PeerRoutingMeta {
+                transport_hint: "ble".into(),
+                first_encounter_ms: now.saturating_sub(30 * 86_400_000),
+                geohash_bucket: Some("u33d".into()),
+            },
+        );
+        scored.push(("distant".into(), 0.80));
+
+        let picked = apply_peer_diversity(&scored, &trust, &meta, now, 2, &config);
+        assert_eq!(picked.len(), 2);
+        assert!(
+            picked.contains(&"distant".to_string()),
+            "should include geographically distant peer: {picked:?}"
+        );
+        assert!(
+            picked.iter().filter(|p| p.starts_with("local_")).count() <= 1,
+            "should not fill fanout from one geohash cluster: {picked:?}"
+        );
     }
 }

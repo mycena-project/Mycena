@@ -126,12 +126,18 @@ impl InformationTrustTracker {
         let meta = peer_routing_meta(trust, None, trust.transport_hint.as_deref());
         let trusted =
             is_sos_source_trusted_for_crisis(trust, now_ms, &self.security_config);
+        let geohash_bucket = mycelium_core::sos::geohash_diversity_bucket(
+            &key.geohash,
+            self.diversity_config.geohash_bucket_chars,
+        )
+        .or(meta.geohash_bucket);
         let observation = SourceObservation {
             relay_peer: relay_peer.to_string(),
             observed_at_ms: now_ms,
             trusted_independent: trusted,
             transport_hint: meta.transport_hint,
             first_encounter_ms: meta.first_encounter_ms,
+            geohash_bucket,
         };
         if let Some(store) = &self.store {
             let _ = store.append(&key, &observation);
@@ -275,6 +281,8 @@ mod tests {
             throttled_until_ms: 0,
             last_updated_ms: now_ms,
             transport_hint: Some("mesh-wifi".into()),
+            last_geohash_bucket: None,
+            last_geohash_ms: 0,
         }
     }
 
@@ -294,6 +302,8 @@ mod tests {
             throttled_until_ms: 0,
             last_updated_ms: now_ms,
             transport_hint: Some("sybil-local".into()),
+            last_geohash_bucket: None,
+            last_geohash_ms: 0,
         }
     }
 

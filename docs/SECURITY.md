@@ -36,12 +36,11 @@ v1 ratchet sessions limit retroactive exposure to pre-bootstrap ciphertext only.
 Identity keys and encryption keys are stored encrypted at rest using
 ChaCha20-Poly1305 with a master key from:
 
-1. Android Keystore-backed preferences (Android, preferred)
+1. Android EncryptedSharedPreferences (master key generated in app; prefs encrypted via Keystore-backed `MasterKey`) — **not** hardware-bound identity keys — see [SECURE_HARDWARE_STATUS.md](./SECURE_HARDWARE_STATUS.md)
 2. OS keyring (Desktop)
-3. Random per-device file-based key (fallback)
+3. Random per-device file-based key (legacy fallback only; desktop refuses fresh weak installs — SD-131)
 
-The fallback is weaker than the Keystore/keyring options but stronger
-than plaintext. Upgrade your OS to ensure keyring availability.
+The fallback is weaker than keyring or future hardware-bound options. See [SECURE_HARDWARE_STATUS.md](./SECURE_HARDWARE_STATUS.md) for Play/App Store readiness.
 
 ## Known limitations (beta)
 

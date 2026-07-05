@@ -22,6 +22,8 @@ fn established(now_ms: u64) -> PeerTrust {
         throttled_until_ms: 0,
         last_updated_ms: now_ms,
         transport_hint: None,
+        last_geohash_bucket: None,
+        last_geohash_ms: 0,
     }
 }
 

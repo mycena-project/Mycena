@@ -132,7 +132,8 @@ flowchart TB
 
 **What:** Ed25519 account identity, libp2p transport keypair, X25519 encryption keys, Double Ratchet session state, mini-app signing keys, hot-wallet spending keys.
 
-**Location:** OS keyring / Android Keystore (`storage_key`), sled vault (`.secrets/*.enc`), process RAM during use.
+**Location:** Host-supplied master key → sled vault (`.secrets/*.enc`), process RAM during use.  
+**Platform detail:** Android uses EncryptedSharedPreferences ([`StorageKeyHelper.kt`](../android/app/src/main/java/network/mycelium/app/StorageKeyHelper.kt)); desktop uses OS keyring; iOS Keychain **not yet wired**. This is **not** full hardware-bound keystore integration — see [SECURE_HARDWARE_STATUS.md](./SECURE_HARDWARE_STATUS.md).
 
 **Security goals:** Confidentiality, integrity, non-repudiation of signed envelopes (where required).
 
@@ -278,7 +279,7 @@ flowchart TB
 |---|---|
 | **Goals** | Read history, impersonate user, extract keys, maintain access |
 | **Capabilities** | Unlocked device; cold boot / chip-off forensics (sophisticated); adb if debugging enabled |
-| **Limitations** | Keystore-bound keys without unlock; panic wipe if user triggers in time |
+| **Limitations** | Encrypted prefs / keyring only (not StrongBox/Secure Enclave identity keys); panic wipe if user triggers in time — see [SECURE_HARDWARE_STATUS.md](./SECURE_HARDWARE_STATUS.md) |
 | **Primary assets targeted** | Identity keys, Message content, Payment vouchers / hot wallet, Custody queue |
 
 **Linked debt:** SD-110, SD-111, SD-130, SD-160, SD-171, SD-201, SD-211  
@@ -292,7 +293,7 @@ flowchart TB
 |---|---|
 | **Goals** | Spam amplification, fake witnesses, eclipse victim, skew relay selection, flood custody |
 | **Capabilities** | Unlimited libp2p PeerIds (no global stake); LAN/BLE proximity; colluding nodes |
-| **Limitations** | Per-device rate limits, hop caps, fanout limits; spray budget on custody; strikes throttle |
+| **Limitations** | Per-device rate limits, hop caps, fanout limits; spray budget on custody; strikes throttle; [`PeerDiversityConfig`](../crates/mycelium-node/src/security.rs) caps transport/age/social **and local geohash-bucket** spread for relay/custody (SOS gossip + co-presence hints; ASN diversity is relay-federation only — see [`relay_diversity.rs`](../crates/mycelium-core/src/relay_diversity.rs)) |
 | **Primary assets targeted** | Relay reputation, Payment vouchers (witnesses), Message content (availability), Custody queue |
 
 **Linked debt:** SD-010, SD-011, SD-030, SD-031, SD-032, SD-061, SD-241  

@@ -94,6 +94,7 @@ mod tests {
             trusted_independent: true,
             transport_hint: "wifi".into(),
             first_encounter_ms: 500,
+            geohash_bucket: Some("u4pr".into()),
         };
         store.append(&key, &obs).expect("append");
         drop(store);

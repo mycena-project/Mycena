@@ -232,6 +232,8 @@ mod tests {
             throttled_until_ms: 0,
             last_updated_ms: now_ms,
             transport_hint: Some("mesh-wifi".into()),
+            last_geohash_bucket: None,
+            last_geohash_ms: 0,
         }
     }
 
@@ -251,6 +253,8 @@ mod tests {
             throttled_until_ms: 0,
             last_updated_ms: now_ms,
             transport_hint: Some("sybil-local".into()),
+            last_geohash_bucket: None,
+            last_geohash_ms: 0,
         }
     }
 

@@ -2857,6 +2857,10 @@ impl NodeRunner {
                 let _ = self.peer_trust.with_peer(&peer_id, now, |t| {
                     t.note_transport_hint(&transport_hint);
                 });
+                if let Some(local_gh) = self.local_geohash_prefix.as_deref() {
+                    self.peer_trust
+                        .note_peer_co_presence_geohash(&peer_id, local_gh, now);
+                }
                 {
                     let mut peers = self.peers.write().await;
                     if !peers.iter().any(|p| p == &peer_id) {
@@ -2968,6 +2972,7 @@ impl NodeRunner {
                         if let Some(gh) = geohash.as_deref() {
                             self.sos_crisis_tracker
                                 .record_observation(&from_peer, gh, &trust, now);
+                            self.peer_trust.note_peer_geohash(&from_peer, gh, now);
                         }
                     } else if let Err(reason) =
                         self.ingest_guard
@@ -2975,6 +2980,9 @@ impl NodeRunner {
                     {
                         self.record_ingest_reject(reason);
                         return Ok(());
+                    }
+                    if let Some(gh) = geohash.as_deref() {
+                        self.peer_trust.note_peer_geohash(&from_peer, gh, now);
                     }
                     self.try_record_fact_at_ingest(&from_peer, &scope, &payload, now);
                 }

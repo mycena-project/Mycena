@@ -49,6 +49,25 @@ impl SosPayload {
     }
 }
 
+/// Prefix length for mesh routing / custody geographic diversity (~20 km at 4 chars).
+pub const GEOHASH_DIVERSITY_PREFIX_LEN: usize = 4;
+
+/// Coarse geohash bucket for local mesh peer diversity (BLE / Wi‑Fi Direct have no ASN).
+pub fn geohash_diversity_bucket(geohash: &str, prefix_len: usize) -> Option<String> {
+    let gh = geohash.trim();
+    if gh.len() < SOS_MIN_GEOHASH_LEN {
+        return None;
+    }
+    if !gh
+        .chars()
+        .all(|c| matches!(c, '0'..='9' | 'b'..='h' | 'j'..='n' | 'p'..='z'))
+    {
+        return None;
+    }
+    let n = prefix_len.min(gh.len());
+    Some(gh[..n].to_string())
+}
+
 /// Parse geohash from a SOS JSON bulletin body (for rate limiting at ingest).
 pub fn geohash_from_payload_bytes(payload: &[u8]) -> Option<String> {
     let raw = std::str::from_utf8(payload).ok()?;
@@ -80,6 +99,15 @@ mod tests {
             created_at_ms: 1,
         };
         assert!(bad.validate().is_err());
+    }
+
+    #[test]
+    fn geohash_diversity_bucket_truncates_prefix() {
+        assert_eq!(
+            geohash_diversity_bucket("u4pruydq", 4).as_deref(),
+            Some("u4pr")
+        );
+        assert!(geohash_diversity_bucket("!!!", 4).is_none());
     }
 
     #[test]

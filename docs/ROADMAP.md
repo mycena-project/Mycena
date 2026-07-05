@@ -19,7 +19,7 @@
 
 | # | Thema | Status |
 |---|--------|--------|
-| 4 | Keys at rest (Keystore / Keychain) | Done |
+| 4 | Keys at rest (EncryptedSharedPreferences / Keychain) | **Partial (beta)** — see [SECURE_HARDWARE_STATUS.md](./SECURE_HARDWARE_STATUS.md); not store-launch grade |
 | 5 | Integrationstests (at-rest, panic wipe, E2E envelope) | Done |
 | 6 | E2E-Envelope nach Decrypt fixen | Done |
 | 7 | Endnutzer-Security-Doc | Done (`docs/security-for-users.md`) |

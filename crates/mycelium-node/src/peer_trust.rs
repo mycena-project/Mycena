@@ -37,6 +37,11 @@ pub struct PeerTrust {
     /// Last observed bearer / relay bucket for eclipse-resistant routing (e.g. `ble`, `tcp`, `relay`).
     #[serde(default)]
     pub transport_hint: Option<String>,
+    /// Coarse geohash bucket (prefix) last associated with this peer — SOS/resource gossip or co-presence.
+    #[serde(default)]
+    pub last_geohash_bucket: Option<String>,
+    #[serde(default)]
+    pub last_geohash_ms: u64,
 }
 
 impl Default for PeerTrust {
@@ -62,6 +67,8 @@ impl PeerTrust {
             throttled_until_ms: 0,
             last_updated_ms: now_ms,
             transport_hint: None,
+            last_geohash_bucket: None,
+            last_geohash_ms: 0,
         }
     }
 
@@ -82,7 +89,17 @@ impl PeerTrust {
             throttled_until_ms: 0,
             last_updated_ms: now_ms,
             transport_hint: None,
+            last_geohash_bucket: None,
+            last_geohash_ms: 0,
         }
+    }
+
+    pub fn note_geohash_bucket(&mut self, bucket: String, now_ms: u64) {
+        if bucket.is_empty() {
+            return;
+        }
+        self.last_geohash_bucket = Some(bucket);
+        self.last_geohash_ms = now_ms;
     }
 
     pub fn note_transport_hint(&mut self, hint: &str) {
@@ -289,6 +306,37 @@ impl PeerTrustStore {
         }
         false
     }
+
+    /// Record a peer's geohash from SOS / resource-map gossip (strong location signal).
+    pub fn note_peer_geohash(&self, peer_id: &str, geohash: &str, now_ms: u64) {
+        let Some(bucket) = mycelium_core::sos::geohash_diversity_bucket(
+            geohash,
+            mycelium_core::sos::GEOHASH_DIVERSITY_PREFIX_LEN,
+        ) else {
+            return;
+        };
+        let _ = self.with_peer(peer_id, now_ms, |t| {
+            t.note_geohash_bucket(bucket, now_ms);
+        });
+    }
+
+    /// Weak hint: peer seen locally (BLE/Wi‑Fi) while we are at `local_geohash`.
+    pub fn note_peer_co_presence_geohash(&self, peer_id: &str, local_geohash: &str, now_ms: u64) {
+        const STALE_MS: u64 = 24 * 3_600_000;
+        let Some(bucket) = mycelium_core::sos::geohash_diversity_bucket(
+            local_geohash,
+            mycelium_core::sos::GEOHASH_DIVERSITY_PREFIX_LEN,
+        ) else {
+            return;
+        };
+        let _ = self.with_peer(peer_id, now_ms, |t| {
+            if t.last_geohash_bucket.is_none()
+                || now_ms.saturating_sub(t.last_geohash_ms) > STALE_MS
+            {
+                t.note_geohash_bucket(bucket, now_ms);
+            }
+        });
+    }
 }
 
 #[cfg(test)]
@@ -317,6 +365,26 @@ mod tests {
             .expect("loaded");
         assert!((t.reliability - 0.88).abs() < f32::EPSILON);
         assert!((t.relay_success_rate - 0.91).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn geohash_bucket_persists_and_co_presence_respects_stale() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let base = dir.path().to_str().expect("path");
+        let store = PeerTrustStore::open(base).expect("open");
+        store.note_peer_geohash("peer_a", "u4pruydq", 1_000);
+        let t = store.get("peer_a").expect("loaded");
+        assert_eq!(t.last_geohash_bucket.as_deref(), Some("u4pr"));
+        store.note_peer_co_presence_geohash("peer_b", "u33dxyz", 2_000);
+        assert_eq!(
+            store.get("peer_b").expect("b").last_geohash_bucket.as_deref(),
+            Some("u33d")
+        );
+        store.note_peer_geohash("peer_b", "u4prfresh", 3_000);
+        assert_eq!(
+            store.get("peer_b").expect("b2").last_geohash_bucket.as_deref(),
+            Some("u4pr")
+        );
     }
 
     #[test]
