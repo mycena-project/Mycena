@@ -662,7 +662,7 @@ fn ts_key(ts: u64) -> [u8; 8] {
 }
 
 fn ts_uuid_key(ts: u64, id: Uuid) -> Vec<u8> {
-    format!("{:020}:{id}", ts).into_bytes()
+    format!("{ts:020}:{id}").into_bytes()
 }
 
 #[cfg(test)]

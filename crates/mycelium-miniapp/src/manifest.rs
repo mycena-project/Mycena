@@ -76,8 +76,7 @@ impl MiniAppManifest {
                 }
             }
             other => anyhow::bail!(
-                "runtime {:?} is not supported (use \"webview\" or \"wasm\")",
-                other
+                "runtime {other:?} is not supported (use \"webview\" or \"wasm\")",
             ),
         }
         if let Some(rb) = &self.reproducible_build {
