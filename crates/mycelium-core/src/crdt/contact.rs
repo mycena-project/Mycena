@@ -40,7 +40,12 @@ pub struct ContactDocument {
 }
 
 impl ContactDocument {
-    pub fn new(peer_id: String, display_name: String, status: ContactStatusWire, ts: HlcTimestamp) -> Self {
+    pub fn new(
+        peer_id: String,
+        display_name: String,
+        status: ContactStatusWire,
+        ts: HlcTimestamp,
+    ) -> Self {
         Self {
             peer_id: peer_id.clone(),
             display_name: LwwRegister::new(display_name, ts),

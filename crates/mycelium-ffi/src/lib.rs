@@ -2929,7 +2929,9 @@ fn to_bulletin(p: AppBulletinPost) -> BulletinPost {
     }
 }
 
-fn query_sos_trust_sync(payload: &mycelium_core::sos::SosPayload) -> mycelium_core::information_trust::InformationTrust {
+fn query_sos_trust_sync(
+    payload: &mycelium_core::sos::SosPayload,
+) -> mycelium_core::information_trust::InformationTrust {
     use mycelium_core::information_trust::FactKind;
     use mycelium_core::sos::SOS_DEFAULT_TTL_SECS;
     let state = state_arc();
@@ -2949,7 +2951,9 @@ fn query_sos_trust_sync(payload: &mycelium_core::sos::SosPayload) -> mycelium_co
     })
 }
 
-fn to_information_trust(trust: mycelium_core::information_trust::InformationTrust) -> InformationTrustData {
+fn to_information_trust(
+    trust: mycelium_core::information_trust::InformationTrust,
+) -> InformationTrustData {
     InformationTrustData {
         corroboration_count: trust.corroboration_count as u32,
         trusted_corroboration_count: trust.trusted_corroboration_count as u32,

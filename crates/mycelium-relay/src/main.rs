@@ -14,12 +14,13 @@ use libp2p::{
     swarm::{NetworkBehaviour, SwarmEvent},
     tcp, yamux, Multiaddr, SwarmBuilder,
 };
+use mycelium_core::lock_recover::{read_rwlock_or_recover, write_rwlock_or_recover};
 use serde::Deserialize;
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
-use mycelium_core::lock_recover::{read_rwlock_or_recover, write_rwlock_or_recover};
+use tracing::info;
 
 #[derive(Parser)]
 #[command(name = "mycelium-relay")]
@@ -76,8 +77,7 @@ async fn rendezvous_register(
     if body.peer_id.is_empty() {
         return StatusCode::BAD_REQUEST;
     }
-    write_rwlock_or_recover(&s.rendezvous_opt_in, "relay rendezvous_opt_in")
-        .insert(body.peer_id);
+    write_rwlock_or_recover(&s.rendezvous_opt_in, "relay rendezvous_opt_in").insert(body.peer_id);
     StatusCode::NO_CONTENT
 }
 
@@ -85,8 +85,7 @@ async fn rendezvous_unregister(
     State(s): State<StatusState>,
     Json(body): Json<RendezvousPeerBody>,
 ) -> StatusCode {
-    write_rwlock_or_recover(&s.rendezvous_opt_in, "relay rendezvous_opt_in")
-        .remove(&body.peer_id);
+    write_rwlock_or_recover(&s.rendezvous_opt_in, "relay rendezvous_opt_in").remove(&body.peer_id);
     StatusCode::NO_CONTENT
 }
 

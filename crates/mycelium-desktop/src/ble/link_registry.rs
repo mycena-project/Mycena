@@ -72,7 +72,8 @@ mod tests {
         }));
         reg.register("12D3KooWAfterPoisonTestPeerId001", "aabbccddeeff");
         assert_eq!(
-            reg.device_for_peer("12D3KooWAfterPoisonTestPeerId001").as_deref(),
+            reg.device_for_peer("12D3KooWAfterPoisonTestPeerId001")
+                .as_deref(),
             Some("aabbccddeeff")
         );
     }

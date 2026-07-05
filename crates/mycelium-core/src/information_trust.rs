@@ -180,7 +180,9 @@ fn compute_source_diversity(observations: &[SourceObservation], social_window_ms
             if social_window_ms == 0 {
                 o.first_encounter_ms
             } else {
-                o.first_encounter_ms / social_window_ms
+                o.first_encounter_ms
+                    .checked_div(social_window_ms)
+                    .unwrap_or(0)
             }
         })
         .collect();
@@ -252,18 +254,15 @@ pub fn compute_information_trust_with_diversity(
         if obs.observed_at_ms > newest_ms {
             newest_ms = obs.observed_at_ms;
         }
-        if obs.trusted_independent {
-            if trusted_peers.insert(obs.relay_peer.as_str()) {
-                trusted_obs.push((*obs).clone());
-            }
+        if obs.trusted_independent && trusted_peers.insert(obs.relay_peer.as_str()) {
+            trusted_obs.push((*obs).clone());
         }
     }
 
     let corroboration_count = distinct_peers.len();
     let trusted_corroboration_count = trusted_peers.len();
-    let source_diversity = source_diversity_override.unwrap_or_else(|| {
-        compute_source_diversity(&trusted_obs, config.social_window_ms)
-    });
+    let source_diversity = source_diversity_override
+        .unwrap_or_else(|| compute_source_diversity(&trusted_obs, config.social_window_ms));
 
     let geographic_consistency = if conflicting_claims_in_cell <= 1 {
         1.0
@@ -280,8 +279,7 @@ pub fn compute_information_trust_with_diversity(
     let trusted_ratio = if config.min_trusted_sources_for_confirmed == 0 {
         1.0
     } else {
-        (trusted_corroboration_count as f32
-            / config.min_trusted_sources_for_confirmed as f32)
+        (trusted_corroboration_count as f32 / config.min_trusted_sources_for_confirmed as f32)
             .min(1.0)
     };
 
@@ -338,7 +336,9 @@ pub fn count_conflicting_claims_in_cell(
         if key.geo_cell(prefix_len) != cell {
             continue;
         }
-        let has_recent = obs.iter().any(|o| now_ms.saturating_sub(o.observed_at_ms) <= window_ms);
+        let has_recent = obs
+            .iter()
+            .any(|o| now_ms.saturating_sub(o.observed_at_ms) <= window_ms);
         if has_recent {
             variants.insert(key.content_hash);
         }
@@ -396,10 +396,7 @@ mod tests {
     fn conflicting_claims_reduce_trust() {
         let cfg = InformationTrustConfig::default();
         let now = 3_000_000u64;
-        let observations = vec![
-            obs("L1", true, "wifi", now),
-            obs("L2", true, "ble", now),
-        ];
+        let observations = vec![obs("L1", true, "wifi", now), obs("L2", true, "ble", now)];
         let trust = compute_information_trust(&observations, 3, now, 3600, &cfg);
         assert_eq!(trust.status, CorroborationStatus::Conflicting);
         assert!(trust.geographic_consistency < 0.5);

@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Mycelium Project
 //! Cross-cutting mini-app security tests (H27 / P4).
-#![cfg(test)]
-#![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use super::bundle::MiniAppBundle;
 use super::bundle_scan::scan_bundle;

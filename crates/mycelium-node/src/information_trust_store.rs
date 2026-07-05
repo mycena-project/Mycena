@@ -28,7 +28,11 @@ impl InformationTrustStore {
         Ok(Self { _db: db, tree })
     }
 
-    pub fn append(&self, key: &FactClaimKey, observation: &SourceObservation) -> anyhow::Result<()> {
+    pub fn append(
+        &self,
+        key: &FactClaimKey,
+        observation: &SourceObservation,
+    ) -> anyhow::Result<()> {
         let row = PersistedFactRow {
             key: key.clone(),
             observation: observation.clone(),
@@ -98,7 +102,8 @@ mod tests {
         };
         store.append(&key, &obs).expect("append");
         drop(store);
-        let store2 = InformationTrustStore::open(dir.path().to_str().expect("path")).expect("reopen");
+        let store2 =
+            InformationTrustStore::open(dir.path().to_str().expect("path")).expect("reopen");
         let rows = store2.load_all().expect("load");
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].0.kind, FactKind::Resource);

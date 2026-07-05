@@ -41,6 +41,8 @@ fn sybil_trust(now_ms: u64, idx: u64) -> PeerTrust {
         throttled_until_ms: 0,
         last_updated_ms: now_ms,
         transport_hint: Some("sybil-sos".into()),
+        last_geohash_bucket: None,
+        last_geohash_ms: 0,
     }
 }
 
@@ -64,7 +66,7 @@ pub fn sos_disinfo_attack(_seed: u64) -> SosDisinfoReport {
         let trust = sybil_trust(NOW_MS, i as u64);
         peers.insert(peer.clone(), trust.clone());
         for j in 0..REPORTS_PER_PEER {
-            let payload = if (i + j as usize) % 2 == 0 {
+            let payload = if (i + j as usize).is_multiple_of(2) {
                 &claim_a
             } else {
                 &claim_b

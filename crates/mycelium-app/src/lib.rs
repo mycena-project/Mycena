@@ -2,9 +2,8 @@
 // Copyright (C) 2026 Mycelium Project
 pub mod api;
 pub mod bridge_host;
-pub mod crdt_sync;
-pub mod wasm_bridge_host;
 pub mod contacts;
+pub mod crdt_sync;
 pub mod envelope;
 pub mod groups;
 pub mod miniapp_epidemic;
@@ -16,6 +15,7 @@ pub mod proximity;
 pub mod scope_key;
 pub mod sos;
 pub mod storage;
+pub mod wasm_bridge_host;
 
 pub mod miniapp {
     pub use crate::bridge_host;

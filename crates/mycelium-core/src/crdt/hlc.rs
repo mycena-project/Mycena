@@ -72,7 +72,9 @@ impl HlcClock {
 
     /// Merge remote timestamp into local clock (on receive before comparing registers).
     pub fn observe(&mut self, remote: HlcTimestamp) {
-        let wall_ms = crate::data::now_ms().max(remote.wall_ms).max(self.last.wall_ms);
+        let wall_ms = crate::data::now_ms()
+            .max(remote.wall_ms)
+            .max(self.last.wall_ms);
         if remote.wall_ms > self.last.wall_ms {
             self.last.wall_ms = remote.wall_ms;
             self.last.logical = remote.logical;

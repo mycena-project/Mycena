@@ -589,10 +589,8 @@ mod tests {
         let _ = sim.register_node("n1".to_string(), 1024 * 64);
         let links = Arc::clone(&sim.links);
         let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            lock_or_recover!(links, "sim links").insert(
-                ("n1".into(), "n2".into()),
-                LinkProfile::default(),
-            );
+            lock_or_recover!(links, "sim links")
+                .insert(("n1".into(), "n2".into()), LinkProfile::default());
             panic!("deliberate sim links poison");
         }));
         sim.set_link("n1".to_string(), "n2".to_string(), LinkProfile::default());

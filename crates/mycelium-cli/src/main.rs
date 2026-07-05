@@ -3,7 +3,6 @@
 mod release;
 
 use anyhow::Context;
-use release::ReleaseCommands;
 use clap::{Parser, Subcommand};
 use mycelium_app::api::start_api_server;
 use mycelium_app::miniapp::store::{AppSource, AppStoreListing};
@@ -15,6 +14,7 @@ use mycelium_l0_facade::energy::NodeState;
 use mycelium_l1_facade::{
     load_or_create_keypair, ConnectivityMonitor, NodeCommand, NodeConfig, NodeRunner,
 };
+use release::ReleaseCommands;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::io::{self, AsyncBufReadExt};

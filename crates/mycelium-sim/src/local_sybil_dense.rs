@@ -30,6 +30,12 @@ const ROUTING_CANDIDATE_POOL: usize = 28;
 /// Max geographic separation for sampled legit→legit messages (local venue zone).
 const MAX_PAIR_DISTANCE_M: f64 = 520.0;
 
+type LocalSybilTopology = (
+    Vec<String>,
+    HashMap<String, (f64, f64)>,
+    HashMap<String, Vec<String>>,
+);
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct LocalSybilDenseReport {
     pub legit_nodes: usize,
@@ -70,6 +76,8 @@ fn legit_trust(now_ms: u64, idx: usize) -> PeerTrust {
         throttled_until_ms: 0,
         last_updated_ms: now_ms,
         transport_hint: Some(transport.into()),
+        last_geohash_bucket: None,
+        last_geohash_ms: 0,
     }
 }
 
@@ -91,10 +99,12 @@ fn sybil_trust(now_ms: u64, idx: usize) -> PeerTrust {
         throttled_until_ms: 0,
         last_updated_ms: now_ms,
         transport_hint: Some("sybil-local".into()),
+        last_geohash_bucket: None,
+        last_geohash_ms: 0,
     }
 }
 
-fn build_topology(seed: u64) -> (Vec<String>, HashMap<String, (f64, f64)>, HashMap<String, Vec<String>>) {
+fn build_topology(seed: u64) -> LocalSybilTopology {
     let cols = 35usize;
     let mut rng = seed.max(1);
     let mut cells: Vec<bool> = (0..TOTAL_PEER_COUNT)
@@ -124,10 +134,7 @@ fn build_topology(seed: u64) -> (Vec<String>, HashMap<String, (f64, f64)>, HashM
         };
         positions.insert(
             id.clone(),
-            (
-                col as f64 * GRID_SPACING_M,
-                row as f64 * GRID_SPACING_M,
-            ),
+            (col as f64 * GRID_SPACING_M, row as f64 * GRID_SPACING_M),
         );
         ids.push(id);
     }
@@ -251,10 +258,7 @@ fn pick_relays(
     diverse
 }
 
-fn simulate_delivery(
-    seed: u64,
-    diversity: PeerDiversityConfig,
-) -> (u64, u64) {
+fn simulate_delivery(seed: u64, diversity: PeerDiversityConfig) -> (u64, u64) {
     let (ids, positions, neighbors) = build_topology(seed);
     let (trust, meta) = build_trust_maps(&ids);
     let legit_ids: Vec<String> = ids.iter().filter(|id| is_legit(id)).cloned().collect();
@@ -419,8 +423,8 @@ mod tests {
         assert_eq!(ids.len(), TOTAL_PEER_COUNT);
         let legit_count = ids.iter().filter(|id| is_legit(id)).count();
         assert_eq!(legit_count, LEGIT_PEER_COUNT);
-        let avg_degree: f64 = neighbors.values().map(|v| v.len()).sum::<usize>() as f64
-            / neighbors.len() as f64;
+        let avg_degree: f64 =
+            neighbors.values().map(|v| v.len()).sum::<usize>() as f64 / neighbors.len() as f64;
         assert!(
             avg_degree > 8.0,
             "dense cluster avg degree {avg_degree} too sparse"
@@ -432,7 +436,10 @@ mod tests {
         let (ids, positions, neighbors) = build_topology(42);
         let (trust, meta) = build_trust_maps(&ids);
         let legit = ids.iter().find(|id| is_legit(id)).expect("legit");
-        let dest = ids.iter().find(|id| is_legit(id) && *id != legit).expect("dest");
+        let dest = ids
+            .iter()
+            .find(|id| is_legit(id) && *id != legit)
+            .expect("dest");
         let nbrs = &neighbors[legit];
         assert!(!nbrs.is_empty(), "legit must have neighbors");
         let sybil_score = sybil_trust(NOW_MS, 0).relay_selection_score(NOW_MS);
@@ -480,8 +487,7 @@ mod tests {
             report.legit_legit_delivery_rate_score_only * 100.0,
         );
         assert!(
-            report.legit_legit_delivery_rate_diverse
-                > report.legit_legit_delivery_rate_score_only,
+            report.legit_legit_delivery_rate_diverse > report.legit_legit_delivery_rate_score_only,
             "report: {report:?}"
         );
     }

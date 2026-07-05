@@ -18,8 +18,8 @@ use crate::scope_key::ScopeKey;
 use crate::storage::AppStorage;
 use mycelium_coin::CoinNode;
 use mycelium_l0_facade::consistency::{
-    OP_CONTACT_UPSERT, OP_DIRECT_MESSAGE_SEND, OP_GOSSIP_BULLETIN_PUBLISH,
-    OP_GROUP_MEMBERSHIP, OP_MARKETPLACE_STOCK, OP_RESOURCE_MAP_BROADCAST, OP_SOS_BROADCAST,
+    OP_CONTACT_UPSERT, OP_DIRECT_MESSAGE_SEND, OP_GOSSIP_BULLETIN_PUBLISH, OP_GROUP_MEMBERSHIP,
+    OP_MARKETPLACE_STOCK, OP_RESOURCE_MAP_BROADCAST, OP_SOS_BROADCAST,
 };
 use mycelium_l0_facade::crdt::{
     ContactDocument, GroupDocument, MarketplaceStock, StockQuantity, StockResolution,
@@ -420,8 +420,7 @@ impl AppNode {
                     } else if post.scope.starts_with(RESOURCE_MAP_SCOPE) {
                         if let Ok(entry) = ResourceMapEntry::decode_json(&post.body) {
                             if !entry.is_expired(observed) {
-                                self.record_resource_fact(relay, &entry, observed)
-                                    .await;
+                                self.record_resource_fact(relay, &entry, observed).await;
                                 if self.listen_sos.load(Ordering::Relaxed) {
                                     self.notifier.on_resource_map_received(&entry);
                                 }
@@ -554,8 +553,7 @@ impl AppNode {
                     }
                 }
                 AppPayload::ContactCrdt(doc) => {
-                    self.ingest_contact_crdt(&msg.envelope.from_peer, doc)
-                        .await;
+                    self.ingest_contact_crdt(&msg.envelope.from_peer, doc).await;
                 }
                 AppPayload::GroupCrdt(doc) => {
                     if let Err(e) = self.ingest_group_crdt(doc).await {
@@ -1898,11 +1896,7 @@ impl AppNode {
             .await
     }
 
-    async fn send_contact_crdt(
-        &self,
-        to_peer: &str,
-        doc: &ContactDocument,
-    ) -> anyhow::Result<()> {
+    async fn send_contact_crdt(&self, to_peer: &str, doc: &ContactDocument) -> anyhow::Result<()> {
         if doc.peer_id == self.local_peer_id {
             return Ok(());
         }
@@ -1942,10 +1936,7 @@ impl AppNode {
         }
         match self.storage.merge_contact_document(doc) {
             Ok(c) => {
-                tracing::debug!(
-                    "merged contact crdt for {} from {from_peer}",
-                    c.peer_id
-                );
+                tracing::debug!("merged contact crdt for {} from {from_peer}", c.peer_id);
             }
             Err(e) => warn!("contact crdt merge from {from_peer}: {e}"),
         }
@@ -1988,9 +1979,9 @@ impl AppNode {
     async fn ingest_group_crdt(&self, doc: GroupDocument) -> anyhow::Result<()> {
         let _ = self
             .handle
-            .send(NodeCommand::SubscribeBulletinScope(crdt_sync::group_meta_scope(
-                &doc.id,
-            )))
+            .send(NodeCommand::SubscribeBulletinScope(
+                crdt_sync::group_meta_scope(&doc.id),
+            ))
             .await;
         self.storage.merge_group_document(doc)?;
         Ok(())

@@ -14,6 +14,4 @@ pub use group::GroupDocument;
 pub use hlc::{stable_actor_hash, HlcClock, HlcTimestamp};
 pub use lww::LwwRegister;
 pub use or_set::{OrSet, OrTag};
-pub use pn_counter::{
-    MarketplaceStock, PnCounter, StockConflict, StockQuantity, StockResolution,
-};
+pub use pn_counter::{MarketplaceStock, PnCounter, StockConflict, StockQuantity, StockResolution};

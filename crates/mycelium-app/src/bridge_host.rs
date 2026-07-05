@@ -383,10 +383,7 @@ impl BridgeHost {
                     .get("listing_id")
                     .and_then(|x| x.as_str())
                     .ok_or_else(|| "missing listing_id".to_string())?;
-                let initial_qty = args
-                    .get("initial_qty")
-                    .and_then(json_as_u64)
-                    .unwrap_or(0);
+                let initial_qty = args.get("initial_qty").and_then(json_as_u64).unwrap_or(0);
                 let q = self
                     .app_node
                     .marketplace_stock_init(listing_id, initial_qty)

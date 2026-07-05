@@ -51,11 +51,14 @@ mod tests {
 
     #[test]
     fn lww_keeps_latest_hlc() {
-        let mut reg = LwwRegister::new("old".to_string(), HlcTimestamp {
-            wall_ms: 1,
-            logical: 0,
-            actor: 1,
-        });
+        let mut reg = LwwRegister::new(
+            "old".to_string(),
+            HlcTimestamp {
+                wall_ms: 1,
+                logical: 0,
+                actor: 1,
+            },
+        );
         reg.merge(&LwwRegister::new(
             "new".to_string(),
             HlcTimestamp {

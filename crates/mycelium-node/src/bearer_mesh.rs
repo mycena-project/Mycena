@@ -8,9 +8,9 @@ use crate::ble_transport::BlePeerInfo;
 use mycelium_core::bearer_transport::{
     self, BearerMedium, BearerPayloadKind, BearerTransport, BearerWireVersion, ReliabilityClass,
 };
-use mycelium_core::energy::{EnergyProfile, ThermalState};
 use mycelium_core::ble_stream::encode_stream_frame_with_version;
 use mycelium_core::data::now_ms;
+use mycelium_core::energy::{EnergyProfile, ThermalState};
 use mycelium_core::transport::{TransportEvent, WireMessage};
 use mycelium_core::transport_score::{
     bearer_medium_to_transport, decide_transport_path, TransportAvailability, TransportBearer,
@@ -171,11 +171,9 @@ impl BearerMeshRouter {
         now: u64,
     ) -> anyhow::Result<()> {
         let mut path = self.select_mesh_path(peer, frame.len(), force_bulk, now);
-        if !self.energy.thermal.allows_wifi_direct() && path == TransportPath::WifiDirect {
-            path = TransportPath::BleTrickle;
-        } else if self.energy.thermal == ThermalState::Warm
-            && path == TransportPath::WifiDirect
-            && !force_bulk
+        if path == TransportPath::WifiDirect
+            && (!self.energy.thermal.allows_wifi_direct()
+                || (self.energy.thermal == ThermalState::Warm && !force_bulk))
         {
             path = TransportPath::BleTrickle;
         }

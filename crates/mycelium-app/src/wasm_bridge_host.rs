@@ -5,7 +5,7 @@
 use std::sync::Arc;
 
 use mycelium_miniapp::{
-    issue_session, invoke_wasm_run, BridgeInvokeCallback, GuestRuntime, MiniAppBundle,
+    invoke_wasm_run, issue_session, BridgeInvokeCallback, GuestRuntime, MiniAppBundle,
     WasmSandboxConfig, WasmSandboxError, WasmSandboxLimits, DEFAULT_WASM_EXECUTION_TIMEOUT_MS,
     DEFAULT_WASM_FUEL_PER_INVOCATION, DEFAULT_WASM_MAX_MEMORY_BYTES,
 };
@@ -31,8 +31,7 @@ pub fn default_wasm_limits() -> WasmSandboxLimits {
 
 fn bridge_callback(host: BridgeHost, session: String) -> BridgeInvokeCallback {
     Arc::new(move |method, args_json| {
-        let mut args: Value =
-            serde_json::from_str(args_json).unwrap_or(Value::Null);
+        let mut args: Value = serde_json::from_str(args_json).unwrap_or(Value::Null);
         if args.get("_session").is_none() {
             if let Value::Object(ref mut map) = args {
                 map.insert("_session".into(), json!(session));

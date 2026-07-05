@@ -87,10 +87,7 @@ impl ReleaseIntegrityManifest {
     pub fn parse_json(json: &str) -> anyhow::Result<Self> {
         let manifest: Self = serde_json::from_str(json)?;
         if manifest.format != RELEASE_INTEGRITY_FORMAT {
-            anyhow::bail!(
-                "unsupported release integrity format: {}",
-                manifest.format
-            );
+            anyhow::bail!("unsupported release integrity format: {}", manifest.format);
         }
         Ok(manifest)
     }
@@ -214,10 +211,7 @@ pub fn artifact_blake3_hex(path: &Path) -> anyhow::Result<String> {
 }
 
 pub fn compute_build_recipe_digest(repo_root: &Path) -> anyhow::Result<String> {
-    let mut paths: Vec<PathBuf> = RECIPE_PATHS
-        .iter()
-        .map(|p| repo_root.join(p))
-        .collect();
+    let mut paths: Vec<PathBuf> = RECIPE_PATHS.iter().map(|p| repo_root.join(p)).collect();
     paths.sort();
     let mut hasher = blake3::Hasher::new();
     hasher.update(b"mycelium-core-recipe-v1\0");
@@ -226,8 +220,7 @@ pub fn compute_build_recipe_digest(repo_root: &Path) -> anyhow::Result<String> {
             .strip_prefix(repo_root)
             .unwrap_or(&path)
             .to_string_lossy();
-        let data = std::fs::read(&path)
-            .map_err(|e| anyhow::anyhow!("recipe file {rel}: {e}"))?;
+        let data = std::fs::read(&path).map_err(|e| anyhow::anyhow!("recipe file {rel}: {e}"))?;
         hasher.update(rel.as_bytes());
         hasher.update(b"\0");
         hasher.update(&(data.len() as u64).to_le_bytes());
@@ -302,7 +295,11 @@ mod tests {
         let manifest = sample_manifest();
         let mut signed = manifest.clone();
         signed.signatures.clear();
-        for id in ["release-signer-eu", "release-signer-ap", "release-signer-sa"] {
+        for id in [
+            "release-signer-eu",
+            "release-signer-ap",
+            "release-signer-sa",
+        ] {
             let key = release_signer_keypair(id).unwrap();
             let sig = build_release_signature(&signed, id, &key, 1_700_000_000_000).unwrap();
             signed = merge_signatures(signed, sig);

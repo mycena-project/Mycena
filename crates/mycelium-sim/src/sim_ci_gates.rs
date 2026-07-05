@@ -8,16 +8,16 @@
 use crate::commuter_custody_scenarios::commuter_custody_comparison;
 use crate::custody_scenarios::city_custody_delivery;
 use crate::dense_cluster::dense_cluster_shard_containment;
-use crate::local_sybil_dense::run_local_sybil_dense_ci_gate as run_local_sybil_dense_gate;
-use crate::sos_disinfo_scenarios::run_sos_disinfo_ci_gate;
-use crate::resource_disinfo_scenarios::run_resource_disinfo_ci_gate;
-use crate::sos_flood_scenarios::run_sos_flood_ci_gate;
 use crate::eclipse_scenarios::eclipse_relay_resilience;
 use crate::lab::gates::lab_delivery_thresholds;
 use crate::lab::preset::LabPreset;
 use crate::lab::report::LabReport;
 use crate::lab::runner::run_ci_gates;
 use crate::lab::transport_score::verify_lab_transport_score_gates;
+use crate::local_sybil_dense::run_local_sybil_dense_ci_gate as run_local_sybil_dense_gate;
+use crate::resource_disinfo_scenarios::run_resource_disinfo_ci_gate;
+use crate::sos_disinfo_scenarios::run_sos_disinfo_ci_gate;
+use crate::sos_flood_scenarios::run_sos_flood_ci_gate;
 
 /// Documented minimum delivery rate for a MyceliumLab preset (seed=42, ci_mode).
 #[derive(Debug, Clone, Copy)]

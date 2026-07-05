@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Mycelium Project
+use crate::bearer_wifi_aware::BearerWifiAwareRouter;
 use crate::custody::{
     CustodyConfig, CustodyPendingStatus, CustodyQueue, CustodyRoutingContext,
     DEFAULT_MAX_CUSTODY_SPRAY,
@@ -19,9 +20,7 @@ use mycelium_core::crowd_density::CrowdDensityConfig;
 use mycelium_core::crypto::EncryptionKeypair;
 use mycelium_core::crypto::{self};
 use mycelium_core::data::{now_ms, Priority};
-use crate::bearer_wifi_aware::BearerWifiAwareRouter;
 use mycelium_core::energy::{EnergyProfile, MovementIndicator, NodeState, ThermalState};
-use mycelium_core::transport_score::prefer_wifi_aware_for_discovery;
 use mycelium_core::lock_or_recover;
 use mycelium_core::privacy_shaping::{
     self, BatchingScheduler, PrivacyShapingConfig, PrivacyShapingStats,
@@ -33,6 +32,7 @@ use mycelium_core::transport::{
     ConnectivityMode, DirectMessage, MeshTransport, MessageStore, Scope, StoreStats,
     TransportEvent, WireMessage,
 };
+use mycelium_core::transport_score::prefer_wifi_aware_for_discovery;
 use mycelium_core::transport_score::TransportPath;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet, VecDeque};
@@ -665,15 +665,16 @@ impl NodeHandle {
                 status: mycelium_core::information_trust::CorroborationStatus::Unverified,
             };
         }
-        rx.await.unwrap_or(mycelium_core::information_trust::InformationTrust {
-            corroboration_count: 0,
-            trusted_corroboration_count: 0,
-            source_diversity: 0.0,
-            geographic_consistency: 1.0,
-            staleness_factor: 0.0,
-            trust_score: 0.0,
-            status: mycelium_core::information_trust::CorroborationStatus::Unverified,
-        })
+        rx.await
+            .unwrap_or(mycelium_core::information_trust::InformationTrust {
+                corroboration_count: 0,
+                trusted_corroboration_count: 0,
+                source_diversity: 0.0,
+                geographic_consistency: 1.0,
+                staleness_factor: 0.0,
+                trust_score: 0.0,
+                status: mycelium_core::information_trust::CorroborationStatus::Unverified,
+            })
     }
 
     pub async fn pending_custody_statuses(&self) -> Vec<CustodyPendingStatus> {
@@ -1161,9 +1162,10 @@ impl NodeRunner {
                 ),
                 crisis_auto_config: mycelium_core::crisis_mode::CrisisAutoConfig::default(),
                 sos_crisis_tracker: crate::sos_crisis_gate::SosCrisisTracker::default(),
-                information_trust_tracker: crate::information_trust_tracker::InformationTrustTracker::open(
-                    &config.db_path,
-                )?,
+                information_trust_tracker:
+                    crate::information_trust_tracker::InformationTrustTracker::open(
+                        &config.db_path,
+                    )?,
                 protocol_capabilities_override: config.protocol_capabilities_override,
                 last_forward_at: Instant::now(),
                 last_sync_at: Instant::now(),
@@ -1304,7 +1306,10 @@ impl NodeRunner {
     }
 
     fn effective_crisis_params(&self) -> mycelium_core::crisis_mode::CrisisRuntimeParams {
-        mycelium_core::crisis_mode::adjust_runtime_params(self.crisis_params, &self.energy_profile())
+        mycelium_core::crisis_mode::adjust_runtime_params(
+            self.crisis_params,
+            &self.energy_profile(),
+        )
     }
 
     fn effective_max_relay_fanout(&self) -> usize {
@@ -2222,7 +2227,12 @@ impl NodeRunner {
                     .collect();
                 let statuses = self
                     .custody_queue
-                    .list_pending_statuses(&self.local_peer_id, &connected, &self.encounter_log, now)
+                    .list_pending_statuses(
+                        &self.local_peer_id,
+                        &connected,
+                        &self.encounter_log,
+                        now,
+                    )
                     .unwrap_or_default();
                 let _ = reply.send(statuses);
             }

@@ -34,22 +34,12 @@ impl Default for WasmSandboxLimits {
 }
 
 /// Host bridge callback: `(method, args_json) -> response_json`.
-pub type BridgeInvokeCallback =
-    Arc<dyn Fn(&str, &str) -> Result<String, String> + Send + Sync>;
+pub type BridgeInvokeCallback = Arc<dyn Fn(&str, &str) -> Result<String, String> + Send + Sync>;
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct WasmSandboxConfig {
     pub limits: WasmSandboxLimits,
     pub bridge: Option<BridgeInvokeCallback>,
-}
-
-impl Default for WasmSandboxConfig {
-    fn default() -> Self {
-        Self {
-            limits: WasmSandboxLimits::default(),
-            bridge: None,
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -123,7 +113,10 @@ pub struct WasmSandbox {
 }
 
 impl WasmSandbox {
-    pub fn from_bytes(wasm_bytes: &[u8], config: WasmSandboxConfig) -> Result<Self, WasmSandboxError> {
+    pub fn from_bytes(
+        wasm_bytes: &[u8],
+        config: WasmSandboxConfig,
+    ) -> Result<Self, WasmSandboxError> {
         if !is_valid_wasm_magic(wasm_bytes) {
             return Err(WasmSandboxError::InvalidModule(
                 "missing \\0asm magic".into(),
@@ -134,8 +127,8 @@ impl WasmSandbox {
         if config.limits.execution_timeout_ms > 0 {
             engine_config.epoch_interruption(true);
         }
-        let engine = Engine::new(&engine_config)
-            .map_err(|e| WasmSandboxError::Runtime(e.to_string()))?;
+        let engine =
+            Engine::new(&engine_config).map_err(|e| WasmSandboxError::Runtime(e.to_string()))?;
         let module = Module::new(&engine, wasm_bytes)
             .map_err(|e| WasmSandboxError::InvalidModule(e.to_string()))?;
         Ok(Self {
@@ -318,11 +311,15 @@ fn write_guest_str(
     data: &str,
 ) -> Result<usize, WasmSandboxError> {
     if ptr < 0 || cap < 0 {
-        return Err(WasmSandboxError::Runtime("negative guest out buffer".into()));
+        return Err(WasmSandboxError::Runtime(
+            "negative guest out buffer".into(),
+        ));
     }
     let bytes = data.as_bytes();
     if bytes.len() > cap as usize {
-        return Err(WasmSandboxError::Runtime("guest out buffer too small".into()));
+        return Err(WasmSandboxError::Runtime(
+            "guest out buffer too small".into(),
+        ));
     }
     memory
         .write(caller, ptr as usize, bytes)
@@ -407,9 +404,7 @@ mod tests {
         let mut store = wasmtime::Store::new(&engine, ());
         store.set_fuel(50_000).expect("fuel");
         let instance = wasmtime::Instance::new(&mut store, &module, &[]).expect("instance");
-        let func = instance
-            .get_func(&mut store, "run")
-            .expect("run export");
+        let func = instance.get_func(&mut store, "run").expect("run export");
         let typed = func.typed::<(), i32>(&store).expect("typed");
         let err = typed.call(&mut store, ()).expect_err("should exhaust fuel");
         assert!(

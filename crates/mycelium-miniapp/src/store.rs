@@ -154,7 +154,10 @@ impl AppStore {
     }
 
     /// Reconstruct an installed bundle from the retained archive bytes.
-    pub fn load_installed_bundle(&self, app_id: &str) -> anyhow::Result<Option<super::bundle::MiniAppBundle>> {
+    pub fn load_installed_bundle(
+        &self,
+        app_id: &str,
+    ) -> anyhow::Result<Option<super::bundle::MiniAppBundle>> {
         let Some(bytes) = self.bundle_archive_bytes(app_id)? else {
             return Ok(None);
         };

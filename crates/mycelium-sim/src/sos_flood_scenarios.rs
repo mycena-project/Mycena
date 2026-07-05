@@ -4,8 +4,8 @@
 
 use mycelium_core::crisis_mode::{evaluate_auto_activation, CrisisAutoConfig};
 use mycelium_node::{
-    check_sos_ingest, is_sos_source_trusted_for_crisis, IngestGuard, PeerTrust,
-    SosCrisisTracker, SosSecurityConfig,
+    check_sos_ingest, is_sos_source_trusted_for_crisis, IngestGuard, PeerTrust, SosCrisisTracker,
+    SosSecurityConfig,
 };
 
 pub const ATTACKER_SOS_PEERS: usize = 120;
@@ -42,6 +42,8 @@ fn sybil_trust(now_ms: u64, idx: u64) -> PeerTrust {
         throttled_until_ms: 0,
         last_updated_ms: now_ms,
         transport_hint: Some("sybil-sos".into()),
+        last_geohash_bucket: None,
+        last_geohash_ms: 0,
     }
 }
 
@@ -61,6 +63,8 @@ fn legit_trust(now_ms: u64) -> PeerTrust {
         throttled_until_ms: 0,
         last_updated_ms: now_ms,
         transport_hint: Some("mesh-wifi".into()),
+        last_geohash_bucket: None,
+        last_geohash_ms: 0,
     }
 }
 
@@ -77,11 +81,7 @@ pub fn sos_flood_attack(_seed: u64) -> SosFloodReport {
     for i in 0..ATTACKER_SOS_PEERS {
         let peer = format!("S{i:04}");
         let trust = sybil_trust(NOW_MS, i as u64);
-        assert!(!is_sos_source_trusted_for_crisis(
-            &trust,
-            NOW_MS,
-            &security
-        ));
+        assert!(!is_sos_source_trusted_for_crisis(&trust, NOW_MS, &security));
         for j in 0..ATTACKS_PER_PEER {
             let ts = NOW_MS + u64::from(j);
             match check_sos_ingest(&mut guard, &peer, Some(GEOHASH), &trust, ts, &security) {
@@ -95,16 +95,14 @@ pub fn sos_flood_attack(_seed: u64) -> SosFloodReport {
     }
 
     let trusted = tracker.trusted_independent_sources_nearby(LOCAL_PREFIX, NOW_MS);
-    let crisis_after_attack =
-        evaluate_auto_activation(&auto, false, true, trusted);
+    let crisis_after_attack = evaluate_auto_activation(&auto, false, true, trusted);
 
     for (idx, id) in ["L001", "L002", "L003"].iter().enumerate() {
         let trust = legit_trust(NOW_MS);
         tracker.record_observation(id, GEOHASH, &trust, NOW_MS + 100 + idx as u64);
     }
     let trusted_legit = tracker.trusted_independent_sources_nearby(LOCAL_PREFIX, NOW_MS + 200);
-    let crisis_after_three_legit =
-        evaluate_auto_activation(&auto, false, true, trusted_legit);
+    let crisis_after_three_legit = evaluate_auto_activation(&auto, false, true, trusted_legit);
 
     SosFloodReport {
         attacker_peers: ATTACKER_SOS_PEERS,

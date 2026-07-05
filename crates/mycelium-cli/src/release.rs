@@ -4,18 +4,16 @@
 use anyhow::Context;
 use clap::Subcommand;
 use mycelium_core::release_integrity::{
-    artifact_blake3_hex, build_release_signature, compute_build_recipe_digest,
-    merge_signatures, release_signer_keypair, ReleaseIntegrityManifest, ReleaseThreshold,
-    RELEASE_INTEGRITY_FORMAT, RELEASE_SIGNER_IDS,
+    artifact_blake3_hex, build_release_signature, compute_build_recipe_digest, merge_signatures,
+    release_signer_keypair, ReleaseIntegrityManifest, ReleaseThreshold, RELEASE_INTEGRITY_FORMAT,
+    RELEASE_SIGNER_IDS,
 };
 use std::path::{Path, PathBuf};
 
 #[derive(Subcommand, Debug, Clone)]
 pub enum ReleaseCommands {
     /// BLAKE3 hex digest of a release artifact file.
-    Hash {
-        artifact: PathBuf,
-    },
+    Hash { artifact: PathBuf },
     /// Build recipe digest for the repository root.
     RecipeDigest {
         #[arg(default_value = ".")]
@@ -90,7 +88,10 @@ pub fn run(cmd: ReleaseCommands) -> anyhow::Result<()> {
             eprintln!("Sign with: mycelium release sign {out:?} --signer-id <ID>");
             eprintln!("Signers: {}", list_signer_ids());
         }
-        ReleaseCommands::Sign { manifest, signer_id } => {
+        ReleaseCommands::Sign {
+            manifest,
+            signer_id,
+        } => {
             let content = std::fs::read_to_string(&manifest)?;
             let base = ReleaseIntegrityManifest::parse_json(&content)?;
             let key = release_signer_keypair(&signer_id)?;
@@ -107,7 +108,11 @@ pub fn run(cmd: ReleaseCommands) -> anyhow::Result<()> {
                 merged.threshold.required
             );
         }
-        ReleaseCommands::Verify { manifest, artifact, repo } => {
+        ReleaseCommands::Verify {
+            manifest,
+            artifact,
+            repo,
+        } => {
             verify_release_file(&manifest, &artifact, &repo)?;
             eprintln!("OFFICIAL: artifact matches manifest with sufficient signatures");
         }

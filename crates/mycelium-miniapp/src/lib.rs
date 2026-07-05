@@ -22,11 +22,11 @@ pub mod safe_mode;
 pub mod storage_quota;
 pub mod store;
 
+pub mod runtime;
 #[cfg(feature = "wasm-runtime")]
 pub mod wasm_runtime;
 #[cfg(not(feature = "wasm-runtime"))]
 mod wasm_stubs;
-pub mod runtime;
 
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used)]
@@ -54,7 +54,7 @@ pub use runtime::{
     DEFAULT_WASM_MAX_MEMORY_BYTES,
 };
 #[cfg(feature = "wasm-runtime")]
-pub use runtime::{BridgeInvokeCallback, WasmSandbox, is_valid_wasm_magic};
+pub use runtime::{is_valid_wasm_magic, BridgeInvokeCallback, WasmSandbox};
 pub use store::{listing_from_manifest_and_bundle, AppSource, AppStore, AppStoreListing};
 
 /// JavaScript bridge injected into the mini-app host (`window.mycelium`).

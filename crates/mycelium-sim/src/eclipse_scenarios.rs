@@ -39,6 +39,8 @@ fn sybil_trust(now_ms: u64, idx: usize) -> PeerTrust {
         throttled_until_ms: 0,
         last_updated_ms: now_ms,
         transport_hint: Some("attacker-relay".into()),
+        last_geohash_bucket: None,
+        last_geohash_ms: 0,
     }
 }
 
@@ -58,6 +60,8 @@ fn legit_trust(now_ms: u64) -> PeerTrust {
         throttled_until_ms: 0,
         last_updated_ms: now_ms,
         transport_hint: Some("mesh-lan".into()),
+        last_geohash_bucket: None,
+        last_geohash_ms: 0,
     }
 }
 
@@ -79,6 +83,7 @@ fn build_eclipse_topology() -> (
             PeerRoutingMeta {
                 transport_hint: "attacker-relay".into(),
                 first_encounter_ms: NOW_MS.saturating_sub(3 * 86_400_000),
+                geohash_bucket: None,
             },
         );
     }
@@ -90,6 +95,7 @@ fn build_eclipse_topology() -> (
         PeerRoutingMeta {
             transport_hint: "mesh-lan".into(),
             first_encounter_ms: NOW_MS.saturating_sub(45 * 86_400_000),
+            geohash_bucket: None,
         },
     );
 

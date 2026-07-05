@@ -104,7 +104,7 @@ impl AppStorage {
     ) -> anyhow::Result<Contact> {
         let actor = self.crdt_actor_id()?;
         let ts = self.next_hlc_timestamp()?;
-        let mut contact = match self.contact_by_id(peer_id)? {
+        let contact = match self.contact_by_id(peer_id)? {
             Some(mut existing) => {
                 existing.ensure_crdt(&actor);
                 existing.apply_crdt_update(&actor, ts, |doc| {
@@ -516,7 +516,11 @@ impl AppStorage {
         let mut local = self
             .marketplace_stock(&remote.listing_id)?
             .unwrap_or_else(|| {
-                mycelium_l0_facade::crdt::MarketplaceStock::new(remote.listing_id.clone(), 0, &actor)
+                mycelium_l0_facade::crdt::MarketplaceStock::new(
+                    remote.listing_id.clone(),
+                    0,
+                    &actor,
+                )
             });
         local.merge(&remote);
         self.save_marketplace_stock(&local)?;

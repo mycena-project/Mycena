@@ -17,7 +17,13 @@ pub struct GroupDocument {
 }
 
 impl GroupDocument {
-    pub fn new(id: String, name: String, key: [u8; 32], created_at_ms: u64, ts: HlcTimestamp) -> Self {
+    pub fn new(
+        id: String,
+        name: String,
+        key: [u8; 32],
+        created_at_ms: u64,
+        ts: HlcTimestamp,
+    ) -> Self {
         Self {
             id: id.clone(),
             name: LwwRegister::new(name, ts),

@@ -104,11 +104,7 @@ impl SosCrisisTracker {
     }
 
     /// Distinct trusted relay peers with SOS in the local geohash area within the activity window.
-    pub fn trusted_independent_sources_nearby(
-        &self,
-        local_prefix: &str,
-        now_ms: u64,
-    ) -> usize {
+    pub fn trusted_independent_sources_nearby(&self, local_prefix: &str, now_ms: u64) -> usize {
         let window = self.auto_config.sos_activity_window_ms;
         let mut peers = HashSet::new();
         for obs in &self.observations {
@@ -295,7 +291,10 @@ mod tests {
 
         tracker.record_observation("L002", "u4prabc", &legit, now + 1);
         tracker.record_observation("L003", "u4prdef", &legit, now + 2);
-        assert_eq!(tracker.trusted_independent_sources_nearby("u4pr", now + 2), 3);
+        assert_eq!(
+            tracker.trusted_independent_sources_nearby("u4pr", now + 2),
+            3
+        );
     }
 
     #[test]

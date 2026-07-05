@@ -1005,7 +1005,9 @@ async fn list_resource_map_entries(
         .collect())
 }
 
-fn trust_json(trust: &mycelium_l0_facade::information_trust::InformationTrust) -> serde_json::Value {
+fn trust_json(
+    trust: &mycelium_l0_facade::information_trust::InformationTrust,
+) -> serde_json::Value {
     json!({
         "corroboration_count": trust.corroboration_count,
         "trusted_corroboration_count": trust.trusted_corroboration_count,
@@ -1617,8 +1619,8 @@ async fn miniapp_invoke_wasm_run(
     state: State<'_, SharedState>,
     app_id: String,
 ) -> Result<i32, String> {
-    use mycelium_app::miniapp::wasm_bridge_host::run_wasm_guest_for_app;
     use mycelium_app::miniapp::bridge_host::BridgeHost;
+    use mycelium_app::miniapp::wasm_bridge_host::run_wasm_guest_for_app;
 
     let g = state.read().await;
     let s = g.as_ref().ok_or_else(|| "node not started".to_string())?;
@@ -1662,13 +1664,7 @@ async fn miniapp_get_entry_html(
         .ok_or_else(|| "unknown app".to_string())?;
     let entry_path = if m.runtime == "wasm" {
         m.hybrid_ui_entry()
-            .filter(|ui| {
-                s.app_store
-                    .get_file(&app_id, ui)
-                    .ok()
-                    .flatten()
-                    .is_some()
-            })
+            .filter(|ui| s.app_store.get_file(&app_id, ui).ok().flatten().is_some())
             .unwrap_or(&m.entry)
     } else {
         &m.entry

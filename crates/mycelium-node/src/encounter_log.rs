@@ -351,7 +351,7 @@ impl EncounterLogStore {
             let mean_interval = span / count;
             let elapsed = now.saturating_sub(rec.last_seen_ms);
             let until = mean_interval.saturating_sub(elapsed);
-            let eta_min = until.max(MIN_EXPECTED_ETA_MS).min(ENCOUNTER_LOG_TTL_MS);
+            let eta_min = until.clamp(MIN_EXPECTED_ETA_MS, ENCOUNTER_LOG_TTL_MS);
             let eta_max = until
                 .saturating_mul(3)
                 .max(until.saturating_add(MIN_EXPECTED_ETA_MS))
@@ -863,7 +863,9 @@ mod tests {
                 .unwrap();
         }
         let now = hub + 5 * day + 30 * 60_000;
-        let win = log.estimate_encounter_window("carrier", "dest", now).unwrap();
+        let win = log
+            .estimate_encounter_window("carrier", "dest", now)
+            .unwrap();
         assert_eq!(win.basis, ExpectedDeliveryBasis::DeliveryProbability);
         assert!(win.eta_min_ms >= MIN_EXPECTED_ETA_MS);
         assert!(win.eta_max_ms >= win.eta_min_ms);

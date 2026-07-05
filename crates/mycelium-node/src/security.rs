@@ -172,7 +172,9 @@ fn social_bucket(meta: &PeerRoutingMeta, config: &PeerDiversityConfig) -> u64 {
     if config.social_window_ms == 0 {
         return meta.first_encounter_ms;
     }
-    meta.first_encounter_ms / config.social_window_ms
+    meta.first_encounter_ms
+        .checked_div(config.social_window_ms)
+        .unwrap_or(0)
 }
 
 fn max_same_transport_slots(max_fanout: usize, fraction: f32) -> usize {
@@ -383,8 +385,7 @@ fn adding_violates_diversity(trial: &DiversityTrial<'_>) -> bool {
                     let only = trial_buckets.iter().next().cloned();
                     let has_alt = trial.scored.iter().any(|(p, _)| {
                         !trial_peers.contains(p)
-                            && geo_bucket(&meta_for(p))
-                                .is_some_and(|b| only.as_deref() != Some(b))
+                            && geo_bucket(&meta_for(p)).is_some_and(|b| only.as_deref() != Some(b))
                     });
                     if has_alt {
                         return true;
@@ -707,8 +708,7 @@ pub fn corroboration_source_diversity(
         .collect();
 
     let mut score = if geo_buckets.is_empty() {
-        0.5 * (transports.len() as f32 / n as f32)
-            + 0.5 * (social_buckets.len() as f32 / n as f32)
+        0.5 * (transports.len() as f32 / n as f32) + 0.5 * (social_buckets.len() as f32 / n as f32)
     } else {
         0.34 * (transports.len() as f32 / n as f32)
             + 0.33 * (social_buckets.len() as f32 / n as f32)
@@ -782,7 +782,9 @@ fn social_bucket_from_ms(first_encounter_ms: u64, config: &PeerDiversityConfig) 
     if config.social_window_ms == 0 {
         first_encounter_ms
     } else {
-        first_encounter_ms / config.social_window_ms
+        first_encounter_ms
+            .checked_div(config.social_window_ms)
+            .unwrap_or(0)
     }
 }
 

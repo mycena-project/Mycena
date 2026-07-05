@@ -26,7 +26,10 @@ pub fn extract_fact_claim_from_gossip_payload(
         let payload = SosPayload {
             geohash: json_string(&json, "geohash")?,
             message: json_string(&json, "message")?,
-            created_at_ms: json.get("created_at_ms").and_then(Value::as_u64).unwrap_or(0),
+            created_at_ms: json
+                .get("created_at_ms")
+                .and_then(Value::as_u64)
+                .unwrap_or(0),
         };
         payload.validate().ok()?;
         return Some(ExtractedFactClaim::Sos(payload));
@@ -38,7 +41,10 @@ pub fn extract_fact_claim_from_gossip_payload(
             geohash: json_string(&json, "geohash")?,
             category,
             description: json_string(&json, "description")?,
-            created_at_ms: json.get("created_at_ms").and_then(Value::as_u64).unwrap_or(0),
+            created_at_ms: json
+                .get("created_at_ms")
+                .and_then(Value::as_u64)
+                .unwrap_or(0),
             ttl_secs: json.get("ttl_secs").and_then(Value::as_u64).unwrap_or(0),
         };
         entry.validate().ok()?;
@@ -88,8 +94,8 @@ mod tests {
     #[test]
     fn extracts_sos_from_plain_json() {
         let json = r#"{"geohash":"u4pru","message":"need help","created_at_ms":1}"#;
-        let claim = extract_fact_claim_from_gossip_payload(SOS_SCOPE, json.as_bytes())
-            .expect("sos");
+        let claim =
+            extract_fact_claim_from_gossip_payload(SOS_SCOPE, json.as_bytes()).expect("sos");
         match claim {
             ExtractedFactClaim::Sos(p) => assert_eq!(p.message, "need help"),
             _ => panic!("expected sos"),

@@ -139,10 +139,8 @@ mod tests {
         let links = Arc::new(Mutex::new(HashMap::new()));
         let links2 = Arc::clone(&links);
         let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            lock_or_recover!(links2, "sim links").insert(
-                ("local".into(), "remote".into()),
-                LinkProfile::default(),
-            );
+            lock_or_recover!(links2, "sim links")
+                .insert(("local".into(), "remote".into()), LinkProfile::default());
             panic!("deliberate sim transport links poison");
         }));
         let (action_tx, _action_rx) = mpsc::unbounded_channel();
@@ -154,10 +152,8 @@ mod tests {
             event_rx,
             action_tx,
         );
-        lock_or_recover!(links, "sim links").insert(
-            ("local".into(), "remote".into()),
-            LinkProfile::default(),
-        );
+        lock_or_recover!(links, "sim links")
+            .insert(("local".into(), "remote".into()), LinkProfile::default());
         assert_eq!(transport.known_peers(), vec!["remote".to_string()]);
     }
 }

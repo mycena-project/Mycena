@@ -3,9 +3,8 @@
 //! Store-and-forward custody queue — spray-and-wait with bounded network copies.
 
 use crate::encounter_log::{
-    CustodyCandidateQuery, CustodyCandidateScoring, EncounterLogStore,
-    ExpectedDeliveryBasis, DEFAULT_EXPECTED_ETA_MAX_MS,
-    DEFAULT_EXPECTED_ETA_MIN_MS, ENCOUNTER_LOG_TTL_MS,
+    CustodyCandidateQuery, CustodyCandidateScoring, EncounterLogStore, ExpectedDeliveryBasis,
+    DEFAULT_EXPECTED_ETA_MAX_MS, DEFAULT_EXPECTED_ETA_MIN_MS, ENCOUNTER_LOG_TTL_MS,
 };
 use crate::peer_trust::PeerTrust;
 use crate::security::{
@@ -384,7 +383,7 @@ impl CustodyQueue {
             let (_, v) = item?;
             entries.push(bincode::deserialize(&v)?);
         }
-        entries.sort_by(|a, b| a.enqueued_at_ms.cmp(&b.enqueued_at_ms));
+        entries.sort_by_key(|a| a.enqueued_at_ms);
         for stored in entries {
             if !Self::relay_allowed(&stored, now) {
                 continue;
@@ -745,20 +744,18 @@ mod tests {
                 .unwrap();
         }
         log.begin_encounter("carrier", base + 3 * day).unwrap();
-        log.end_encounter("carrier", base + 3 * day + 60_000).unwrap();
-        log.begin_encounter("other", base + 3 * day + 120_000).unwrap();
-        log.end_encounter("other", base + 3 * day + 180_000).unwrap();
+        log.end_encounter("carrier", base + 3 * day + 60_000)
+            .unwrap();
+        log.begin_encounter("other", base + 3 * day + 120_000)
+            .unwrap();
+        log.end_encounter("other", base + 3 * day + 180_000)
+            .unwrap();
 
         let msg = custody_msg("a", "z");
         q.enqueue(&msg).unwrap();
         let now = base + 3 * day + 200_000;
         let statuses = q
-            .list_pending_statuses(
-                "a",
-                &["carrier".into(), "other".into()],
-                &log,
-                now,
-            )
+            .list_pending_statuses("a", &["carrier".into(), "other".into()], &log, now)
             .unwrap();
         assert_eq!(statuses.len(), 1);
         let st = &statuses[0];

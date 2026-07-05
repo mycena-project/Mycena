@@ -2,9 +2,7 @@
 // Copyright (C) 2026 Mycelium Project
 //! Wi-Fi Aware discovery bearer — small presence announcements only (no bulk data).
 
-use mycelium_core::bearer_transport::{
-    BearerMedium, BearerMtu, BearerTransport, ReliabilityClass,
-};
+use mycelium_core::bearer_transport::{BearerMedium, BearerMtu, BearerTransport, ReliabilityClass};
 use mycelium_core::data::now_ms;
 use mycelium_core::transport_score::{TransportBearer, TransportScoreSample, TransportScoreStore};
 use std::collections::VecDeque;

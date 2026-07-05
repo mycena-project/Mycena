@@ -7,15 +7,16 @@ use super::manifest::MiniAppManifest;
 
 #[cfg(feature = "wasm-runtime")]
 pub use super::wasm_runtime::{
-    BridgeInvokeCallback, WasmSandbox, WasmSandboxConfig, WasmSandboxError, WasmSandboxLimits,
-    DEFAULT_WASM_ENTRY, DEFAULT_WASM_EXECUTION_TIMEOUT_MS, DEFAULT_WASM_FUEL_PER_INVOCATION,
-    DEFAULT_WASM_MAX_MEMORY_BYTES, is_valid_wasm_magic,
+    is_valid_wasm_magic, BridgeInvokeCallback, WasmSandbox, WasmSandboxConfig, WasmSandboxError,
+    WasmSandboxLimits, DEFAULT_WASM_ENTRY, DEFAULT_WASM_EXECUTION_TIMEOUT_MS,
+    DEFAULT_WASM_FUEL_PER_INVOCATION, DEFAULT_WASM_MAX_MEMORY_BYTES,
 };
 
 #[cfg(not(feature = "wasm-runtime"))]
 pub use super::wasm_stubs::{
     WasmSandboxConfig, WasmSandboxError, WasmSandboxLimits, DEFAULT_WASM_ENTRY,
-    DEFAULT_WASM_EXECUTION_TIMEOUT_MS, DEFAULT_WASM_FUEL_PER_INVOCATION, DEFAULT_WASM_MAX_MEMORY_BYTES,
+    DEFAULT_WASM_EXECUTION_TIMEOUT_MS, DEFAULT_WASM_FUEL_PER_INVOCATION,
+    DEFAULT_WASM_MAX_MEMORY_BYTES,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -91,7 +92,10 @@ impl MiniAppBundle {
             GuestRuntime::WebView => true,
             GuestRuntime::Wasm => {
                 self.get_file("ui/index.html").is_some()
-                    || self.manifest.hybrid_ui_entry().is_some_and(|p| self.get_file(p).is_some())
+                    || self
+                        .manifest
+                        .hybrid_ui_entry()
+                        .is_some_and(|p| self.get_file(p).is_some())
             }
         }
     }
@@ -106,7 +110,7 @@ mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used)]
 
     use super::*;
-    use crate::manifest::{MiniAppManifest, Permission};
+    use crate::manifest::MiniAppManifest;
     use std::collections::HashMap;
 
     fn wasm_manifest() -> MiniAppManifest {

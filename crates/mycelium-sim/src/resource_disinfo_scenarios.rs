@@ -42,6 +42,8 @@ fn sybil_trust(now_ms: u64, idx: u64) -> PeerTrust {
         throttled_until_ms: 0,
         last_updated_ms: now_ms,
         transport_hint: Some("sybil-resource".into()),
+        last_geohash_bucket: None,
+        last_geohash_ms: 0,
     }
 }
 
@@ -61,6 +63,8 @@ fn legit_trust(now_ms: u64, transport: &str) -> PeerTrust {
         throttled_until_ms: 0,
         last_updated_ms: now_ms,
         transport_hint: Some(transport.into()),
+        last_geohash_bucket: None,
+        last_geohash_ms: 0,
     }
 }
 
@@ -89,7 +93,7 @@ pub fn resource_disinfo_attack(_seed: u64) -> ResourceDisinfoReport {
         let trust = sybil_trust(NOW_MS, i as u64);
         peers.insert(peer.clone(), trust.clone());
         for j in 0..REPORTS_PER_PEER {
-            let entry = if (i + j as usize) % 2 == 0 {
+            let entry = if (i + j as usize).is_multiple_of(2) {
                 &claim_a
             } else {
                 &claim_b
@@ -151,12 +155,7 @@ pub fn resource_disinfo_recovery_after_legit() -> ResourceDisinfoReport {
     {
         let trust = legit_trust(NOW_MS, transport);
         peers.insert(peer.to_string(), trust.clone());
-        tracker.record_resource(
-            peer,
-            &claim_a,
-            &trust,
-            NOW_MS + 50 + idx as u64,
-        );
+        tracker.record_resource(peer, &claim_a, &trust, NOW_MS + 50 + idx as u64);
     }
 
     let trust_a = tracker.query_resource_trust(&claim_a, NOW_MS + 100, &peers);

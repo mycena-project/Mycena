@@ -377,12 +377,20 @@ mod tests {
         assert_eq!(t.last_geohash_bucket.as_deref(), Some("u4pr"));
         store.note_peer_co_presence_geohash("peer_b", "u33dxyz", 2_000);
         assert_eq!(
-            store.get("peer_b").expect("b").last_geohash_bucket.as_deref(),
+            store
+                .get("peer_b")
+                .expect("b")
+                .last_geohash_bucket
+                .as_deref(),
             Some("u33d")
         );
         store.note_peer_geohash("peer_b", "u4prfresh", 3_000);
         assert_eq!(
-            store.get("peer_b").expect("b2").last_geohash_bucket.as_deref(),
+            store
+                .get("peer_b")
+                .expect("b2")
+                .last_geohash_bucket
+                .as_deref(),
             Some("u4pr")
         );
     }

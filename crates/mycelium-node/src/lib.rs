@@ -12,9 +12,9 @@ mod custody;
 mod encounter_log;
 mod error;
 mod forwarding;
-mod ingest_guard;
 mod information_trust_store;
 mod information_trust_tracker;
+mod ingest_guard;
 mod node;
 mod node_consistency;
 mod peer_enc_keys;
@@ -30,6 +30,9 @@ mod transport_meta;
 pub use ratchet_store::RatchetSessionStore;
 pub use transport::{DirectPeerCap, PeerAdmitAction};
 
+pub use bearer_wifi_aware::{
+    BearerWifiAwareRouter, DiscoveryAnnouncement, DiscoveryPeerEvent, DISCOVERY_ANNOUNCE_MAX,
+};
 pub use connectivity::{kad_action_for_mode, ConnectivityMonitor, KadConnectivityAction};
 pub use custody::{
     CustodyConfig, CustodyForwardPlan, CustodyPendingStatus, CustodyQueue, CustodyRoutingContext,
@@ -38,22 +41,21 @@ pub use custody::{
 pub use encounter_log::{
     CoEncounterRecord, CustodyCandidateQuery, CustodyCandidateScoring, DeliveryProbabilityEstimate,
     EncounterLogStore, EncounterRecord, ExpectedDeliveryBasis, ExpectedEncounterWindow,
-    ENCOUNTER_LOG_TTL_MS, DEFAULT_EXPECTED_ETA_MAX_MS, DEFAULT_EXPECTED_ETA_MIN_MS,
+    DEFAULT_EXPECTED_ETA_MAX_MS, DEFAULT_EXPECTED_ETA_MIN_MS, ENCOUNTER_LOG_TTL_MS,
     MIN_EXPECTED_ETA_MS,
 };
 pub use error::{
     decode_peer_bearer_frame, decode_peer_ble_stream_frame, decode_peer_ble_wire_frame,
     decode_peer_wire_message, NodeError, NodeResult,
 };
+pub use information_trust_tracker::InformationTrustTracker;
+pub use ingest_guard::{IngestGuard, IngestReject};
 pub use mycelium_core::at_rest::parse_storage_key_hex;
 pub use mycelium_core::transport::{ConnectivityMode, DirectMessage, StoreStats, WireMessage};
 pub use mycelium_core::transport_score::{
     decide_discovery_bearer, decide_transport_path, prefer_wifi_aware_for_discovery,
-    TransportAvailability, TransportBearer, TransportPath, TransportScore,
-    TransportScoreSample, TransportScoreStore,
-};
-pub use bearer_wifi_aware::{
-    BearerWifiAwareRouter, DiscoveryAnnouncement, DiscoveryPeerEvent, DISCOVERY_ANNOUNCE_MAX,
+    TransportAvailability, TransportBearer, TransportPath, TransportScore, TransportScoreSample,
+    TransportScoreStore,
 };
 pub use mycelium_l0_facade::EncKey;
 pub use node::{
@@ -67,12 +69,9 @@ pub use secrets::{
 };
 pub use security::{
     apply_peer_diversity, build_routing_meta_map, corroboration_source_diversity,
-    peer_routing_meta, select_relay_candidates,
-    select_relay_candidates_with_diversity, PeerDiversityConfig, PeerRoutingMeta, PeerTrust,
-    PeerTrustStore, RelaySelectionRequest,
+    peer_routing_meta, select_relay_candidates, select_relay_candidates_with_diversity,
+    PeerDiversityConfig, PeerRoutingMeta, PeerTrust, PeerTrustStore, RelaySelectionRequest,
 };
-pub use ingest_guard::{IngestGuard, IngestReject};
-pub use information_trust_tracker::InformationTrustTracker;
 pub use sos_crisis_gate::{
     check_sos_ingest, is_sos_source_sybil_suspicious, is_sos_source_trusted_for_crisis,
     sos_rate_limit_for_peer, SosCrisisTracker, SosIngestReject, SosSecurityConfig,

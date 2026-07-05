@@ -65,7 +65,7 @@ impl TransportBearer {
                 avg_latency_ms: 25.0,
                 packet_loss_rate: 0.01,
                 avg_throughput_bps: 4.0 * 1024.0,
-                /// Much lower than continuous BLE scanning at comparable range.
+                // Much lower than continuous BLE scanning at comparable range.
                 energy_joules_per_byte: 1.5e-7,
                 sample_count: 0,
                 last_observed_ms: 0,
@@ -439,7 +439,9 @@ pub fn bearer_medium_to_transport(
     }
 }
 
-pub fn transport_bearer_to_medium(bearer: TransportBearer) -> Option<super::bearer_transport::BearerMedium> {
+pub fn transport_bearer_to_medium(
+    bearer: TransportBearer,
+) -> Option<super::bearer_transport::BearerMedium> {
     match bearer {
         TransportBearer::Ble => Some(super::bearer_transport::BearerMedium::Ble),
         TransportBearer::WifiDirect => Some(super::bearer_transport::BearerMedium::WifiDirect),

@@ -166,10 +166,7 @@ mod tests {
             thermal: ThermalState::Critical,
             movement: MovementIndicator::Unknown,
         };
-        assert_eq!(
-            p.effective_forwarding_state(false),
-            NodeState::Passive
-        );
+        assert_eq!(p.effective_forwarding_state(false), NodeState::Passive);
         assert!(!p.thermal.allows_wifi_direct());
     }
 
@@ -180,10 +177,7 @@ mod tests {
             thermal: ThermalState::Warm,
             movement: MovementIndicator::Unknown,
         };
-        assert_eq!(
-            p.effective_forwarding_state(false),
-            NodeState::Intermittent
-        );
+        assert_eq!(p.effective_forwarding_state(false), NodeState::Intermittent);
         assert_eq!(p.thermal.wifi_direct_drain_cap(), Some(2));
     }
 

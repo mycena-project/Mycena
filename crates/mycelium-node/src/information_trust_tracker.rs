@@ -10,7 +10,7 @@ use mycelium_core::information_trust::{
     compute_information_trust_with_diversity, count_conflicting_claims_in_cell, FactClaimKey,
     InformationTrust, InformationTrustConfig, SourceObservation,
 };
-use mycelium_core::resource_map::{ResourceCategory, ResourceMapEntry, RESOURCE_DEFAULT_TTL_SECS};
+use mycelium_core::resource_map::{ResourceMapEntry, RESOURCE_DEFAULT_TTL_SECS};
 use mycelium_core::sos::{SosPayload, SOS_DEFAULT_TTL_SECS};
 use std::collections::{HashMap, HashSet, VecDeque};
 
@@ -112,32 +112,21 @@ impl InformationTrustTracker {
         self.record(relay_peer, key, trust, now_ms);
     }
 
-    fn record(
-        &mut self,
-        relay_peer: &str,
-        key: FactClaimKey,
-        trust: &PeerTrust,
-        now_ms: u64,
-    ) {
+    fn record(&mut self, relay_peer: &str, key: FactClaimKey, trust: &PeerTrust, now_ms: u64) {
         self.prune(now_ms);
         if self.observation_exists(&key, relay_peer, now_ms) {
             return;
         }
         let meta = peer_routing_meta(trust, None, trust.transport_hint.as_deref());
-        let trusted =
-            is_sos_source_trusted_for_crisis(trust, now_ms, &self.security_config);
-        let geohash_bucket = mycelium_core::sos::geohash_diversity_bucket(
-            &key.geohash,
-            self.diversity_config.geohash_bucket_chars,
-        )
-        .or(meta.geohash_bucket);
+        let trusted = is_sos_source_trusted_for_crisis(trust, now_ms, &self.security_config);
         let observation = SourceObservation {
             relay_peer: relay_peer.to_string(),
             observed_at_ms: now_ms,
             trusted_independent: trusted,
             transport_hint: meta.transport_hint,
             first_encounter_ms: meta.first_encounter_ms,
-            geohash_bucket,
+            // Peer relay location only — claim geohash is already on FactClaimKey.
+            geohash_bucket: meta.geohash_bucket,
         };
         if let Some(store) = &self.store {
             let _ = store.append(&key, &observation);
@@ -153,8 +142,7 @@ impl InformationTrustTracker {
         let window = self.config.observation_window_ms;
         self.by_claim.get(key).is_some_and(|list| {
             list.iter().any(|o| {
-                o.relay_peer == relay_peer
-                    && now_ms.saturating_sub(o.observed_at_ms) <= window
+                o.relay_peer == relay_peer && now_ms.saturating_sub(o.observed_at_ms) <= window
             })
         })
     }
@@ -188,19 +176,13 @@ impl InformationTrustTracker {
     ) -> InformationTrust {
         let ttl = if ttl_secs == 0 {
             match key.kind {
-                mycelium_core::information_trust::FactKind::Resource => {
-                    RESOURCE_DEFAULT_TTL_SECS
-                }
+                mycelium_core::information_trust::FactKind::Resource => RESOURCE_DEFAULT_TTL_SECS,
                 mycelium_core::information_trust::FactKind::Sos => SOS_DEFAULT_TTL_SECS,
             }
         } else {
             ttl_secs
         };
-        let claim_obs = self
-            .by_claim
-            .get(key)
-            .map(|v| v.as_slice())
-            .unwrap_or(&[]);
+        let claim_obs = self.by_claim.get(key).map(|v| v.as_slice()).unwrap_or(&[]);
         let conflicts = count_conflicting_claims_in_cell(
             &self.by_claim,
             key,
@@ -241,9 +223,11 @@ impl InformationTrustTracker {
         if let Some(store) = &self.store {
             let _ = store.prune_before(cutoff);
         }
-        while self.observations.front().is_some_and(|stored| {
-            now_ms.saturating_sub(stored.observation.observed_at_ms) > window
-        }) {
+        while self
+            .observations
+            .front()
+            .is_some_and(|stored| now_ms.saturating_sub(stored.observation.observed_at_ms) > window)
+        {
             if let Some(stored) = self.observations.pop_front() {
                 if let Some(list) = self.by_claim.get_mut(&stored.key) {
                     list.retain(|o| {
@@ -264,6 +248,7 @@ mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used)]
 
     use super::*;
+    use mycelium_core::resource_map::ResourceCategory;
 
     fn established_trust(now_ms: u64) -> PeerTrust {
         PeerTrust {
@@ -307,11 +292,10 @@ mod tests {
         }
     }
 
-    fn peer_map<'a>(pairs: impl IntoIterator<Item = (&'a str, PeerTrust)>) -> HashMap<String, PeerTrust> {
-        pairs
-            .into_iter()
-            .map(|(k, v)| (k.to_string(), v))
-            .collect()
+    fn peer_map<'a>(
+        pairs: impl IntoIterator<Item = (&'a str, PeerTrust)>,
+    ) -> HashMap<String, PeerTrust> {
+        pairs.into_iter().map(|(k, v)| (k.to_string(), v)).collect()
     }
 
     #[test]
@@ -329,11 +313,14 @@ mod tests {
         let mut peers = HashMap::new();
         for peer in ["L1", "L2", "L3"] {
             let mut t = legit.clone();
-            t.transport_hint = Some(match peer {
-                "L1" => "wifi",
-                "L2" => "ble",
-                _ => "relay",
-            }.into());
+            t.transport_hint = Some(
+                match peer {
+                    "L1" => "wifi",
+                    "L2" => "ble",
+                    _ => "relay",
+                }
+                .into(),
+            );
             peers.insert(peer.to_string(), t.clone());
             tracker.record_resource(peer, &entry, &t, now);
         }
@@ -367,12 +354,7 @@ mod tests {
             let peer = format!("S{i:03}");
             let t = sybil_trust(now, i as u64);
             peers.insert(peer.clone(), t.clone());
-            tracker.record_resource(
-                &peer,
-                if i % 2 == 0 { &entry_a } else { &entry_b },
-                &t,
-                now,
-            );
+            tracker.record_resource(&peer, if i % 2 == 0 { &entry_a } else { &entry_b }, &t, now);
         }
         let trust_a = tracker.query_resource_trust(&entry_a, now, &peers);
         let trust_b = tracker.query_resource_trust(&entry_b, now, &peers);
