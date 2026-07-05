@@ -14,7 +14,6 @@
     <string name="chat_broadcast">البث للجميع</string>
     <string name="chat_contacts">جهات الاتصال</string>
     <string name="chat_encrypted">تشفير من طرف إلى طرف</string>
-    <string name="chat_enter_peer_id">أدخل معرف النظير</string>
     <string name="chat_group">مجموعة</string>
     <string name="chat_key_not_yet_exchanged">لم يتم استلام مفتاح التشفير بعد من جهة الاتصال هذه. سيتم تبادل المفتاح تلقائيًا عند الاتصال. الرجاء المحاولة مرة أخرى في لحظة.</string>
     <string name="chat_message_hint">رسالة…</string>
@@ -41,7 +40,6 @@
     <string name="discovery_notification_body">اضغط للاتصال (%1$s…)</string>
     <string name="discovery_notification_title">عقدة Mycelium %1$s</string>
     <string name="discovery_very_close">قريب جداً</string>
-    <string name="error_invalid_peer_id">تنسيق معرف النظير غير صالح</string>
     <string name="error_invalid_qr">تنسيق QR غير صالح</string>
     <string name="error_location_unavailable">تعذر الحصول على الموقع. تحقق من GPS والأذونات.</string>
     <string name="error_message_too_long">الرسالة طويلة جدًا (الحد الأقصى 10 كيلوبايت)</string>
@@ -79,7 +77,7 @@
     <string name="miniapp_grant_broadcast_title">رسائل البث؟</string>
     <string name="miniapp_grant_camera_message">يريد هذا التطبيق مسح رموز QR.</string>
     <string name="miniapp_grant_camera_title">استخدام الكاميرا؟</string>
-    <string name="miniapp_grant_identity_message">يريد %1$s معرف النظير الخاص بك والمفتاح العام للتشفير.</string>
+    <string name="miniapp_grant_identity_message">يريد %1$s اسم العرض والمفتاح العام للتشفير.</string>
     <string name="miniapp_grant_identity_title">مشاركة الهوية؟</string>
     <string name="miniapp_grant_payments_message">يمكن لهذا التطبيق قراءة الرصيد وإظهار رموز QR للدفع.</string>
     <string name="miniapp_grant_payments_title">الوصول إلى المحفظة؟</string>
@@ -165,14 +163,10 @@
     <string name="notification_channel_name">شبكة الميسليوم</string>
     <string name="notification_peers">تم توصيل %1$d من النظراء</string>
     <string name="notification_running">شبكة مايسيليوم نشطة</string>
-    <string name="peers_add_bootstrap">إضافة</string>
-    <string name="peers_connect_relay_hint">معرّف النظير → relay</string>
-    <string name="peers_connect_via_relay">عبر Relay</string>
     <string name="peers_connected">تم توصيل %1$d</string>
     <string name="peers_connected_count">%1$d متصل</string>
     <string name="peers_delivered">تم التوصيل</string>
     <string name="peers_forwarded">إعادة توجيه</string>
-    <string name="peers_my_id">معرف النظير الخاص بي</string>
     <string name="peers_my_qr_cd">رمز QR للدعوة</string>
     <string name="peers_nearby_empty">لا أجهزة أخرى على الشبكة بعد.</string>
     <string name="peers_nearby_title">أجهزة قريبة</string>
@@ -181,14 +175,13 @@
     <string name="peers_queue">طابور</string>
     <string name="peers_relay_offline">Relay: غير متصل</string>
     <string name="peers_relay_online">Relay: %1$d أقران</string>
-    <string name="peers_scan">مسح QR</string>
     <string name="peers_scan_qr_prompt">مسح QR للنظير</string>
     <string name="peers_share">مشاركة هويتي</string>
     <string name="peers_title">الشبكة</string>
     <string name="settings_ble_advertise">اكتشاف البلوتوث</string>
     <string name="settings_ble_advertise_sub">مرئية للماسحات الضوئية BLE القريبة</string>
     <string name="settings_bootstrap_help">واحد لكل سطر. اتركه فارغًا لاستخدام المرحل الافتراضي.</string>
-    <string name="settings_bootstrap_hint">/ip4/149.248.194.198/tcp/4001/p2p/12D3KooWSk…</string>
+    <string name="settings_bootstrap_hint">/ip4/203.0.113.10/tcp/4001/p2p/…</string>
     <string name="settings_bootstrap_peers">أقران التمهيد المخصص</string>
     <string name="settings_clear_store">مسح الرسائل القديمة</string>
     <string name="settings_danger_zone">منطقة الخطر</string>

@@ -87,7 +87,7 @@
     <string name="miniapp_grant_broadcast_title">Nachrichten senden?</string>
     <string name="miniapp_grant_camera_message">Diese App möchte QR-Codes scannen.</string>
     <string name="miniapp_grant_camera_title">Kamera nutzen?</string>
-    <string name="miniapp_grant_identity_message">%1$s möchte deine Peer-ID und den Verschlüsselungs-öffentlichen Schlüssel.</string>
+    <string name="miniapp_grant_identity_message">%1$s möchte deinen Anzeigenamen und den öffentlichen Verschlüsselungsschlüssel.</string>
     <string name="miniapp_grant_identity_title">Identität teilen?</string>
     <string name="miniapp_grant_payments_message">Diese App kann den Kontostand lesen und Zahlungs-QR-Codes anzeigen.</string>
     <string name="miniapp_grant_payments_title">Wallet-Zugriff?</string>
@@ -175,6 +175,17 @@
     <string name="notification_running">Myzelium-Netz aktiv</string>
     <string name="notification_new_message_from">Neue Nachricht von %1$s</string>
     <string name="peers_nearby_device">Gerät in der Nähe</string>
+    <string name="peers_connected_section_title">Verbundene Geräte</string>
+    <string name="peers_discovery_searching_title">Suche nach Geräten in der Nähe…</string>
+    <string name="peers_discovery_searching_body">Bluetooth und WLAN bleiben im Hintergrund aktiv. Das kann bis zu einer Minute dauern.</string>
+    <string name="peers_discovery_nobody_title">Gerade niemand in der Nähe</string>
+    <string name="peers_discovery_nobody_body">Das ist normal. Öffne Verbinden auf einem anderen Handy in der Nähe — oder scannt einmal gegenseitig den QR-Code.</string>
+    <string name="peers_discovery_nearby_found_title">Geräte in der Nähe</string>
+    <string name="peers_discovery_nearby_found_body">Mycelium-Geräte sind in Reichweite. Verbindung wird automatisch aufgebaut…</string>
+    <string name="peers_discovery_connecting_title">Verbinde…</string>
+    <string name="peers_discovery_connecting_body">Sichere Verbindung wird eingerichtet. Das dauert meist nur wenige Sekunden.</string>
+    <string name="peers_discovery_idle_title">Gerätesuche ist aus</string>
+    <string name="peers_discovery_idle_body">Aktiviere Bluetooth-Mesh in den Einstellungen für automatische Verbindungen — oder scanne oben einen QR-Code.</string>
     <string name="peers_connected">%1$d verbunden</string>
     <string name="peers_connected_count">%1$d verbunden</string>
     <string name="peers_endorse_button">Bestätigen</string>
@@ -214,7 +225,7 @@
     <string name="settings_ble_advertise">Bluetooth-Erkennung</string>
     <string name="settings_ble_advertise_sub">Für BLE-Scanner in der Nähe sichtbar</string>
     <string name="settings_bootstrap_help">Eine pro Zeile. Lassen Sie das Feld leer, um das Standardrelais zu verwenden.</string>
-    <string name="settings_bootstrap_hint">/ip4/149.248.194.198/tcp/4001/p2p/12D3KooWSk…</string>
+    <string name="settings_bootstrap_hint">/ip4/203.0.113.10/tcp/4001/p2p/…</string>
     <string name="settings_bootstrap_peers">Benutzerdefinierte Bootstrap-Peers</string>
     <string name="settings_clear_store">Alte Nachrichten löschen</string>
     <string name="settings_danger_zone">Gefahrenzone</string>

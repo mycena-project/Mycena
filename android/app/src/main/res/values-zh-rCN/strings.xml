@@ -14,7 +14,6 @@
     <string name="chat_broadcast">向所有人广播</string>
     <string name="chat_contacts">联系人</string>
     <string name="chat_encrypted">端对端加密</string>
-    <string name="chat_enter_peer_id">输入对等 ID</string>
     <string name="chat_group">群组</string>
     <string name="chat_key_not_yet_exchanged">尚未收到此联系人发送的加密密钥。连接时将自动交换密钥。请稍后重试。</string>
     <string name="chat_message_hint">消息…</string>
@@ -40,7 +39,6 @@
     <string name="discovery_notification_body">点击连接（%1$s…）</string>
     <string name="discovery_notification_title">Mycelium 节点 %1$s</string>
     <string name="discovery_very_close">非常近</string>
-    <string name="error_invalid_peer_id">对等 ID 格式无效</string>
     <string name="error_invalid_qr">二维码格式无效</string>
     <string name="error_location_unavailable">无法获取位置，请检查 GPS 和权限。</string>
     <string name="error_message_too_long">消息太长（最多 10 KB）</string>
@@ -78,7 +76,7 @@
     <string name="miniapp_grant_broadcast_title">广播消息？</string>
     <string name="miniapp_grant_camera_message">这个应用程序想要扫描二维码。</string>
     <string name="miniapp_grant_camera_title">使用相机？</string>
-    <string name="miniapp_grant_identity_message">%1$s 想要您的对等 ID 和加密公钥。</string>
+    <string name="miniapp_grant_identity_message">%1$s 想要您的显示名称和加密公钥。</string>
     <string name="miniapp_grant_identity_title">共享身份？</string>
     <string name="miniapp_grant_payments_message">该应用程序可以读取余额并显示付款二维码。</string>
     <string name="miniapp_grant_payments_title">钱包访问？</string>
@@ -165,14 +163,10 @@
     <string name="notification_peers">%1$d 个对等点已连接</string>
     <string name="notification_running">菌丝网络运行中</string>
     <string name="notification_new_message_from">来自 %1$s 的新消息</string>
-    <string name="peers_add_bootstrap">添加</string>
-    <string name="peers_connect_relay_hint">节点 ID → 中继</string>
-    <string name="peers_connect_via_relay">经中继连接</string>
     <string name="peers_connected">%1$d 已连接</string>
     <string name="peers_connected_count">已连接 %1$d 个</string>
     <string name="peers_delivered">发表</string>
     <string name="peers_forwarded">转发</string>
-    <string name="peers_my_id">我的同伴ID</string>
     <string name="peers_my_qr_cd">邀请二维码</string>
     <string name="peers_nearby_empty">网络上暂无其他设备。</string>
     <string name="peers_nearby_title">附近设备</string>
@@ -181,14 +175,13 @@
     <string name="peers_queue">队列</string>
     <string name="peers_relay_offline">中继：离线</string>
     <string name="peers_relay_online">中继：%1$d 个节点</string>
-    <string name="peers_scan">扫描二维码</string>
     <string name="peers_scan_qr_prompt">扫描节点二维码</string>
     <string name="peers_share">分享我的ID</string>
     <string name="peers_title">网络</string>
     <string name="settings_ble_advertise">蓝牙发现</string>
     <string name="settings_ble_advertise_sub">附近 BLE 扫描器可见</string>
     <string name="settings_bootstrap_help">每行一个。留空以使用默认继电器。</string>
-    <string name="settings_bootstrap_hint">/ip4/149.248.194.198/tcp/4001/p2p/12D3KooWSk…</string>
+    <string name="settings_bootstrap_hint">/ip4/203.0.113.10/tcp/4001/p2p/…</string>
     <string name="settings_bootstrap_peers">自定义引导程序对等点</string>
     <string name="settings_clear_store">清除旧消息</string>
     <string name="settings_danger_zone">危险区域</string>

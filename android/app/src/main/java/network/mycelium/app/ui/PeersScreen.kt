@@ -11,6 +11,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -23,6 +24,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -67,6 +69,8 @@ import network.mycelium.app.PortraitQrScanActivity
 import network.mycelium.app.R
 import network.mycelium.app.bootstrap.InviteConnect
 import network.mycelium.app.bootstrap.PeerInvite
+import network.mycelium.app.discovery.PeersDiscoveryPhase
+import network.mycelium.app.discovery.PeersDiscoveryPresentation
 import network.mycelium.app.viewmodel.PeersViewModel
 import network.mycelium.app.util.sharePlainText
 import network.mycelium.app.util.userVisibleContactName
@@ -188,6 +192,7 @@ fun PeersScreen(navController: NavController, vm: PeersViewModel = viewModel()) 
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
     val networkPeers by vm.networkPeers.collectAsState()
+    val discovery by vm.discoveryPresentation.collectAsState()
     val metrics by vm.metrics.collectAsState()
     val localPeerId = mycelium.localPeerId()
     var invitePayload by remember { mutableStateOf(PeerInvite.encode(localPeerId)) }
@@ -211,6 +216,7 @@ fun PeersScreen(navController: NavController, vm: PeersViewModel = viewModel()) 
 
     fun onInviteApplied(successMessage: String, peerId: String?) {
         scope.launch {
+            vm.onInviteConnectFinished()
             snackbar.showSnackbar(successMessage)
             vm.refresh()
             if (!peerId.isNullOrBlank()) {
@@ -229,11 +235,15 @@ fun PeersScreen(navController: NavController, vm: PeersViewModel = viewModel()) 
         rememberLauncherForActivityResult(ScanContract()) { result ->
             val raw = result.contents
             if (raw.isNullOrBlank()) return@rememberLauncherForActivityResult
+            vm.onInviteConnectStarted()
             InviteConnect.apply(raw)
                 .onSuccess { peerId ->
                     onInviteApplied(context.getString(R.string.connect_success), peerId)
                 }
-                .onFailure { scope.launch { snackbar.showSnackbar(context.getString(R.string.error_invalid_qr)) } }
+                .onFailure {
+                    vm.onInviteConnectFinished()
+                    scope.launch { snackbar.showSnackbar(context.getString(R.string.error_invalid_qr)) }
+                }
         }
 
     val cameraPermissionLauncher =
@@ -432,12 +442,14 @@ fun PeersScreen(navController: NavController, vm: PeersViewModel = viewModel()) 
                         onClick = {
                             val raw = pasteInvite.trim()
                             if (raw.isEmpty()) return@Button
+                            vm.onInviteConnectStarted()
                             InviteConnect.apply(raw)
                                 .onSuccess { peerId ->
                                     pasteInvite = ""
                                     onInviteApplied(context.getString(R.string.connect_success), peerId)
                                 }
                                 .onFailure {
+                                    vm.onInviteConnectFinished()
                                     scope.launch {
                                         snackbar.showSnackbar(context.getString(R.string.error_invalid_qr))
                                     }
@@ -466,22 +478,17 @@ fun PeersScreen(navController: NavController, vm: PeersViewModel = viewModel()) 
             }
 
             item {
+                DiscoveryStatusCard(presentation = discovery)
+            }
+
+            item {
                 Text(
-                    text = stringResource(R.string.peers_nearby_title),
+                    text = stringResource(R.string.peers_connected_section_title),
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                     style = MaterialTheme.typography.titleSmall,
                 )
             }
-            if (networkPeers.isEmpty()) {
-                item {
-                    Text(
-                        text = stringResource(R.string.peers_nearby_empty),
-                        modifier = Modifier.padding(horizontal = 16.dp),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            } else {
+            if (networkPeers.isNotEmpty()) {
                 items(networkPeers, key = { it }) { peer ->
                     PeerRow(
                         peerId = peer,
@@ -614,6 +621,56 @@ internal fun generateQrCode(payload: String, size: Int): Bitmap {
         }
     }
     return bitmap
+}
+
+@Composable
+private fun DiscoveryStatusCard(presentation: PeersDiscoveryPresentation) {
+    if (presentation.titleResId == 0) return
+    Card(
+        modifier =
+            Modifier
+                .padding(horizontal = 16.dp)
+                .fillMaxWidth(),
+        colors =
+            CardDefaults.cardColors(
+                containerColor =
+                    when (presentation.phase) {
+                        PeersDiscoveryPhase.NobodyInRange ->
+                            MaterialTheme.colorScheme.surfaceVariant
+                        PeersDiscoveryPhase.Connecting,
+                        PeersDiscoveryPhase.Searching,
+                        PeersDiscoveryPhase.DevicesNearby,
+                        ->
+                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
+                        else -> MaterialTheme.colorScheme.surfaceVariant
+                    },
+            ),
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (presentation.showProgress) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(28.dp),
+                    strokeWidth = 3.dp,
+                )
+                Spacer(Modifier.size(12.dp))
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(presentation.titleResId),
+                    style = MaterialTheme.typography.titleSmall,
+                )
+                Text(
+                    text = stringResource(presentation.bodyResId),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
+        }
+    }
 }
 
 fun parseScannedPeerInfo(raw: String): String? =

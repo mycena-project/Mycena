@@ -17,6 +17,8 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import network.mycelium.app.discovery.MeshDiscoveryState
+import network.mycelium.app.discovery.PeersDiscoveryUi
 import network.mycelium.app.bootstrap.BleBootstrapAdvertiser
 import network.mycelium.app.bootstrap.BleBootstrapScanner
 import network.mycelium.app.bootstrap.BleBootstrapPermissions
@@ -215,8 +217,12 @@ class MeshService : Service() {
         }
         stopBleBootstrap()
 
+        MeshDiscoveryState.setBleBootstrapEnabled(enabled)
+        MeshDiscoveryState.setBlePermissionsGranted(BleBootstrapPermissions.hasAll(this))
+
         if (!enabled) {
             android.util.Log.i("MeshService", "BLE bootstrap disabled in settings")
+            MeshDiscoveryState.onBleBootstrapStopped()
             return
         }
         if (!BleBootstrapPermissions.hasAll(this)) {
@@ -228,6 +234,7 @@ class MeshService : Service() {
                 "BLE bootstrap skipped — missing permissions: ${missing.joinToString()} " +
                     "(enable Bluetooth mesh in app Settings to grant)",
             )
+            MeshDiscoveryState.onBleBootstrapStopped()
             return
         }
 
@@ -249,10 +256,27 @@ class MeshService : Service() {
         wifiAwareDiscovery?.refreshAnnouncement(inviteProvider)
 
         bleAdvertiser?.startAdvertising()
+        bleScanner?.onScanRestarted = { MeshDiscoveryState.onScanRestarted() }
         bleScanner?.startScanning()
+        MeshDiscoveryState.onBleBootstrapStarted()
         android.util.Log.i("MeshService", "BLE bootstrap started — watch logcat tag BleBootstrap for advertising result")
 
         bleCollectJob = serviceScope.launch {
+            launch {
+                bleScanner!!.nearbyNodes.collect { nodes ->
+                    MeshDiscoveryState.onNearbyDevices(nodes.size)
+                }
+            }
+            launch {
+                while (true) {
+                    delay(1_000)
+                    MeshDiscoveryState.tick()
+                    val snap = MeshDiscoveryState.snapshot.value
+                    if (PeersDiscoveryUi.shouldRestartBleScan(snap)) {
+                        bleScanner?.restartScanSilently()
+                    }
+                }
+            }
             launch {
                 while (true) {
                     delay(45_000)
@@ -348,6 +372,7 @@ class MeshService : Service() {
         bleScanner = null
         bleGattServer = null
         notifiedAddresses.clear()
+        MeshDiscoveryState.onBleBootstrapStopped()
     }
 
     private fun showNearbyNodeNotification(peerIdPrefix: String, rssi: Int) {

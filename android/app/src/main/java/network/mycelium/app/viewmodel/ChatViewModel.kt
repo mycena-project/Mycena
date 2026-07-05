@@ -19,6 +19,7 @@ import kotlinx.coroutines.launch
 import network.mycelium.app.MeshService
 import network.mycelium.app.MeshUiState
 import network.mycelium.app.R
+import network.mycelium.app.util.shareCurrentLocation
 import network.mycelium.app.util.userVisibleContactName
 import network.mycelium.bindings.ChatMessage
 import network.mycelium.bindings.CustodyPendingStatus

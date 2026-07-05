@@ -46,6 +46,7 @@
     <string name="chat_share_location">Share my location</string>
     <string name="chat_title">Mesh Chat</string>
     <string name="contact_unnamed">Unknown contact</string>
+    <string name="connectivity_internet">Internet</string>
     <string name="connectivity_mesh">Mesh only</string>
     <string name="connectivity_switching">Switching to mesh…</string>
     <string name="discovery_channel_name">Nearby nodes</string>
@@ -189,6 +190,17 @@
     <string name="notification_new_message_from">New message from %1$s</string>
     <string name="notification_permission_denied">Notifications are off — you may miss new messages and mail.</string>
     <string name="peers_nearby_device">Nearby device</string>
+    <string name="peers_connected_section_title">Connected devices</string>
+    <string name="peers_discovery_searching_title">Searching for nearby devices…</string>
+    <string name="peers_discovery_searching_body">Bluetooth and Wi‑Fi stay on in the background. This can take up to a minute.</string>
+    <string name="peers_discovery_nobody_title">No one nearby right now</string>
+    <string name="peers_discovery_nobody_body">That is normal. Open Connect on another phone nearby, or scan each other\'s QR code once.</string>
+    <string name="peers_discovery_nearby_found_title">Devices nearby</string>
+    <string name="peers_discovery_nearby_found_body">Mycelium devices are in range. Connecting automatically…</string>
+    <string name="peers_discovery_connecting_title">Connecting…</string>
+    <string name="peers_discovery_connecting_body">Setting up a secure link. This usually takes a few seconds.</string>
+    <string name="peers_discovery_idle_title">Nearby discovery is off</string>
+    <string name="peers_discovery_idle_body">Turn on Bluetooth mesh in Settings for automatic nearby connections, or scan a QR code above.</string>
     <string name="peers_connected">%1$d connected</string>
     <string name="peers_connected_count">%1$d connected</string>
     <string name="peers_endorse_button">Endorse</string>
@@ -231,7 +243,7 @@
     <string name="settings_ble_advertise">Bluetooth mesh handoff</string>
     <string name="settings_ble_advertise_sub">Nearby devices exchange signed invites over BLE and auto-connect</string>
     <string name="settings_bootstrap_help">One per line. Leave empty to use the default relay.</string>
-    <string name="settings_bootstrap_hint">/ip4/149.248.194.198/tcp/4001/p2p/12D3KooWSk…</string>
+    <string name="settings_bootstrap_hint">/ip4/203.0.113.10/tcp/4001/p2p/…</string>
     <string name="settings_bootstrap_peers">Custom bootstrap peers</string>
     <string name="settings_clear_store">Clear old messages</string>
     <string name="settings_danger_zone">Danger zone</string>
@@ -250,6 +262,7 @@
     <string name="settings_show_technical_ids">Show technical IDs (advanced)</string>
     <string name="settings_hide_technical_ids">Hide technical IDs</string>
     <string name="settings_account_id_label">Permanent ID (Account ID)</string>
+    <string name="settings_account_id_help">This ID stays the same across reinstalls. Share it so contacts can always find you.</string>
     <string name="settings_transport_id_label">Network ID (changes daily)</string>
     <string name="settings_transport_id_help">Rotates for privacy. Contacts follow your permanent ID automatically.</string>
     <string name="settings_fresh_identity_title">Start fresh</string>

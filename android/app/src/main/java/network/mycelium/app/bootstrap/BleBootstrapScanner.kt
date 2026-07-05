@@ -44,6 +44,8 @@ class BleBootstrapScanner(private val context: Context) {
     private var lowPowerScan = false
     private val seenAddresses = linkedMapOf<String, NearbyNode>()
 
+    var onScanRestarted: (() -> Unit)? = null
+
     /** When Wi-Fi Aware handles discovery, reduce BLE scan duty (TransportScore policy). */
     fun setLowPowerScan(enabled: Boolean) {
         if (lowPowerScan == enabled) return
@@ -88,9 +90,9 @@ class BleBootstrapScanner(private val context: Context) {
                             deviceAddress = address,
                             rssi = result.rssi,
                         )
-                    if (!seenAddresses.containsKey(address)) {
-                        seenAddresses[address] = node
-                        _nearbyNodes.tryEmit(seenAddresses.values.toList())
+                    seenAddresses[address] = node
+                    _nearbyNodes.tryEmit(seenAddresses.values.toList())
+                    if (callbackType == ScanSettings.CALLBACK_TYPE_FIRST_MATCH) {
                         Log.i(
                             "BleScanner",
                             "Mycelium BLE peer $address RSSI=${result.rssi} — attempting handoff",
@@ -105,10 +107,27 @@ class BleBootstrapScanner(private val context: Context) {
                         HandoffTarget(device = device, rssi = result.rssi),
                     )
                 }
+
+                override fun onScanFailed(errorCode: Int) {
+                    Log.w("BleScanner", "BLE scan failed ($errorCode) — restarting silently")
+                    restartScanSilently()
+                }
             }
 
         scanner.startScan(listOf(filter), settings, scanCallback!!)
         isScanning = true
+    }
+
+    /** Stop and restart scan without clearing the UI nearby cache (used by stale watchdog). */
+    fun restartScanSilently() {
+        val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+        val scanner = bluetoothManager.adapter?.bluetoothLeScanner
+        scanCallback?.let { cb ->
+            runCatching { scanner?.stopScan(cb) }
+        }
+        isScanning = false
+        startScanning()
+        onScanRestarted?.invoke()
     }
 
     fun stopScanning() {

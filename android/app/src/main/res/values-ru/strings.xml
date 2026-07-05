@@ -14,7 +14,6 @@
     <string name="chat_broadcast">Трансляция для всех</string>
     <string name="chat_contacts">Контакты</string>
     <string name="chat_encrypted">Сквозное шифрование</string>
-    <string name="chat_enter_peer_id">Введите идентификатор узла</string>
     <string name="chat_group">Группа</string>
     <string name="chat_key_not_yet_exchanged">Ключ шифрования еще не получен от этого контакта. Ключ будет заменен автоматически при подключении. Пожалуйста, повторите попытку через минуту.</string>
     <string name="chat_message_hint">Сообщение…</string>
@@ -40,7 +39,6 @@
     <string name="discovery_notification_body">Нажмите для подключения (%1$s…)</string>
     <string name="discovery_notification_title">Узел Mycelium %1$s</string>
     <string name="discovery_very_close">очень близко</string>
-    <string name="error_invalid_peer_id">Неверный формат Peer ID</string>
     <string name="error_invalid_qr">Неверный формат QR</string>
     <string name="error_location_unavailable">Не удалось получить местоположение. Проверьте GPS и разрешения.</string>
     <string name="error_message_too_long">Сообщение слишком длинное (максимум 10 КБ)</string>
@@ -78,7 +76,7 @@
     <string name="miniapp_grant_broadcast_title">Транслировать сообщения?</string>
     <string name="miniapp_grant_camera_message">Это приложение хочет сканировать QR-коды.</string>
     <string name="miniapp_grant_camera_title">Использовать камеру?</string>
-    <string name="miniapp_grant_identity_message">%1$s хочет получить ваш Peer ID и открытый ключ шифрования.</string>
+    <string name="miniapp_grant_identity_message">%1$s хочет получить ваше отображаемое имя и открытый ключ шифрования.</string>
     <string name="miniapp_grant_identity_title">Поделитесь личностью?</string>
     <string name="miniapp_grant_payments_message">Это приложение может считывать баланс и показывать QR-коды оплаты.</string>
     <string name="miniapp_grant_payments_title">Доступ к кошельку?</string>
@@ -164,14 +162,10 @@
     <string name="notification_channel_name">Сеть мицелия</string>
     <string name="notification_peers">Подключено %1$d одноранговых узлов</string>
     <string name="notification_running">Сеть Мицелий активна</string>
-    <string name="peers_add_bootstrap">Добавить</string>
-    <string name="peers_connect_relay_hint">Peer ID → relay</string>
-    <string name="peers_connect_via_relay">Через relay</string>
     <string name="peers_connected">%1$d подключен</string>
     <string name="peers_connected_count">Подключено: %1$d</string>
     <string name="peers_delivered">Доставленный</string>
     <string name="peers_forwarded">Переадресовано</string>
-    <string name="peers_my_id">Мой идентификатор</string>
     <string name="peers_my_qr_cd">QR приглашения</string>
     <string name="peers_nearby_empty">Других устройств в сети пока нет.</string>
     <string name="peers_nearby_title">Устройства рядом</string>
@@ -180,14 +174,13 @@
     <string name="peers_queue">Очередь</string>
     <string name="peers_relay_offline">Relay: недоступен</string>
     <string name="peers_relay_online">Relay: %1$d узлов</string>
-    <string name="peers_scan">Сканировать QR</string>
     <string name="peers_scan_qr_prompt">Сканировать QR узла</string>
     <string name="peers_share">Поделитесь моим идентификатором</string>
     <string name="peers_title">Сеть</string>
     <string name="settings_ble_advertise">Обнаружение по Bluetooth</string>
     <string name="settings_ble_advertise_sub">Видно BLE-сканерам поблизости</string>
     <string name="settings_bootstrap_help">По одному на строку. Оставьте пустым, чтобы использовать реле по умолчанию.</string>
-    <string name="settings_bootstrap_hint">/ip4/149.248.194.198/tcp/4001/p2p/12D3KooWSk…</string>
+    <string name="settings_bootstrap_hint">/ip4/203.0.113.10/tcp/4001/p2p/…</string>
     <string name="settings_bootstrap_peers">Пользовательские узлы начальной загрузки</string>
     <string name="settings_clear_store">Очистить старые сообщения</string>
     <string name="settings_danger_zone">Опасная зона</string>

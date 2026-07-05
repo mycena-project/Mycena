@@ -14,7 +14,6 @@
     <string name="chat_broadcast">پخش برای همه</string>
     <string name="chat_contacts">مخاطبین</string>
     <string name="chat_encrypted">رمزگذاری سرتاسر</string>
-    <string name="chat_enter_peer_id">شناسه همتا را وارد کنید</string>
     <string name="chat_group">گروه</string>
     <string name="chat_key_not_yet_exchanged">کلید رمزگذاری هنوز از این مخاطب دریافت نشده است. پس از اتصال، کلید به طور خودکار مبادله می شود. لطفاً چند لحظه دیگر دوباره امتحان کنید.</string>
     <string name="chat_message_hint">پیام…</string>
@@ -40,7 +39,6 @@
     <string name="discovery_notification_body">برای اتصال لمس کنید (%1$s…)</string>
     <string name="discovery_notification_title">گره Mycelium %1$s</string>
     <string name="discovery_very_close">خیلی نزدیک</string>
-    <string name="error_invalid_peer_id">قالب شناسه همتا نامعتبر است</string>
     <string name="error_invalid_qr">قالب QR نامعتبر</string>
     <string name="error_location_unavailable">موقعیت در دسترس نیست. GPS و مجوزها را بررسی کنید.</string>
     <string name="error_message_too_long">پیام خیلی طولانی است (حداکثر 10 کیلوبایت)</string>
@@ -78,7 +76,7 @@
     <string name="miniapp_grant_broadcast_title">پیام های پخش شده؟</string>
     <string name="miniapp_grant_camera_message">این برنامه می خواهد کدهای QR را اسکن کند.</string>
     <string name="miniapp_grant_camera_title">استفاده از دوربین؟</string>
-    <string name="miniapp_grant_identity_message">%1$s شناسه همتا و کلید عمومی رمزگذاری شما را می‌خواهد.</string>
+    <string name="miniapp_grant_identity_message">%1$s نام نمایشی و کلید عمومی رمزگذاری شما را می‌خواهد.</string>
     <string name="miniapp_grant_identity_title">هویت را به اشتراک بگذارید؟</string>
     <string name="miniapp_grant_payments_message">این برنامه می‌تواند موجودی را بخواند و کدهای QR پرداخت را نشان دهد.</string>
     <string name="miniapp_grant_payments_title">دسترسی به کیف پول؟</string>
@@ -164,14 +162,10 @@
     <string name="notification_channel_name">شبکه میسلیوم</string>
     <string name="notification_peers">%1$d همتا متصل شد</string>
     <string name="notification_running">شبکه میسلیوم فعال است</string>
-    <string name="peers_add_bootstrap">افزودن</string>
-    <string name="peers_connect_relay_hint">شناسه همتا → relay</string>
-    <string name="peers_connect_via_relay">از طریق relay</string>
     <string name="peers_connected">%1$d متصل شد</string>
     <string name="peers_connected_count">%1$d متصل</string>
     <string name="peers_delivered">تحویل داده شد</string>
     <string name="peers_forwarded">فوروارد کرد</string>
-    <string name="peers_my_id">شناسه همتای من</string>
     <string name="peers_my_qr_cd">QR دعوت</string>
     <string name="peers_nearby_empty">هنوز دستگاه دیگری در شبکه دیده نمی‌شود.</string>
     <string name="peers_nearby_title">دستگاه‌های نزدیک</string>
@@ -180,14 +174,13 @@
     <string name="peers_queue">صف</string>
     <string name="peers_relay_offline">Relay: آفلاین</string>
     <string name="peers_relay_online">Relay: %1$d همتا</string>
-    <string name="peers_scan">اسکن QR</string>
     <string name="peers_scan_qr_prompt">اسکن QR همتا</string>
     <string name="peers_share">شناسه مرا به اشتراک بگذارید</string>
     <string name="peers_title">شبکه</string>
     <string name="settings_ble_advertise">کشف بلوتوث</string>
     <string name="settings_ble_advertise_sub">برای اسکنرهای BLE در نزدیکی قابل مشاهده</string>
     <string name="settings_bootstrap_help">هر خط یکی برای استفاده از رله پیش فرض خالی بگذارید.</string>
-    <string name="settings_bootstrap_hint">/ip4/149.248.194.198/tcp/4001/p2p/12D3KooWSk…</string>
+    <string name="settings_bootstrap_hint">/ip4/203.0.113.10/tcp/4001/p2p/…</string>
     <string name="settings_bootstrap_peers">همتایان بوت استرپ سفارشی</string>
     <string name="settings_clear_store">پیام های قدیمی را پاک کنید</string>
     <string name="settings_danger_zone">منطقه خطر</string>
