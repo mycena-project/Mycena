@@ -126,9 +126,21 @@
     iframeEl?.contentWindow?.postMessage(msg, bridgeTargetOrigin);
   }
 
+  let wasmStatus = $state(null);
+  let guestRuntime = $state("webview");
+
   async function loadApp() {
     const id = appId;
     appDisplayName = id;
+    guestRuntime = await invoke("miniapp_get_runtime", { appId: id });
+    if (guestRuntime === "wasm") {
+      try {
+        const status = await invoke("miniapp_invoke_wasm_run", { appId: id });
+        wasmStatus = status;
+      } catch (e) {
+        wasmStatus = `error: ${e?.message ?? e}`;
+      }
+    }
     const rawHtml = await invoke("miniapp_get_entry_html", {
       appId: id,
       scriptNonce,
@@ -453,6 +465,9 @@
       <button type="button" class="report-btn" onclick={reportApp}>Report</button>
     </div>
   {/if}
+  {#if guestRuntime === "wasm" && wasmStatus !== null}
+    <div class="wasm-bar">WASM sandbox exit: {wasmStatus}</div>
+  {/if}
   <iframe
     bind:this={iframeEl}
     srcdoc={html}
@@ -498,5 +513,12 @@
   .report-btn {
     font-size: 12px;
     padding: 4px 8px;
+  }
+  .wasm-bar {
+    font-size: 12px;
+    padding: 6px 10px;
+    background: #e0f2fe;
+    color: #0c4a6e;
+    border-bottom: 1px solid #bae6fd;
   }
 </style>

@@ -46,6 +46,7 @@ pub fn bearer_for_link_scored(
         wifi_direct: *distance_m <= radio.wifi_range_m,
         ble: *distance_m <= radio.ble_range_m,
         lora: false,
+        wifi_aware: false,
     };
     match decide_transport_path(&availability, scores, *payload_bytes, false, *now) {
         TransportPath::InternetRelay => Some(BearerKind::Relay),

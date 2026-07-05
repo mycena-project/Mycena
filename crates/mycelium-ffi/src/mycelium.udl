@@ -14,6 +14,7 @@ namespace mycelium {
   string? relay_circuit_multiaddr(string remote_peer_id);
   sequence<string> known_peers();
   sequence<string> connected_peers();
+  sequence<CustodyPendingStatus> list_pending_custody();
   NodeMetrics metrics();
 
   [Throws=MyceliumException]
@@ -97,6 +98,8 @@ namespace mycelium {
   void set_display_name(string name);
   string display_name();
   void set_energy_state(EnergyState state);
+  void set_thermal_state(ThermalState state);
+  EnergyProfileData energy_profile();
   void set_rendezvous_enabled(boolean enabled);
   void set_internet_enabled(boolean enabled);
   boolean is_internet_enabled();
@@ -114,6 +117,13 @@ namespace mycelium {
   void connect_invite(string raw);
   [Throws=MyceliumException]
   void connect_transport_invite(string raw);
+  void set_wifi_aware_available(boolean available);
+  void set_ble_discovery_active(boolean active);
+  boolean prefer_wifi_aware_for_discovery();
+  void queue_discovery_announcement(string invite_uri);
+  void ingest_wifi_aware_discovery(string peer_hint, string invite_uri, u64 latency_ms);
+  void record_ble_discovery_observation(u64 latency_ms, u32 bytes, boolean success);
+  sequence<string> drain_discovery_announcements(u32 max);
   [Throws=MyceliumException]
   void ingest_ble_frame(string from_peer, bytes frame);
   string? peer_id_from_ble_frame(bytes frame);
@@ -149,6 +159,8 @@ namespace mycelium {
   void miniapp_storage_set(string app_id, string key, string value);
   void miniapp_storage_delete(string app_id, string key);
   string miniapp_bridge_call(string app_id, string method, string args_json);
+  string miniapp_get_runtime(string app_id);
+  i32 miniapp_invoke_wasm_run(string app_id);
   string miniapp_issue_bridge_session(string app_id);
   void miniapp_revoke_bridge_session(string app_id);
   string miniapp_issue_capability(string app_id, string permission, string session_token);
@@ -231,6 +243,31 @@ dictionary NodeMetrics {
   boolean crisis_active;
 };
 
+enum ExpectedDeliveryBasis {
+  "DeliveryProbability",
+  "EncounterFrequency",
+  "NoCarriersNearby",
+};
+
+dictionary ExpectedDeliveryData {
+  u64 eta_min_ms;
+  u64 eta_max_ms;
+  f64 confidence;
+  u32 active_carrier_count;
+  string? best_carrier_peer;
+  ExpectedDeliveryBasis basis;
+};
+
+dictionary CustodyPendingStatus {
+  string message_id;
+  string? dest_peer;
+  u64 enqueued_at_ms;
+  u8 sprays_released;
+  u8 max_spray;
+  u8 hop_count;
+  ExpectedDeliveryData expected;
+};
+
 dictionary UserTrustSummary {
   u32 relay_contribution;
   u64 uptime_secs;
@@ -281,10 +318,22 @@ dictionary BulletinPost {
   u64 expires_at_ms;
 };
 
+dictionary InformationTrustData {
+  u32 corroboration_count;
+  u32 trusted_corroboration_count;
+  f32 source_diversity;
+  f32 geographic_consistency;
+  f32 staleness_factor;
+  f32 trust_score;
+  string status;
+  string display_label;
+};
+
 dictionary SosPost {
   string geohash;
   string message;
   u64 created_at_ms;
+  InformationTrustData trust;
 };
 
 dictionary ResourceMapEntry {
@@ -294,6 +343,7 @@ dictionary ResourceMapEntry {
   u64 created_at_ms;
   u64 ttl_secs;
   u64 expires_at_ms;
+  InformationTrustData trust;
 };
 
 dictionary MailMessage {
@@ -425,6 +475,24 @@ enum EnergyState {
   "Active",
   "Intermittent",
   "Passive",
+};
+
+enum ThermalState {
+  "Normal",
+  "Warm",
+  "Critical",
+};
+
+enum MovementIndicator {
+  "Unknown",
+  "Stationary",
+  "InMotion",
+};
+
+dictionary EnergyProfileData {
+  EnergyState battery;
+  ThermalState thermal;
+  MovementIndicator movement;
 };
 
 enum PrivacyShapingProfile {

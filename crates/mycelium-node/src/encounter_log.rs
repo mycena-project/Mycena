@@ -3,6 +3,7 @@
 //! Local encounter history for DTN custody scheduling (privacy: device-local, TTL-pruned).
 
 use mycelium_core::data::now_ms;
+use mycelium_core::energy::MovementIndicator;
 use mycelium_core::lock_or_recover;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -14,6 +15,15 @@ pub const ENCOUNTER_LOG_TTL_MS: u64 = 7 * 24 * 60 * 60 * 1000;
 
 /// Max co-encounter start timestamps kept for regularity scoring.
 const MAX_CO_START_SAMPLES: usize = 24;
+
+/// One hour — window for movement heuristics from peer churn.
+const MOVEMENT_WINDOW_MS: u64 = 60 * 60_000;
+
+/// Short encounter duration threshold (5 minutes).
+const SHORT_ENCOUNTER_MS: u64 = 5 * 60_000;
+
+/// Stable peer relationship duration (10 minutes cumulative).
+const STABLE_ENCOUNTER_MS: u64 = 10 * 60_000;
 
 /// One day in milliseconds (regularity heuristic).
 const ONE_DAY_MS: u64 = 24 * 60 * 60 * 1000;
@@ -100,6 +110,33 @@ pub struct DeliveryProbabilityEstimate {
     pub recency_score: f64,
     pub combined: f64,
 }
+
+/// How an expected delivery window was derived (for UI / diagnostics).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ExpectedDeliveryBasis {
+    /// Co-encounter regularity + [`DeliveryProbabilityEstimate`].
+    DeliveryProbability,
+    /// Local encounter frequency only (no co-encounter history toward destination).
+    EncounterFrequency,
+    /// No viable connected carriers; wide fallback window.
+    NoCarriersNearby,
+}
+
+/// Estimated time until `carrier_peer` meets `dest_peer` again.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ExpectedEncounterWindow {
+    pub eta_min_ms: u64,
+    pub eta_max_ms: u64,
+    pub confidence: f64,
+    pub basis: ExpectedDeliveryBasis,
+}
+
+/// Minimum plausible ETA shown in UI (1 minute).
+pub const MIN_EXPECTED_ETA_MS: u64 = 60_000;
+/// Default fallback when no carrier data exists (30 minutes).
+pub const DEFAULT_EXPECTED_ETA_MIN_MS: u64 = 30 * 60_000;
+/// Default fallback upper bound (24 hours).
+pub const DEFAULT_EXPECTED_ETA_MAX_MS: u64 = 24 * 60 * 60_000;
 
 #[derive(Debug)]
 pub struct EncounterLogStore {
@@ -279,6 +316,60 @@ impl EncounterLogStore {
         Ok(self
             .delivery_probability(carrier_peer, dest_peer, now)?
             .combined)
+    }
+
+    /// Estimate when `carrier_peer` is likely to co-meet `dest_peer` again.
+    pub fn estimate_encounter_window(
+        &self,
+        carrier_peer: &str,
+        dest_peer: &str,
+        now: u64,
+    ) -> anyhow::Result<ExpectedEncounterWindow> {
+        let prob = self.delivery_probability(carrier_peer, dest_peer, now)?;
+        if let Some(co) = self.co_encounter_record(carrier_peer, dest_peer)? {
+            if co.co_encounter_count >= 2 {
+                if let Some(mean_interval) = mean_co_encounter_interval(&co.recent_starts_ms) {
+                    let elapsed = now.saturating_sub(co.last_co_seen_ms) as f64;
+                    let until_next = (mean_interval as f64 - elapsed).max(0.0);
+                    let eta_center = until_next.max(MIN_EXPECTED_ETA_MS as f64);
+                    let spread = (mean_interval as f64 * 0.5).max(MIN_EXPECTED_ETA_MS as f64);
+                    let eta_min = (eta_center - spread).max(MIN_EXPECTED_ETA_MS as f64) as u64;
+                    let eta_max = ((eta_center + spread) as u64).min(ENCOUNTER_LOG_TTL_MS);
+                    return Ok(ExpectedEncounterWindow {
+                        eta_min_ms: eta_min,
+                        eta_max_ms: eta_max.max(eta_min),
+                        confidence: prob.combined.clamp(0.15, 1.0),
+                        basis: ExpectedDeliveryBasis::DeliveryProbability,
+                    });
+                }
+            }
+        }
+
+        if let Some(rec) = self.record(carrier_peer)? {
+            let span = now.saturating_sub(rec.first_seen_ms).max(1);
+            let count = u64::from(rec.encounter_count.max(1));
+            let mean_interval = span / count;
+            let elapsed = now.saturating_sub(rec.last_seen_ms);
+            let until = mean_interval.saturating_sub(elapsed);
+            let eta_min = until.max(MIN_EXPECTED_ETA_MS).min(ENCOUNTER_LOG_TTL_MS);
+            let eta_max = until
+                .saturating_mul(3)
+                .max(until.saturating_add(MIN_EXPECTED_ETA_MS))
+                .min(ENCOUNTER_LOG_TTL_MS);
+            return Ok(ExpectedEncounterWindow {
+                eta_min_ms: eta_min,
+                eta_max_ms: eta_max.max(eta_min),
+                confidence: 0.25,
+                basis: ExpectedDeliveryBasis::EncounterFrequency,
+            });
+        }
+
+        Ok(ExpectedEncounterWindow {
+            eta_min_ms: DEFAULT_EXPECTED_ETA_MIN_MS,
+            eta_max_ms: DEFAULT_EXPECTED_ETA_MAX_MS,
+            confidence: 0.1,
+            basis: ExpectedDeliveryBasis::NoCarriersNearby,
+        })
     }
 
     fn delivery_probability_from_record(
@@ -539,6 +630,34 @@ impl EncounterLogStore {
     fn co_tree(&self) -> anyhow::Result<sled::Tree> {
         Ok(self.db.open_tree("co_encounters")?)
     }
+
+    /// Infer whether this device is likely moving from local encounter churn (no extra sensors).
+    pub fn estimate_movement_indicator(&self, now: u64) -> anyhow::Result<MovementIndicator> {
+        let since = now.saturating_sub(MOVEMENT_WINDOW_MS);
+        let recent = self.recent_peers(64, since)?;
+        if recent.is_empty() {
+            return Ok(MovementIndicator::Unknown);
+        }
+        let unique = recent.len();
+        let short_lived = recent
+            .iter()
+            .filter(|r| r.encounter_count >= 2 && r.total_duration_ms < SHORT_ENCOUNTER_MS)
+            .count();
+        let avg_duration = recent
+            .iter()
+            .map(|r| r.total_duration_ms)
+            .sum::<u64>()
+            .checked_div(unique as u64)
+            .unwrap_or(0);
+
+        if unique >= 4 || short_lived >= 3 {
+            return Ok(MovementIndicator::InMotion);
+        }
+        if unique <= 2 && avg_duration >= STABLE_ENCOUNTER_MS {
+            return Ok(MovementIndicator::Stationary);
+        }
+        Ok(MovementIndicator::Unknown)
+    }
 }
 
 fn ordered_pair(a: &str, b: &str) -> (String, String) {
@@ -552,6 +671,21 @@ fn ordered_pair(a: &str, b: &str) -> (String, String) {
 fn pair_key(a: &str, b: &str) -> String {
     let (x, y) = ordered_pair(a, b);
     format!("{x}|{y}")
+}
+
+fn mean_co_encounter_interval(starts: &[u64]) -> Option<u64> {
+    if starts.len() < 2 {
+        return None;
+    }
+    let intervals: Vec<u64> = starts
+        .windows(2)
+        .map(|w| w[1].saturating_sub(w[0]))
+        .filter(|i| *i > 0)
+        .collect();
+    if intervals.is_empty() {
+        return None;
+    }
+    Some(intervals.iter().sum::<u64>() / intervals.len() as u64)
 }
 
 fn regularity_score(starts: &[u64]) -> f64 {
@@ -714,6 +848,60 @@ mod tests {
             })
             .unwrap();
         assert_eq!(smart[0], "commuter");
+    }
+
+    #[test]
+    fn estimate_encounter_window_from_regular_co_encounters() {
+        let dir = tempdir().unwrap();
+        let log = EncounterLogStore::open(dir.path().to_str().unwrap()).unwrap();
+        let day = ONE_DAY_MS;
+        let hub = 8 * 3_600_000;
+        for d in 0..5 {
+            let start = hub + d * day;
+            log.begin_co_encounter("carrier", "dest", start).unwrap();
+            log.end_co_encounter("carrier", "dest", start + 20 * 60_000)
+                .unwrap();
+        }
+        let now = hub + 5 * day + 30 * 60_000;
+        let win = log.estimate_encounter_window("carrier", "dest", now).unwrap();
+        assert_eq!(win.basis, ExpectedDeliveryBasis::DeliveryProbability);
+        assert!(win.eta_min_ms >= MIN_EXPECTED_ETA_MS);
+        assert!(win.eta_max_ms >= win.eta_min_ms);
+        assert!(win.confidence > 0.2);
+    }
+
+    #[test]
+    fn estimate_movement_from_peer_churn() {
+        let dir = tempdir().unwrap();
+        let log = EncounterLogStore::open(dir.path().to_str().unwrap()).unwrap();
+        let base = 1_700_000_000_000u64;
+        for i in 0..5 {
+            let peer = format!("passer_{i}");
+            let start = base + i as u64 * 120_000;
+            log.begin_encounter(&peer, start).unwrap();
+            log.end_encounter(&peer, start + 60_000).unwrap();
+        }
+        let now = base + 600_000;
+        assert_eq!(
+            log.estimate_movement_indicator(now).unwrap(),
+            MovementIndicator::InMotion
+        );
+    }
+
+    #[test]
+    fn estimate_stationary_from_stable_peers() {
+        let dir = tempdir().unwrap();
+        let log = EncounterLogStore::open(dir.path().to_str().unwrap()).unwrap();
+        let base = 1_700_000_000_000u64;
+        log.begin_encounter("home_ap", base).unwrap();
+        log.end_encounter("home_ap", base + 30 * 60_000).unwrap();
+        log.begin_encounter("neighbor", base + 60_000).unwrap();
+        log.end_encounter("neighbor", base + 20 * 60_000).unwrap();
+        let now = base + 45 * 60_000;
+        assert_eq!(
+            log.estimate_movement_indicator(now).unwrap(),
+            MovementIndicator::Stationary
+        );
     }
 
     #[test]

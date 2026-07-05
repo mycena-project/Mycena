@@ -266,16 +266,23 @@ private fun createIsolatedMiniAppWebView(
 ): WebView {
     val scriptNonce = UUID.randomUUID().toString().replace("-", "")
     val sessionToken = bridge.issueSession(appId)
-    val entry = bridge.getAppEntry(appId) ?: "index.html"
+    if (bridge.getAppRuntime(appId) == "wasm") {
+        bridge.invokeWasmRun(appId)
+    }
+    val entry = bridge.getAppEntry(appId)
     val html =
-        buildMiniappHtmlIsolated(
-            context,
-            appId,
-            entry,
-            scriptNonce,
-            sessionToken,
-            bridge,
-        ) ?: "<html><body>Unknown app</body></html>"
+        if (entry == null) {
+            "<html><body><p>WASM mini-app (logic-only). Guest module loaded in sandbox.</p></body></html>"
+        } else {
+            buildMiniappHtmlIsolated(
+                context,
+                appId,
+                entry,
+                scriptNonce,
+                sessionToken,
+                bridge,
+            ) ?: "<html><body>Unknown app</body></html>"
+        }
     return WebView(context).apply {
         layoutParams =
             FrameLayout.LayoutParams(

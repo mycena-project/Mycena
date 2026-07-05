@@ -35,6 +35,11 @@
     <string name="chat_reject_contact">Decline</string>
     <string name="chat_reputation_strikes">Mesh reputation: %1$d strike(s)</string>
     <string name="chat_block_contact">Block contact</string>
+    <string name="chat_custody_carriers_many">%1$d possible carriers nearby</string>
+    <string name="chat_custody_carriers_none">no carriers nearby</string>
+    <string name="chat_custody_carriers_one">1 possible carrier nearby</string>
+    <string name="chat_custody_stored_plural">%1$d messages stored, expected delivery in %2$d–%3$d min, %4$s</string>
+    <string name="chat_custody_stored_single">Message stored, expected delivery in %1$d–%2$d min, %3$s</string>
     <string name="chat_send">Send</string>
     <string name="chat_sending_encrypted">🔒 Sending encrypted…</string>
     <string name="chat_share_location">Share my location</string>

@@ -153,6 +153,14 @@ impl AppStore {
         Ok(archives.get(app_id.as_bytes())?.map(|v| v.to_vec()))
     }
 
+    /// Reconstruct an installed bundle from the retained archive bytes.
+    pub fn load_installed_bundle(&self, app_id: &str) -> anyhow::Result<Option<super::bundle::MiniAppBundle>> {
+        let Some(bytes) = self.bundle_archive_bytes(app_id)? else {
+            return Ok(None);
+        };
+        Ok(Some(super::bundle::MiniAppBundle::load_from_bytes(&bytes)?))
+    }
+
     pub fn installed_apps(&self) -> anyhow::Result<Vec<MiniAppManifest>> {
         let mut apps = Vec::new();
         for item in self.installed.iter() {

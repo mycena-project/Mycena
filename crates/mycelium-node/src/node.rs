@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Mycelium Project
 use crate::custody::{
-    CustodyConfig, CustodyQueue, CustodyRoutingContext, DEFAULT_MAX_CUSTODY_SPRAY,
+    CustodyConfig, CustodyPendingStatus, CustodyQueue, CustodyRoutingContext,
+    DEFAULT_MAX_CUSTODY_SPRAY,
 };
 use crate::encounter_log::EncounterLogStore;
 use crate::forwarding::{
@@ -18,7 +19,9 @@ use mycelium_core::crowd_density::CrowdDensityConfig;
 use mycelium_core::crypto::EncryptionKeypair;
 use mycelium_core::crypto::{self};
 use mycelium_core::data::{now_ms, Priority};
-use mycelium_core::energy::NodeState;
+use crate::bearer_wifi_aware::BearerWifiAwareRouter;
+use mycelium_core::energy::{EnergyProfile, MovementIndicator, NodeState, ThermalState};
+use mycelium_core::transport_score::prefer_wifi_aware_for_discovery;
 use mycelium_core::lock_or_recover;
 use mycelium_core::privacy_shaping::{
     self, BatchingScheduler, PrivacyShapingConfig, PrivacyShapingStats,
@@ -333,6 +336,32 @@ pub enum NodeCommand {
         reply: Option<tokio::sync::oneshot::Sender<Vec<String>>>,
     },
     SetEnergyState(NodeState),
+    SetThermalState(ThermalState),
+    SetWifiAwareAvailable(bool),
+    SetBleDiscoveryActive(bool),
+    QueueDiscoveryAnnouncement {
+        invite_uri: String,
+    },
+    IngestWifiAwareDiscovery {
+        peer_hint: String,
+        invite_uri: String,
+        latency_ms: u64,
+    },
+    RecordBleDiscoveryObservation {
+        latency_ms: u64,
+        bytes: u32,
+        success: bool,
+    },
+    QueryPreferWifiAwareDiscovery {
+        reply: tokio::sync::oneshot::Sender<bool>,
+    },
+    DrainDiscoveryAnnouncements {
+        max: usize,
+        reply: tokio::sync::oneshot::Sender<Vec<String>>,
+    },
+    QueryEnergyProfile {
+        reply: tokio::sync::oneshot::Sender<EnergyProfile>,
+    },
     SetRendezvousEnabled(bool),
     /// Voluntary opt-out of relay/internet dials (local mesh only).
     SetInternetEnabled(bool),
@@ -402,6 +431,28 @@ pub enum NodeCommand {
     RemapTransportPeer {
         old_peer_id: String,
         new_peer_id: String,
+    },
+    /// Record a mesh fact-claim observation for corroboration scoring.
+    RecordFactObservation {
+        relay_peer: String,
+        kind: mycelium_core::information_trust::FactKind,
+        geohash: String,
+        category: Option<mycelium_core::resource_map::ResourceCategory>,
+        content: String,
+        observed_at_ms: u64,
+    },
+    /// Query corroboration trust for a fact claim.
+    QueryFactTrust {
+        kind: mycelium_core::information_trust::FactKind,
+        geohash: String,
+        category: Option<mycelium_core::resource_map::ResourceCategory>,
+        content: String,
+        ttl_secs: u64,
+        reply: tokio::sync::oneshot::Sender<mycelium_core::information_trust::InformationTrust>,
+    },
+    /// Pending DTN custody messages with expected delivery estimates.
+    QueryPendingCustody {
+        reply: tokio::sync::oneshot::Sender<Vec<CustodyPendingStatus>>,
     },
 }
 
@@ -563,6 +614,108 @@ impl NodeHandle {
         .await
     }
 
+    pub async fn record_fact_observation(
+        &self,
+        relay_peer: &str,
+        kind: mycelium_core::information_trust::FactKind,
+        geohash: &str,
+        category: Option<mycelium_core::resource_map::ResourceCategory>,
+        content: &str,
+        observed_at_ms: u64,
+    ) -> anyhow::Result<()> {
+        self.send(NodeCommand::RecordFactObservation {
+            relay_peer: relay_peer.to_string(),
+            kind,
+            geohash: geohash.to_string(),
+            category,
+            content: content.to_string(),
+            observed_at_ms,
+        })
+        .await
+    }
+
+    pub async fn query_fact_trust(
+        &self,
+        kind: mycelium_core::information_trust::FactKind,
+        geohash: &str,
+        category: Option<mycelium_core::resource_map::ResourceCategory>,
+        content: &str,
+        ttl_secs: u64,
+    ) -> mycelium_core::information_trust::InformationTrust {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        if self
+            .send(NodeCommand::QueryFactTrust {
+                kind,
+                geohash: geohash.to_string(),
+                category,
+                content: content.to_string(),
+                ttl_secs,
+                reply: tx,
+            })
+            .await
+            .is_err()
+        {
+            return mycelium_core::information_trust::InformationTrust {
+                corroboration_count: 0,
+                trusted_corroboration_count: 0,
+                source_diversity: 0.0,
+                geographic_consistency: 1.0,
+                staleness_factor: 0.0,
+                trust_score: 0.0,
+                status: mycelium_core::information_trust::CorroborationStatus::Unverified,
+            };
+        }
+        rx.await.unwrap_or(mycelium_core::information_trust::InformationTrust {
+            corroboration_count: 0,
+            trusted_corroboration_count: 0,
+            source_diversity: 0.0,
+            geographic_consistency: 1.0,
+            staleness_factor: 0.0,
+            trust_score: 0.0,
+            status: mycelium_core::information_trust::CorroborationStatus::Unverified,
+        })
+    }
+
+    pub async fn pending_custody_statuses(&self) -> Vec<CustodyPendingStatus> {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        if self
+            .send(NodeCommand::QueryPendingCustody { reply: tx })
+            .await
+            .is_err()
+        {
+            return Vec::new();
+        }
+        rx.await.unwrap_or_default()
+    }
+
+    pub async fn set_thermal_state(&self, thermal: ThermalState) -> anyhow::Result<()> {
+        self.send(NodeCommand::SetThermalState(thermal)).await
+    }
+
+    pub async fn energy_profile(&self) -> EnergyProfile {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        if self
+            .send(NodeCommand::QueryEnergyProfile { reply: tx })
+            .await
+            .is_err()
+        {
+            return EnergyProfile::default();
+        }
+        rx.await.unwrap_or_default()
+    }
+
+    pub async fn prefer_wifi_aware_for_discovery(&self) -> bool {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        if self
+            .send(NodeCommand::QueryPreferWifiAwareDiscovery { reply: tx })
+            .await
+            .is_err()
+        {
+            return false;
+        }
+        rx.await.unwrap_or(false)
+    }
+
     pub fn local_enc_pubkey_hex(&self) -> String {
         self.enc_pubkey_hex.clone()
     }
@@ -720,6 +873,9 @@ pub struct NodeRunner {
     ingest: IngestPipeline,
     seen_cache: BasicSeenCache,
     node_state: NodeState,
+    thermal_state: ThermalState,
+    wifi_aware: BearerWifiAwareRouter,
+    ble_discovery_active: bool,
     forwarding_policy: ProbabilisticForwardingPolicy,
     energy_policy: SimpleEnergyPolicy,
     pending: VecDeque<PendingMessage>,
@@ -772,6 +928,7 @@ pub struct NodeRunner {
     crisis_params: mycelium_core::crisis_mode::CrisisRuntimeParams,
     crisis_auto_config: mycelium_core::crisis_mode::CrisisAutoConfig,
     sos_crisis_tracker: crate::sos_crisis_gate::SosCrisisTracker,
+    information_trust_tracker: crate::information_trust_tracker::InformationTrustTracker,
     protocol_capabilities_override: Option<ProtocolCapabilities>,
     last_forward_at: Instant,
     last_sync_at: Instant,
@@ -944,6 +1101,9 @@ impl NodeRunner {
                 ingest,
                 seen_cache: BasicSeenCache::new(16_384),
                 node_state: NodeState::Active,
+                thermal_state: ThermalState::default(),
+                wifi_aware: BearerWifiAwareRouter::new(),
+                ble_discovery_active: false,
                 forwarding_policy: ProbabilisticForwardingPolicy,
                 energy_policy: SimpleEnergyPolicy,
                 pending: VecDeque::new(),
@@ -1001,6 +1161,9 @@ impl NodeRunner {
                 ),
                 crisis_auto_config: mycelium_core::crisis_mode::CrisisAutoConfig::default(),
                 sos_crisis_tracker: crate::sos_crisis_gate::SosCrisisTracker::default(),
+                information_trust_tracker: crate::information_trust_tracker::InformationTrustTracker::open(
+                    &config.db_path,
+                )?,
                 protocol_capabilities_override: config.protocol_capabilities_override,
                 last_forward_at: Instant::now(),
                 last_sync_at: Instant::now(),
@@ -1064,8 +1227,16 @@ impl NodeRunner {
     }
 
     fn effective_forwarding_interval_ms(&self) -> u64 {
+        let profile = self.energy_profile();
         if self.crisis_active() {
-            self.crisis_params.forwarding_interval_ms
+            let params =
+                mycelium_core::crisis_mode::adjust_runtime_params(self.crisis_params, &profile);
+            params.forwarding_interval_ms
+        } else if profile.thermal == ThermalState::Critical {
+            self.forwarding_interval_ms.saturating_mul(2)
+        } else if profile.thermal == ThermalState::Warm {
+            self.forwarding_interval_ms
+                .saturating_add(self.forwarding_interval_ms / 4)
         } else {
             self.forwarding_interval_ms
         }
@@ -1110,12 +1281,30 @@ impl NodeRunner {
         metrics.peer_cap_rejections = self.transport.peer_cap_rejections();
     }
 
-    fn effective_forwarding_state(&self) -> NodeState {
-        if self.crowd_density_active {
-            NodeState::Intermittent
-        } else {
-            self.node_state
+    fn energy_profile(&self) -> EnergyProfile {
+        let movement = self
+            .encounter_log
+            .estimate_movement_indicator(now_ms())
+            .unwrap_or(MovementIndicator::Unknown);
+        EnergyProfile {
+            battery: self.node_state,
+            thermal: self.thermal_state,
+            movement,
         }
+    }
+
+    fn sync_energy_profile_to_transport(&mut self) {
+        let profile = self.energy_profile();
+        self.transport.set_energy_profile(profile);
+    }
+
+    fn effective_forwarding_state(&self) -> NodeState {
+        self.energy_profile()
+            .effective_forwarding_state(self.crowd_density_active)
+    }
+
+    fn effective_crisis_params(&self) -> mycelium_core::crisis_mode::CrisisRuntimeParams {
+        mycelium_core::crisis_mode::adjust_runtime_params(self.crisis_params, &self.energy_profile())
     }
 
     fn effective_max_relay_fanout(&self) -> usize {
@@ -1127,7 +1316,11 @@ impl NodeRunner {
             self.baseline_max_relay_fanout
         };
         if self.crisis_active() {
-            self.crisis_params.effective_relay_fanout(base)
+            mycelium_core::crisis_mode::effective_relay_fanout_with_profile(
+                base,
+                &self.effective_crisis_params(),
+                &self.energy_profile(),
+            )
         } else {
             base
         }
@@ -1763,6 +1956,60 @@ impl NodeRunner {
             NodeCommand::SetEnergyState(state) => {
                 self.node_state = state;
                 info!("energy state updated to {:?}", self.node_state);
+                self.sync_energy_profile_to_transport();
+            }
+            NodeCommand::SetThermalState(thermal) => {
+                self.thermal_state = thermal;
+                info!("thermal state updated to {:?}", self.thermal_state);
+                self.sync_energy_profile_to_transport();
+            }
+            NodeCommand::QueryEnergyProfile { reply } => {
+                let _ = reply.send(self.energy_profile());
+            }
+            NodeCommand::SetWifiAwareAvailable(available) => {
+                self.wifi_aware.set_available(available);
+                info!("Wi-Fi Aware discovery available={available}");
+            }
+            NodeCommand::SetBleDiscoveryActive(active) => {
+                self.ble_discovery_active = active;
+            }
+            NodeCommand::QueueDiscoveryAnnouncement { invite_uri } => {
+                self.wifi_aware.queue_announcement(invite_uri);
+            }
+            NodeCommand::IngestWifiAwareDiscovery {
+                peer_hint,
+                invite_uri,
+                latency_ms,
+            } => {
+                self.wifi_aware
+                    .ingest_peer(peer_hint, invite_uri, latency_ms);
+            }
+            NodeCommand::RecordBleDiscoveryObservation {
+                latency_ms,
+                bytes,
+                success,
+            } => {
+                self.wifi_aware
+                    .record_ble_discovery_observation(latency_ms, bytes, success);
+            }
+            NodeCommand::QueryPreferWifiAwareDiscovery { reply } => {
+                let now = now_ms();
+                let prefer = prefer_wifi_aware_for_discovery(
+                    self.wifi_aware.is_available(),
+                    self.ble_discovery_active,
+                    self.wifi_aware.transport_scores(),
+                    now,
+                );
+                let _ = reply.send(prefer);
+            }
+            NodeCommand::DrainDiscoveryAnnouncements { max, reply } => {
+                let out: Vec<String> = self
+                    .wifi_aware
+                    .drain_announcements(max)
+                    .into_iter()
+                    .map(|a| a.invite_uri)
+                    .collect();
+                let _ = reply.send(out);
             }
             NodeCommand::SetRendezvousEnabled(enabled) => {
                 self.rendezvous_enabled.store(enabled, Ordering::Relaxed);
@@ -1865,6 +2112,119 @@ impl NodeRunner {
                 if let Err(e) = self.remap_transport_peer(&old_peer_id, &new_peer_id) {
                     warn!("remap transport peer {old_peer_id} -> {new_peer_id}: {e:#}");
                 }
+            }
+            NodeCommand::RecordFactObservation {
+                relay_peer,
+                kind,
+                geohash,
+                category,
+                content,
+                observed_at_ms,
+            } => {
+                let trust = self
+                    .peer_trust
+                    .load_all()
+                    .get(&relay_peer)
+                    .cloned()
+                    .unwrap_or_else(|| PeerTrust::cold_unknown(observed_at_ms));
+                match kind {
+                    mycelium_core::information_trust::FactKind::Resource => {
+                        if let Some(category) = category {
+                            let entry = mycelium_core::resource_map::ResourceMapEntry {
+                                geohash,
+                                category,
+                                description: content,
+                                created_at_ms: observed_at_ms,
+                                ttl_secs: mycelium_core::resource_map::RESOURCE_DEFAULT_TTL_SECS,
+                            };
+                            self.information_trust_tracker.record_resource(
+                                &relay_peer,
+                                &entry,
+                                &trust,
+                                observed_at_ms,
+                            );
+                        }
+                    }
+                    mycelium_core::information_trust::FactKind::Sos => {
+                        let payload = mycelium_core::sos::SosPayload {
+                            geohash,
+                            message: content,
+                            created_at_ms: observed_at_ms,
+                        };
+                        self.information_trust_tracker.record_sos(
+                            &relay_peer,
+                            &payload,
+                            &trust,
+                            observed_at_ms,
+                        );
+                    }
+                }
+            }
+            NodeCommand::QueryFactTrust {
+                kind,
+                geohash,
+                category,
+                content,
+                ttl_secs,
+                reply,
+            } => {
+                let now = now_ms();
+                let trust = match kind {
+                    mycelium_core::information_trust::FactKind::Resource => {
+                        if let Some(category) = category {
+                            let entry = mycelium_core::resource_map::ResourceMapEntry {
+                                geohash,
+                                category,
+                                description: content,
+                                created_at_ms: now,
+                                ttl_secs,
+                            };
+                            self.information_trust_tracker.query_resource_trust(
+                                &entry,
+                                now,
+                                &self.peer_trust.load_all(),
+                            )
+                        } else {
+                            mycelium_core::information_trust::InformationTrust {
+                                corroboration_count: 0,
+                                trusted_corroboration_count: 0,
+                                source_diversity: 0.0,
+                                geographic_consistency: 1.0,
+                                staleness_factor: 0.0,
+                                trust_score: 0.0,
+                                status:
+                                    mycelium_core::information_trust::CorroborationStatus::Unverified,
+                            }
+                        }
+                    }
+                    mycelium_core::information_trust::FactKind::Sos => {
+                        let payload = mycelium_core::sos::SosPayload {
+                            geohash,
+                            message: content,
+                            created_at_ms: now,
+                        };
+                        self.information_trust_tracker.query_sos_trust(
+                            &payload,
+                            now,
+                            &self.peer_trust.load_all(),
+                        )
+                    }
+                };
+                let _ = reply.send(trust);
+            }
+            NodeCommand::QueryPendingCustody { reply } => {
+                let now = now_ms();
+                let connected: Vec<String> = self
+                    .transport
+                    .known_peers()
+                    .into_iter()
+                    .filter(|p| self.transport.is_peer_connected(p))
+                    .collect();
+                let statuses = self
+                    .custody_queue
+                    .list_pending_statuses(&self.local_peer_id, &connected, &self.encounter_log, now)
+                    .unwrap_or_default();
+                let _ = reply.send(statuses);
             }
         }
         Ok(())
@@ -2310,6 +2670,38 @@ impl NodeRunner {
         Ok(())
     }
 
+    fn try_record_fact_at_ingest(
+        &mut self,
+        from_peer: &str,
+        scope: &str,
+        payload: &[u8],
+        now_ms: u64,
+    ) {
+        let Some(claim) =
+            mycelium_core::fact_claim::extract_fact_claim_from_gossip_payload(scope, payload)
+        else {
+            return;
+        };
+        let trust = self
+            .peer_trust
+            .load_all()
+            .get(from_peer)
+            .cloned()
+            .unwrap_or_else(|| PeerTrust::cold_unknown(now_ms));
+        match claim {
+            mycelium_core::fact_claim::ExtractedFactClaim::Sos(payload) => {
+                self.information_trust_tracker
+                    .record_sos(from_peer, &payload, &trust, now_ms);
+            }
+            mycelium_core::fact_claim::ExtractedFactClaim::Resource(entry) => {
+                if !entry.is_expired(now_ms) {
+                    self.information_trust_tracker
+                        .record_resource(from_peer, &entry, &trust, now_ms);
+                }
+            }
+        }
+    }
+
     async fn broadcast_scoped(
         &mut self,
         scope: String,
@@ -2317,18 +2709,24 @@ impl NodeRunner {
         payload: Vec<u8>,
         peer_filter: BroadcastPeerFilter,
     ) -> anyhow::Result<()> {
+        let local_peer_id = self.local_peer_id.clone();
         if crate::ingest_guard::is_sos_scope(&scope) {
             if let Some(gh) = mycelium_core::sos::geohash_from_payload_bytes(&payload) {
                 let now = now_ms();
                 let trust = self
                     .peer_trust
                     .load_all()
-                    .get(&self.local_peer_id)
+                    .get(&local_peer_id)
                     .cloned()
                     .unwrap_or_else(|| PeerTrust::new_peer(now));
                 self.sos_crisis_tracker
-                    .record_observation(&self.local_peer_id, &gh, &trust, now);
+                    .record_observation(&local_peer_id, &gh, &trust, now);
             }
+        }
+        if crate::ingest_guard::is_sos_scope(&scope)
+            || scope.starts_with(mycelium_core::resource_map::RESOURCE_MAP_SCOPE)
+        {
+            self.try_record_fact_at_ingest(&local_peer_id, &scope, &payload, now_ms());
         }
         if self.crisis_active()
             && mycelium_core::resource_map::should_defer_gossip_in_crisis(&scope)
@@ -2527,8 +2925,11 @@ impl NodeRunner {
                 payload,
             } => {
                 let scope_obj = Scope(scope.clone());
-                let scopes = self.subscribed_scopes.read().await;
-                if !scopes.iter().any(|pattern| scope_obj.matches(pattern)) {
+                let subscribed = {
+                    let scopes = self.subscribed_scopes.read().await;
+                    scopes.iter().any(|pattern| scope_obj.matches(pattern))
+                };
+                if !subscribed {
                     return Ok(());
                 }
                 let now = now_ms();
@@ -2575,6 +2976,7 @@ impl NodeRunner {
                         self.record_ingest_reject(reason);
                         return Ok(());
                     }
+                    self.try_record_fact_at_ingest(&from_peer, &scope, &payload, now);
                 }
                 if let Err(reason) =
                     self.ingest_guard
@@ -2673,8 +3075,7 @@ impl NodeRunner {
                     }
                     return Ok(());
                 }
-                let scope_subscribed = scopes.iter().any(|pattern| scope_obj.matches(pattern));
-                if scope_subscribed
+                if subscribed
                     && (payload.starts_with(b"enc1:") || std::str::from_utf8(&payload).is_err())
                 {
                     let envelope = mycelium_core::data::Envelope::new_unsigned(
@@ -3204,14 +3605,17 @@ impl NodeRunner {
     async fn forward_once(&mut self) -> anyhow::Result<()> {
         self.maybe_rotate_relay_keypair();
         self.evict_expired();
+        self.sync_energy_profile_to_transport();
         self.flush_privacy_batch_if_due().await?;
         if !self.crisis_active() {
             self.maybe_send_cover_traffic().await?;
         }
+        let profile = self.energy_profile();
+        let crisis_params = self.effective_crisis_params();
         let budget = if self.crisis_active() {
             match self.effective_forwarding_state() {
-                NodeState::Active => self.crisis_params.forward_budget_active,
-                NodeState::Intermittent => (self.crisis_params.forward_budget_active / 2).max(2),
+                NodeState::Active => crisis_params.forward_budget_active,
+                NodeState::Intermittent => (crisis_params.forward_budget_active / 2).max(2),
                 NodeState::Passive => 2,
             }
         } else {
@@ -3229,6 +3633,9 @@ impl NodeRunner {
                 continue;
             }
             let essential = traffic_class_for_direct(&pending.message) == TrafficClass::Essential;
+            if profile.should_skip_nonessential_relay() && !essential {
+                continue;
+            }
             if (!self.crisis_active() || !essential)
                 && !self.energy_policy.can_forward(
                     self.effective_forwarding_state(),
@@ -3405,6 +3812,22 @@ impl NodeRunner {
             self.enqueue(plan.to_peer, plan.message).await?;
             let mut metrics = self.metrics.write().await;
             metrics.custody_forwards += 1;
+        }
+        let extra = self.energy_profile().custody_extra_forwards();
+        for _ in 0..extra {
+            if let Some(plan) = self.custody_queue.next_forward_plan_at(
+                &self.local_peer_id,
+                &connected,
+                &self.encounter_log,
+                now,
+                Some(&routing_ctx),
+            )? {
+                self.enqueue(plan.to_peer, plan.message).await?;
+                let mut metrics = self.metrics.write().await;
+                metrics.custody_forwards += 1;
+            } else {
+                break;
+            }
         }
         let mut metrics = self.metrics.write().await;
         metrics.custody_queue_depth = self.custody_queue.len().unwrap_or(0);

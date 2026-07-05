@@ -380,6 +380,8 @@ pub trait MeshTransport: Send {
     fn kad_on_connectivity_changed(&mut self, _mode: ConnectivityMode) {}
     /// Tighten peer/mDNS caps when local peer density exceeds threshold (AR-06).
     fn set_density_backoff(&mut self, _active: bool, _max_direct_peers: usize) {}
+    /// Apply thermal/movement-aware bearer throttling (Wi‑Fi Direct caps).
+    fn set_energy_profile(&mut self, _profile: crate::energy::EnergyProfile) {}
     /// Current wide-area reachability (Internet vs mesh-only).
     fn connectivity_mode(&self) -> ConnectivityMode {
         ConnectivityMode::MeshOnly
@@ -405,6 +407,7 @@ pub trait MeshTransport: Send {
             wifi_direct: wifi_direct_cap && self.bearer_is_connected(peer_id),
             ble: self.bearer_is_connected(peer_id) || mesh_peers_nonempty,
             lora: false,
+            wifi_aware: false,
         }
     }
     /// Score-aware outbound path (Internet → Wi‑Fi Direct → BLE → custody).

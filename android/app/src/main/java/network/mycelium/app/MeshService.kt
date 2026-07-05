@@ -27,6 +27,8 @@ import network.mycelium.app.bootstrap.BleMeshLinkRegistry
 import network.mycelium.app.bootstrap.BleMeshRelay
 import network.mycelium.app.bootstrap.WifiDirectBearerHost
 import network.mycelium.app.bootstrap.WifiDirectRelay
+import network.mycelium.app.bootstrap.TransportInviteHandoff
+import network.mycelium.app.bootstrap.WifiAwareDiscoveryHost
 import network.mycelium.app.bootstrap.WifiMulticastLock
 import network.mycelium.app.viewmodel.SettingsViewModel
 import network.mycelium.app.viewmodel.SosViewModel
@@ -51,6 +53,7 @@ class MeshService : Service() {
     private var bleGattServer: BleInviteGattServer? = null
     private var bleCollectJob: kotlinx.coroutines.Job? = null
     private var wifiDirectHost: WifiDirectBearerHost? = null
+    private var wifiAwareDiscovery: WifiAwareDiscoveryHost? = null
     private val notifiedAddresses = mutableSetOf<String>()
     private var nodeInitialized = false
     private var wifiMulticastLock: WifiMulticastLock? = null
@@ -125,6 +128,7 @@ class MeshService : Service() {
             "Passive" -> mycelium.setEnergyState(EnergyState.PASSIVE)
             else -> mycelium.setEnergyState(EnergyState.ACTIVE)
         }
+        ThermalMonitor.start(applicationContext)
         if (prefs.getBoolean(SosViewModel.KEY_LISTEN_SOS, false)) {
             mycelium.setListenSos(true)
         }
@@ -228,10 +232,21 @@ class MeshService : Service() {
         }
 
         BleMeshHandoff.resetSession()
+        TransportInviteHandoff.resetSession()
         bleGattServer = BleInviteGattServer(this, serviceScope)
         bleAdvertiser = BleBootstrapAdvertiser(this, bleGattServer!!)
         bleScanner = BleBootstrapScanner(this)
         wifiDirectHost = WifiDirectBearerHost(this).also { it.register() }
+        wifiAwareDiscovery = WifiAwareDiscoveryHost(this, serviceScope)
+        mycelium.setBleDiscoveryActive(true)
+
+        val inviteProvider = {
+            bleGattServer?.refreshInviteValue().orEmpty().ifEmpty {
+                mycelium.getShareableMultiaddrs().firstOrNull { it.startsWith("mycelium://") }.orEmpty()
+            }
+        }
+        wifiAwareDiscovery?.start(inviteProvider)
+        wifiAwareDiscovery?.refreshAnnouncement(inviteProvider)
 
         bleAdvertiser?.startAdvertising()
         bleScanner?.startScanning()
@@ -241,7 +256,23 @@ class MeshService : Service() {
             launch {
                 while (true) {
                     delay(45_000)
-                    bleAdvertiser?.refreshInvite()
+                    val invite =
+                        bleGattServer?.refreshInviteValue().orEmpty().ifEmpty {
+                            mycelium.getShareableMultiaddrs()
+                                .firstOrNull { it.startsWith("mycelium://") }
+                                .orEmpty()
+                        }
+                    wifiAwareDiscovery?.refreshAnnouncement { invite }
+                }
+            }
+            launch {
+                while (true) {
+                    delay(30_000)
+                    val prefer =
+                        withContext(Dispatchers.IO) {
+                            runCatching { mycelium.preferWifiAwareForDiscovery() }.getOrDefault(false)
+                        }
+                    bleScanner?.setLowPowerScan(prefer)
                 }
             }
             launch {
@@ -300,6 +331,9 @@ class MeshService : Service() {
     private fun stopBleBootstrap() {
         bleCollectJob?.cancel()
         bleCollectJob = null
+        wifiAwareDiscovery?.stop()
+        wifiAwareDiscovery = null
+        mycelium.setBleDiscoveryActive(false)
         wifiDirectHost?.teardownAll()
         wifiDirectHost?.unregister()
         wifiDirectHost = null

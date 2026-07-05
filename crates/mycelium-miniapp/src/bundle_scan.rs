@@ -15,7 +15,7 @@ pub const MIN_BYTES_FOR_RATIO_CHECK: usize = 512 * 1024;
 
 const ALLOWED_EXTENSIONS: &[&str] = &[
     "html", "htm", "css", "js", "json", "png", "jpg", "jpeg", "gif", "svg", "webp", "ico", "txt",
-    "woff", "woff2", "ttf", "eot", "map", "md",
+    "woff", "woff2", "ttf", "eot", "map", "md", "wasm",
 ];
 
 /// Scan bundle contents and archive metrics. Called from install preview and `miniapp-sdk lint`.
@@ -48,8 +48,33 @@ pub fn scan_bundle(bundle: &MiniAppBundle, archive_bytes: &[u8]) -> anyhow::Resu
         }
     }
 
-    validate_entry_html(&bundle.manifest, bundle)?;
+    match bundle.manifest.runtime.as_str() {
+        "webview" => validate_entry_html(&bundle.manifest, bundle)?,
+        "wasm" => validate_wasm_entry(&bundle.manifest, bundle)?,
+        other => anyhow::bail!("unsupported runtime {other}"),
+    }
     Ok(())
+}
+
+fn validate_wasm_entry(manifest: &MiniAppManifest, bundle: &MiniAppBundle) -> anyhow::Result<()> {
+    let bytes = bundle
+        .get_file(&manifest.entry)
+        .ok_or_else(|| anyhow::anyhow!("wasm entry not found: {}", manifest.entry))?;
+    if !is_wasm_magic(bytes) {
+        anyhow::bail!("entry {} is not a valid WASM module", manifest.entry);
+    }
+    if let Some(ui) = manifest.hybrid_ui_entry() {
+        if let Some(html_bytes) = bundle.get_file(ui) {
+            let html = std::str::from_utf8(html_bytes)
+                .map_err(|_| anyhow::anyhow!("{ui} is not valid UTF-8"))?;
+            validate_html_content(html, ui)?;
+        }
+    }
+    Ok(())
+}
+
+fn is_wasm_magic(bytes: &[u8]) -> bool {
+    bytes.len() >= 4 && bytes[..4] == [0x00, 0x61, 0x73, 0x6d]
 }
 
 fn validate_path_extension(path: &str) -> anyhow::Result<()> {

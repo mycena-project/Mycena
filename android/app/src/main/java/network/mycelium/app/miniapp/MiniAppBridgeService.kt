@@ -60,8 +60,26 @@ class MiniAppBridgeService : Service() {
             override fun getAppFile(appId: String, path: String): ByteArray? =
                 mycelium.getAppFile(appId, path)
 
-            override fun getAppEntry(appId: String): String? =
-                mycelium.listInstalledApps().find { it.id == appId }?.entry
+            override fun getAppEntry(appId: String): String? {
+                val app = mycelium.listInstalledApps().find { it.id == appId } ?: return null
+                val runtime = mycelium.miniappGetRuntime(appId)
+                if (runtime == "wasm") {
+                    val ui = "ui/index.html"
+                    if (app.entry != ui && mycelium.getAppFile(appId, ui) != null) {
+                        return ui
+                    }
+                    if (app.entry.endsWith(".wasm")) {
+                        return null
+                    }
+                }
+                return app.entry
+            }
+
+            override fun getAppRuntime(appId: String): String =
+                mycelium.miniappGetRuntime(appId)
+
+            override fun invokeWasmRun(appId: String): Int =
+                mycelium.miniappInvokeWasmRun(appId)
 
             override fun getAppPaymentAddress(appId: String): String? =
                 mycelium.listInstalledApps().find { it.id == appId }?.paymentAddress

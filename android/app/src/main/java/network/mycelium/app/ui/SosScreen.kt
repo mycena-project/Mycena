@@ -47,6 +47,21 @@ import java.util.Date
 
 private val RESOURCE_CATEGORIES = listOf("water", "food", "shelter", "medicine", "power")
 
+@Composable
+private fun TrustStatusLine(label: String, score: Float, status: String) {
+    val color = when {
+        status.contains("confirmed") -> MaterialTheme.colorScheme.primary
+        status.contains("conflicting") -> MaterialTheme.colorScheme.error
+        status.contains("partial") -> MaterialTheme.colorScheme.tertiary
+        else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f)
+    }
+    Text(
+        text = "$label · trust ${"%.0f".format(score * 100)}%",
+        style = MaterialTheme.typography.bodySmall,
+        color = color,
+    )
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SosScreen(navController: NavController, vm: SosViewModel = viewModel()) {
@@ -214,6 +229,11 @@ fun SosScreen(navController: NavController, vm: SosViewModel = viewModel()) {
                 ) {
                     Text(post.geohash, style = MaterialTheme.typography.labelMedium)
                     Text(post.message, style = MaterialTheme.typography.bodyMedium)
+                    TrustStatusLine(
+                        label = post.trust.displayLabel,
+                        score = post.trust.trustScore,
+                        status = post.trust.status,
+                    )
                 }
             }
             item {
@@ -299,6 +319,11 @@ fun SosScreen(navController: NavController, vm: SosViewModel = viewModel()) {
                         style = MaterialTheme.typography.labelMedium,
                     )
                     Text(entry.description, style = MaterialTheme.typography.bodyMedium)
+                    TrustStatusLine(
+                        label = entry.trust.displayLabel,
+                        score = entry.trust.trustScore,
+                        status = entry.trust.status,
+                    )
                     Text(
                         stringResource(
                             R.string.resource_map_expires,

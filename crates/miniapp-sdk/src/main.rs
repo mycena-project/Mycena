@@ -133,15 +133,17 @@ fn lint_bundle(path: &Path) -> anyhow::Result<()> {
     if bundle.total_size() > 10 * 1024 * 1024 {
         anyhow::bail!("bundle exceeds 10 MB limit");
     }
-    if bundle.manifest.runtime != "webview" {
+    if bundle.manifest.runtime != "webview" && bundle.manifest.runtime != "wasm" {
         anyhow::bail!(
-            "unsupported runtime {:?} (only webview is supported)",
+            "unsupported runtime {:?} (use webview or wasm)",
             bundle.manifest.runtime
         );
     }
-    bundle
-        .entry_html()
-        .context("entry HTML must be valid UTF-8")?;
+    if bundle.manifest.runtime == "webview" {
+        bundle
+            .entry_html()
+            .context("entry HTML must be valid UTF-8")?;
+    }
     scan_bundle(&bundle, &bytes).context("bundle security scan failed")?;
     let sig_ok = bundle_signature::verify_bundle_developer_signature(&bundle, &bytes)?;
     let hash = bundle_hash_hex(&bytes);

@@ -12,11 +12,19 @@ pub enum TransportBearer {
     WifiDirect = 1,
     Ble = 2,
     LoRa = 3,
+    /// Wi‑Fi Aware / NSD discovery (small announcements only).
+    WifiAware = 4,
 }
 
 impl TransportBearer {
     pub fn all() -> &'static [Self] {
-        &[Self::InternetRelay, Self::WifiDirect, Self::Ble, Self::LoRa]
+        &[
+            Self::InternetRelay,
+            Self::WifiDirect,
+            Self::Ble,
+            Self::LoRa,
+            Self::WifiAware,
+        ]
     }
 
     fn cold_start_prior(self) -> TransportScore {
@@ -50,6 +58,15 @@ impl TransportBearer {
                 packet_loss_rate: 0.05,
                 avg_throughput_bps: 256.0,
                 energy_joules_per_byte: 5e-9,
+                sample_count: 0,
+                last_observed_ms: 0,
+            },
+            Self::WifiAware => TransportScore {
+                avg_latency_ms: 25.0,
+                packet_loss_rate: 0.01,
+                avg_throughput_bps: 4.0 * 1024.0,
+                /// Much lower than continuous BLE scanning at comparable range.
+                energy_joules_per_byte: 1.5e-7,
                 sample_count: 0,
                 last_observed_ms: 0,
             },
@@ -97,6 +114,7 @@ pub struct TransportAvailability {
     pub wifi_direct: bool,
     pub ble: bool,
     pub lora: bool,
+    pub wifi_aware: bool,
 }
 
 const DEFAULT_SAMPLE_WINDOW: usize = 32;
@@ -288,6 +306,43 @@ pub fn decide_transport_path(
     TransportPath::CustodyQueue
 }
 
+/// Discovery bearer selection (separate from data-path [`decide_transport_path`]).
+pub fn decide_discovery_bearer(
+    wifi_aware_available: bool,
+    ble_available: bool,
+    scores: &TransportScoreStore,
+    now: u64,
+) -> Option<TransportBearer> {
+    let mut candidates: Vec<(TransportBearer, f64)> = Vec::new();
+    if wifi_aware_available {
+        let mut s = scores.suitability(TransportBearer::WifiAware, 256);
+        s += recency_bonus(scores.score(TransportBearer::WifiAware), now);
+        s += 0.18;
+        candidates.push((TransportBearer::WifiAware, s));
+    }
+    if ble_available {
+        let mut s = scores.suitability(TransportBearer::Ble, 256);
+        s += recency_bonus(scores.score(TransportBearer::Ble), now);
+        candidates.push((TransportBearer::Ble, s));
+    }
+    candidates.sort_by(|a, b| {
+        b.1.partial_cmp(&a.1)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| (a.0 as u8).cmp(&(b.0 as u8)))
+    });
+    candidates.first().map(|(b, _)| *b)
+}
+
+pub fn prefer_wifi_aware_for_discovery(
+    wifi_aware_available: bool,
+    ble_available: bool,
+    scores: &TransportScoreStore,
+    now: u64,
+) -> bool {
+    decide_discovery_bearer(wifi_aware_available, ble_available, scores, now)
+        == Some(TransportBearer::WifiAware)
+}
+
 /// Regression invariants shared by unit tests and mycelium-sim CI gates.
 pub fn verify_transport_score_invariants() -> Result<(), String> {
     let store = TransportScoreStore::default();
@@ -297,6 +352,7 @@ pub fn verify_transport_score_invariants() -> Result<(), String> {
         wifi_direct: true,
         ble: true,
         lora: false,
+        wifi_aware: false,
     };
     if decide_transport_path(&all_up, &store, 4096, false, now) != TransportPath::InternetRelay {
         return Err("internet should win when relay is available".into());
@@ -306,6 +362,7 @@ pub fn verify_transport_score_invariants() -> Result<(), String> {
         wifi_direct: true,
         ble: true,
         lora: false,
+        wifi_aware: false,
     };
     if decide_transport_path(&mesh_only, &store, 64 * 1024, false, now) != TransportPath::WifiDirect
     {
@@ -317,6 +374,7 @@ pub fn verify_transport_score_invariants() -> Result<(), String> {
             wifi_direct: false,
             ble: true,
             lora: false,
+            wifi_aware: false,
         },
         &store,
         512,
@@ -332,6 +390,7 @@ pub fn verify_transport_score_invariants() -> Result<(), String> {
             wifi_direct: false,
             ble: false,
             lora: false,
+            wifi_aware: false,
         },
         &store,
         512,
@@ -376,6 +435,16 @@ pub fn bearer_medium_to_transport(
     match medium {
         super::bearer_transport::BearerMedium::Ble => TransportBearer::Ble,
         super::bearer_transport::BearerMedium::WifiDirect => TransportBearer::WifiDirect,
+        super::bearer_transport::BearerMedium::WifiAware => TransportBearer::WifiAware,
+    }
+}
+
+pub fn transport_bearer_to_medium(bearer: TransportBearer) -> Option<super::bearer_transport::BearerMedium> {
+    match bearer {
+        TransportBearer::Ble => Some(super::bearer_transport::BearerMedium::Ble),
+        TransportBearer::WifiDirect => Some(super::bearer_transport::BearerMedium::WifiDirect),
+        TransportBearer::WifiAware => Some(super::bearer_transport::BearerMedium::WifiAware),
+        TransportBearer::InternetRelay | TransportBearer::LoRa => None,
     }
 }
 
@@ -431,6 +500,14 @@ mod tests {
     }
 
     #[test]
+    fn wifi_aware_preferred_for_discovery_when_available() {
+        let store = TransportScoreStore::default();
+        let now = 1_700_000_000_000u64;
+        assert!(prefer_wifi_aware_for_discovery(true, true, &store, now));
+        assert!(!prefer_wifi_aware_for_discovery(false, true, &store, now));
+    }
+
+    #[test]
     fn force_bulk_prefers_wifi_when_available() {
         let store = TransportScoreStore::default();
         let path = decide_transport_path(
@@ -439,6 +516,7 @@ mod tests {
                 wifi_direct: true,
                 ble: true,
                 lora: false,
+                wifi_aware: false,
             },
             &store,
             64,

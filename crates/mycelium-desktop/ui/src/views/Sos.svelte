@@ -179,6 +179,9 @@
           <li>
             <strong>{p.geohash}</strong>
             <span>{p.message}</span>
+            <span class="trust trust-{p.trust?.status ?? 'unverified'}">
+              {p.trust?.display_label ?? '1 source(s), unverified'} · trust {Math.round((p.trust?.trust_score ?? 0) * 100)}%
+            </span>
           </li>
         {/each}
       </ul>
@@ -219,6 +222,9 @@
           <li>
             <strong>{r.category} @ {r.geohash}</strong>
             <span>{r.description}</span>
+            <span class="trust trust-{r.trust?.status ?? 'unverified'}">
+              {r.trust?.display_label ?? '1 source(s), unverified'} · trust {Math.round((r.trust?.trust_score ?? 0) * 100)}%
+            </span>
             <span class="hint">Expires {new Date(Number(r.expires_at_ms)).toLocaleString()}</span>
           </li>
         {/each}
@@ -296,6 +302,23 @@
   }
   .hint.ok {
     color: var(--accent);
+  }
+  .trust {
+    display: block;
+    font-size: 12px;
+    margin-top: 2px;
+  }
+  .trust-confirmed {
+    color: var(--accent);
+  }
+  .trust-conflicting {
+    color: #c62828;
+  }
+  .trust-partial {
+    color: #ef6c00;
+  }
+  .trust-unverified {
+    color: var(--text-muted);
   }
   .hint.crisis-active {
     color: #dc2626;

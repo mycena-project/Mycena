@@ -8,10 +8,12 @@ pub mod dense_cluster;
 pub mod eclipse_scenarios;
 pub mod local_sybil_dense;
 pub mod lab;
+pub mod resource_disinfo_scenarios;
 pub mod runner;
 pub mod scenarios;
 pub mod scheduler;
 pub mod sim_ci_gates;
+pub mod sos_disinfo_scenarios;
 pub mod sos_flood_scenarios;
 pub mod transport;
 

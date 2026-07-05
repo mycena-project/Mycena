@@ -21,6 +21,7 @@ pub use mycelium_core::data;
 pub use mycelium_core::e2e_direct_wrap;
 pub use mycelium_core::energy;
 pub use mycelium_core::identity_rotation;
+pub use mycelium_core::information_trust;
 pub use mycelium_core::invite;
 pub use mycelium_core::lock_or_recover;
 pub use mycelium_core::privacy_shaping;

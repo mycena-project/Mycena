@@ -3,7 +3,9 @@
 //! Store-and-forward custody queue — spray-and-wait with bounded network copies.
 
 use crate::encounter_log::{
-    CustodyCandidateQuery, CustodyCandidateScoring, EncounterLogStore, ENCOUNTER_LOG_TTL_MS,
+    CustodyCandidateQuery, CustodyCandidateScoring, EncounterLogStore,
+    ExpectedDeliveryBasis, DEFAULT_EXPECTED_ETA_MAX_MS,
+    DEFAULT_EXPECTED_ETA_MIN_MS, ENCOUNTER_LOG_TTL_MS,
 };
 use crate::peer_trust::PeerTrust;
 use crate::security::{
@@ -107,6 +109,46 @@ struct StoredCustody {
     /// Origin-only: custody copies released into the mesh.
     #[serde(default)]
     sprays_released: u8,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ExpectedDelivery {
+    /// Earliest plausible delivery (milliseconds from now).
+    pub eta_min_ms: u64,
+    /// Latest plausible delivery (milliseconds from now).
+    pub eta_max_ms: u64,
+    /// Confidence in the window, 0.0–1.0.
+    pub confidence: f64,
+    /// Connected peers that could carry toward the destination now.
+    pub active_carrier_count: u32,
+    /// Highest-ranked nearby carrier, if any.
+    pub best_carrier_peer: Option<String>,
+    pub basis: ExpectedDeliveryBasis,
+}
+
+impl ExpectedDelivery {
+    pub fn no_dest_fallback() -> Self {
+        Self {
+            eta_min_ms: DEFAULT_EXPECTED_ETA_MIN_MS,
+            eta_max_ms: DEFAULT_EXPECTED_ETA_MAX_MS,
+            confidence: 0.05,
+            active_carrier_count: 0,
+            best_carrier_peer: None,
+            basis: ExpectedDeliveryBasis::NoCarriersNearby,
+        }
+    }
+}
+
+/// Pending custody message with structured delivery estimate (for UI / FFI).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct CustodyPendingStatus {
+    pub message_id: String,
+    pub dest_peer: Option<String>,
+    pub enqueued_at_ms: u64,
+    pub sprays_released: u8,
+    pub max_spray: u8,
+    pub hop_count: u8,
+    pub expected: ExpectedDelivery,
 }
 
 #[derive(Debug, Clone)]
@@ -328,6 +370,45 @@ impl CustodyQueue {
         self.remove(message_id)
     }
 
+    /// List pending custody entries with expected delivery windows and nearby carrier counts.
+    pub fn list_pending_statuses(
+        &self,
+        local_peer: &str,
+        connected_peers: &[String],
+        encounter_log: &EncounterLogStore,
+        now: u64,
+    ) -> anyhow::Result<Vec<CustodyPendingStatus>> {
+        let mut out = Vec::new();
+        let mut entries: Vec<StoredCustody> = Vec::new();
+        for item in self.tree()?.iter() {
+            let (_, v) = item?;
+            entries.push(bincode::deserialize(&v)?);
+        }
+        entries.sort_by(|a, b| a.enqueued_at_ms.cmp(&b.enqueued_at_ms));
+        for stored in entries {
+            if !Self::relay_allowed(&stored, now) {
+                continue;
+            }
+            let expected = compute_expected_delivery(
+                encounter_log,
+                &stored,
+                local_peer,
+                connected_peers,
+                now,
+            )?;
+            out.push(CustodyPendingStatus {
+                message_id: stored.message.envelope.id.0.clone(),
+                dest_peer: stored.message.envelope.to_peer.clone(),
+                enqueued_at_ms: stored.enqueued_at_ms,
+                sprays_released: stored.sprays_released,
+                max_spray: stored.message.envelope.max_custody_spray,
+                hop_count: stored.message.envelope.hop_count,
+                expected,
+            });
+        }
+        Ok(out)
+    }
+
     fn forward_mode(stored: &StoredCustody, local_peer: &str) -> ForwardMode {
         if Self::is_origin(stored, local_peer) && Self::origin_spray_budget(stored) {
             ForwardMode::OriginSpray
@@ -474,6 +555,85 @@ enum ForwardMode {
     Transfer,
 }
 
+/// Estimate delivery window and nearby carrier count for one pending custody message.
+fn compute_expected_delivery(
+    encounter_log: &EncounterLogStore,
+    stored: &StoredCustody,
+    local_peer: &str,
+    connected: &[String],
+    now: u64,
+) -> anyhow::Result<ExpectedDelivery> {
+    let Some(dest_peer) = stored
+        .message
+        .envelope
+        .to_peer
+        .as_deref()
+        .filter(|d| !d.is_empty())
+    else {
+        return Ok(ExpectedDelivery::no_dest_fallback());
+    };
+
+    let candidates = encounter_log.custody_candidates_at(&CustodyCandidateQuery {
+        connected,
+        exclude: local_peer,
+        tried: &[],
+        limit: 32,
+        now,
+        dest_peer: Some(dest_peer),
+        scoring: CustodyCandidateScoring::DeliveryProbabilityAndRecency,
+    })?;
+    let viable: Vec<String> = candidates
+        .into_iter()
+        .filter(|p| CustodyQueue::peer_allowed(stored, p, local_peer))
+        .collect();
+    let active_carrier_count = viable.len() as u32;
+
+    if viable.is_empty() {
+        return Ok(ExpectedDelivery {
+            eta_min_ms: DEFAULT_EXPECTED_ETA_MIN_MS,
+            eta_max_ms: DEFAULT_EXPECTED_ETA_MAX_MS,
+            confidence: 0.05,
+            active_carrier_count: 0,
+            best_carrier_peer: None,
+            basis: ExpectedDeliveryBasis::NoCarriersNearby,
+        });
+    }
+
+    let best_carrier_peer = viable.first().cloned();
+    let mut min_eta = u64::MAX;
+    let mut max_eta = 0u64;
+    let mut confidence = 0.0f64;
+    let mut basis = ExpectedDeliveryBasis::EncounterFrequency;
+
+    for peer in viable.iter().take(3) {
+        let window = encounter_log.estimate_encounter_window(peer, dest_peer, now)?;
+        min_eta = min_eta.min(window.eta_min_ms);
+        max_eta = max_eta.max(window.eta_max_ms);
+        if window.confidence > confidence {
+            confidence = window.confidence;
+            basis = window.basis;
+        }
+    }
+
+    if min_eta == u64::MAX {
+        min_eta = DEFAULT_EXPECTED_ETA_MIN_MS;
+    }
+    if max_eta < min_eta {
+        max_eta = min_eta.saturating_add(MIN_EXPECTED_ETA_FLOOR);
+    }
+
+    Ok(ExpectedDelivery {
+        eta_min_ms: min_eta,
+        eta_max_ms: max_eta.min(ENCOUNTER_LOG_TTL_MS),
+        confidence: confidence.clamp(0.05, 1.0),
+        active_carrier_count,
+        best_carrier_peer,
+        basis,
+    })
+}
+
+const MIN_EXPECTED_ETA_FLOOR: u64 = 60_000;
+
 #[cfg(test)]
 mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used)]
@@ -569,5 +729,43 @@ mod tests {
         let plan = q.plans_for_encounter("b", "d", 1).unwrap();
         assert_eq!(plan.len(), 1);
         assert_eq!(plan[0].to_peer, "d");
+    }
+
+    #[test]
+    fn pending_status_includes_expected_delivery_and_carriers() {
+        let dir = tempdir().unwrap();
+        let log = EncounterLogStore::open(dir.path().to_str().unwrap()).unwrap();
+        let q = CustodyQueue::open(dir.path().to_str().unwrap(), CustodyConfig::default()).unwrap();
+        let day = 24 * 60 * 60_000;
+        let base = 1_700_000_000_000u64;
+        for d in 0..3 {
+            let start = base + d * day + 8 * 3_600_000;
+            log.begin_co_encounter("carrier", "z", start).unwrap();
+            log.end_co_encounter("carrier", "z", start + 15 * 60_000)
+                .unwrap();
+        }
+        log.begin_encounter("carrier", base + 3 * day).unwrap();
+        log.end_encounter("carrier", base + 3 * day + 60_000).unwrap();
+        log.begin_encounter("other", base + 3 * day + 120_000).unwrap();
+        log.end_encounter("other", base + 3 * day + 180_000).unwrap();
+
+        let msg = custody_msg("a", "z");
+        q.enqueue(&msg).unwrap();
+        let now = base + 3 * day + 200_000;
+        let statuses = q
+            .list_pending_statuses(
+                "a",
+                &["carrier".into(), "other".into()],
+                &log,
+                now,
+            )
+            .unwrap();
+        assert_eq!(statuses.len(), 1);
+        let st = &statuses[0];
+        assert_eq!(st.message_id, msg.envelope.id.0);
+        assert_eq!(st.dest_peer.as_deref(), Some("z"));
+        assert!(st.expected.active_carrier_count >= 1);
+        assert!(st.expected.eta_max_ms >= st.expected.eta_min_ms);
+        assert!(st.expected.confidence > 0.0);
     }
 }

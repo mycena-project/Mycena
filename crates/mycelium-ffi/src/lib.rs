@@ -20,6 +20,10 @@ use mycelium_coin::{
 };
 use mycelium_core::data::Priority;
 use mycelium_core::energy::NodeState as RustEnergyState;
+use mycelium_core::energy::{
+    EnergyProfile as RustEnergyProfile, MovementIndicator as RustMovementIndicator,
+    ThermalState as RustThermalState,
+};
 use mycelium_core::lock_or_recover;
 use mycelium_core::privacy_shaping::{
     PrivacyShapingConfig as RustPrivacyShapingConfig,
@@ -168,6 +172,69 @@ pub struct NodeMetrics {
 }
 
 #[derive(Debug, Clone)]
+pub enum ExpectedDeliveryBasis {
+    DeliveryProbability,
+    EncounterFrequency,
+    NoCarriersNearby,
+}
+
+#[derive(Debug, Clone)]
+pub struct ExpectedDeliveryData {
+    pub eta_min_ms: u64,
+    pub eta_max_ms: u64,
+    pub confidence: f64,
+    pub active_carrier_count: u32,
+    pub best_carrier_peer: Option<String>,
+    pub basis: ExpectedDeliveryBasis,
+}
+
+#[derive(Debug, Clone)]
+pub struct CustodyPendingStatus {
+    pub message_id: String,
+    pub dest_peer: Option<String>,
+    pub enqueued_at_ms: u64,
+    pub sprays_released: u8,
+    pub max_spray: u8,
+    pub hop_count: u8,
+    pub expected: ExpectedDeliveryData,
+}
+
+fn expected_delivery_basis_from_node(
+    basis: mycelium_node::ExpectedDeliveryBasis,
+) -> ExpectedDeliveryBasis {
+    match basis {
+        mycelium_node::ExpectedDeliveryBasis::DeliveryProbability => {
+            ExpectedDeliveryBasis::DeliveryProbability
+        }
+        mycelium_node::ExpectedDeliveryBasis::EncounterFrequency => {
+            ExpectedDeliveryBasis::EncounterFrequency
+        }
+        mycelium_node::ExpectedDeliveryBasis::NoCarriersNearby => {
+            ExpectedDeliveryBasis::NoCarriersNearby
+        }
+    }
+}
+
+fn custody_pending_from_node(s: mycelium_node::CustodyPendingStatus) -> CustodyPendingStatus {
+    CustodyPendingStatus {
+        message_id: s.message_id,
+        dest_peer: s.dest_peer,
+        enqueued_at_ms: s.enqueued_at_ms,
+        sprays_released: s.sprays_released,
+        max_spray: s.max_spray,
+        hop_count: s.hop_count,
+        expected: ExpectedDeliveryData {
+            eta_min_ms: s.expected.eta_min_ms,
+            eta_max_ms: s.expected.eta_max_ms,
+            confidence: s.expected.confidence,
+            active_carrier_count: s.expected.active_carrier_count,
+            best_carrier_peer: s.expected.best_carrier_peer,
+            basis: expected_delivery_basis_from_node(s.expected.basis),
+        },
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct UserTrustSummary {
     pub relay_contribution: u32,
     pub uptime_secs: u64,
@@ -257,10 +324,23 @@ pub struct BulletinPost {
 }
 
 #[derive(Debug, Clone)]
+pub struct InformationTrustData {
+    pub corroboration_count: u32,
+    pub trusted_corroboration_count: u32,
+    pub source_diversity: f32,
+    pub geographic_consistency: f32,
+    pub staleness_factor: f32,
+    pub trust_score: f32,
+    pub status: String,
+    pub display_label: String,
+}
+
+#[derive(Debug, Clone)]
 pub struct SosPost {
     pub geohash: String,
     pub message: String,
     pub created_at_ms: u64,
+    pub trust: InformationTrustData,
 }
 
 #[derive(Debug, Clone)]
@@ -271,6 +351,7 @@ pub struct ResourceMapEntry {
     pub created_at_ms: u64,
     pub ttl_secs: u64,
     pub expires_at_ms: u64,
+    pub trust: InformationTrustData,
 }
 
 #[derive(Debug, Clone)]
@@ -450,6 +531,75 @@ pub enum EnergyState {
 }
 
 #[derive(Debug, Clone, Copy)]
+pub enum ThermalState {
+    Normal,
+    Warm,
+    Critical,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum MovementIndicator {
+    Unknown,
+    Stationary,
+    InMotion,
+}
+
+#[derive(Debug, Clone)]
+pub struct EnergyProfileData {
+    pub battery: EnergyState,
+    pub thermal: ThermalState,
+    pub movement: MovementIndicator,
+}
+
+fn energy_state_to_ffi(s: RustEnergyState) -> EnergyState {
+    match s {
+        RustEnergyState::Active => EnergyState::Active,
+        RustEnergyState::Intermittent => EnergyState::Intermittent,
+        RustEnergyState::Passive => EnergyState::Passive,
+    }
+}
+
+fn energy_state_from_ffi(s: EnergyState) -> RustEnergyState {
+    match s {
+        EnergyState::Active => RustEnergyState::Active,
+        EnergyState::Intermittent => RustEnergyState::Intermittent,
+        EnergyState::Passive => RustEnergyState::Passive,
+    }
+}
+
+fn thermal_state_to_ffi(s: RustThermalState) -> ThermalState {
+    match s {
+        RustThermalState::Normal => ThermalState::Normal,
+        RustThermalState::Warm => ThermalState::Warm,
+        RustThermalState::Critical => ThermalState::Critical,
+    }
+}
+
+fn thermal_state_from_ffi(s: ThermalState) -> RustThermalState {
+    match s {
+        ThermalState::Normal => RustThermalState::Normal,
+        ThermalState::Warm => RustThermalState::Warm,
+        ThermalState::Critical => RustThermalState::Critical,
+    }
+}
+
+fn movement_to_ffi(m: RustMovementIndicator) -> MovementIndicator {
+    match m {
+        RustMovementIndicator::Unknown => MovementIndicator::Unknown,
+        RustMovementIndicator::Stationary => MovementIndicator::Stationary,
+        RustMovementIndicator::InMotion => MovementIndicator::InMotion,
+    }
+}
+
+fn energy_profile_to_ffi(p: RustEnergyProfile) -> EnergyProfileData {
+    EnergyProfileData {
+        battery: energy_state_to_ffi(p.battery),
+        thermal: thermal_state_to_ffi(p.thermal),
+        movement: movement_to_ffi(p.movement),
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
 pub enum ConnectivityMode {
     Internet,
     MeshOnly,
@@ -583,7 +733,7 @@ impl NotificationSink for FfiNotifier {
     fn on_sos_received(&self, payload: &mycelium_core::sos::SosPayload) {
         // POISON-RECOVER: callback clone only; poison skips one SOS JNI dispatch.
         if let Some(cb) = lock_or_recover!(CALLBACK, "callback lock").clone() {
-            cb.on_sos_received(to_sos_post(payload));
+            cb.on_sos_received(to_sos_post(payload, query_sos_trust_sync(payload)));
         }
     }
 
@@ -897,7 +1047,7 @@ pub fn init_node(config: NodeConfig) {
                         if let Some(cb) = lock_or_recover!(CALLBACK, "callback lock").clone() {
                             if post.scope == mycelium_core::sos::SOS_SCOPE {
                                 if let Ok(payload) = mycelium_core::sos::SosPayload::decode_json(&post.body) {
-                                    cb.on_sos_received(to_sos_post(&payload));
+                                    cb.on_sos_received(to_sos_post(&payload, query_sos_trust_sync(&payload)));
                                 }
                             } else {
                                 cb.on_bulletin_received(to_bulletin(post));
@@ -1005,6 +1155,20 @@ pub fn connected_peers() -> Vec<String> {
     runtime().block_on(async {
         let guard = state.read().await;
         guard.handle.connected_peers().await
+    })
+}
+
+pub fn list_pending_custody() -> Vec<CustodyPendingStatus> {
+    let state = state_arc();
+    runtime().block_on(async {
+        let guard = state.read().await;
+        guard
+            .handle
+            .pending_custody_statuses()
+            .await
+            .into_iter()
+            .map(custody_pending_from_node)
+            .collect()
     })
 }
 
@@ -1435,13 +1599,31 @@ pub fn post_sos(geohash: String, message: String, ttl_secs: u64) {
 }
 
 pub fn list_sos_posts() -> Vec<SosPost> {
-    with_state(|state| {
+    let state = state_arc();
+    runtime().block_on(async {
+        let state = state.read().await;
         state
             .app_node
-            .list_sos_posts()
+            .list_sos_posts_with_trust()
+            .await
             .unwrap_or_default()
             .into_iter()
-            .map(|p| to_sos_post(&p))
+            .map(|(p, trust)| to_sos_post(&p, trust))
+            .collect()
+    })
+}
+
+pub fn list_resource_map_entries() -> Vec<ResourceMapEntry> {
+    let state = state_arc();
+    runtime().block_on(async {
+        let state = state.read().await;
+        state
+            .app_node
+            .list_resource_map_entries_with_trust()
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .map(|(e, trust)| to_resource_map_entry(e, trust))
             .collect()
     })
 }
@@ -1501,18 +1683,6 @@ pub fn post_resource_map(geohash: String, category: String, description: String,
             .post_resource_map(&geohash, &category, &description, ttl_secs)
             .await;
     });
-}
-
-pub fn list_resource_map_entries() -> Vec<ResourceMapEntry> {
-    with_state(|state| {
-        state
-            .app_node
-            .list_resource_map_entries()
-            .unwrap_or_default()
-            .into_iter()
-            .map(to_resource_map_entry)
-            .collect()
-    })
 }
 
 pub fn list_scope_keys() -> Vec<ScopeKeyInfo> {
@@ -1744,16 +1914,29 @@ pub fn display_name() -> String {
 }
 
 pub fn set_energy_state(state: EnergyState) {
-    let cmd = match state {
-        EnergyState::Active => NodeCommand::SetEnergyState(RustEnergyState::Active),
-        EnergyState::Intermittent => NodeCommand::SetEnergyState(RustEnergyState::Intermittent),
-        EnergyState::Passive => NodeCommand::SetEnergyState(RustEnergyState::Passive),
-    };
+    let cmd = NodeCommand::SetEnergyState(energy_state_from_ffi(state));
     let state = state_arc();
     runtime().block_on(async {
         let st = state.read().await;
         let _ = st.handle.send(cmd).await;
     });
+}
+
+pub fn set_thermal_state(thermal: ThermalState) {
+    let cmd = NodeCommand::SetThermalState(thermal_state_from_ffi(thermal));
+    let state = state_arc();
+    runtime().block_on(async {
+        let st = state.read().await;
+        let _ = st.handle.send(cmd).await;
+    });
+}
+
+pub fn energy_profile() -> EnergyProfileData {
+    let state = state_arc();
+    runtime().block_on(async {
+        let st = state.read().await;
+        energy_profile_to_ffi(st.handle.energy_profile().await)
+    })
 }
 
 pub fn set_rendezvous_enabled(enabled: bool) {
@@ -1891,7 +2074,7 @@ pub fn add_bootstrap_peer(multiaddr: String) {
 pub struct BleOutboundFrame {
     pub to_peer: String,
     pub frame: Vec<u8>,
-    /// 0 = BLE, 1 = Wi‑Fi Direct (see `BearerMedium`).
+    /// 0 = BLE, 1 = Wi‑Fi Direct, 2 = Wi‑Fi Aware discovery (see `BearerMedium`).
     pub medium: u8,
 }
 
@@ -1922,6 +2105,97 @@ pub fn connect_transport_invite(raw: String) -> Result<(), MyceliumException> {
             .map_err(|e| MyceliumException::ChatError {
                 detail: e.to_string(),
             })
+    })
+}
+
+pub fn set_wifi_aware_available(available: bool) {
+    let state = state_arc();
+    runtime().block_on(async {
+        let st = state.read().await;
+        let _ = st
+            .handle
+            .send(NodeCommand::SetWifiAwareAvailable(available))
+            .await;
+    });
+}
+
+pub fn set_ble_discovery_active(active: bool) {
+    let state = state_arc();
+    runtime().block_on(async {
+        let st = state.read().await;
+        let _ = st
+            .handle
+            .send(NodeCommand::SetBleDiscoveryActive(active))
+            .await;
+    });
+}
+
+pub fn prefer_wifi_aware_for_discovery() -> bool {
+    let state = state_arc();
+    runtime().block_on(async {
+        let st = state.read().await;
+        st.handle.prefer_wifi_aware_for_discovery().await
+    })
+}
+
+pub fn queue_discovery_announcement(invite_uri: String) {
+    let state = state_arc();
+    runtime().block_on(async {
+        let st = state.read().await;
+        let _ = st
+            .handle
+            .send(NodeCommand::QueueDiscoveryAnnouncement { invite_uri })
+            .await;
+    });
+}
+
+pub fn ingest_wifi_aware_discovery(peer_hint: String, invite_uri: String, latency_ms: u64) {
+    let state = state_arc();
+    runtime().block_on(async {
+        let st = state.read().await;
+        let _ = st
+            .handle
+            .send(NodeCommand::IngestWifiAwareDiscovery {
+                peer_hint,
+                invite_uri,
+                latency_ms,
+            })
+            .await;
+    });
+}
+
+pub fn record_ble_discovery_observation(latency_ms: u64, bytes: u32, success: bool) {
+    let state = state_arc();
+    runtime().block_on(async {
+        let st = state.read().await;
+        let _ = st
+            .handle
+            .send(NodeCommand::RecordBleDiscoveryObservation {
+                latency_ms,
+                bytes,
+                success,
+            })
+            .await;
+    });
+}
+
+pub fn drain_discovery_announcements(max: u32) -> Vec<String> {
+    let state = state_arc();
+    runtime().block_on(async {
+        let st = state.read().await;
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        if st
+            .handle
+            .send(NodeCommand::DrainDiscoveryAnnouncements {
+                max: max as usize,
+                reply: tx,
+            })
+            .await
+            .is_err()
+        {
+            return Vec::new();
+        }
+        rx.await.unwrap_or_default()
     })
 }
 
@@ -2506,6 +2780,52 @@ pub fn miniapp_storage_delete(app_id: String, key: String) {
     });
 }
 
+pub fn miniapp_get_runtime(app_id: String) -> String {
+    with_state(|s| {
+        s.app_store
+            .get_manifest(&app_id)
+            .ok()
+            .flatten()
+            .map(|m| m.guest_runtime().as_str().to_string())
+            .unwrap_or_else(|| "webview".to_string())
+    })
+}
+
+pub fn miniapp_invoke_wasm_run(app_id: String) -> i32 {
+    use mycelium_app::miniapp::bridge_host::BridgeHost;
+    use mycelium_app::miniapp::wasm_bridge_host::run_wasm_guest_for_app;
+
+    runtime().block_on(async {
+        let st = state_arc();
+        let guard = st.read().await;
+        let manifest = guard.app_store.get_manifest(&app_id).ok().flatten();
+        let Some(m) = manifest else {
+            return -1;
+        };
+        let enc = guard.app_node.node_handle().local_enc_pubkey_hex();
+        let safe_mode = guard
+            .app_store
+            .effective_safe_mode(&app_id)
+            .unwrap_or(false);
+        let host = BridgeHost::new(
+            app_id.clone(),
+            m.permissions,
+            guard.app_node.clone(),
+            guard.app_node.storage(),
+            guard.app_store.clone(),
+            Some(guard.coin_node.clone()),
+            guard.local_peer_id.clone(),
+            enc,
+            safe_mode,
+            guard.cap_mac_key,
+        );
+        match run_wasm_guest_for_app(&app_id, &guard.app_store, host).await {
+            Ok(r) => r.status,
+            Err(_) => -1,
+        }
+    })
+}
+
 pub fn miniapp_bridge_call(app_id: String, method: String, args_json: String) -> String {
     use serde_json::json;
     use serde_json::Value;
@@ -2609,15 +2929,55 @@ fn to_bulletin(p: AppBulletinPost) -> BulletinPost {
     }
 }
 
-fn to_sos_post(p: &mycelium_core::sos::SosPayload) -> SosPost {
+fn query_sos_trust_sync(payload: &mycelium_core::sos::SosPayload) -> mycelium_core::information_trust::InformationTrust {
+    use mycelium_core::information_trust::FactKind;
+    use mycelium_core::sos::SOS_DEFAULT_TTL_SECS;
+    let state = state_arc();
+    runtime().block_on(async {
+        let state = state.read().await;
+        state
+            .app_node
+            .node_handle()
+            .query_fact_trust(
+                FactKind::Sos,
+                &payload.geohash,
+                None,
+                &payload.message,
+                SOS_DEFAULT_TTL_SECS,
+            )
+            .await
+    })
+}
+
+fn to_information_trust(trust: mycelium_core::information_trust::InformationTrust) -> InformationTrustData {
+    InformationTrustData {
+        corroboration_count: trust.corroboration_count as u32,
+        trusted_corroboration_count: trust.trusted_corroboration_count as u32,
+        source_diversity: trust.source_diversity,
+        geographic_consistency: trust.geographic_consistency,
+        staleness_factor: trust.staleness_factor,
+        trust_score: trust.trust_score,
+        status: format!("{:?}", trust.status).to_ascii_lowercase(),
+        display_label: trust.display_label(),
+    }
+}
+
+fn to_sos_post(
+    p: &mycelium_core::sos::SosPayload,
+    trust: mycelium_core::information_trust::InformationTrust,
+) -> SosPost {
     SosPost {
         geohash: p.geohash.clone(),
         message: p.message.clone(),
         created_at_ms: p.created_at_ms,
+        trust: to_information_trust(trust),
     }
 }
 
-fn to_resource_map_entry(e: mycelium_core::resource_map::ResourceMapEntry) -> ResourceMapEntry {
+fn to_resource_map_entry(
+    e: mycelium_core::resource_map::ResourceMapEntry,
+    trust: mycelium_core::information_trust::InformationTrust,
+) -> ResourceMapEntry {
     let expires_at_ms = e.expires_at_ms();
     ResourceMapEntry {
         geohash: e.geohash,
@@ -2626,6 +2986,7 @@ fn to_resource_map_entry(e: mycelium_core::resource_map::ResourceMapEntry) -> Re
         created_at_ms: e.created_at_ms,
         ttl_secs: e.ttl_secs,
         expires_at_ms,
+        trust: to_information_trust(trust),
     }
 }
 

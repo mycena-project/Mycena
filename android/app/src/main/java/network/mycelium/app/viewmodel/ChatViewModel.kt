@@ -21,6 +21,7 @@ import network.mycelium.app.MeshUiState
 import network.mycelium.app.R
 import network.mycelium.app.util.shareCurrentLocation
 import network.mycelium.bindings.ChatMessage
+import network.mycelium.bindings.CustodyPendingStatus
 import network.mycelium.bindings.PeerReputationData
 import network.mycelium.bindings.mycelium
 import uniffi.mycelium.ContactStatus
@@ -158,6 +159,20 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                 emit(mycelium.hasEncKeyFor(peerId))
             }
         }.stateIn(viewModelScope, SharingStarted.Lazily, false)
+
+    fun pendingCustodyForPeer(peerId: String): StateFlow<List<CustodyPendingStatus>> =
+        flow {
+            awaitNodeReady()
+            emit(pendingCustodyEntries(peerId))
+            MeshUiState.chatRevision.collect {
+                emit(pendingCustodyEntries(peerId))
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    private fun pendingCustodyEntries(peerId: String): List<CustodyPendingStatus> =
+        runCatching {
+            mycelium.listPendingCustody().filter { it.destPeer == peerId }
+        }.getOrDefault(emptyList())
 
     fun sendChat(toPeer: String, body: String, onSuccess: () -> Unit = {}) {
         viewModelScope.launch(Dispatchers.IO) {

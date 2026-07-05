@@ -33,6 +33,12 @@ typealias PrivacyShapingConfig = uniffi.mycelium.PrivacyShapingConfig
 typealias PrivacyShapingProfile = uniffi.mycelium.PrivacyShapingProfile
 typealias PrivacyShapingOverheadEstimate = uniffi.mycelium.PrivacyShapingOverheadEstimate
 typealias UserTrustSummary = uniffi.mycelium.UserTrustSummary
+typealias CustodyPendingStatus = uniffi.mycelium.CustodyPendingStatus
+typealias ExpectedDeliveryData = uniffi.mycelium.ExpectedDeliveryData
+typealias ExpectedDeliveryBasis = uniffi.mycelium.ExpectedDeliveryBasis
+typealias ThermalState = uniffi.mycelium.ThermalState
+typealias MovementIndicator = uniffi.mycelium.MovementIndicator
+typealias EnergyProfileData = uniffi.mycelium.EnergyProfileData
 
 object mycelium {
     fun initNode(config: NodeConfig) = uniffi.mycelium.initNode(config)
@@ -41,6 +47,7 @@ object mycelium {
     fun localAccountId(): String = uniffi.mycelium.localAccountId()
     fun knownPeers(): List<String> = uniffi.mycelium.knownPeers()
     fun connectedPeers(): List<String> = uniffi.mycelium.connectedPeers()
+    fun listPendingCustody(): List<CustodyPendingStatus> = uniffi.mycelium.listPendingCustody()
     fun metrics(): NodeMetrics = uniffi.mycelium.metrics()
     fun relayPeerId(): String = uniffi.mycelium.relayPeerId()
     fun relayKeypairAgeSecs(): ULong = uniffi.mycelium.relayKeypairAgeSecs()
@@ -112,6 +119,18 @@ object mycelium {
     fun propagateInstalledMiniapps(): UInt = uniffi.mycelium.propagateInstalledMiniapps()
     fun displayName(): String = uniffi.mycelium.displayName()
     fun setEnergyState(state: EnergyState) = uniffi.mycelium.setEnergyState(state)
+    fun setWifiAwareAvailable(available: Boolean) = uniffi.mycelium.setWifiAwareAvailable(available)
+    fun setBleDiscoveryActive(active: Boolean) = uniffi.mycelium.setBleDiscoveryActive(active)
+    fun preferWifiAwareForDiscovery(): Boolean = uniffi.mycelium.preferWifiAwareForDiscovery()
+    fun queueDiscoveryAnnouncement(inviteUri: String) = uniffi.mycelium.queueDiscoveryAnnouncement(inviteUri)
+    fun ingestWifiAwareDiscovery(peerHint: String, inviteUri: String, latencyMs: ULong) =
+        uniffi.mycelium.ingestWifiAwareDiscovery(peerHint, inviteUri, latencyMs)
+    fun recordBleDiscoveryObservation(latencyMs: ULong, bytes: UInt, success: Boolean) =
+        uniffi.mycelium.recordBleDiscoveryObservation(latencyMs, bytes, success)
+    fun drainDiscoveryAnnouncements(max: UInt): List<String> =
+        uniffi.mycelium.drainDiscoveryAnnouncements(max)
+    fun setThermalState(state: ThermalState) = uniffi.mycelium.setThermalState(state)
+    fun energyProfile(): EnergyProfileData = uniffi.mycelium.energyProfile()
     fun addBootstrapPeer(multiaddr: String) = uniffi.mycelium.addBootstrapPeer(multiaddr)
     fun connectInvite(raw: String) = uniffi.mycelium.connectInvite(raw)
     fun connectTransportInvite(raw: String) = uniffi.mycelium.connectTransportInvite(raw)
@@ -186,6 +205,8 @@ object mycelium {
         uniffi.mycelium.installOfficialBundle(appId)
     fun uninstallApp(appId: String) = uniffi.mycelium.uninstallApp(appId)
     fun getAppFile(appId: String, path: String): ByteArray? = uniffi.mycelium.getAppFile(appId, path)
+    fun miniappGetRuntime(appId: String): String = uniffi.mycelium.miniappGetRuntime(appId)
+    fun miniappInvokeWasmRun(appId: String): Int = uniffi.mycelium.miniappInvokeWasmRun(appId)
     fun browseAppStore(): List<AppStoreListing> = uniffi.mycelium.browseAppStore()
     fun miniappStorageGet(appId: String, key: String): String? =
         uniffi.mycelium.miniappStorageGet(appId, key)

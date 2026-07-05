@@ -1,233 +1,199 @@
-# Mini-App Sandbox — Ist-Verhalten & Ressourcen-Limits
+# Mini-App Sandbox — Status & Sicherheitsgewinn
 
 **Stand:** Juli 2026  
-**Scope:** Runtime-Architektur, aktuelle Grenzen, neue Plattform-Limits, WASM-Bewertung  
-**Verwandt:** [MINIAPP_SECURITY_ARCHITECTURE.md](./MINIAPP_SECURITY_ARCHITECTURE.md), [MINIAPP_RUNTIME_HARDENING.md](./MINIAPP_RUNTIME_HARDENING.md), [MINIAPP_WASM_RUNTIME.md](./MINIAPP_WASM_RUNTIME.md), SD-050
+**Scope:** WebView-Kompatibilität, wasmtime-WASM-Sandbox, Ressourcen-Limits, Migration  
+**Verwandt:** [MINIAPP_SECURITY_ARCHITECTURE.md](./MINIAPP_SECURITY_ARCHITECTURE.md), [MINIAPP_WASM_RUNTIME.md](./MINIAPP_WASM_RUNTIME.md), SD-050
 
 ---
 
 ## 1. Executive Summary
 
-Mycelium-Miniapps laufen **ausschließlich als HTML/JavaScript in einer Plattform-WebView** (Android: System-WebView/Chromium; Desktop: Tauri-iframe im Host-WebView). Es gibt **keinen** eingebetteten WASM-Executor (kein wasmtime/wasmer im Repo). Manifest-Wert `runtime: "wasm"` wird beim Install **abgewiesen**.
+Mycelium unterstützt jetzt ein **Hybrid-Runtime-Modell**:
 
-Die Sicherheitsgrenze ist damit:
+| `runtime` | Gast-Logik | UI | Status |
+|-----------|------------|-----|--------|
+| **`webview`** | HTML/JS in Plattform-WebView | DOM in WebView | Legacy / Kompatibilitäts-Fallback |
+| **`wasm`** | **wasmtime**-Sandbox (`guest.wasm`) | optional `ui/index.html` in WebView | **Neuer Standard für Gast-Logik** |
 
-```text
-Gast-JS (WebView)  →  Host-Bridge  →  Rust (BridgeHost / Node)
-```
+**Neu implementiert (Jul 2026):**
 
-**Trust Boundary:** Chromium/WebView ist Teil des TCB (SD-050). Android reduziert Schaden durch **Prozess-Isolation** (`:miniapp`), aber ein WebView-0-day kann weiterhin den isolierten Renderer-Prozess kompromittieren.
-
----
-
-## 2. Runtime nach Plattform
-
-| Plattform | Gast-Runtime | Host-Datei | Bridge-Pfad |
-|-----------|--------------|------------|-------------|
-| **Android** | `android.webkit.WebView` in Prozess `:miniapp` | `MiniAppProcessActivity.kt` | JS → `@JavascriptInterface` → AIDL → `MiniAppBridgeService` → UniFFI → Rust |
-| **Desktop** | Sandboxed `<iframe>` + `postMessage` | `MiniApp.svelte` | JS → Tauri `invoke("miniapp_bridge_call")` → Rust |
-| **iOS** | **Nicht implementiert** (nur BLE/Mesh) | — | Vorbereitung: `ios/Mycelium/MiniApp/MiniAppResourceGuard.swift` |
-
-### 2.1 Was die WebView-Sandbox heute erzwingt
-
-| Kontrolle | Android | Desktop |
-|-----------|---------|---------|
-| Netzwerk | `fetch`/XHR/WebSocket/`sendBeacon` gestubbt + URL-Intercept | CSP `connect-src 'none'` + iframe-Sandbox |
-| Dateizugriff | Nur Bundle-Dateien via virtuelle Origin `https://app.mycelium.local/` | Entry-HTML aus Rust-Store |
-| DOM Storage | `domStorageEnabled = false` | iframe ohne persistente Gast-DOM-Storage |
-| CSP | Nonce-basiert (`MiniAppCsp.kt`) | Nonce + Meta-CSP |
-| Bridge | Session-Token + HMAC-Capability-Tokens + Manifest-Permissions | Gleiche Rust-Logik |
-
-### 2.2 Was die WebView **nicht** begrenzen kann
-
-| Risiko | Grund |
-|--------|--------|
-| Endlosschleife / enge JS-Schleife im Gast | Kein JS-CPU-Metering in WebView-API |
-| Speicherhunger rein in Gast-JS/DOM | Kein hartes RAM-Quota pro WebView (OS/WebView-Prozess) |
-| Akku durch `requestAnimationFrame`/Timer | `pauseTimers()` nur wenn Activity pausiert |
-| Chromium-RCE | Plattform-TCB, nicht durch App-Policy lösbar |
+- `wasmtime` v28 als Feature `wasm-runtime` (Default) in `mycelium-miniapp`
+- **Fuel-Metering** — deterministisches CPU-Budget pro Invocation
+- **Memory-Limit** — `ResourceLimiter` auf `Store` (Default 16 MiB linear memory)
+- **Execution-Timeout** — Epoch-Interruption + Wall-Clock-Watcher (Default 5 s)
+- **Bridge-Import** — `mycelium.bridge_call` delegiert an `BridgeHost` (Session-Injection)
+- **Migration** — Manifest/Bundle/Scan/SDK akzeptieren `runtime: "wasm"`; WebView-Apps unverändert
 
 ---
 
-## 3. Bridge-Architektur (Rust)
+## 2. Sicherheitsgewinn: Vorher vs. Nachher
 
-**Crate:** `mycelium-miniapp` (Manifest, Bundle, Limits) + `mycelium-app/bridge_host.rs` (Dispatcher)
+### 2.1 Was vorher möglich war (nur WebView)
+
+| Angriff / Fehlverhalten | WebView-only (vorher) |
+|-------------------------|------------------------|
+| Endlosschleife im Gast-JS (ohne Bridge) | **Möglich** — kein JS-CPU-Metering |
+| Speicherhunger via DOM / JS-Heap | **Möglich** — nur OS-/Prozess-Druck (Android `:miniapp`) |
+| Unbegrenzte lokale Berechnung | **Möglich** |
+| XSS → Bridge-Missbrauch | Durch CSP/Session/Capability **eingeschränkt**, nicht eliminiert |
+| Chromium/WebView RCE | **Möglich** (Plattform-TCB, SD-050) |
+| Native Binary im Bundle | Install-Scan **verhindert** (MZ/ELF/PDF) |
+| Bridge-API-Flood | Rate + Chain-Budget **verhindert** |
+
+### 2.2 Was jetzt technisch verhindert wird (`runtime: "wasm"`)
+
+| Angriff / Fehlverhalten | WASM-Sandbox (jetzt) | Mechanismus |
+|-------------------------|----------------------|-------------|
+| Endlosschleife in Gast-Logik | **Verhindert** | Fuel erschöpft → `FuelExhausted` |
+| Unbegrenztes linear memory growth | **Verhindert** | `ResourceLimiter::memory_growing` |
+| Lange laufende Gast-Berechnung | **Verhindert** | Epoch-Timeout 5 s → `ExecutionTimeout` |
+| Direkter Netzwerkzugriff aus Gast | **Verhindert** | Kein WASI-Socket; kein JS-`fetch` in WASM-Pfad |
+| Dateisystem-Zugriff aus Gast | **Verhindert** | Kein WASI-FS im Linker |
+| Unbegrenzte Bridge-Ketten | **Weiter eingeschränkt** | `bridge_limits.rs` + `BridgeHost` (120/min, 30 s Budget) |
+| Host-API ohne Session | **Verhindert** | Session wird beim Bridge-Import injiziert |
+| Polyglot/EXE im Bundle | **Verhindert** | `bundle_scan.rs` + WASM-Magic-Check |
+
+### 2.3 Was weiterhin nur eingeschränkt oder offen ist
+
+| Risiko | WASM-Runtime | WebView-Fallback |
+|--------|--------------|------------------|
+| Chromium/WebView CVE (Hybrid-UI) | N/A für reine WASM-Logik | **Weiter TCB** wenn `ui/index.html` |
+| Bridge-Permission-Eskalation | Gast muss `_cap` für geschützte Methoden liefern | Gleich |
+| Android UniFFI-Bindings nach UDL-Änderung | **Manuell regen** (`miniapp_get_runtime`, `miniapp_invoke_wasm_run`) | — |
+| iOS Miniapp-Host | — | Nicht implementiert |
+| Desktop ohne OS-Prozess-Isolation | WASM-Logik isoliert; iframe-UI wie bisher | iframe-Sandbox |
+
+---
+
+## 3. Architektur
 
 ```text
-bridge_api.js          window.mycelium.* → __mycelium_native_call(JSON)
-        ↓
-Plattform-Host         Session + Capability anhängen, Grants, native UI
-        ↓
-BridgeHost::handle()   Rate → Chain-Budget → Timeout → Permission → Methode
-        ↓
-AppNode / AppStorage / CoinNode
+runtime: "webview"  →  WebView (HTML/JS)  →  Bridge  →  BridgeHost
+runtime: "wasm"     →  wasmtime (guest.wasm)  →  mycelium.bridge_call  →  BridgeHost
+                       optional: ui/index.html  →  WebView (nur UI)
 ```
 
-**Wichtige Dateien:**
+### 3.1 Kern-Dateien
 
 | Datei | Rolle |
 |-------|--------|
-| `crates/mycelium-miniapp/src/bridge_api.js` | Gast-API, Promise-Timeout |
-| `crates/mycelium-miniapp/src/bridge_limits.rs` | Rate + Execution-Budget |
-| `crates/mycelium-app/src/bridge_host.rs` | Native Handler + `tokio::timeout` |
-| `crates/mycelium-ffi/src/lib.rs` | `miniapp_bridge_call` (Android UniFFI) |
+| `crates/mycelium-miniapp/src/wasm_runtime.rs` | wasmtime Engine, Fuel, Memory, Epoch, Host-Import |
+| `crates/mycelium-miniapp/src/runtime.rs` | `GuestRuntime`, `invoke_wasm_run`, Bundle-Helfer |
+| `crates/mycelium-miniapp/src/manifest.rs` | `runtime: "webview" \| "wasm"`, Entry-Validierung |
+| `crates/mycelium-miniapp/src/bundle_scan.rs` | `.wasm` erlaubt, Magic-Check, Hybrid-HTML-Scan |
+| `crates/mycelium-app/src/wasm_bridge_host.rs` | `run_wasm_guest_for_app` + Bridge-Delegation |
+| `crates/mycelium-app/src/bridge_host.rs` | Unverändertes Permission-/Rate-Modell |
+| `crates/mycelium-desktop` | `miniapp_get_runtime`, `miniapp_invoke_wasm_run` |
+| `crates/mycelium-ffi` + Android AIDL | Gleiche FFI für isolierten `:miniapp`-Prozess |
+| `crates/miniapp-sdk` | `lint` akzeptiert `wasm` + scan |
 
----
+### 3.2 Default-Limits (WASM)
 
-## 4. Ressourcen-Limits (Implementiert)
-
-### 4.1 Rust / Bridge (`bridge_limits.rs`)
-
-| Limit | Wert | Verhalten |
+| Limit | Wert | Konstante |
 |-------|------|-----------|
-| Bridge-Call-Rate | **120/min** pro `app_id` | Sliding Window; Anomalie-Log bei Überschreitung |
-| Einzel-Call-Timeout | **5 s** | `tokio::time::timeout` um `BridgeHost::handle_inner` |
-| Chain-Budget | **30 s kumulativ / 30 s Fenster** | Summe gemessener nativer Handler-Latenzen pro App |
-| Broadcast-Rate | 10/h | `bridge_host.rs` |
-| Session-TTL | 1 h | `bridge_session.rs` |
-| Capability-TTL | 15 min | `capability_token.rs` |
-| Storage | 256 KB gesamt, 256 Keys, 32 KB/Value | `storage_quota.rs` |
-| Bundle | 10 MB, 128 Dateien, Zip-Bomb-Scan | `store.rs`, `bundle_scan.rs` |
+| Fuel / Invocation | 10⁹ | `DEFAULT_WASM_FUEL_PER_INVOCATION` |
+| Linear Memory | 16 MiB | `DEFAULT_WASM_MAX_MEMORY_BYTES` |
+| Wall-Clock Timeout | 5 s | `DEFAULT_WASM_EXECUTION_TIMEOUT_MS` |
+| Bridge Rate | 120/min | `bridge_limits.rs` |
+| Bridge Chain Budget | 30 s / 30 s Fenster | `bridge_limits.rs` |
+| Bundle Size | 10 MiB | `store.rs` |
 
-**Chain-Budget:** Modelliert „Bridge-Call-Ketten“ (schnelle Folge von `window.mycelium.*`-Aufrufen). Jeder native Handler misst Wall-Time; Überschreitung → `"bridge execution budget exceeded"`.
-
-### 4.2 Gast-JS (`bridge_api.js`)
-
-| Limit | Wert |
-|-------|------|
-| Promise-Timeout | **8 s** (über nativem 5-s-Timeout, damit Rust-Fehler zuerst ankommt) |
-
-Hängende Bridge-Antworten werden im Gast rejected; der Gast-Thread bleibt blockierbar durch **reines JS ohne Bridge** (siehe §2.2).
-
-### 4.3 Android (`MiniAppResourceGuard.kt`, `MiniAppProcessActivity.kt`)
-
-| Mechanismus | Verhalten |
-|-------------|-----------|
-| **Bridge-IPC-Timeout** | `Future.get(5s)` um AIDL `bridgeCall` |
-| **`ComponentCallbacks2.onTrimMemory`** | `RUNNING_LOW` → Cache leeren; `RUNNING_CRITICAL` → WebView pausieren + `pauseTimers()`; `COMPLETE` → WebView destroy + Activity beenden |
-| **`onLowMemory`** | WebView destroy + Activity beenden |
-| **`onRenderProcessGone`** | Renderer-Crash/OOM → WebView destroy |
-| **`onPause`/`onResume`** | `pauseTimers()` / `resumeTimers()` |
-| **Prozess-Isolation** | `:miniapp` — Haupt-Node-Prozess nicht direkt im WebView-Prozess |
-
-### 4.4 Desktop (`MiniApp.svelte`)
-
-| Mechanismus | Verhalten |
-|-------------|-----------|
-| Bridge-Timeout | `Promise.race` 8 s um Tauri-`invoke` |
-| iframe-Sandbox | Kein direkter Netz-/Top-Navigation-Zugriff |
-
-### 4.5 iOS (vorbereitet)
-
-`MiniAppResourceGuard.swift` registriert `UIApplication.didReceiveMemoryWarningNotification` → WebView-Teardown-Callback. **Noch nicht an WKWebView angebunden** (kein Miniapp-Host auf iOS).
+Fuel und Epoch-Timeout sind **komplementär**: Fuel = deterministisches CPU-Budget; Epoch = Wall-Clock-Fallback (wichtig bei epoch-instrumentiertem Code).
 
 ---
 
-## 5. Limit-Matrix: Was schützt vor was?
+## 4. Bundle-Migration
 
-| Angriff / Fehler | Rate-Limit | Call-Timeout | Chain-Budget | Memory-Pressure | Prozess-Isolation |
-|------------------|:----------:|:------------:|:------------:|:---------------:|:-----------------:|
-| Bridge-Spam (API-Flood) | ✓ | — | ✓ | — | ✓ (Android) |
-| Langsamer/hängender Rust-Handler | — | ✓ | ✓ | — | — |
-| Schnelle Bridge-Schleife (`while(true) call()`) | ✓ | ✓ | ✓ | — | ✓ |
-| Reine JS-Endlosschleife (kein Bridge) | — | — | — | teilweise¹ | ✓ |
-| DOM/JS-Speicherhunger | — | — | — | ✓² | ✓ |
-| WebView-Chromium-RCE | — | — | — | — | teilweise³ |
+### 4.1 Bestehende WebView-Miniapps
 
-¹ `pauseTimers()` wenn Activity im Hintergrund; Vordergrund-CPU bleibt OS/WebView-Sache.  
-² Android beendet Miniapp bei starkem Memory-Druck; kein präzises Quota.  
-³ Isolierter Prozess schützt Node/Wallet, nicht Gerät global.
+- `runtime: "webview"` (Default) — **keine Änderung nötig**
+- Install, Lint, Desktop/Android-Host laden weiter `entry` HTML
 
----
+### 4.2 Neue WASM-Miniapps
 
-## 6. WASM-Sandbox — Bewertung für zukünftige Miniapp-Logik
+`mycelium-app.json`:
 
-### 6.1 Ist-Zustand
+```json
+{
+  "id": "com.example.logic",
+  "runtime": "wasm",
+  "entry": "guest.wasm",
+  "permissions": ["Identity"]
+}
+```
 
-- `runtime: "wasm"` ist **Install-Gate only** ([MINIAPP_WASM_RUNTIME.md](./MINIAPP_WASM_RUNTIME.md)).
-- Kein `wasmtime`/`wasmer` in `Cargo.toml` / CI.
-
-### 6.2 WebView-JS vs. WASM (wasmtime + Fuel)
-
-| Kriterium | WebView-JS (heute) | WASM + wasmtime |
-|-----------|-------------------|-----------------|
-| **Deterministisches CPU-Limit** | ✗ | ✓ (Fuel/Epoch interruption) |
-| **Speicher-Obergrenze** | ✗ (OS-level) | ✓ (Store-Limits konfigurierbar) |
-| **Netzwerk-Isolation** | Host-Policy nötig | Kein Netz by default |
-| **UI/HTML** | Natürlich (DOM) | Braucht separaten UI-Layer oder Canvas |
-| **Ökosystem / DX** | Standard Web | Neues SDK, kleinere Toolchain |
-| **TCB-Größe** | Chromium (groß) | wasmtime + Gast-Module (kleiner, aber Host-Bridge bleibt) |
-| **Akku** | Schwer messbar | Fuel pro Instruction → begrenzbar |
-
-### 6.3 Empfehlung (Jul 2026)
-
-**Kurzfristig (Beta):** WebView beibehalten + **Host-Limits** (dieses Dokument) + Bridge-Härtung. Begründung: bestehende HTML-Miniapps, geringer Migrationsaufwand, Android-Prozess-Isolation bereits live.
-
-**Mittelfristig (P3):** **Hybrid-Modell** wie in [MINIAPP_SECURITY_ARCHITECTURE.md](./MINIAPP_SECURITY_ARCHITECTURE.md) skizziert:
+Optional Hybrid-UI:
 
 ```text
-runtime: "webview"  →  UI/DOM in WebView, Logik minimal
-runtime: "wasm"     →  wasmtime-Gast mit Fuel (z.B. 10⁹ Instructionen/Call),
-                       linear memory cap (z.B. 16 MB), kein WASI-Netz;
-                       UI weiter über deklarative Bridge-Events
+guest.wasm          # Logik (export "run" → i32)
+ui/index.html       # Deklarative UI, Bridge für API
+mycelium-app.json   # runtime: "wasm", entry: "guest.wasm"
 ```
 
-**WASM lohnt sich besonders für:**
+Gast-Bridge (WAT/ Rust/ TinyGo):
 
-- Rechenintensive oder unbound-Loop-fähige Gast-Logik (Spiele, Parsing, Krypto in Gast)
-- Deterministische Audit-Anforderungen („max X CPU pro Aktion“)
-- Reduktion der XSS-Fläche (kein Gast-DOM-Zugriff auf Host)
+```text
+(import "mycelium" "bridge_call"
+  (func $bridge (param i32 i32 i32 i32 i32 i32) (result i32)))
+```
 
-**WASM ersetzt nicht:**
-
-- Native Payment-UI (weiter Host-only)
-- WebView-TCB für HTML-Apps bis Migration abgeschlossen
-- Bridge-Permission-Modell (Capabilities bleiben in Rust)
-
-### 6.4 Geplanter WASM-Pfad (noch nicht implementiert)
-
-1. `wasmtime` als optionale Feature-Flag-Dependency (`mycelium-miniapp/wasm-runtime`)
-2. Fuel-Limit pro `bridge.invoke_guest()` (analog Chain-Budget)
-3. Manifest: `runtime: "wasm"`, Entry `guest.wasm` + optional `ui/index.html`
-4. Red-Team: Fuel-Exhaustion, Memory-OOM, Host-Import-Whitelist
+SDK: `miniapp-sdk lint bundle.mxa` prüft WASM-Magic + Scan-Regeln.
 
 ---
 
-## 7. Akzeptierte Restrisiken
+## 5. Plattform-Dispatch
 
-| ID | Risiko | Mitigation heute | Vollständige Lösung |
-|----|--------|------------------|---------------------|
-| SD-050 | WebView/Chromium CVE | Isolierter Prozess (Android) | WASM für Logik; WebView nur UI |
-| — | Gast-JS-CPU ohne Bridge | `pauseTimers`, Activity-Lifecycle | WASM Fuel |
-| — | Kein iOS-Miniapp-Host | — | WKWebView + gleiche Limits |
-| — | Desktop iframe = kein OS-Prozess | Tauri-Sandbox, Timeouts | Optional separater Helper-Prozess |
-
-Siehe [ACCEPTED_SECURITY_RESIDUALS.md](./ACCEPTED_SECURITY_RESIDUALS.md) R4 (WebView TCB).
+| Plattform | WebView | WASM |
+|-----------|---------|------|
+| **Desktop** | iframe + `miniapp_get_entry_html` | `miniapp_invoke_wasm_run` beim Start + optional Hybrid-iframe |
+| **Android** | `:miniapp`-WebView | `invokeWasmRun` via AIDL vor WebView-Aufbau |
+| **iOS** | — | Nicht angebunden |
 
 ---
 
-## 8. Tests & Verifikation
+## 6. Tests
 
 ```bash
-# Rust: Rate + Chain-Budget
-cargo test -p mycelium-miniapp bridge_chain
+# WASM-Sandbox (Fuel, Memory, Run)
+cargo test -p mycelium-miniapp wasm
 
-# Gesamte Miniapp-Security-Suite
+# Bridge-Guest-Runner
+cargo test -p mycelium-app wasm
+
+# Gesamte Miniapp-Suite
 cargo test -p mycelium-miniapp
-
-# Bridge-Handler (Timeout indirekt über handle)
-cargo test -p mycelium-app
 ```
-
-Manuell Android:
-
-1. Miniapp mit enger Bridge-Schleife → nach ~120 Calls/min oder Chain-Budget Fehler
-2. Entwickleroption „Don't keep activities“ + Speicherdruck → Miniapp-Prozess beendet sich
 
 ---
 
-## 9. Änderungshistorie
+## 7. Vollständigkeits-Assessment (Jul 2026)
+
+| Anforderung | Status | Anmerkung |
+|-------------|--------|-----------|
+| wasmtime-Dependency | ✅ | Workspace `wasmtime = 28`, Feature `wasm-runtime` (default) |
+| Fuel-Metering | ✅ | `consume_fuel(true)` + `Store::set_fuel` |
+| Memory-Limits | ✅ | `ResourceLimiter` 16 MiB default |
+| Execution-Timeout | ✅ | Epoch + Background-Thread |
+| Manifest `runtime: "wasm"` | ✅ | Validierung Entry `.wasm` |
+| bundle.rs / bundle_scan Migration | ✅ | WASM load + scan |
+| WebView-Kompatibilitäts-Fallback | ✅ | `runtime: "webview"` unverändert |
+| Bridge an BridgeHost | ✅ | `wasm_bridge_host.rs` |
+| Desktop-Host Dispatch | ✅ | Runtime + invoke Commands |
+| Android-Host Dispatch | ✅ | AIDL + Kotlin (Bindings regen nötig) |
+| miniapp-sdk lint | ✅ | webview + wasm |
+| Dokumentation Sicherheitsgewinn | ✅ | Dieses Dokument |
+| Android UniFFI-Regenerierung | ⏳ | Manuell: `./scripts/regenerate-android-bindings.sh` |
+| iOS WKWebView + WASM | ❌ | Außer Scope |
+| WASM-Gast-SDK (Rust/TinyGo Templates) | ⏳ | Host-Import dokumentiert, kein Template-Crate |
+| CI-Gate dediziert WASM-Red-Team | ⏳ | Unit-Tests vorhanden, kein sim-Gate |
+
+**Fazit:** Die geforderte wasmtime-Sandbox mit Fuel/Memory/Timeout ist **vollständig in Rust** umgesetzt; WebView-Fallback bleibt für Legacy-Bundles. Offene Punkte sind Android-Binding-Regenerierung (Deployment-Schritt) und optionale SDK/CI-Erweiterungen — keine Blocker für den Kern-Sicherheitsgewinn.
+
+---
+
+## 8. Änderungshistorie
 
 | Datum | Änderung |
 |-------|----------|
-| Jul 2026 | Erstfassung: Ist-Analyse WebView-only; Chain-Budget + Call-Timeout; Android `ComponentCallbacks2`; iOS-Vorbereitung; WASM-Bewertung |
+| Jul 2026 (früh) | Ist-Analyse WebView-only; WASM als Plan |
+| Jul 2026 | **Implementiert:** wasmtime-Sandbox, Hybrid-Runtime, Migration, Host-Dispatch, Sicherheitsmatrix |

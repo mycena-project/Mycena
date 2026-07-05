@@ -12,7 +12,7 @@ pub const RESOURCE_MAX_TTL_SECS: u64 = 72 * 3600;
 use crate::sos::{SOS_MAX_GEOHASH_LEN, SOS_MIN_GEOHASH_LEN};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "snake_case")]
 pub enum ResourceCategory {
     Water,

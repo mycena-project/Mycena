@@ -9,6 +9,8 @@ use crate::commuter_custody_scenarios::commuter_custody_comparison;
 use crate::custody_scenarios::city_custody_delivery;
 use crate::dense_cluster::dense_cluster_shard_containment;
 use crate::local_sybil_dense::run_local_sybil_dense_ci_gate as run_local_sybil_dense_gate;
+use crate::sos_disinfo_scenarios::run_sos_disinfo_ci_gate;
+use crate::resource_disinfo_scenarios::run_resource_disinfo_ci_gate;
 use crate::sos_flood_scenarios::run_sos_flood_ci_gate;
 use crate::eclipse_scenarios::eclipse_relay_resilience;
 use crate::lab::gates::lab_delivery_thresholds;
@@ -104,6 +106,16 @@ pub fn run_local_sybil_dense_ci_gate() -> anyhow::Result<()> {
     run_local_sybil_dense_gate().map(|_| ())
 }
 
+/// SOS crisis-message disinformation must keep conflicting claims low-trust.
+pub fn run_sos_disinfo_ci_gate_wrapper() -> anyhow::Result<()> {
+    run_sos_disinfo_ci_gate().map(|_| ())
+}
+
+/// Resource-map disinformation flood must keep conflicting claims low-trust.
+pub fn run_resource_disinfo_ci_gate_wrapper() -> anyhow::Result<()> {
+    run_resource_disinfo_ci_gate().map(|_| ())
+}
+
 /// SOS Sybil flood must not trigger global crisis; three legit sources must.
 pub fn run_sos_flood_ci_gate_wrapper() -> anyhow::Result<()> {
     run_sos_flood_ci_gate().map(|_| ())
@@ -133,6 +145,8 @@ pub fn run_all_sim_ci_gates() -> anyhow::Result<Vec<LabReport>> {
     run_eclipse_ci_gate()?;
     run_local_sybil_dense_ci_gate()?;
     run_sos_flood_ci_gate_wrapper()?;
+    run_resource_disinfo_ci_gate_wrapper()?;
+    run_sos_disinfo_ci_gate_wrapper()?;
     run_dense_cluster_ci_gate()?;
     Ok(lab_reports)
 }

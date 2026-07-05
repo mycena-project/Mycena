@@ -882,6 +882,7 @@ impl MeshTransport for Libp2pTransport {
             wifi_direct: wifi_direct_cap,
             ble: bearer_up || mesh_peers_nonempty,
             lora: false,
+            wifi_aware: false,
         }
     }
 
@@ -1065,6 +1066,10 @@ impl MeshTransport for Libp2pTransport {
         wifi_direct: bool,
     ) {
         self.bearer.set_peer_caps(peer, wire, wifi_direct);
+    }
+
+    fn set_energy_profile(&mut self, profile: mycelium_core::energy::EnergyProfile) {
+        self.bearer.set_energy_profile(profile);
     }
 
     fn drain_bearer_outbound(

@@ -21,7 +21,7 @@ pub struct MiniAppManifest {
     pub accepts_payments: bool,
     pub payment_address: Option<String>,
     pub categories: Vec<String>,
-    /// Guest runtime: `webview` (default). `wasm` is not supported yet (Cell C5).
+    /// Guest runtime: `webview` (legacy HTML/JS) or `wasm` (wasmtime sandbox).
     #[serde(default = "default_runtime")]
     pub runtime: String,
     /// If non-empty, `bulletin.post` / `bulletin.get` may only use these scopes.
@@ -65,11 +65,20 @@ impl MiniAppManifest {
         if self.entry.is_empty() {
             anyhow::bail!("entry point is required");
         }
-        if self.runtime != "webview" {
-            anyhow::bail!(
-                "runtime {:?} is not supported (only \"webview\" in this release)",
-                self.runtime
-            );
+        match self.runtime.as_str() {
+            "webview" => {}
+            "wasm" => {
+                if !self.entry.ends_with(".wasm") {
+                    anyhow::bail!(
+                        "wasm runtime requires entry ending in .wasm (e.g. guest.wasm), got {:?}",
+                        self.entry
+                    );
+                }
+            }
+            other => anyhow::bail!(
+                "runtime {:?} is not supported (use \"webview\" or \"wasm\")",
+                other
+            ),
         }
         if let Some(rb) = &self.reproducible_build {
             rb.validate()?;
@@ -88,6 +97,15 @@ impl MiniAppManifest {
             return true;
         }
         self.bulletin_scopes.iter().any(|s| s == scope)
+    }
+
+    /// Optional hybrid UI entry when `runtime: "wasm"` ships `ui/index.html`.
+    pub fn hybrid_ui_entry(&self) -> Option<&str> {
+        if self.runtime == "wasm" && self.entry != "ui/index.html" {
+            Some("ui/index.html")
+        } else {
+            None
+        }
     }
 }
 

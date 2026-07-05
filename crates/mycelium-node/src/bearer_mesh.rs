@@ -8,6 +8,7 @@ use crate::ble_transport::BlePeerInfo;
 use mycelium_core::bearer_transport::{
     self, BearerMedium, BearerPayloadKind, BearerTransport, BearerWireVersion, ReliabilityClass,
 };
+use mycelium_core::energy::{EnergyProfile, ThermalState};
 use mycelium_core::ble_stream::encode_stream_frame_with_version;
 use mycelium_core::data::now_ms;
 use mycelium_core::transport::{TransportEvent, WireMessage};
@@ -33,6 +34,7 @@ pub struct BearerMeshRouter {
     wifi_outbound: HashMap<String, VecDeque<Vec<u8>>>,
     peer_caps: HashMap<String, PeerBearerCaps>,
     scores: TransportScoreStore,
+    energy: EnergyProfile,
 }
 
 impl Default for BearerMeshRouter {
@@ -48,7 +50,12 @@ impl BearerMeshRouter {
             wifi_outbound: HashMap::new(),
             peer_caps: HashMap::new(),
             scores: TransportScoreStore::default(),
+            energy: EnergyProfile::default(),
         }
+    }
+
+    pub fn set_energy_profile(&mut self, profile: EnergyProfile) {
+        self.energy = profile;
     }
 
     pub fn transport_scores(&self) -> &TransportScoreStore {
@@ -102,6 +109,7 @@ impl BearerMeshRouter {
             wifi_direct: self.peer_wifi_allowed(peer),
             ble: self.ble.is_connected(peer),
             lora: false,
+            wifi_aware: false,
         }
     }
 
@@ -162,7 +170,15 @@ impl BearerMeshRouter {
         force_bulk: bool,
         now: u64,
     ) -> anyhow::Result<()> {
-        let path = self.select_mesh_path(peer, frame.len(), force_bulk, now);
+        let mut path = self.select_mesh_path(peer, frame.len(), force_bulk, now);
+        if !self.energy.thermal.allows_wifi_direct() && path == TransportPath::WifiDirect {
+            path = TransportPath::BleTrickle;
+        } else if self.energy.thermal == ThermalState::Warm
+            && path == TransportPath::WifiDirect
+            && !force_bulk
+        {
+            path = TransportPath::BleTrickle;
+        }
         match path {
             TransportPath::WifiDirect => {
                 self.note_outbound(TransportBearer::WifiDirect, frame.len(), now);
@@ -221,16 +237,25 @@ impl BearerMeshRouter {
         max: usize,
         out: &mut Vec<(String, Vec<u8>, BearerMedium)>,
     ) {
+        let cap = self
+            .energy
+            .thermal
+            .wifi_direct_drain_cap()
+            .unwrap_or(max)
+            .min(max);
+        if cap == 0 {
+            return;
+        }
         if let Some(peer) = to_peer {
-            drain_wifi_peer(&mut self.wifi_outbound, peer, max, out);
+            drain_wifi_peer(&mut self.wifi_outbound, peer, cap, out);
             return;
         }
         let peers: Vec<String> = self.wifi_outbound.keys().cloned().collect();
         for peer in peers {
-            if out.len() >= max {
+            if out.len() >= cap {
                 break;
             }
-            let take = max.saturating_sub(out.len());
+            let take = cap.saturating_sub(out.len());
             drain_wifi_peer(&mut self.wifi_outbound, &peer, take, out);
         }
     }
@@ -368,6 +393,28 @@ mod tests {
     use mycelium_core::data::Envelope;
     use mycelium_core::protocol_capabilities::NegotiatedProtocol;
     use mycelium_core::transport::DirectMessage;
+
+    #[test]
+    fn critical_thermal_blocks_wifi_direct_routing() {
+        let mut router = BearerMeshRouter::new();
+        router.set_peer_caps("peerA", BearerWireVersion::V1, true);
+        router.set_energy_profile(EnergyProfile {
+            battery: mycelium_core::energy::NodeState::Active,
+            thermal: ThermalState::Critical,
+            movement: mycelium_core::energy::MovementIndicator::Unknown,
+        });
+        let big_body = "x".repeat(20 * 1024);
+        let wire = WireMessage::Data(DirectMessage {
+            envelope: Envelope::new("p".into(), None, vec![]),
+            body: big_body,
+        });
+        router
+            .queue_side_channel_wire("peerA".into(), &wire)
+            .unwrap();
+        let drained = router.drain_bearer_outbound(None, 4);
+        assert_eq!(drained.len(), 1);
+        assert_eq!(drained[0].2, BearerMedium::Ble);
+    }
 
     #[test]
     fn large_side_channel_routes_to_wifi_when_peer_allows() {

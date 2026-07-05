@@ -124,10 +124,13 @@ mod tests {
     }
 
     #[test]
-    fn wasm_runtime_rejected() {
+    fn wasm_runtime_bundle_loads() {
+        let wat = r#"(module (func (export "run") (result i32) i32.const 0))"#;
+        let wasm = wat::parse_str(wat).expect("wat");
         let mut manifest: serde_json::Value =
             serde_json::from_str(&sample_manifest_json()).unwrap();
         manifest["runtime"] = serde_json::json!("wasm");
+        manifest["entry"] = serde_json::json!("guest.wasm");
         let mut zip_buf = Vec::new();
         {
             let cursor = std::io::Cursor::new(&mut zip_buf);
@@ -135,11 +138,13 @@ mod tests {
             let opts = FileOptions::default();
             zip.start_file("mycelium-app.json", opts).unwrap();
             zip.write_all(manifest.to_string().as_bytes()).unwrap();
-            zip.start_file("index.html", opts).unwrap();
-            zip.write_all(b"<h1>Test</h1>").unwrap();
+            zip.start_file("guest.wasm", opts).unwrap();
+            zip.write_all(&wasm).unwrap();
             zip.finish().unwrap();
         }
-        assert!(MiniAppBundle::load_from_bytes(&zip_buf).is_err());
+        let bundle = MiniAppBundle::load_from_bytes(&zip_buf).expect("wasm bundle");
+        assert_eq!(bundle.manifest.runtime, "wasm");
+        assert!(bundle.wasm_bytes().is_some());
     }
 
     #[test]

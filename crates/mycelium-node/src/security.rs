@@ -3,6 +3,7 @@
 //! Network-layer security helpers (SD-030, SD-031).
 
 use libp2p::PeerId;
+use mycelium_core::information_trust::SourceObservation;
 use mycelium_core::transport::DirectMessage;
 use std::collections::{HashMap, HashSet};
 
@@ -573,6 +574,75 @@ pub fn select_relay_candidates_with_diversity(req: &RelaySelectionRequest<'_>) -
         req.max_fanout,
         &config,
     )
+}
+
+/// Score 0–1: how well trusted corroborating peers satisfy [`PeerDiversityConfig`].
+pub fn corroboration_source_diversity(
+    trusted_obs: &[SourceObservation],
+    peer_trust: &HashMap<String, PeerTrust>,
+    now_ms: u64,
+    config: &PeerDiversityConfig,
+) -> f32 {
+    if trusted_obs.is_empty() {
+        return 0.0;
+    }
+    let n = trusted_obs.len();
+    let transports: HashSet<&str> = trusted_obs
+        .iter()
+        .map(|o| o.transport_hint.as_str())
+        .collect();
+    let social_buckets: HashSet<u64> = trusted_obs
+        .iter()
+        .map(|o| social_bucket_from_ms(o.first_encounter_ms, config))
+        .collect();
+
+    let mut score = 0.5 * (transports.len() as f32 / n as f32)
+        + 0.5 * (social_buckets.len() as f32 / n as f32);
+
+    if config.require_social_spread && n >= 2 && social_buckets.len() == 1 {
+        score *= 0.5;
+    }
+
+    let young_count = trusted_obs
+        .iter()
+        .filter(|o| {
+            peer_trust
+                .get(&o.relay_peer)
+                .map(|t| is_young(t, now_ms, config))
+                .unwrap_or(true)
+        })
+        .count();
+    if n > 0 && config.max_young_peer_fraction < 1.0 {
+        let young_frac = young_count as f32 / n as f32;
+        if young_frac > config.max_young_peer_fraction {
+            let over = young_frac - config.max_young_peer_fraction;
+            score *= (1.0 - over).clamp(0.25, 1.0);
+        }
+    }
+
+    let mut transport_counts: HashMap<&str, usize> = HashMap::new();
+    for obs in trusted_obs {
+        *transport_counts
+            .entry(obs.transport_hint.as_str())
+            .or_default() += 1;
+    }
+    if let Some(max_same) = transport_counts.values().max().copied() {
+        let same_frac = max_same as f32 / n as f32;
+        if transports.len() > 1 && same_frac > config.max_same_transport_fraction {
+            let over = same_frac - config.max_same_transport_fraction;
+            score *= (1.0 - over).clamp(0.25, 1.0);
+        }
+    }
+
+    score.clamp(0.0, 1.0)
+}
+
+fn social_bucket_from_ms(first_encounter_ms: u64, config: &PeerDiversityConfig) -> u64 {
+    if config.social_window_ms == 0 {
+        first_encounter_ms
+    } else {
+        first_encounter_ms / config.social_window_ms
+    }
 }
 
 #[cfg(test)]

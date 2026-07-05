@@ -50,6 +50,17 @@ import org.json.JSONObject
 
 private const val MINIAPP_BASE = "https://app.mycelium.local/"
 
+private fun resolveMiniappEntry(appId: String, defaultEntry: String): String? {
+    if (mycelium.miniappGetRuntime(appId) != "wasm") {
+        return defaultEntry
+    }
+    val ui = "ui/index.html"
+    if (defaultEntry != ui && mycelium.getAppFile(appId, ui) != null) {
+        return ui
+    }
+    return if (defaultEntry.endsWith(".wasm")) null else defaultEntry
+}
+
 private fun mimeForPath(path: String): String {
     val lower = path.lowercase()
     return when {
@@ -75,7 +86,13 @@ private fun buildMiniappHtml(
     sessionToken: String,
 ): String? {
     val info = mycelium.listInstalledApps().find { it.id == appId } ?: return null
-    val bytes = mycelium.getAppFile(appId, info.entry) ?: return null
+    if (mycelium.miniappGetRuntime(appId) == "wasm") {
+        mycelium.miniappInvokeWasmRun(appId)
+    }
+    val entry =
+        resolveMiniappEntry(appId, info.entry)
+            ?: return "<html><body><p>WASM mini-app (logic-only). Guest module loaded in sandbox.</p></body></html>"
+    val bytes = mycelium.getAppFile(appId, entry) ?: return null
     val bodyHtml = String(bytes, Charsets.UTF_8)
 
     val bridgeJs =

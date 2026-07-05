@@ -47,6 +47,7 @@ fn check_broadcast_rate(app_id: &str) -> Result<(), String> {
     Ok(())
 }
 
+#[derive(Clone)]
 pub struct BridgeHost {
     app_id: String,
     permissions: Vec<Permission>,
@@ -86,6 +87,10 @@ impl BridgeHost {
             safe_mode,
             cap_mac_key,
         }
+    }
+
+    pub fn app_id(&self) -> &str {
+        &self.app_id
     }
 
     fn require_capability(&self, method: &str, args: &Value) -> Result<(), String> {

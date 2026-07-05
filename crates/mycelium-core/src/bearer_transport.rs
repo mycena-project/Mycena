@@ -72,12 +72,14 @@ impl Default for BearerMtu {
     }
 }
 
-/// Physical bearer selected by the host (BLE low-power idle vs Wi‑Fi Direct bulk).
+/// Physical bearer selected by the host (BLE low-power idle vs Wi‑Fi Direct bulk vs Wi‑Fi Aware discovery).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(u8)]
 pub enum BearerMedium {
     Ble = 0,
     WifiDirect = 1,
+    /// Discovery-only: low-duty peer presence (Android Wi‑Fi Aware / NSD). Not used for bulk data.
+    WifiAware = 2,
 }
 
 impl BearerMedium {
@@ -85,8 +87,13 @@ impl BearerMedium {
         match v {
             0 => Some(Self::Ble),
             1 => Some(Self::WifiDirect),
+            2 => Some(Self::WifiAware),
             _ => None,
         }
+    }
+
+    pub fn is_discovery_only(self) -> bool {
+        matches!(self, Self::WifiAware)
     }
 }
 
@@ -335,10 +342,14 @@ impl ChunkAssembler {
     }
 }
 
-/// Host-facing bearer I/O contract (BLE today; LoRa / Wi‑Fi Direct later).
+/// Host-facing bearer I/O contract (BLE data, Wi‑Fi Direct bulk, Wi‑Fi Aware discovery).
 pub trait BearerTransport: Send {
     fn mtu(&self) -> BearerMtu;
     fn reliability_class(&self) -> ReliabilityClass;
+    /// False for discovery-only bearers ([`BearerMedium::WifiAware`]).
+    fn carries_mesh_data(&self) -> bool {
+        true
+    }
     /// Queue an encoded bearer frame (post-chunk assembly) to `peer`.
     fn send_frame(&mut self, peer: &str, frame: &[u8]) -> anyhow::Result<()>;
     /// Take one completed inbound frame from `peer`, if any.

@@ -886,14 +886,16 @@ async fn list_sos_posts(state: State<'_, SharedState>) -> Result<Vec<serde_json:
         .as_ref()
         .ok_or_else(|| "node not started".to_string())?;
     Ok(s.app_node
-        .list_sos_posts()
+        .list_sos_posts_with_trust()
+        .await
         .map_err(|e| e.to_string())?
         .into_iter()
-        .map(|p| {
+        .map(|(p, trust)| {
             json!({
                 "geohash": p.geohash,
                 "message": p.message,
                 "created_at_ms": p.created_at_ms,
+                "trust": trust_json(&trust),
             })
         })
         .collect())
@@ -985,10 +987,11 @@ async fn list_resource_map_entries(
         .as_ref()
         .ok_or_else(|| "node not started".to_string())?;
     Ok(s.app_node
-        .list_resource_map_entries()
+        .list_resource_map_entries_with_trust()
+        .await
         .map_err(|e| e.to_string())?
         .into_iter()
-        .map(|e| {
+        .map(|(e, trust)| {
             json!({
                 "geohash": e.geohash,
                 "category": e.category.as_str(),
@@ -996,9 +999,23 @@ async fn list_resource_map_entries(
                 "created_at_ms": e.created_at_ms,
                 "ttl_secs": e.ttl_secs,
                 "expires_at_ms": e.expires_at_ms(),
+                "trust": trust_json(&trust),
             })
         })
         .collect())
+}
+
+fn trust_json(trust: &mycelium_l0_facade::information_trust::InformationTrust) -> serde_json::Value {
+    json!({
+        "corroboration_count": trust.corroboration_count,
+        "trusted_corroboration_count": trust.trusted_corroboration_count,
+        "source_diversity": trust.source_diversity,
+        "geographic_consistency": trust.geographic_consistency,
+        "staleness_factor": trust.staleness_factor,
+        "trust_score": trust.trust_score,
+        "status": format!("{:?}", trust.status).to_ascii_lowercase(),
+        "display_label": trust.display_label(),
+    })
 }
 
 #[tauri::command]
@@ -1079,6 +1096,22 @@ async fn send_chat_encrypted(
         .await
         .map(|_| "encrypted".to_string())
         .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn list_pending_custody(
+    state: State<'_, SharedState>,
+) -> Result<Vec<serde_json::Value>, String> {
+    let guard = state.read().await;
+    let Some(s) = guard.as_ref() else {
+        return Ok(vec![]);
+    };
+    Ok(s.handle
+        .pending_custody_statuses()
+        .await
+        .into_iter()
+        .filter_map(|p| serde_json::to_value(p).ok())
+        .collect())
 }
 
 #[tauri::command]
@@ -1565,6 +1598,56 @@ async fn miniapp_browse_store(
 }
 
 #[tauri::command]
+async fn miniapp_get_runtime(
+    state: State<'_, SharedState>,
+    app_id: String,
+) -> Result<String, String> {
+    let g = state.read().await;
+    let s = g.as_ref().ok_or_else(|| "node not started".to_string())?;
+    let m = s
+        .app_store
+        .get_manifest(&app_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "unknown app".to_string())?;
+    Ok(m.guest_runtime().as_str().to_string())
+}
+
+#[tauri::command]
+async fn miniapp_invoke_wasm_run(
+    state: State<'_, SharedState>,
+    app_id: String,
+) -> Result<i32, String> {
+    use mycelium_app::miniapp::wasm_bridge_host::run_wasm_guest_for_app;
+    use mycelium_app::miniapp::bridge_host::BridgeHost;
+
+    let g = state.read().await;
+    let s = g.as_ref().ok_or_else(|| "node not started".to_string())?;
+    let m = s
+        .app_store
+        .get_manifest(&app_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "unknown app".to_string())?;
+    let enc = s.app_node.node_handle().local_enc_pubkey_hex();
+    let safe_mode = s.app_store.effective_safe_mode(&app_id).unwrap_or(false);
+    let host = BridgeHost::new(
+        app_id.clone(),
+        m.permissions,
+        s.app_node.clone(),
+        s.app_node.storage(),
+        s.app_store.clone(),
+        Some(s.coin_node.clone()),
+        s.local_peer_id.clone(),
+        enc,
+        safe_mode,
+        s.cap_mac_key,
+    );
+    run_wasm_guest_for_app(&app_id, &s.app_store, host)
+        .await
+        .map(|r| r.status)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 async fn miniapp_get_entry_html(
     state: State<'_, SharedState>,
     app_id: String,
@@ -1577,9 +1660,28 @@ async fn miniapp_get_entry_html(
         .get_manifest(&app_id)
         .map_err(|e| e.to_string())?
         .ok_or_else(|| "unknown app".to_string())?;
+    let entry_path = if m.runtime == "wasm" {
+        m.hybrid_ui_entry()
+            .filter(|ui| {
+                s.app_store
+                    .get_file(&app_id, ui)
+                    .ok()
+                    .flatten()
+                    .is_some()
+            })
+            .unwrap_or(&m.entry)
+    } else {
+        &m.entry
+    };
+    if m.runtime == "wasm" && entry_path.ends_with(".wasm") {
+        return Ok(format!(
+            r#"<!DOCTYPE html><html><head>{csp}</head><body><p>WASM mini-app (logic-only). Guest module loaded in sandbox.</p></body></html>"#,
+            csp = mycelium_app::miniapp::csp::meta_tag(&script_nonce)
+        ));
+    }
     let bytes = s
         .app_store
-        .get_file(&app_id, &m.entry)
+        .get_file(&app_id, entry_path)
         .map_err(|e| e.to_string())?
         .ok_or_else(|| "entry missing".to_string())?;
     let body = String::from_utf8(bytes).map_err(|e| e.to_string())?;
@@ -2241,6 +2343,7 @@ pub fn run() {
             send_chat,
             peer_has_enc_key,
             send_chat_encrypted,
+            list_pending_custody,
             chat_history,
             send_mail,
             mail_inbox,
@@ -2264,6 +2367,8 @@ pub fn run() {
             miniapp_install_official,
             miniapp_uninstall,
             miniapp_browse_store,
+            miniapp_get_runtime,
+            miniapp_invoke_wasm_run,
             miniapp_get_entry_html,
             miniapp_bridge_call,
             miniapp_revoke_bridge_session,

@@ -14,6 +14,7 @@ import android.util.Log
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import network.mycelium.bindings.mycelium
 
 /**
  * Scans for Mycelium GATT service and emits handoff targets for invite read + dial (F1).
@@ -40,7 +41,18 @@ class BleBootstrapScanner(private val context: Context) {
 
     private var scanCallback: ScanCallback? = null
     private var isScanning = false
+    private var lowPowerScan = false
     private val seenAddresses = linkedMapOf<String, NearbyNode>()
+
+    /** When Wi-Fi Aware handles discovery, reduce BLE scan duty (TransportScore policy). */
+    fun setLowPowerScan(enabled: Boolean) {
+        if (lowPowerScan == enabled) return
+        lowPowerScan = enabled
+        if (isScanning) {
+            stopScanning()
+            startScanning()
+        }
+    }
 
     fun startScanning() {
         if (isScanning) return
@@ -56,7 +68,13 @@ class BleBootstrapScanner(private val context: Context) {
 
         val settings =
             ScanSettings.Builder()
-                .setScanMode(ScanSettings.SCAN_MODE_BALANCED)
+                .setScanMode(
+                    if (lowPowerScan) {
+                        ScanSettings.SCAN_MODE_LOW_POWER
+                    } else {
+                        ScanSettings.SCAN_MODE_BALANCED
+                    },
+                )
                 .setCallbackType(ScanSettings.CALLBACK_TYPE_FIRST_MATCH)
                 .build()
 
@@ -78,6 +96,11 @@ class BleBootstrapScanner(private val context: Context) {
                             "Mycelium BLE peer $address RSSI=${result.rssi} — attempting handoff",
                         )
                     }
+                    mycelium.recordBleDiscoveryObservation(
+                        80u,
+                        64u,
+                        true,
+                    )
                     _handoffTargets.tryEmit(
                         HandoffTarget(device = device, rssi = result.rssi),
                     )

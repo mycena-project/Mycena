@@ -22,6 +22,7 @@ use mycelium_l0_facade::consistency::{
 use mycelium_l0_facade::crisis_mode::CrisisManualMode;
 use mycelium_l0_facade::data::now_ms;
 use mycelium_l0_facade::data::Priority;
+use mycelium_l0_facade::information_trust::{FactKind, InformationTrust};
 use mycelium_l0_facade::resource_map::{
     ResourceCategory, ResourceMapEntry, RESOURCE_DEFAULT_TTL_SECS, RESOURCE_MAP_SCOPE,
 };
@@ -397,16 +398,21 @@ impl AppNode {
                     if let Err(err) = self.storage.save_bulletin(&post) {
                         warn!("failed to save bulletin: {err}");
                     }
+                    let relay = msg.envelope.from_peer.as_str();
+                    let observed = now_ms();
                     if post.scope == crate::sos::SOS_SCOPE {
-                        if self.listen_sos.load(Ordering::Relaxed) {
-                            if let Ok(payload) = crate::sos::SosPayload::decode_json(&post.body) {
+                        if let Ok(payload) = crate::sos::SosPayload::decode_json(&post.body) {
+                            self.record_sos_fact(relay, &payload, observed).await;
+                            if self.listen_sos.load(Ordering::Relaxed) {
                                 self.notifier.on_sos_received(&payload);
                             }
                         }
                     } else if post.scope.starts_with(RESOURCE_MAP_SCOPE) {
-                        if self.listen_sos.load(Ordering::Relaxed) {
-                            if let Ok(entry) = ResourceMapEntry::decode_json(&post.body) {
-                                if !entry.is_expired(now_ms()) {
+                        if let Ok(entry) = ResourceMapEntry::decode_json(&post.body) {
+                            if !entry.is_expired(observed) {
+                                self.record_resource_fact(relay, &entry, observed)
+                                    .await;
+                                if self.listen_sos.load(Ordering::Relaxed) {
                                     self.notifier.on_resource_map_received(&entry);
                                 }
                             }
@@ -1507,7 +1513,34 @@ impl AppNode {
             body,
             ttl_secs,
         )
-        .await
+        .await?;
+        self.record_sos_fact(&self.local_peer_id, &payload, payload.created_at_ms)
+            .await;
+        Ok(())
+    }
+
+    pub async fn list_sos_posts_with_trust(
+        &self,
+    ) -> anyhow::Result<Vec<(crate::sos::SosPayload, InformationTrust)>> {
+        use crate::sos::{SosPayload, SOS_DEFAULT_TTL_SECS, SOS_SCOPE};
+        let posts = self.storage.bulletins_for_scope(SOS_SCOPE)?;
+        let mut out = Vec::new();
+        for post in posts {
+            if let Ok(p) = SosPayload::decode_json(&post.body) {
+                let trust = self
+                    .handle
+                    .query_fact_trust(
+                        FactKind::Sos,
+                        &p.geohash,
+                        None,
+                        &p.message,
+                        SOS_DEFAULT_TTL_SECS,
+                    )
+                    .await;
+                out.push((p, trust));
+            }
+        }
+        Ok(out)
     }
 
     pub fn list_sos_posts(&self) -> anyhow::Result<Vec<crate::sos::SosPayload>> {
@@ -1551,7 +1584,36 @@ impl AppNode {
             body,
             ttl,
         )
-        .await
+        .await?;
+        self.record_resource_fact(&self.local_peer_id, &entry, entry.created_at_ms)
+            .await;
+        Ok(())
+    }
+
+    pub async fn list_resource_map_entries_with_trust(
+        &self,
+    ) -> anyhow::Result<Vec<(ResourceMapEntry, InformationTrust)>> {
+        let now = now_ms();
+        let posts = self.storage.bulletins_for_scope(RESOURCE_MAP_SCOPE)?;
+        let mut out = Vec::new();
+        for post in posts {
+            if let Ok(entry) = ResourceMapEntry::decode_json(&post.body) {
+                if !entry.is_expired(now) {
+                    let trust = self
+                        .handle
+                        .query_fact_trust(
+                            FactKind::Resource,
+                            &entry.geohash,
+                            Some(entry.category),
+                            &entry.description,
+                            entry.ttl_secs,
+                        )
+                        .await;
+                    out.push((entry, trust));
+                }
+            }
+        }
+        Ok(out)
     }
 
     pub fn list_resource_map_entries(&self) -> anyhow::Result<Vec<ResourceMapEntry>> {
@@ -1585,6 +1647,44 @@ impl AppNode {
 
     pub async fn is_crisis_active(&self) -> bool {
         self.handle.metrics().await.crisis_active
+    }
+
+    async fn record_resource_fact(
+        &self,
+        relay_peer: &str,
+        entry: &ResourceMapEntry,
+        observed_at_ms: u64,
+    ) {
+        let _ = self
+            .handle
+            .record_fact_observation(
+                relay_peer,
+                FactKind::Resource,
+                &entry.geohash,
+                Some(entry.category),
+                &entry.description,
+                observed_at_ms,
+            )
+            .await;
+    }
+
+    async fn record_sos_fact(
+        &self,
+        relay_peer: &str,
+        payload: &crate::sos::SosPayload,
+        observed_at_ms: u64,
+    ) {
+        let _ = self
+            .handle
+            .record_fact_observation(
+                relay_peer,
+                FactKind::Sos,
+                &payload.geohash,
+                None,
+                &payload.message,
+                observed_at_ms,
+            )
+            .await;
     }
 
     pub async fn set_listen_sos(&self, enabled: bool) -> anyhow::Result<()> {

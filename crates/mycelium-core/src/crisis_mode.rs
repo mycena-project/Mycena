@@ -118,6 +118,36 @@ pub fn evaluate_auto_activation(
         && trusted_nearby_sos_sources >= config.min_trusted_sos_sources
 }
 
+/// Apply [`EnergyProfile`] adjustments to crisis runtime params (thermal/movement).
+pub fn adjust_runtime_params(
+    base: CrisisRuntimeParams,
+    profile: &crate::energy::EnergyProfile,
+) -> CrisisRuntimeParams {
+    let mut p = base;
+    if profile.thermal == crate::energy::ThermalState::Critical {
+        p.forwarding_interval_ms = p.forwarding_interval_ms.saturating_mul(2);
+        p.relay_fanout_boost = 0;
+    }
+    p.forward_budget_active = profile.scale_crisis_forward_budget(p.forward_budget_active);
+    p.relay_fanout_boost = profile.scale_crisis_relay_fanout_boost(p.relay_fanout_boost);
+    if profile.thermal == crate::energy::ThermalState::Warm {
+        p.forwarding_interval_ms = p
+            .forwarding_interval_ms
+            .saturating_add(p.forwarding_interval_ms / 4);
+    }
+    p
+}
+
+/// Effective relay fanout when crisis mode is active, including energy profile.
+pub fn effective_relay_fanout_with_profile(
+    baseline: usize,
+    params: &CrisisRuntimeParams,
+    profile: &crate::energy::EnergyProfile,
+) -> usize {
+    let boost = profile.scale_crisis_relay_fanout_boost(params.relay_fanout_boost);
+    (baseline + boost).min(8)
+}
+
 /// True when `sos_geohash` is “near” `local_prefix` (shared prefix).
 pub fn geohash_nearby(local_prefix: &str, sos_geohash: &str, prefix_len: usize) -> bool {
     let local = local_prefix.trim();
@@ -167,5 +197,19 @@ mod tests {
     fn geohash_prefix_match() {
         assert!(geohash_nearby("u4pr", "u4pruyd", 4));
         assert!(!geohash_nearby("u4pr", "u5xxx", 4));
+    }
+
+    #[test]
+    fn critical_thermal_reduces_crisis_budget() {
+        use crate::energy::{EnergyProfile, MovementIndicator, NodeState, ThermalState};
+        let base = CrisisRuntimeParams::default();
+        let profile = EnergyProfile {
+            battery: NodeState::Active,
+            thermal: ThermalState::Critical,
+            movement: MovementIndicator::Unknown,
+        };
+        let adjusted = adjust_runtime_params(base, &profile);
+        assert!(adjusted.forward_budget_active < base.forward_budget_active);
+        assert_eq!(adjusted.relay_fanout_boost, 0);
     }
 }

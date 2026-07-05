@@ -14,11 +14,10 @@ object BleMeshHandoff {
 
     private const val TAG = "BleMeshHandoff"
 
-    private val accountsHandedOff = ConcurrentHashMap.newKeySet<String>()
     private val devicesInFlight = ConcurrentHashMap.newKeySet<String>()
 
     fun resetSession() {
-        accountsHandedOff.clear()
+        TransportInviteHandoff.resetSession()
         devicesInFlight.clear()
     }
 
@@ -37,35 +36,29 @@ object BleMeshHandoff {
         try {
             val invite = BleInviteReader.readInvite(context, target.device)
                 ?: return Result.Failed("gatt_read_failed")
-            val accountId =
-                PeerInvite.accountIdFrom(invite)
-                    ?: PeerInvite.peerIdFrom(invite)
-                    ?: address
-            if (accountsHandedOff.contains(accountId)) {
-                return Result.SkippedDuplicate
-            }
-            val peerId = PeerInvite.peerIdFrom(invite)
-            if (peerId != null && mycelium.connectedPeers().contains(peerId)) {
-                accountsHandedOff.add(accountId)
-                return Result.AlreadyConnected
-            }
-            return runCatching {
-                mycelium.connectTransportInvite(invite.trim())
-            }.fold(
-                onSuccess = {
-                    accountsHandedOff.add(accountId)
+            return when (
+                val handoff =
+                    TransportInviteHandoff.tryInviteHandoff(
+                        invite,
+                        target.device.address ?: "ble",
+                        target.rssi,
+                    )
+            ) {
+                TransportInviteHandoff.Result.Connected -> {
+                    val peerId = PeerInvite.peerIdFrom(invite)
                     if (peerId != null) {
                         BleMeshLinkRegistry.register(peerId, target.device)
                         BleMeshDataSession.open(context, target.device, peerId)
                         mycelium.registerBleLink(peerId, target.device.address ?: address)
                     }
-                    Log.i(TAG, "handoff ok account=$accountId peer=$peerId rssi=${target.rssi}")
+                    Log.i(TAG, "handoff ok peer=$peerId rssi=${target.rssi}")
                     Result.Connected
-                },
-                onFailure = { err ->
-                    Result.Failed(err.message ?: "connect_failed")
-                },
-            )
+                }
+                TransportInviteHandoff.Result.AlreadyConnected -> Result.AlreadyConnected
+                TransportInviteHandoff.Result.SkippedDuplicate -> Result.SkippedDuplicate
+                is TransportInviteHandoff.Result.Failed ->
+                    Result.Failed(handoff.reason)
+            }
         } finally {
             devicesInFlight.remove(address)
         }

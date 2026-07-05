@@ -22,6 +22,12 @@ pub mod safe_mode;
 pub mod storage_quota;
 pub mod store;
 
+#[cfg(feature = "wasm-runtime")]
+pub mod wasm_runtime;
+#[cfg(not(feature = "wasm-runtime"))]
+mod wasm_stubs;
+pub mod runtime;
+
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used)]
 mod miniapp_security_tests;
@@ -42,6 +48,13 @@ pub use reputation::{forced_safe_mode, load as load_reputation, suggest_safe_mod
 pub use revocation::{
     ingest_gossip_revocation, is_revoked, revoke_app, RevocationGossip, RevocationSnapshot,
 };
+pub use runtime::{
+    invoke_wasm_run, GuestRuntime, WasmSandboxConfig, WasmSandboxError, WasmSandboxLimits,
+    DEFAULT_WASM_ENTRY, DEFAULT_WASM_EXECUTION_TIMEOUT_MS, DEFAULT_WASM_FUEL_PER_INVOCATION,
+    DEFAULT_WASM_MAX_MEMORY_BYTES,
+};
+#[cfg(feature = "wasm-runtime")]
+pub use runtime::{BridgeInvokeCallback, WasmSandbox, is_valid_wasm_magic};
 pub use store::{listing_from_manifest_and_bundle, AppSource, AppStore, AppStoreListing};
 
 /// JavaScript bridge injected into the mini-app host (`window.mycelium`).

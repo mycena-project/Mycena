@@ -15,6 +15,7 @@
   let errorMsg = $state("");
   let locationLoading = $state(false);
   let peerReputation = $state(null);
+  let pendingCustody = $state([]);
   let showLocationPrivacy = $state(false);
   let locationPrivacyAck = $state(
     typeof localStorage !== "undefined" &&
@@ -72,6 +73,34 @@
     }
   }
 
+  function msToMinutes(ms) {
+    return Math.max(1, Math.round(ms / 60000));
+  }
+
+  function custodyBannerText(entries) {
+    if (!entries.length) return "";
+    const etaMin = Math.min(...entries.map((e) => e.expected.eta_min_ms));
+    const etaMax = Math.max(...entries.map((e) => e.expected.eta_max_ms));
+    const carriers = Math.max(
+      ...entries.map((e) => e.expected.active_carrier_count ?? 0),
+    );
+    const minMin = msToMinutes(etaMin);
+    const minMax = msToMinutes(etaMax);
+    const prefix =
+      entries.length === 1
+        ? "Message stored"
+        : `${entries.length} messages stored`;
+    let text = `${prefix}, expected delivery in ${minMin}–${minMax} min`;
+    if (carriers === 0) {
+      text += ", no carriers nearby";
+    } else if (carriers === 1) {
+      text += ", 1 possible carrier nearby";
+    } else {
+      text += `, ${carriers} possible carriers nearby`;
+    }
+    return text;
+  }
+
   function formatTime(timestampMs) {
     if (!timestampMs) return "";
     return new Date(timestampMs).toLocaleString(undefined, {
@@ -101,10 +130,19 @@
       } catch {
         peerReputation = null;
       }
+      try {
+        const allPending = await invoke("list_pending_custody");
+        pendingCustody = Array.isArray(allPending)
+          ? allPending.filter((e) => e.dest_peer === selectedPeer)
+          : [];
+      } catch {
+        pendingCustody = [];
+      }
       await scrollMessagesToBottom();
     } else {
       isEncrypted = false;
       peerReputation = null;
+      pendingCustody = [];
     }
   }
 
@@ -273,6 +311,9 @@
         <button type="button" class="small secondary" onclick={blockPeer}>Block contact</button>
       </div>
     {/if}
+    {#if selectedPeer && pendingCustody.length > 0}
+      <div class="custody-banner">{custodyBannerText(pendingCustody)}</div>
+    {/if}
     {#if errorMsg}
       <div class="error-banner">{errorMsg}</div>
     {/if}
@@ -421,6 +462,13 @@
     padding: 8px 10px;
     background: rgba(200, 60, 60, 0.15);
     color: #c0392b;
+    border-bottom: 1px solid var(--border);
+  }
+  .custody-banner {
+    font-size: 12px;
+    padding: 8px 10px;
+    background: rgba(46, 125, 90, 0.12);
+    color: var(--text);
     border-bottom: 1px solid var(--border);
   }
   .messages {
