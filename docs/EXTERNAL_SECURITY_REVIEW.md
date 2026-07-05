@@ -43,9 +43,15 @@ See [ACCEPTED_SECURITY_RESIDUALS.md](./ACCEPTED_SECURITY_RESIDUALS.md).
 ## Test evidence to reproduce
 
 ```bash
-# Production unwrap/expect gate
+# Production unwrap/expect gate (clippy deny + INVARIANT whitelist)
 ./scripts/check-no-unwrap-prod.sh
+./scripts/check-invariant-whitelist.sh
+./scripts/check-unwrap-audit.sh
+```
 
+Allowed production `expect()` sites are listed in [UNWRAP_INVARIANT_WHITELIST.tsv](./UNWRAP_INVARIANT_WHITELIST.tsv) and must cite `// INVARIANT:` in code. New PRs adding unwrap/expect outside tests fail CI unless whitelisted in review.
+
+```bash
 # Mutex poison recovery
 cargo test -p mycelium-core lock_or_recover_continues
 cargo test -p mycelium-node --lib peer_trust_survives

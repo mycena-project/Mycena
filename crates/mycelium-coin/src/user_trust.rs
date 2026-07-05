@@ -234,4 +234,17 @@ mod tests {
         assert_eq!(s.local_endorsements, 1);
         assert!(s.contribution_score > 0.0);
     }
+
+    #[test]
+    fn user_trust_survives_cache_poison() {
+        let dir = tempdir().unwrap();
+        let store = UserTrustStore::open(dir.path().to_str().unwrap()).unwrap();
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            store
+                .with_self(0, |_| panic!("deliberate user trust poison"))
+                .ok();
+        }));
+        store.record_relay_forward(1000, 2).unwrap();
+        assert_eq!(store.snapshot().relay_contribution, 2);
+    }
 }

@@ -1,0 +1,20 @@
+{
+  "format": "mycelium-release-integrity/v1",
+  "release_tag": "v0.1.62",
+  "artifact_name": "mycelium-v0.1.62-android.apk",
+  "artifact_blake3_hex": "REPLACE_WITH_ARTIFACT_BLAKE3",
+  "build_recipe_digest_hex": "REPLACE_WITH_RECIPE_DIGEST",
+  "recipe_url": "https://github.com/mycena-project/Mycelium/blob/main/docs/RELEASE_INTEGRITY.md",
+  "threshold": {
+    "required": 3,
+    "total": 5
+  },
+  "signatures": [
+    {
+      "signer_id": "release-signer-eu",
+      "signer_pubkey_hex": "REPLACE_CURATOR_PUBKEY",
+      "signed_at_ms": 1700000000000,
+      "signature_hex": "REPLACE_AFTER_SIGNING"
+    }
+  ]
+}

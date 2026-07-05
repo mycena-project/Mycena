@@ -604,3 +604,20 @@ fn parse_presence_profile(args: &Value) -> Result<PresenceProfile, String> {
         photo_base64: opt_str(args, "photo_base64"),
     })
 }
+
+#[cfg(test)]
+mod poison_tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
+
+    use super::*;
+
+    #[test]
+    fn broadcast_limits_survive_mutex_poison() {
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let mut guard = lock_or_recover!(BROADCAST_LIMITS, "broadcast limits");
+            guard.insert("poison-seed".into(), (0, 0));
+            panic!("deliberate broadcast limit poison");
+        }));
+        assert!(check_broadcast_rate("app-after-poison").is_ok());
+    }
+}

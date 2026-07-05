@@ -304,10 +304,7 @@ impl SimulationRunner {
                         self.metrics.dropped_offline += 1;
                         continue;
                     }
-                    let Some(profile) = self
-                        .links
-                        .lock()
-                        .expect("links lock poisoned")
+                    let Some(profile) = lock_or_recover!(self.links, "sim links")
                         .get(&(from_peer.clone(), to_peer.clone()))
                         .cloned()
                     else {
@@ -584,5 +581,22 @@ mod tests {
         a.runner_task.abort();
         b.runner_task.abort();
         c.runner_task.abort();
+    }
+
+    #[test]
+    fn simulation_links_survive_mutex_poison() {
+        let mut sim = SimulationRunner::new(0, 42);
+        let _ = sim.register_node("n1".to_string(), 1024 * 64);
+        let links = Arc::clone(&sim.links);
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            lock_or_recover!(links, "sim links").insert(
+                ("n1".into(), "n2".into()),
+                LinkProfile::default(),
+            );
+            panic!("deliberate sim links poison");
+        }));
+        sim.set_link("n1".to_string(), "n2".to_string(), LinkProfile::default());
+        assert!(lock_or_recover!(sim.links, "sim links")
+            .contains_key(&("n1".to_string(), "n2".to_string())));
     }
 }

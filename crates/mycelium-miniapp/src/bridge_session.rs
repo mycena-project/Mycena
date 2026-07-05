@@ -70,4 +70,21 @@ mod tests {
         revoke_session("com.test.app");
         assert!(validate_session("com.test.app", &tok).is_err());
     }
+
+    #[test]
+    fn bridge_sessions_survive_mutex_poison() {
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let mut guard = lock_or_recover!(SESSIONS, "bridge session");
+            guard.insert(
+                "poison-seed".into(),
+                Session {
+                    token: "x".into(),
+                    issued_at_ms: 0,
+                },
+            );
+            panic!("deliberate bridge session poison");
+        }));
+        let tok = issue_session("com.test.after-poison");
+        assert!(validate_session("com.test.after-poison", &tok).is_ok());
+    }
 }

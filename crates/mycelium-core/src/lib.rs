@@ -29,6 +29,7 @@ pub mod relay_diversity;
 pub mod relay_pool;
 pub mod relay_registry;
 pub mod relay_status;
+pub mod release_integrity;
 pub mod rendezvous;
 pub mod rendezvous_dial;
 pub mod resource_map;

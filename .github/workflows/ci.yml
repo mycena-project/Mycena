@@ -30,7 +30,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libssl-dev \
             libayatana-appindicator3-dev librsvg2-dev
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.85.0
         with:
           components: rustfmt, clippy
       - name: Setup Node
@@ -46,6 +46,10 @@ jobs:
         run: cargo fmt --all -- --check
       - name: Unwrap/expect lint gate (node, core, coin, miniapp)
         run: ./scripts/check-no-unwrap-prod.sh
+      - name: INVARIANT whitelist + unwrap regression gate
+        run: |
+          ./scripts/check-invariant-whitelist.sh
+          ./scripts/check-unwrap-audit.sh
       - name: Privacy policy sync check
         run: |
           ./scripts/sync-privacy-policy.sh
@@ -54,5 +58,10 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: Test
         run: cargo test --workspace
+      - name: Security regression gates
+        run: |
+          cargo test -p mycelium-core release_integrity --lib
+          cargo test -p mycelium-node --test mutex_poison_recovery
+          cargo test -p mycelium-ffi ffi_global_slots_survive_mutex_poison --lib
       - name: MyceliumLab CI gates
         run: cargo test -p mycelium-sim sim_ci_gates -- --test-threads=1

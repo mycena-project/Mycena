@@ -8,10 +8,12 @@ Semantic Versioning (`MAJOR.MINOR.PATCH`).
 2. Update `CHANGELOG.md` if user-visible changes shipped.
 3. Annotated tag: `git tag -a vX.Y.Z -m "vX.Y.Z"` && `git push origin vX.Y.Z`
 4. GitHub Actions **Release** (`.github/workflows/release.yml`) builds:
-   - Android debug APK (sideload)
+   - Android APK via **reproducible container** (`scripts/reproducible-build.sh`)
+   - Unsigned `release-integrity-*.json` + `build-report.json` (M-of-N co-sign offline per [docs/RELEASE_INTEGRITY.md](docs/RELEASE_INTEGRITY.md))
    - Tauri desktop bundles (Linux / macOS / Windows)
    - `SHA256SUMS.txt` for all artifacts
 5. Verify the GitHub Release page and install smoke-test on one platform.
+6. Independent signers co-sign the artifact hash; users verify with `./scripts/release-verify.sh`.
 
 ## License reminder (AGPL-3.0-or-later)
 

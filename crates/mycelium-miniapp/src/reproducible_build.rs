@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Mycelium Project
-//! Reproducible build attestation (H23 / P3).
+//! Reproducible build attestation (H23 / P3) for **mini-app bundles** only.
+//!
+//! Mycelium **core** app releases use [`mycelium_core::release_integrity`] and
+//! `docs/RELEASE_INTEGRITY.md`.
 
 use super::bundle::MiniAppBundle;
 

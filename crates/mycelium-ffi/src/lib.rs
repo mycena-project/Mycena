@@ -2641,3 +2641,26 @@ fn to_mail_message(m: AppMailMessage, is_read: bool) -> MailMessage {
         is_read,
     }
 }
+
+#[cfg(test)]
+mod poison_tests {
+    use super::{CALLBACK, NODE};
+    use mycelium_core::lock_or_recover;
+
+    #[test]
+    fn ffi_global_slots_survive_mutex_poison() {
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let mut guard = lock_or_recover!(CALLBACK, "callback lock");
+            *guard = None;
+            panic!("deliberate callback slot poison");
+        }));
+        *lock_or_recover!(CALLBACK, "callback lock") = None;
+
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let mut guard = lock_or_recover!(NODE, "node lock");
+            *guard = None;
+            panic!("deliberate node slot poison");
+        }));
+        assert!(lock_or_recover!(NODE, "node lock").is_none());
+    }
+}

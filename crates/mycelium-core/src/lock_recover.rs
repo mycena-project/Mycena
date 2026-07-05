@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Mycelium Project
 //! Recover from [`std::sync::Mutex`] poisoning instead of panicking on the next lock.
 
-use std::sync::{Arc, LazyLock, Mutex, MutexGuard};
+use std::sync::{Arc, LazyLock, Mutex, MutexGuard, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 /// Lock a mutex and recover from poisoning (see [`lock_or_recover`]).
 pub trait LockRecover {
@@ -58,6 +58,28 @@ impl<'a, T> LockRecover for &'a LazyLock<Mutex<T>> {
     }
 }
 
+/// Read `rwlock`, logging and recovering when poisoned.
+pub fn read_rwlock_or_recover<'a, T>(
+    rwlock: &'a RwLock<T>,
+    label: &'static str,
+) -> RwLockReadGuard<'a, T> {
+    rwlock.read().unwrap_or_else(|err| {
+        tracing::warn!("rwlock poisoned ({label}); recovering guarded state");
+        err.into_inner()
+    })
+}
+
+/// Write-lock `rwlock`, logging and recovering when poisoned.
+pub fn write_rwlock_or_recover<'a, T>(
+    rwlock: &'a RwLock<T>,
+    label: &'static str,
+) -> RwLockWriteGuard<'a, T> {
+    rwlock.write().unwrap_or_else(|err| {
+        tracing::warn!("rwlock poisoned ({label}); recovering guarded state");
+        err.into_inner()
+    })
+}
+
 /// Lock `mutex`, or if poisoned log and return the guarded data anyway.
 ///
 /// Safe when the panicking holder did not leave the protected value in a
@@ -104,5 +126,19 @@ mod tests {
             *guard = 42;
         }
         assert_eq!(*lock_or_recover(&mutex, "test counter"), 42);
+    }
+
+    #[test]
+    fn read_rwlock_or_recover_continues_after_poison() {
+        use std::sync::RwLock;
+        let rw = Arc::new(RwLock::new(0i32));
+        let rw2 = Arc::clone(&rw);
+        let handle = thread::spawn(move || {
+            let _guard = rw2.write().unwrap();
+            panic!("deliberate rwlock poison in test");
+        });
+        assert!(handle.join().is_err());
+        *write_rwlock_or_recover(&rw, "test rw counter") = 7;
+        assert_eq!(*read_rwlock_or_recover(&rw, "test rw counter"), 7);
     }
 }

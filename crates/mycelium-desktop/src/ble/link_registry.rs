@@ -55,3 +55,25 @@ impl LinkRegistry {
             .collect()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
+
+    use super::*;
+
+    #[test]
+    fn link_registry_survives_mutex_poison() {
+        let reg = LinkRegistry::default();
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            lock_or_recover!(reg.peer_to_device, "link registry peer_to_device")
+                .insert("poison-peer".into(), "deadbeef".into());
+            panic!("deliberate link registry poison");
+        }));
+        reg.register("12D3KooWAfterPoisonTestPeerId001", "aabbccddeeff");
+        assert_eq!(
+            reg.device_for_peer("12D3KooWAfterPoisonTestPeerId001").as_deref(),
+            Some("aabbccddeeff")
+        );
+    }
+}

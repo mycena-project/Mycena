@@ -7,7 +7,7 @@ authors.workspace = true
 
 [lib]
 name = "uniffi_mycelium"
-crate-type = ["cdylib", "staticlib"]
+crate-type = ["cdylib", "staticlib", "rlib"]
 
 [dependencies]
 anyhow.workspace = true

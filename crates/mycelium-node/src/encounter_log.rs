@@ -598,6 +598,17 @@ fn regularity_score(starts: &[u64]) -> f64 {
 }
 
 #[cfg(test)]
+impl EncounterLogStore {
+    pub fn test_poison_open_map(&self) {
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let mut open = lock_or_recover!(self.open, "encounter open map");
+            open.insert("__poison__".into(), 0);
+            panic!("deliberate encounter open map poison");
+        }));
+    }
+}
+
+#[cfg(test)]
 mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used)]
 
@@ -703,5 +714,16 @@ mod tests {
             })
             .unwrap();
         assert_eq!(smart[0], "commuter");
+    }
+
+    #[test]
+    fn encounter_open_map_survives_poison() {
+        let dir = tempdir().unwrap();
+        let log = EncounterLogStore::open(dir.path().to_str().unwrap()).unwrap();
+        log.test_poison_open_map();
+        log.begin_encounter("peer-after-poison", 1000).unwrap();
+        log.end_encounter("peer-after-poison", 2000).unwrap();
+        let rec = log.record("peer-after-poison").unwrap().expect("record");
+        assert_eq!(rec.encounter_count, 1);
     }
 }

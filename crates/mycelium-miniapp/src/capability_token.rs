@@ -90,6 +90,7 @@ pub fn issue_capability(
     let expires_at_ms = now_ms().saturating_add(ttl_ms);
     let tag = permission_name(permission);
     let payload = format!("{CAP_VERSION}|{app_id}|{tag}|{session_token}|{expires_at_ms}");
+    // INVARIANT: mac_key is always 32 bytes from blake3::derive_key.
     let mut mac = HmacSha256::new_from_slice(mac_key).expect("HMAC key length");
     mac.update(payload.as_bytes());
     let sig = mac.finalize().into_bytes();

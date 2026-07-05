@@ -15,44 +15,32 @@ jobs:
   android:
     if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v6
 
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Install cargo-ndk
-        run: cargo install cargo-ndk --locked
-
-      - name: Add Android Rust targets
-        run: rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v5
+      - uses: dtolnay/rust-toolchain@1.85.0
         with:
-          distribution: temurin
-          java-version: '17'
+          components: rustfmt, clippy
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v4
+      - name: Reproducible Android APK (pinned container recipe)
+        run: ./scripts/reproducible-build.sh --tag "${{ github.ref_name }}"
 
-      - name: Install NDK
-        run: sdkmanager 'ndk;26.1.10909125'
-
-      - name: Export NDK for cargo-ndk
+      - name: Create unsigned release-integrity manifest
         run: |
-          echo "ANDROID_NDK_HOME=${ANDROID_SDK_ROOT}/ndk/26.1.10909125" >> "$GITHUB_ENV"
-          echo "NDK_HOME=${ANDROID_SDK_ROOT}/ndk/26.1.10909125" >> "$GITHUB_ENV"
+          cargo run -p mycelium-cli -- release init \
+            --tag "${{ github.ref_name }}" \
+            --artifact "target/reproducible/mycelium-${{ github.ref_name }}-android.apk" \
+            --out "target/reproducible/release-integrity-${{ github.ref_name }}.json"
 
-      - name: Build Android APK
-        run: bash android/build.sh
-
-      - name: Upload Android APK
+      - name: Upload reproducible Android artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: android-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: android-reproducible
+          path: |
+            target/reproducible/*.apk
+            target/reproducible/build-report.json
+            target/reproducible/release-integrity-*.json
           retention-days: 7
 
   desktop:
@@ -135,7 +123,11 @@ jobs:
           rm -rf "$STAGING"
           mkdir -p "$STAGING"
 
-          if [ -f artifacts/android-apk/app-debug.apk ]; then
+          if [ -f "artifacts/android-reproducible/mycelium-${TAG}-android.apk" ]; then
+            cp "artifacts/android-reproducible/mycelium-${TAG}-android.apk" "$STAGING/"
+            cp "artifacts/android-reproducible/build-report.json" "$STAGING/" 2>/dev/null || true
+            cp "artifacts/android-reproducible/release-integrity-${TAG}.json" "$STAGING/" 2>/dev/null || true
+          elif [ -f artifacts/android-apk/app-debug.apk ]; then
             cp artifacts/android-apk/app-debug.apk "$STAGING/mycelium-${TAG}-android-debug.apk"
           fi
 
@@ -168,12 +160,16 @@ jobs:
 
             | File | Platform |
             |------|----------|
-            | `mycelium-*-android-debug.apk` | Android (debug-signed, sideload) |
+            | `mycelium-*-android.apk` | Android (reproducible debug-signed sideload) |
+            | `release-integrity-*.json` | BLAKE3 + recipe digest (M-of-N co-sign before **official**) |
+            | `build-report.json` | Reproducible build report from CI container |
             | `*.AppImage` / `*.deb` | Linux desktop |
             | `*.dmg` | macOS desktop |
             | `*.msi` | Windows desktop |
 
             Verify downloads: `shasum -a 256 -c SHA256SUMS.txt`
+
+            **Release integrity:** compare BLAKE3 and co-signatures per [RELEASE_INTEGRITY.md](https://github.com/mycena-project/Mycelium/blob/main/docs/RELEASE_INTEGRITY.md). The release is **official** only after ≥3 of 5 independent signers attest the same artifact hash.
 
             **Early beta** — not a replacement for emergency services. See [KNOWN_LIMITATIONS.md](https://github.com/mycena-project/Mycelium/blob/main/docs/KNOWN_LIMITATIONS.md).
         env:

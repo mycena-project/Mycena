@@ -8,7 +8,7 @@ cd "$ROOT"
 violations=0
 
 # Lines before #[cfg(test)] — production code in mixed unit-test modules.
-prod_awk='/#\[cfg\(test\)\]/ { exit } { print NR ":" $0 }'
+prod_awk='/#\[cfg\(test\)\]/ || /#!\[cfg\(test\)\]/ { exit } { print NR ":" $0 }'
 
 # P0: decode/parse/verify paths — no .unwrap( / .expect( on untrusted input.
 P0_STRICT=(
@@ -45,43 +45,15 @@ for f in "${P0_STRICT[@]}"; do
   done < <(awk "$prod_awk" "$f")
 done
 
-# P2: local-state expects must cite INVARIANT on same line or up to 3 lines above.
-P2_INVARIANT=(
-  crates/mycelium-node/src/node.rs
-  crates/mycelium-node/src/secrets.rs
-  crates/mycelium-node/src/behaviour.rs
-  crates/mycelium-core/src/relay_pool.rs
-  crates/mycelium-core/src/rendezvous_dial.rs
-  crates/mycelium-core/src/ble_mesh.rs
-  crates/mycelium-core/src/crypto/ratchet.rs
-)
-
-echo "check-unwrap-audit: P2 INVARIANT comments on prod unwrap/expect..."
-for f in "${P2_INVARIANT[@]}"; do
-  if [[ ! -f "$f" ]]; then
-    echo "check-unwrap-audit: missing $f" >&2
-    violations=1
-    continue
-  fi
-  prev3="" prev2="" prev1=""
-  while IFS= read -r line; do
-    num="${line%%:*}"
-    text="${line#*:}"
-    if is_panic_call "$text"; then
-      if [[ "$text" != *"INVARIANT:"* && "$prev1" != *"INVARIANT:"* && "$prev2" != *"INVARIANT:"* && "$prev3" != *"INVARIANT:"* ]]; then
-        echo "P2 violation: $f:$num: missing INVARIANT near: $text"
-        violations=1
-      fi
-    fi
-    prev3=$prev2
-    prev2=$prev1
-    prev1=$text
-  done < <(awk "$prod_awk" "$f")
-done
+# P2: whitelisted expects — see docs/UNWRAP_INVARIANT_WHITELIST.tsv (scripts/check-invariant-whitelist.sh).
+echo "check-unwrap-audit: P2 INVARIANT whitelist (delegated)..."
+if ! ./scripts/check-invariant-whitelist.sh; then
+  violations=1
+fi
 
 if [[ "$violations" -ne 0 ]]; then
-  echo "Unwrap audit FAILED — see crates/mycelium-node/docs/unwrap-audit.csv" >&2
+  echo "Unwrap audit FAILED — see crates/mycelium-node/docs/unwrap-audit.csv and docs/UNWRAP_INVARIANT_WHITELIST.tsv" >&2
   exit 1
 fi
 
-echo "Unwrap audit OK (P0 strict=${#P0_STRICT[@]} P2 invariant=${#P2_INVARIANT[@]})"
+echo "Unwrap audit OK (P0 strict=${#P0_STRICT[@]} P2 whitelist=docs/UNWRAP_INVARIANT_WHITELIST.tsv)"

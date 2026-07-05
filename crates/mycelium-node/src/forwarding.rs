@@ -365,4 +365,25 @@ mod tests {
             .await
             .expect("ingest2"));
     }
+
+    #[test]
+    fn mem_store_survives_mutex_poison() {
+        let store = Arc::new(MemStore::default());
+        let store2 = Arc::clone(&store);
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let mut guard = lock_or_recover!(store2.inner, "mem store");
+            guard.insert("poison".into(), mk_msg("poison"));
+            panic!("deliberate mem store poison");
+        }));
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("tokio runtime")
+            .block_on(async {
+                let msg = mk_msg("after-poison");
+                let id = msg.envelope.id.0.clone();
+                store.persist(&msg).await.expect("persist after poison");
+                assert!(store.contains(&id).await.expect("contains"));
+            });
+    }
 }

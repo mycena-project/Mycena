@@ -19,7 +19,7 @@ use std::collections::HashSet;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
-use tracing::info;
+use mycelium_core::lock_recover::{read_rwlock_or_recover, write_rwlock_or_recover};
 
 #[derive(Parser)]
 #[command(name = "mycelium-relay")]
@@ -59,8 +59,8 @@ struct RendezvousPeerBody {
 }
 
 async fn rendezvous(State(s): State<StatusState>) -> Json<serde_json::Value> {
-    let connected = s.connected_peers.read().expect("connected_peers lock");
-    let opt_in = s.rendezvous_opt_in.read().expect("rendezvous_opt_in lock");
+    let connected = read_rwlock_or_recover(&s.connected_peers, "relay connected_peers");
+    let opt_in = read_rwlock_or_recover(&s.rendezvous_opt_in, "relay rendezvous_opt_in");
     let peers: Vec<String> = connected
         .iter()
         .filter(|p| opt_in.contains(*p))
@@ -76,9 +76,7 @@ async fn rendezvous_register(
     if body.peer_id.is_empty() {
         return StatusCode::BAD_REQUEST;
     }
-    s.rendezvous_opt_in
-        .write()
-        .expect("rendezvous_opt_in lock")
+    write_rwlock_or_recover(&s.rendezvous_opt_in, "relay rendezvous_opt_in")
         .insert(body.peer_id);
     StatusCode::NO_CONTENT
 }
@@ -87,9 +85,7 @@ async fn rendezvous_unregister(
     State(s): State<StatusState>,
     Json(body): Json<RendezvousPeerBody>,
 ) -> StatusCode {
-    s.rendezvous_opt_in
-        .write()
-        .expect("rendezvous_opt_in lock")
+    write_rwlock_or_recover(&s.rendezvous_opt_in, "relay rendezvous_opt_in")
         .remove(&body.peer_id);
     StatusCode::NO_CONTENT
 }
@@ -228,17 +224,13 @@ async fn main() -> anyhow::Result<()> {
             }
             SwarmEvent::ConnectionEstablished { peer_id, .. } => {
                 connections.fetch_add(1, Ordering::Relaxed);
-                connected_peers
-                    .write()
-                    .expect("connected_peers lock")
+                write_rwlock_or_recover(&connected_peers, "relay connected_peers")
                     .insert(peer_id.to_string());
                 info!("+ {peer_id} ({})", connections.load(Ordering::Relaxed));
             }
             SwarmEvent::ConnectionClosed { peer_id, .. } => {
                 atomic_saturating_sub(&connections);
-                connected_peers
-                    .write()
-                    .expect("connected_peers lock")
+                write_rwlock_or_recover(&connected_peers, "relay connected_peers")
                     .remove(&peer_id.to_string());
                 info!("- {peer_id} ({})", connections.load(Ordering::Relaxed));
             }

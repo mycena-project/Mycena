@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Mycelium Project
+mod release;
+
 use anyhow::Context;
+use release::ReleaseCommands;
 use clap::{Parser, Subcommand};
 use mycelium_app::api::start_api_server;
 use mycelium_app::miniapp::store::{AppSource, AppStoreListing};
@@ -34,6 +37,11 @@ enum Commands {
     App {
         #[command(subcommand)]
         cmd: AppCommands,
+    },
+    /// Reproducible core release integrity (hash, sign, verify)
+    Release {
+        #[command(subcommand)]
+        cmd: ReleaseCommands,
     },
 }
 
@@ -81,19 +89,22 @@ async fn main() -> anyhow::Result<()> {
         .init();
 
     let cli = Cli::parse();
-    if let Some(Commands::App { cmd }) = &cli.command {
+    if let Some(cmd) = &cli.command {
         match cmd {
-            AppCommands::Publish { bundle, db } => {
-                return cmd_app_publish(db, bundle).await;
-            }
-            AppCommands::PublishLive {
-                bundle,
-                db,
-                listen,
-                bootstrap,
-            } => {
-                return cmd_app_publish_live(db, bundle, listen, bootstrap).await;
-            }
+            Commands::App { cmd } => match cmd {
+                AppCommands::Publish { bundle, db } => {
+                    return cmd_app_publish(db, bundle).await;
+                }
+                AppCommands::PublishLive {
+                    bundle,
+                    db,
+                    listen,
+                    bootstrap,
+                } => {
+                    return cmd_app_publish_live(db, bundle, listen, bootstrap).await;
+                }
+            },
+            Commands::Release { cmd } => return release::run(cmd.clone()),
         }
     }
 

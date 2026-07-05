@@ -278,3 +278,24 @@ fn remove_legacy_sled_secret(path: &str) -> anyhow::Result<()> {
     tree.flush()?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
+
+    use super::*;
+    use tempfile::tempdir;
+
+    #[test]
+    fn account_load_mutex_survives_poison() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().to_str().unwrap();
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let lock = account_load_lock(path);
+            let _guard = lock_or_recover!(lock, "account load mutex");
+            panic!("deliberate account load mutex poison");
+        }));
+        let kp = load_or_create_account_keypair(path, None).expect("load after poison");
+        assert!(kp.public().to_peer_id().to_string().starts_with("12D3"));
+    }
+}
