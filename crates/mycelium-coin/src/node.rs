@@ -106,6 +106,10 @@ impl CoinNode {
         &self.local_address
     }
 
+    pub fn coin_identity_path(&self) -> &str {
+        &self.coin_identity_path
+    }
+
     pub fn settlement_policy(&self) -> SettlementPolicy {
         self.ledger.policy().clone()
     }

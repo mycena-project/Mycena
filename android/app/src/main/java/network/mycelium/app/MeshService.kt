@@ -140,6 +140,9 @@ class MeshService : Service() {
             prefs.getInt(SosViewModel.KEY_CRISIS_MANUAL_MODE, SosViewModel.CRISIS_FOLLOW_AUTO).toUByte(),
         )
         SosViewModel.refreshCrisisAutoFromPrefs(this)
+        prefs.getString(SosViewModel.KEY_LOCAL_GEOHASH_PREFIX, null)
+            ?.takeIf { it.isNotBlank() }
+            ?.let { mycelium.setLocalGeohashPrefix(it) }
         startCrisisAutoRefreshLoop()
         PrivacyShapingPrefs.applyFromPrefs(prefs)
         mycelium.setEventCallback(

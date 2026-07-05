@@ -69,17 +69,18 @@ impl MeshBehaviour {
             .expect("mdns init");
         let direct = request_response::cbor::Behaviour::new(
             [(
-                StreamProtocol::new("/mycelium/direct/1"),
+                StreamProtocol::new(mycelium_core::protocol::DIRECT_REQUEST_PROTOCOL),
                 ProtocolSupport::Full,
             )],
             request_response::Config::default(),
         );
         let identify = identify::Behaviour::new(identify::Config::new(
-            "mycelium/0.1".into(),
+            mycelium_core::protocol::IDENTIFY_PROTOCOL.into(),
             local_key.public(),
         ));
 
-        let mut kad_config = kad::Config::new(StreamProtocol::new("/mycelium/kad/1.0.0"));
+        let mut kad_config =
+            kad::Config::new(StreamProtocol::new(mycelium_core::protocol::KAD_PROTOCOL));
         kad_config.set_query_timeout(Duration::from_secs(60));
         let kad =
             kad::Behaviour::with_config(local_peer_id, MemoryStore::new(local_peer_id), kad_config);

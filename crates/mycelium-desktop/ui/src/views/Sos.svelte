@@ -26,6 +26,9 @@
   let message = $state('');
   let resourceCategory = $state('water');
   let resourceDescription = $state('');
+  let volunteerSlots = $state(2);
+  let volunteerDescription = $state('');
+  let volunteerTasks = $state([]);
   let posts = $state([]);
   let resources = $state([]);
   let saved = $state(false);
@@ -45,6 +48,7 @@
   async function refresh() {
     posts = await invoke('list_sos_posts');
     resources = await invoke('list_resource_map_entries');
+    volunteerTasks = await invoke('list_volunteer_tasks');
     const settings = await invoke('get_settings');
     listenSos = settings.listen_sos ?? false;
     crisisActive = await invoke('is_crisis_mode_active');
@@ -90,6 +94,34 @@
         ttlSecs: 21600,
       });
       resourceDescription = '';
+      await refresh();
+    } finally {
+      posting = false;
+    }
+  }
+
+  async function postVolunteerTask() {
+    if (!geohash.trim() || !volunteerDescription.trim()) return;
+    posting = true;
+    try {
+      await invoke('post_volunteer_task', {
+        geohash: geohash.trim(),
+        category: resourceCategory,
+        description: volunteerDescription.trim(),
+        slotsNeeded: volunteerSlots,
+        ttlSecs: 21600,
+      });
+      volunteerDescription = '';
+      await refresh();
+    } finally {
+      posting = false;
+    }
+  }
+
+  async function claimVolunteerTask(taskId) {
+    posting = true;
+    try {
+      await invoke('claim_volunteer_task', { taskId });
       await refresh();
     } finally {
       posting = false;
@@ -226,6 +258,50 @@
               {r.trust?.display_label ?? '1 source(s), unverified'} · trust {Math.round((r.trust?.trust_score ?? 0) * 100)}%
             </span>
             <span class="hint">Expires {new Date(Number(r.expires_at_ms)).toLocaleString()}</span>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+  </section>
+
+  <section>
+    <h4>Volunteer tasks</h4>
+    <p class="hint">Request help at a resource pin (e.g. staffing a shelter). Peers claim open slots.</p>
+    <label for="volunteer-slots">Volunteers needed</label>
+    <input id="volunteer-slots" type="number" min="1" max="50" bind:value={volunteerSlots} />
+    <label for="volunteer-desc">Task description</label>
+    <textarea
+      id="volunteer-desc"
+      bind:value={volunteerDescription}
+      placeholder="Need 2 people to distribute water"
+      maxlength="200"
+      rows="2"
+    ></textarea>
+    <button type="button" class="primary" disabled={posting} onclick={postVolunteerTask}>
+      {posting ? 'Posting…' : 'Post volunteer task (12 hours)'}
+    </button>
+  </section>
+
+  <section>
+    <h4>Open volunteer tasks ({volunteerTasks.length})</h4>
+    {#if !listenSos}
+      <p class="hint">Enable listening above to receive volunteer tasks.</p>
+    {:else if volunteerTasks.length === 0}
+      <p class="hint">No volunteer tasks stored yet.</p>
+    {:else}
+      <ul class="posts">
+        {#each volunteerTasks as t}
+          <li>
+            <strong>{t.category} @ {t.geohash}</strong>
+            <span>{t.description}</span>
+            <span class="hint">
+              {t.claims_count}/{t.slots_needed} claimed · {t.slots_open} open
+            </span>
+            {#if t.slots_open > 0}
+              <button type="button" class="secondary" disabled={posting} onclick={() => claimVolunteerTask(t.task_id)}>
+                Claim slot
+              </button>
+            {/if}
           </li>
         {/each}
       </ul>

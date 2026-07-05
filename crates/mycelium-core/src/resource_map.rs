@@ -111,7 +111,9 @@ fn geohash_from_json_field(payload: &[u8], field: &str) -> Option<String> {
 }
 
 pub fn is_essential_gossip_scope(scope: &str) -> bool {
-    scope.starts_with(crate::sos::SOS_SCOPE) || scope.starts_with(RESOURCE_MAP_SCOPE)
+    scope.starts_with(crate::sos::SOS_SCOPE)
+        || scope.starts_with(RESOURCE_MAP_SCOPE)
+        || scope.starts_with(crate::volunteer::VOLUNTEER_SCOPE)
 }
 
 pub fn is_background_gossip_scope(scope: &str) -> bool {
@@ -166,5 +168,8 @@ mod tests {
         assert!(should_defer_gossip_in_crisis("mycelium/general"));
         assert!(!should_defer_gossip_in_crisis("mycelium/chat"));
         assert!(!should_defer_gossip_in_crisis("mycelium/sos/v1"));
+        assert!(!should_defer_gossip_in_crisis(
+            crate::volunteer::VOLUNTEER_SCOPE
+        ));
     }
 }

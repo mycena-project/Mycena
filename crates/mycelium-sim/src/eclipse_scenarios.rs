@@ -13,6 +13,8 @@ const FANOUT: usize = 3;
 const ATTACKER_PEERS: usize = 9;
 const LEGIT_PEER: &str = "12D3KooWLegitEstablishedPeer";
 const DEST: &str = "12D3KooWMessageDestination";
+const GEO_ATTACKER_BUCKET: &str = "u4pr";
+const GEO_LEGIT_BUCKET: &str = "u33d";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EclipseScenarioReport {
@@ -102,6 +104,29 @@ fn build_eclipse_topology() -> (
     (peers, trust, meta)
 }
 
+fn build_geohash_eclipse_topology() -> (
+    Vec<String>,
+    HashMap<String, PeerTrust>,
+    HashMap<String, PeerRoutingMeta>,
+) {
+    let (peers, mut trust, mut meta) = build_eclipse_topology();
+    for id in peers.iter().filter(|p| *p != LEGIT_PEER) {
+        if let Some(t) = trust.get_mut(id) {
+            t.last_geohash_bucket = Some(GEO_ATTACKER_BUCKET.into());
+        }
+        if let Some(m) = meta.get_mut(id) {
+            m.geohash_bucket = Some(GEO_ATTACKER_BUCKET.into());
+        }
+    }
+    if let Some(t) = trust.get_mut(LEGIT_PEER) {
+        t.last_geohash_bucket = Some(GEO_LEGIT_BUCKET.into());
+    }
+    if let Some(m) = meta.get_mut(LEGIT_PEER) {
+        m.geohash_bucket = Some(GEO_LEGIT_BUCKET.into());
+    }
+    (peers, trust, meta)
+}
+
 fn relay_rounds_with_legit(
     peers: &[String],
     trust: &HashMap<String, PeerTrust>,
@@ -133,6 +158,31 @@ fn relay_rounds_with_legit(
 pub fn eclipse_relay_resilience(traffic_rounds: u32) -> EclipseScenarioReport {
     let rounds = traffic_rounds.max(1);
     let (peers, trust, meta) = build_eclipse_topology();
+    let visible = peers.len();
+    let attacker_share_pct = ((ATTACKER_PEERS as f64 / visible as f64) * 100.0).round() as u32;
+
+    let score_only = relay_rounds_with_legit(
+        &peers,
+        &trust,
+        &meta,
+        Some(&PeerDiversityConfig::score_only()),
+        rounds,
+    );
+    let diverse = relay_rounds_with_legit(&peers, &trust, &meta, None, rounds);
+
+    EclipseScenarioReport {
+        visible_peers: visible,
+        attacker_share_pct,
+        score_only_legit_relay_rounds: score_only,
+        diverse_legit_relay_rounds: diverse,
+        traffic_rounds: rounds,
+    }
+}
+
+/// Geohash-clustered eclipse: sybils share one bucket; legit peer is geographically distinct.
+pub fn geohash_eclipse_relay_resilience(traffic_rounds: u32) -> EclipseScenarioReport {
+    let rounds = traffic_rounds.max(1);
+    let (peers, trust, meta) = build_geohash_eclipse_topology();
     let visible = peers.len();
     let attacker_share_pct = ((ATTACKER_PEERS as f64 / visible as f64) * 100.0).round() as u32;
 
@@ -233,6 +283,21 @@ mod tests {
         assert!(
             share > 0.0,
             "diversity should spread relays across transport buckets"
+        );
+    }
+
+    #[test]
+    fn geohash_eclipse_sim_attacker_dominates_without_diversity() {
+        let report = geohash_eclipse_relay_resilience(20);
+        assert_eq!(report.score_only_legit_relay_rounds, 0);
+    }
+
+    #[test]
+    fn geohash_eclipse_sim_diversity_preserves_legit_traffic() {
+        let report = geohash_eclipse_relay_resilience(20);
+        assert_eq!(
+            report.diverse_legit_relay_rounds, report.traffic_rounds,
+            "geohash diversity must keep legit peer in every round: {report:?}"
         );
     }
 }

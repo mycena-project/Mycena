@@ -468,6 +468,7 @@ fn wire_message_size(message: &WireMessage) -> usize {
             encrypted_payload, ..
         } => encrypted_payload.len() + 32,
         WireMessage::PeerInfo { enc_pubkey_hex, .. } => enc_pubkey_hex.len() + 32,
+        WireMessage::WebRtcSignal { payload, .. } => payload.len() + 64,
     }
 }
 

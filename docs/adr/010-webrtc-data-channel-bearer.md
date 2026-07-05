@@ -83,5 +83,5 @@ sequenceDiagram
 
 - TURN server / corporate NAT fallbacks beyond relay
 - iOS WebRTC host (Network.framework + WebRTC.framework)
-- Metrics: `webrtc_links_active` in `NodeMetrics`
+- Metrics: `webrtc_links_active` in `NodeMetrics` ✅ (2026-07-05)
 - Miniapp-in-iframe direct WebRTC (requires CSP / bridge extension)

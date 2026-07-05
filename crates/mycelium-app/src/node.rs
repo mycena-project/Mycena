@@ -32,10 +32,13 @@ use mycelium_l0_facade::information_trust::{FactKind, InformationTrust};
 use mycelium_l0_facade::resource_map::{
     ResourceCategory, ResourceMapEntry, RESOURCE_DEFAULT_TTL_SECS, RESOURCE_MAP_SCOPE,
 };
+use mycelium_l0_facade::volunteer::{
+    merge_volunteer_tasks, VolunteerTask, VOLUNTEER_DEFAULT_TTL_SECS, VOLUNTEER_SCOPE,
+};
 use mycelium_l0_facade::{
     decrypt_group, encrypt_for, encrypt_group, parse_x25519_public_hex, EncKey,
 };
-use mycelium_l1_facade::{DirectMessage, NodeCommand, NodeHandle, WireMessage, ConnectivityMode};
+use mycelium_l1_facade::{ConnectivityMode, DirectMessage, NodeCommand, NodeHandle, WireMessage};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tokio::sync::{broadcast, Mutex, RwLock};
@@ -762,6 +765,10 @@ impl AppNode {
         Err(enc_key_not_yet_exchanged_err())
     }
 
+    pub fn coin_node(&self) -> Option<&Arc<CoinNode>> {
+        self.coin.as_ref()
+    }
+
     pub async fn send_group_message(&self, group: &Group, body: String) -> anyhow::Result<()> {
         let _ = self
             .record_group_peer_seen(&group.id, &self.local_peer_id)
@@ -802,14 +809,58 @@ impl AppNode {
         Ok(())
     }
 
+    pub async fn create_group(&self, name: String) -> anyhow::Result<Group> {
+        let mut group = Group::new(name);
+        group.ensure_crdt(&self.local_peer_id);
+        self.storage.save_group(&group)?;
+        self.record_group_peer_seen(&group.id, &self.local_peer_id)
+            .await?;
+        if let Some(doc) = group.crdt.clone() {
+            self.publish_group_crdt(&doc).await?;
+        }
+        Ok(group)
+    }
+
+    pub fn list_groups(&self) -> anyhow::Result<Vec<Group>> {
+        self.storage.all_groups()
+    }
+
+    pub async fn join_group_from_invite(&self, invite_json: &str) -> anyhow::Result<Group> {
+        let mut group = Group::from_invite(invite_json)?;
+        group.ensure_crdt(&self.local_peer_id);
+        self.storage.save_group(&group)?;
+        self.record_group_peer_seen(&group.id, &self.local_peer_id)
+            .await?;
+        if let Some(doc) = group.crdt.clone() {
+            self.publish_group_crdt(&doc).await?;
+        }
+        Ok(group)
+    }
+
+    pub async fn send_group_message_by_id(
+        &self,
+        group_id: &str,
+        body: String,
+    ) -> anyhow::Result<()> {
+        let group = self
+            .storage
+            .group_by_id(group_id)?
+            .ok_or_else(|| anyhow::anyhow!("unknown group: {group_id}"))?;
+        self.send_group_message(&group, body).await
+    }
+
     pub async fn post_bulletin(
         &self,
         scope: String,
         title: String,
         body: String,
         ttl_secs: u64,
+        geohash: Option<&str>,
     ) -> anyhow::Result<()> {
         let scope = normalize_bulletin_scope(&scope)?;
+        if let Some(gh) = geohash.map(str::trim).filter(|s| !s.is_empty()) {
+            self.handle.set_local_geohash_prefix(Some(gh)).await?;
+        }
         let _ = self
             .handle
             .send(NodeCommand::SubscribeBulletinScope(scope.clone()))
@@ -1341,7 +1392,7 @@ impl AppNode {
                 let label = PENDING_DISPLAY_NAME;
                 let contact = self.storage.upsert_contact_with_account(
                     &info.peer_id,
-                    &label,
+                    label,
                     ContactStatus::Accepted,
                     info.account_id.as_deref(),
                 )?;
@@ -1580,6 +1631,7 @@ impl AppNode {
             format!("SOS {}", payload.geohash),
             body,
             ttl_secs,
+            Some(payload.geohash.as_str()),
         )
         .await?;
         self.record_sos_fact(&self.local_peer_id, &payload, payload.created_at_ms)
@@ -1651,6 +1703,7 @@ impl AppNode {
             format!("{} @ {}", category.as_str(), entry.geohash),
             body,
             ttl,
+            Some(entry.geohash.as_str()),
         )
         .await?;
         self.record_resource_fact(&self.local_peer_id, &entry, entry.created_at_ms)
@@ -1698,6 +1751,85 @@ impl AppNode {
         Ok(out)
     }
 
+    fn new_volunteer_task_id(local_peer: &str, description: &str, at_ms: u64) -> String {
+        let hash = blake3::hash(format!("{local_peer}:{at_ms}:{description}").as_bytes());
+        hex::encode(&hash.as_bytes()[..16])
+    }
+
+    pub async fn post_volunteer_task(
+        &self,
+        geohash: &str,
+        category: &str,
+        description: &str,
+        slots_needed: u32,
+        ttl_secs: u64,
+    ) -> anyhow::Result<VolunteerTask> {
+        let category = ResourceCategory::parse(category)
+            .ok_or_else(|| anyhow::anyhow!("unknown resource category: {category}"))?;
+        let ttl = if ttl_secs == 0 {
+            VOLUNTEER_DEFAULT_TTL_SECS
+        } else {
+            ttl_secs
+        };
+        let at = now_ms();
+        let task = VolunteerTask {
+            task_id: Self::new_volunteer_task_id(&self.local_peer_id, description, at),
+            geohash: geohash.trim().to_string(),
+            category,
+            description: description.trim().to_string(),
+            slots_needed,
+            claims: Vec::new(),
+            created_at_ms: at,
+            ttl_secs: ttl,
+        };
+        task.validate()?;
+        let body = task.encode_json()?;
+        self.post_bulletin(
+            VOLUNTEER_SCOPE.to_string(),
+            format!("volunteer:{} @ {}", task.task_id, task.geohash),
+            body,
+            ttl,
+            Some(task.geohash.as_str()),
+        )
+        .await?;
+        Ok(task)
+    }
+
+    pub fn list_volunteer_tasks(&self) -> anyhow::Result<Vec<VolunteerTask>> {
+        let now = now_ms();
+        let posts = self.storage.bulletins_for_scope(VOLUNTEER_SCOPE)?;
+        let mut parsed = Vec::new();
+        for post in posts {
+            if let Ok(task) = VolunteerTask::decode_json(&post.body) {
+                if !task.is_expired(now) {
+                    parsed.push(task);
+                }
+            }
+        }
+        Ok(merge_volunteer_tasks(parsed))
+    }
+
+    pub async fn claim_volunteer_task(&self, task_id: &str) -> anyhow::Result<VolunteerTask> {
+        let now = now_ms();
+        let tasks = self.list_volunteer_tasks()?;
+        let Some(mut task) = tasks.into_iter().find(|t| t.task_id == task_id.trim()) else {
+            anyhow::bail!("volunteer task not found: {task_id}");
+        };
+        if !task.try_claim(&self.local_peer_id, now) {
+            anyhow::bail!("no volunteer slots open for task {}", task.task_id);
+        }
+        let body = task.encode_json()?;
+        self.post_bulletin(
+            VOLUNTEER_SCOPE.to_string(),
+            format!("volunteer:{} claim", task.task_id),
+            body.clone(),
+            task.ttl_secs,
+            Some(task.geohash.as_str()),
+        )
+        .await?;
+        Ok(task)
+    }
+
     pub async fn set_crisis_manual(&self, manual: CrisisManualMode) -> anyhow::Result<()> {
         self.handle.set_crisis_manual(manual).await
     }
@@ -1711,6 +1843,10 @@ impl AppNode {
         self.handle
             .update_crisis_auto(internet_reachable, listen, local_geohash_prefix)
             .await
+    }
+
+    pub async fn set_local_geohash_prefix(&self, prefix: Option<&str>) -> anyhow::Result<()> {
+        self.handle.set_local_geohash_prefix(prefix).await
     }
 
     pub async fn is_crisis_active(&self) -> bool {
@@ -1768,6 +1904,9 @@ impl AppNode {
                     RESOURCE_MAP_SCOPE.into(),
                 ))
                 .await?;
+            self.handle
+                .send(NodeCommand::SubscribeBulletinScope(VOLUNTEER_SCOPE.into()))
+                .await?;
         } else {
             self.handle
                 .send(NodeCommand::UnsubscribeBulletinScope(
@@ -1777,6 +1916,11 @@ impl AppNode {
             self.handle
                 .send(NodeCommand::UnsubscribeBulletinScope(
                     RESOURCE_MAP_SCOPE.into(),
+                ))
+                .await?;
+            self.handle
+                .send(NodeCommand::UnsubscribeBulletinScope(
+                    VOLUNTEER_SCOPE.into(),
                 ))
                 .await?;
         }

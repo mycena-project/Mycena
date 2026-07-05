@@ -432,6 +432,14 @@ fun PeersScreen(navController: NavController, vm: PeersViewModel = viewModel()) 
                                 modifier = Modifier.padding(top = 4.dp),
                             )
                         }
+                        if (metrics.crowdDensityActive) {
+                            Text(
+                                stringResource(R.string.status_crowd_density_active),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.tertiary,
+                                modifier = Modifier.padding(top = 8.dp),
+                            )
+                        }
                     }
                 }
             }

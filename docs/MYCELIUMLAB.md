@@ -40,6 +40,8 @@ Related scenarios outside MyceliumLab (also CI-gated):
 | `custody_scenarios` | City DTN delivery must succeed (80 nodes) |
 | `commuter_custody_scenarios` | Delivery-probability routing ≤ latency vs recency-only |
 | `eclipse_scenarios` | Diversity preserves legit relay in 100% of rounds |
+| `geohash_custody_scenarios` | Geohash-clustered sybils; custody carrier diversity picks legit every round |
+| `volunteer` (app scope) | `mycelium/volunteer/v1` task post/claim via SOS UI + FFI |
 | `dense_cluster` (analytical) | Gossip shard fanout containment at 520 nodes |
 
 ## Models
@@ -85,6 +87,8 @@ Also via CLI: `myceliumlab ci-gate`
 | Custody city delivery | Message delivered via `CustodyQueue` (80-node city sim) |
 | Commuter custody | Delivery-probability delivers in ≤ steps and ≤ latency vs recency-only |
 | Eclipse relay | Score-only picks 0 legit peers; diversity picks legit in every round |
+| Geohash eclipse relay | Sybils share geohash bucket; diversity still picks distant legit every round |
+| Geohash custody carrier | Young sybil carriers share geohash bucket; diversity defers sybils and picks established legit every round |
 | Local dense Sybil | 200 legit + 500 co-located fakes; diverse legit→legit delivery **≥55%** (score-only must stay **≥10pp** lower) |
 | SOS flood | 120 Sybil peers × 8 SOS each; crisis **off** until **≥3** trusted independent sources nearby |
 | Dense cluster shards | Shard fanout ratio < 0.15 at 520 nodes; density backoff triggers |

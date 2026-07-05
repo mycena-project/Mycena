@@ -21,7 +21,9 @@ impl NodeCommand {
             | NodeCommand::SendWire { .. }
             | NodeCommand::SendWireOrQueueBle { .. }
             | NodeCommand::SendEncryptedDirect { .. }
-            | NodeCommand::EnqueueEncryptedDirectCustody { .. } => Some(Consistency::EventuallyConsistent),
+            | NodeCommand::EnqueueEncryptedDirectCustody { .. } => {
+                Some(Consistency::EventuallyConsistent)
+            }
             NodeCommand::Broadcast { scope, .. } | NodeCommand::BroadcastPayload { scope, .. } => {
                 if ingest_guard::is_sos_scope(scope)
                     || scope.starts_with(mycelium_core::resource_map::RESOURCE_MAP_SCOPE)

@@ -99,5 +99,5 @@ flowchart LR
 ## Follow-up
 
 - [ ] Capability bit in invite: `discovery=aware|ble`
-- [ ] Metrics: discovery bearer mix in `NodeMetrics`
+- [x] Metrics: discovery bearer mix in `NodeMetrics` ✅ (2026-07-05)
 - [ ] iOS: Network framework browse for LAN NSD parity only

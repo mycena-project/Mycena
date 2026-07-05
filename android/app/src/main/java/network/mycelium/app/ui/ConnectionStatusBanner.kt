@@ -72,6 +72,26 @@ fun ConnectionStatusBanner(vm: StatusViewModel = viewModel()) {
         }
     }
 
+    val offlineMeshActive by vm.offlineMeshActive.collectAsState()
+
+    AnimatedVisibility(
+        visible = offlineMeshActive && !crisisActive,
+        enter = slideInVertically(),
+        exit = slideOutVertically(),
+    ) {
+        Surface(
+            color = MaterialTheme.colorScheme.tertiaryContainer,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(
+                text = stringResource(R.string.status_offline_mesh_active),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onTertiaryContainer,
+            )
+        }
+    }
+
     AnimatedVisibility(
         visible = showSearchingBanner && peerCount == 0,
         enter = slideInVertically(),

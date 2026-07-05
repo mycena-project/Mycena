@@ -2,6 +2,8 @@
 
 **Level 0 mesh (discovery, privacy, scale, emergency):** see **[LEVEL0_ROADMAP.md](./LEVEL0_ROADMAP.md)** — phased plan from the Mac/Android chat milestone toward offline mesh, daily ID rotation, and emergency SOS.
 
+**Work tracker (audit):** see **[WORK_REMAINING.md](./WORK_REMAINING.md)** — categorized human / hardware / software backlog and iteration plan.
+
 **Connectivity modes & disaster mesh:** see **[CONNECTIVITY_MODES.md](./CONNECTIVITY_MODES.md)** and **[DISASTER_MESH_ROADMAP.md](./DISASTER_MESH_ROADMAP.md)** — Settings semantics, status labels, desktop BLE Phase 1, DTN Phases 2–4, **Crisis Mode + resource map** ([ADR 008](./adr/008-resource-map-crisis-mode.md)).
 
 ## Phase 1 — Kurzfristig (P0)
@@ -34,11 +36,13 @@
 
 ## Optional (Backlog)
 
-- **Crisis Mode UI** — manual toggle, auto indicator, resource map report/list (Android + Desktop)
-- **Volunteer coordination (phase 2)** — task assignment on top of resource map; see ADR 008 out-of-scope
+See **[WORK_REMAINING.md](./WORK_REMAINING.md)** for categorized audit (human / hardware / software) and P0–P3 iteration plan.
+
+- **Crisis field metrics** — essential vs background drop counters ([DISASTER_MESH_ROADMAP.md](./DISASTER_MESH_ROADMAP.md) 2.5.8)
+- ~~**Volunteer coordination (phase 2)**~~ — Done — `mycelium/volunteer/v1`, Android/Desktop SOS UI ([ADR 008](./adr/008-resource-map-crisis-mode.md))
 - **UserTrust follow-ups** — contribution history export, relay badge in SOS screen
 - **iOS host (long-term)** — UniFFI Swift shell; see [MOBILE_PLATFORMS.md](./MOBILE_PLATFORMS.md) Phase 2–3
 - ~~Forward Secrecy / Double Ratchet~~ — **Done (v1)** — [ADR 004](./adr/004-double-ratchet-e2e.md); v0 fallback retained
-- Relay-Parität mit Node-Wire-Semantik
-- Desktop-Release-Runbook (Signierung, Updates)
-- CLI: Groups, Wallet, Panic für Headless-Nodes
+- ~~Relay wire parity with node protocol IDs~~ — Done — `mycelium_core::protocol` shared by node + relay
+- ~~Desktop release runbook (signing, updates)~~ — Done — [RELEASING.md](../RELEASING.md)
+- ~~CLI: Groups, Wallet, Panic for headless nodes~~ — Done — `mycelium group|wallet|panic`, `--headless`, HTTP API

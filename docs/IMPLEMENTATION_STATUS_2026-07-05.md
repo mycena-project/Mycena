@@ -80,9 +80,19 @@ Audit of the four most recent feature prompts in the Mycelium session. Use this 
 
 | Prompt | Status | Location |
 |--------|--------|----------|
-| WebRTC data-channel bearer (phone↔desktop/browser) | **Implemented, uncommitted** | `bearer_webrtc.rs`, `webrtc_signaling.rs`, Android/desktop hosts, ADR 010 |
+| WebRTC data-channel bearer (phone↔desktop/browser) | **Done** (`ecb7cdf`) | `bearer_webrtc.rs`, `webrtc_signaling.rs`, Android/desktop hosts, ADR 010 |
 
-Intentionally excluded from the secure-hardware + geo-diversity commit to keep review scope aligned with the last four prompts.
+---
+
+## 5. Repo audit pass (2026-07-05 — same session)
+
+| Item | Status | Notes |
+|------|--------|-------|
+| `MeshProfile::Crowd` for manual crowd mode | **Done** | `mycelium-node/src/transport.rs` |
+| `crowd_density_active` in metrics + UI | **Done** | NodeMetrics, UniFFI, Peers (Android), Settings (Desktop) |
+| Geohash prefix Settings + FFI → node | **Done** | `SetLocalGeohashPrefix`, Android Settings, Desktop Settings |
+| Wi‑Fi Direct inbound (AR-06) | **Already shipped** | Doc correction in AR-06 |
+| Master tracker | **Done** | [WORK_REMAINING.md](./WORK_REMAINING.md) |
 
 ---
 

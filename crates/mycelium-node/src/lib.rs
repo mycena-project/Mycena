@@ -13,6 +13,7 @@ mod custody;
 mod encounter_log;
 mod error;
 mod forwarding;
+mod gossip_mesh;
 mod information_trust_store;
 mod information_trust_tracker;
 mod ingest_guard;
@@ -31,6 +32,7 @@ mod transport_meta;
 pub use ratchet_store::RatchetSessionStore;
 pub use transport::{DirectPeerCap, PeerAdmitAction};
 
+pub use bearer_webrtc::BearerWebRtcRouter;
 pub use bearer_wifi_aware::{
     BearerWifiAwareRouter, DiscoveryAnnouncement, DiscoveryPeerEvent, DISCOVERY_ANNOUNCE_MAX,
 };
@@ -58,7 +60,6 @@ pub use mycelium_core::transport_score::{
     TransportAvailability, TransportBearer, TransportPath, TransportScore, TransportScoreSample,
     TransportScoreStore,
 };
-pub use bearer_webrtc::BearerWebRtcRouter;
 pub use mycelium_core::webrtc_signaling::WebRtcSignalInbound;
 pub use mycelium_l0_facade::EncKey;
 pub use node::{

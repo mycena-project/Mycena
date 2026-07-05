@@ -37,13 +37,17 @@ cargo audit --json >"$AUDIT_JSON" 2>/dev/null
 audit_status=$?
 set -e
 
-if [[ "$audit_status" -ne 0 ]]; then
-  echo "cargo audit failed (exit $audit_status)" >&2
+if [[ ! -s "$AUDIT_JSON" ]]; then
+  echo "cargo audit failed to produce JSON (exit $audit_status)" >&2
   cargo audit
-  exit "$audit_status"
+  exit 1
 fi
 
-python3 <<'PY' "$AUDIT_JSON" "$ROOT/docs/DEPENDENCY_ADVISORY_ALLOWLIST.tsv"
+if [[ "$audit_status" -ne 0 ]]; then
+  echo "cargo audit reported advisories (exit $audit_status); checking allowlist..." >&2
+fi
+
+python3 - "$AUDIT_JSON" "$ROOT/docs/DEPENDENCY_ADVISORY_ALLOWLIST.tsv" <<'PY'
 import json
 import sys
 from datetime import date

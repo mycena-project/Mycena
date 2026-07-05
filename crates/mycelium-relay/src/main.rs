@@ -99,6 +99,7 @@ async fn status(
         "reservations": s.reservations.load(Ordering::Relaxed),
         "uptime_secs": s.started.elapsed().as_secs(),
         "version": s.version,
+        "wire_protocol": mycelium_core::protocol::IDENTIFY_PROTOCOL,
     }))
 }
 
@@ -176,7 +177,7 @@ async fn main() -> anyhow::Result<()> {
         .with_quic()
         .with_behaviour(|key| {
             let identify = identify::Behaviour::new(identify::Config::new(
-                "/mycelium/1.0.0".into(),
+                mycelium_core::protocol::IDENTIFY_PROTOCOL.into(),
                 key.public(),
             ));
             Ok(RelayBehaviour {
@@ -198,8 +199,9 @@ async fn main() -> anyhow::Result<()> {
                 ping: ping::Behaviour::new(ping::Config::new()),
                 kad: {
                     let local_peer_id = key.public().to_peer_id();
-                    let mut config =
-                        kad::Config::new(libp2p::StreamProtocol::new("/mycelium/kad/1.0.0"));
+                    let mut config = kad::Config::new(libp2p::StreamProtocol::new(
+                        mycelium_core::protocol::KAD_PROTOCOL,
+                    ));
                     config.set_query_timeout(Duration::from_secs(60));
                     let mut behaviour = kad::Behaviour::with_config(
                         local_peer_id,

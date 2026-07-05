@@ -30,6 +30,8 @@ pub struct BearerWifiAwareRouter {
     inbound: VecDeque<DiscoveryPeerEvent>,
     scores: TransportScoreStore,
     available: bool,
+    discovery_events_wifi_aware: u64,
+    discovery_events_ble: u64,
 }
 
 impl BearerWifiAwareRouter {
@@ -43,6 +45,14 @@ impl BearerWifiAwareRouter {
 
     pub fn is_available(&self) -> bool {
         self.available
+    }
+
+    pub fn discovery_events_wifi_aware(&self) -> u64 {
+        self.discovery_events_wifi_aware
+    }
+
+    pub fn discovery_events_ble(&self) -> u64 {
+        self.discovery_events_ble
     }
 
     pub fn transport_scores(&self) -> &TransportScoreStore {
@@ -85,6 +95,7 @@ impl BearerWifiAwareRouter {
         }
         let at = now_ms();
         let byte_len = invite.len().min(u32::MAX as usize) as u32;
+        self.discovery_events_wifi_aware = self.discovery_events_wifi_aware.saturating_add(1);
         self.inbound.push_back(DiscoveryPeerEvent {
             peer_hint,
             invite_uri: invite.clone(),
@@ -116,6 +127,9 @@ impl BearerWifiAwareRouter {
     }
 
     pub fn record_ble_discovery_observation(&mut self, latency_ms: u64, bytes: u32, success: bool) {
+        if success {
+            self.discovery_events_ble = self.discovery_events_ble.saturating_add(1);
+        }
         self.scores.record(
             TransportBearer::Ble,
             TransportScoreSample {
@@ -196,5 +210,12 @@ mod tests {
             router.transport_scores(),
             now_ms()
         ));
+    }
+
+    #[test]
+    fn ingest_increments_discovery_event_counter() {
+        let mut router = BearerWifiAwareRouter::new();
+        router.ingest_peer("peer-a".into(), "mycelium://invite/v1#abc".into(), 20);
+        assert_eq!(router.discovery_events_wifi_aware(), 1);
     }
 }

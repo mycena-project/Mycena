@@ -21,7 +21,6 @@ use mycelium_core::crypto::EncryptionKeypair;
 use mycelium_core::crypto::{self};
 use mycelium_core::data::{now_ms, Priority};
 use mycelium_core::energy::{EnergyProfile, MovementIndicator, NodeState, ThermalState};
-use mycelium_core::webrtc_signaling::{WebRtcSignalInbound, WebRtcSignalKind, MAX_SIGNALING_PAYLOAD};
 use mycelium_core::lock_or_recover;
 use mycelium_core::privacy_shaping::{
     self, BatchingScheduler, PrivacyShapingConfig, PrivacyShapingStats,
@@ -35,6 +34,9 @@ use mycelium_core::transport::{
 };
 use mycelium_core::transport_score::prefer_wifi_aware_for_discovery;
 use mycelium_core::transport_score::TransportPath;
+use mycelium_core::webrtc_signaling::{
+    WebRtcSignalInbound, WebRtcSignalKind, MAX_SIGNALING_PAYLOAD,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -429,6 +431,8 @@ pub enum NodeCommand {
         listen_sos: bool,
         local_geohash_prefix: Option<String>,
     },
+    /// Set local geohash prefix for SOS/bulletin gossip shards and co-presence hints.
+    SetLocalGeohashPrefix(Option<String>),
     /// Follow a contact's signed transport PeerId rotation (SD-190).
     RemapTransportPeer {
         old_peer_id: String,
@@ -524,6 +528,26 @@ pub struct NodeMetrics {
     pub custody_forwards: u64,
     pub privacy_shaping_stats: PrivacyShapingStats,
     pub crisis_active: bool,
+    /// Auto density backoff active (≥ enter_threshold visible peers).
+    pub crowd_density_active: bool,
+    /// Background gossip ingest deferred while crisis mode is active.
+    pub crisis_dropped_background_gossip: u64,
+    /// Background messages held (not forwarded) while crisis mode is active.
+    pub crisis_dropped_background_forward: u64,
+    /// Background sync (bloom) skipped while crisis mode is active.
+    pub crisis_dropped_background_sync: u64,
+    /// RTCDataChannel links with negotiated MYBR path ready (ADR 010).
+    pub webrtc_links_active: u64,
+    /// Host reported WebRTC stack available (desktop / optional Android).
+    pub webrtc_host_available: bool,
+    /// Wi‑Fi Aware / NSD discovery host available (ADR 009).
+    pub wifi_aware_available: bool,
+    /// Cumulative Wi‑Fi Aware discovery peer ingest events.
+    pub discovery_events_wifi_aware: u64,
+    /// Cumulative successful BLE discovery observations.
+    pub discovery_events_ble: u64,
+    /// Snapshot: prefer Wi‑Fi Aware over BLE for discovery at metrics flush.
+    pub prefer_wifi_aware_discovery: bool,
 }
 
 use crate::peer_trust::{PeerReputationSnapshot, PeerTrust};
@@ -658,6 +682,13 @@ impl NodeHandle {
             listen_sos,
             local_geohash_prefix: local_geohash_prefix.map(str::to_string),
         })
+        .await
+    }
+
+    pub async fn set_local_geohash_prefix(&self, prefix: Option<&str>) -> anyhow::Result<()> {
+        self.send(NodeCommand::SetLocalGeohashPrefix(
+            prefix.map(str::to_string),
+        ))
         .await
     }
 
@@ -1354,6 +1385,17 @@ impl NodeRunner {
         metrics.connected_peers = self.transport.connected_peer_count();
         metrics.max_peers = self.transport.max_direct_peers();
         metrics.peer_cap_rejections = self.transport.peer_cap_rejections();
+        metrics.webrtc_links_active = self.transport.webrtc_links_active();
+        metrics.webrtc_host_available = self.transport.webrtc_host_available();
+        metrics.wifi_aware_available = self.wifi_aware.is_available();
+        metrics.discovery_events_wifi_aware = self.wifi_aware.discovery_events_wifi_aware();
+        metrics.discovery_events_ble = self.wifi_aware.discovery_events_ble();
+        metrics.prefer_wifi_aware_discovery = prefer_wifi_aware_for_discovery(
+            self.wifi_aware.is_available(),
+            self.ble_discovery_active,
+            self.wifi_aware.transport_scores(),
+            now_ms(),
+        );
     }
 
     fn energy_profile(&self) -> EnergyProfile {
@@ -1506,7 +1548,7 @@ impl NodeRunner {
         ))
     }
 
-    fn update_crowd_density_backoff(&mut self) {
+    async fn update_crowd_density_backoff(&mut self) {
         let visible = self.transport.connected_peer_count();
         let next = self
             .crowd_density_config
@@ -1517,6 +1559,38 @@ impl NodeRunner {
         self.crowd_density_active = next;
         self.transport
             .set_density_backoff(next, self.crowd_density_config.max_direct_peers);
+        self.metrics.write().await.crowd_density_active = next;
+        if next {
+            info!("auto crowd density backoff active ({visible} visible peers)");
+        } else {
+            info!("auto crowd density backoff cleared ({visible} visible peers)");
+        }
+    }
+
+    fn normalize_geohash_prefix(prefix: &str) -> Option<String> {
+        let trimmed = prefix.trim();
+        if trimmed.is_empty() {
+            return None;
+        }
+        mycelium_core::topic_shard::shard_prefix(trimmed).or_else(|| {
+            if trimmed.len() >= 4 {
+                Some(trimmed.to_string())
+            } else {
+                None
+            }
+        })
+    }
+
+    async fn apply_local_geohash_prefix(&mut self, prefix: Option<String>) {
+        self.local_geohash_prefix = prefix.as_deref().and_then(Self::normalize_geohash_prefix);
+        let subs = self.bulletin_subscriptions.read().await.clone();
+        for scope in subs {
+            if mycelium_core::topic_shard::supports_geohash_sharding(&scope) {
+                if let Err(e) = self.subscribe_gossip_for_scope(&scope).await {
+                    warn!("refresh geohash shard subscription for {scope}: {e}");
+                }
+            }
+        }
     }
 
     async fn subscribe_gossip_for_scope(&mut self, scope: &str) -> anyhow::Result<()> {
@@ -1578,7 +1652,7 @@ impl NodeRunner {
                 self.subscribed_scopes.write().await.insert(scope);
             }
         }
-        self.update_crowd_density_backoff();
+        self.update_crowd_density_backoff().await;
         let mut fast_tick = interval(Duration::from_millis(50));
         fast_tick.set_missed_tick_behavior(MissedTickBehavior::Skip);
         let mut gc_tick = interval(Duration::from_secs(6 * 60 * 60));
@@ -2191,7 +2265,12 @@ impl NodeRunner {
                 listen_sos,
                 local_geohash_prefix,
             } => {
-                let trusted_nearby = local_geohash_prefix
+                if local_geohash_prefix.is_some() {
+                    self.apply_local_geohash_prefix(local_geohash_prefix.clone())
+                        .await;
+                }
+                let trusted_nearby = self
+                    .local_geohash_prefix
                     .as_deref()
                     .filter(|p| !p.is_empty())
                     .map(|prefix| {
@@ -2208,6 +2287,9 @@ impl NodeRunner {
                     );
                 let active = self.crisis_state.is_active();
                 self.metrics.write().await.crisis_active = active;
+            }
+            NodeCommand::SetLocalGeohashPrefix(prefix) => {
+                self.apply_local_geohash_prefix(prefix).await;
             }
             NodeCommand::RemapTransportPeer {
                 old_peer_id,
@@ -3002,6 +3084,7 @@ impl NodeRunner {
         if self.crisis_active()
             && mycelium_core::resource_map::should_defer_gossip_in_crisis(&scope)
         {
+            self.metrics.write().await.crisis_dropped_background_gossip += 1;
             return Ok(());
         }
         let mut targets: HashSet<String> = self.targets_for_scope(&scope).into_iter().collect();
@@ -3050,7 +3133,11 @@ impl NodeRunner {
             }
         }
         // Gossip publish on geohash-sharded topics when applicable (AR-06).
-        let gossip_topics = topic_shard::resolve_publish_topics(&scope, &payload);
+        let gossip_topics = topic_shard::resolve_publish_topics_with_hint(
+            &scope,
+            &payload,
+            self.local_geohash_prefix.as_deref(),
+        );
         for topic in gossip_topics {
             if let Err(e) = self.transport.publish_scoped(topic, payload.clone()).await {
                 warn!("gossip publish for bulletin scope (non-fatal): {e:#}");
@@ -3143,7 +3230,7 @@ impl NodeRunner {
                 self.send_sync_bloom(peer_id.clone()).await?;
                 self.flush_custody_to_peer(&peer_id).await?;
                 self.retry_identity_rotation_to_peer(&peer_id).await;
-                self.update_crowd_density_backoff();
+                self.update_crowd_density_backoff().await;
                 self.maybe_schedule_webrtc_negotiation(&peer_id);
             }
             TransportEvent::PeerDown { peer_id } => {
@@ -3168,7 +3255,7 @@ impl NodeRunner {
                 self.peer_scopes.remove(&peer_id);
                 self.peer_protocol_caps.remove(&peer_id);
                 self.transport.set_webrtc_link_ready(&peer_id, false);
-                self.update_crowd_density_backoff();
+                self.update_crowd_density_backoff().await;
             }
             TransportEvent::DirectReceived { from_peer, message } => {
                 self.handle_incoming_direct(from_peer, message).await?;
@@ -3213,6 +3300,7 @@ impl NodeRunner {
                 if self.crisis_active()
                     && mycelium_core::resource_map::should_defer_gossip_in_crisis(&scope)
                 {
+                    self.metrics.write().await.crisis_dropped_background_gossip += 1;
                     return Ok(());
                 }
                 if crate::ingest_guard::is_sos_scope(&scope)
@@ -3598,6 +3686,11 @@ impl NodeRunner {
                         );
                     }
                     ForwardDecision::Hold => {
+                        if self.crisis_active()
+                            && traffic_class_for_direct(&message) == TrafficClass::Background
+                        {
+                            self.metrics.write().await.crisis_dropped_background_forward += 1;
+                        }
                         let _ = self.maybe_enqueue_custody(&message).await;
                     }
                     ForwardDecision::DeliverLocal => {}
@@ -3605,6 +3698,7 @@ impl NodeRunner {
             }
             WireMessage::SyncBloom { bloom, count } => {
                 if self.crisis_active() {
+                    self.metrics.write().await.crisis_dropped_background_sync += 1;
                     return Ok(());
                 }
                 let Some(remote_bloom) = BloomFilter::from_bytes(&bloom) else {
@@ -3794,13 +3888,14 @@ impl NodeRunner {
                 if payload.len() > MAX_SIGNALING_PAYLOAD {
                     return Ok(());
                 }
-                self.transport.push_webrtc_inbound_signal(WebRtcSignalInbound {
-                    from_peer: from_peer.clone(),
-                    session_id,
-                    kind: signal_kind,
-                    payload,
-                    ice_mline_index,
-                });
+                self.transport
+                    .push_webrtc_inbound_signal(WebRtcSignalInbound {
+                        from_peer: from_peer.clone(),
+                        session_id,
+                        kind: signal_kind,
+                        payload,
+                        ice_mline_index,
+                    });
                 if signal_kind == WebRtcSignalKind::DataChannelOpen {
                     self.transport.set_webrtc_link_ready(&from_peer, true);
                 }
@@ -3946,6 +4041,9 @@ impl NodeRunner {
             }
             let essential = traffic_class_for_direct(&pending.message) == TrafficClass::Essential;
             if profile.should_skip_nonessential_relay() && !essential {
+                if self.crisis_active() {
+                    self.metrics.write().await.crisis_dropped_background_forward += 1;
+                }
                 continue;
             }
             if (!self.crisis_active() || !essential)
@@ -3982,7 +4080,7 @@ impl NodeRunner {
         metrics.crisis_active = self.crisis_active();
         self.update_transport_metrics(&mut metrics);
         drop(metrics);
-        self.update_crowd_density_backoff();
+        self.update_crowd_density_backoff().await;
         if let Err(e) = self.forward_custody_once().await {
             warn!("custody forward tick error: {e:#}");
         }

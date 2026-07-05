@@ -157,6 +157,9 @@ fun SettingsScreen(navController: NavController) {
     var crowdModeEnabled by remember {
         mutableStateOf(prefs.getBoolean(KEY_CROWD_MODE, false))
     }
+    var localGeohashPrefix by remember {
+        mutableStateOf(settingsVm.localGeohashPrefix())
+    }
     var showTechnicalIds by remember { mutableStateOf(false) }
     var bleBootstrapEnabled by remember {
         mutableStateOf(
@@ -369,6 +372,20 @@ fun SettingsScreen(navController: NavController) {
                 )
             }
 
+            OutlinedTextField(
+                value = localGeohashPrefix,
+                onValueChange = { localGeohashPrefix = it.lowercase().filter { c -> c.isLetterOrDigit() } },
+                label = { Text(stringResource(R.string.settings_geohash_prefix_title)) },
+                placeholder = { Text(stringResource(R.string.settings_geohash_prefix_hint)) },
+                supportingText = {
+                    Text(stringResource(R.string.settings_geohash_prefix_sub))
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp),
+                singleLine = true,
+            )
+
             Spacer(Modifier.height(20.dp))
             PrivacySettingsSection()
             Spacer(Modifier.height(12.dp))
@@ -393,6 +410,7 @@ fun SettingsScreen(navController: NavController) {
                         .putString(KEY_BOOTSTRAP_PEERS, peers.joinToString("\n"))
                         .apply()
                     peers.forEach { mycelium.addBootstrapPeer(it) }
+                    settingsVm.setLocalGeohashPrefix(localGeohashPrefix)
                     saved = true
                 },
                 modifier = Modifier.fillMaxWidth(),

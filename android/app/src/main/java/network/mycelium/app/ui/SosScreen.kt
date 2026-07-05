@@ -70,9 +70,12 @@ fun SosScreen(navController: NavController, vm: SosViewModel = viewModel()) {
     val crisisActive by vm.crisisActive.collectAsState()
     val posts by vm.posts.collectAsState()
     val resourceEntries by vm.resourceEntries.collectAsState()
+    val volunteerTasks by vm.volunteerTasks.collectAsState()
     var geohash by remember { mutableStateOf("") }
     var message by remember { mutableStateOf("") }
     var resourceDescription by remember { mutableStateOf("") }
+    var volunteerDescription by remember { mutableStateOf("") }
+    var volunteerSlots by remember { mutableStateOf("2") }
     var resourceCategory by remember { mutableStateOf(RESOURCE_CATEGORIES.first()) }
     var crisisMenuExpanded by remember { mutableStateOf(false) }
     var categoryMenuExpanded by remember { mutableStateOf(false) }
@@ -333,6 +336,87 @@ fun SosScreen(navController: NavController, vm: SosViewModel = viewModel()) {
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                     )
+                }
+            }
+            item {
+                Text(stringResource(R.string.volunteer_section), style = MaterialTheme.typography.titleSmall)
+                Text(
+                    stringResource(R.string.volunteer_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                )
+                OutlinedTextField(
+                    value = volunteerSlots,
+                    onValueChange = { volunteerSlots = it.filter { ch -> ch.isDigit() }.take(2) },
+                    label = { Text(stringResource(R.string.volunteer_slots_label)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                )
+                OutlinedTextField(
+                    value = volunteerDescription,
+                    onValueChange = { volunteerDescription = it.take(200) },
+                    label = { Text(stringResource(R.string.volunteer_description_hint)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 2,
+                )
+                Button(
+                    onClick = {
+                        val slots = volunteerSlots.toIntOrNull() ?: 0
+                        if (geohash.isNotBlank() && volunteerDescription.isNotBlank() && slots in 1..50) {
+                            vm.postVolunteerTask(geohash, resourceCategory, volunteerDescription, slots)
+                            volunteerDescription = ""
+                        }
+                    },
+                    enabled = geohash.isNotBlank() &&
+                        volunteerDescription.isNotBlank() &&
+                        (volunteerSlots.toIntOrNull() ?: 0) in 1..50,
+                ) {
+                    Text(stringResource(R.string.volunteer_post_button))
+                }
+            }
+            item {
+                Text(
+                    stringResource(R.string.volunteer_nearby_section, volunteerTasks.size),
+                    style = MaterialTheme.typography.titleSmall,
+                )
+                if (!listenEnabled) {
+                    Text(
+                        stringResource(R.string.sos_listen_off_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                } else if (volunteerTasks.isEmpty()) {
+                    Text(
+                        stringResource(R.string.volunteer_empty),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
+            items(volunteerTasks, key = { it.taskId }) { task ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                ) {
+                    Text(
+                        "${task.category} @ ${task.geohash}",
+                        style = MaterialTheme.typography.labelMedium,
+                    )
+                    Text(task.description, style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        stringResource(
+                            R.string.volunteer_claims,
+                            task.claimsCount.toInt(),
+                            task.slotsNeeded.toInt(),
+                            task.slotsOpen.toInt(),
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    )
+                    if (task.slotsOpen > 0u) {
+                        OutlinedButton(onClick = { vm.claimVolunteerTask(task.taskId) }) {
+                            Text(stringResource(R.string.volunteer_claim_button))
+                        }
+                    }
                 }
             }
             item {

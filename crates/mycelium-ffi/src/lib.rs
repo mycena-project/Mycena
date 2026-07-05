@@ -169,6 +169,16 @@ pub struct NodeMetrics {
     pub max_peers: u64,
     pub peer_cap_rejections: u64,
     pub crisis_active: bool,
+    pub crowd_density_active: bool,
+    pub crisis_dropped_background_gossip: u64,
+    pub crisis_dropped_background_forward: u64,
+    pub crisis_dropped_background_sync: u64,
+    pub webrtc_links_active: u64,
+    pub webrtc_host_available: bool,
+    pub wifi_aware_available: bool,
+    pub discovery_events_wifi_aware: u64,
+    pub discovery_events_ble: u64,
+    pub prefer_wifi_aware_discovery: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -356,6 +366,20 @@ pub struct ResourceMapEntry {
     pub ttl_secs: u64,
     pub expires_at_ms: u64,
     pub trust: InformationTrustData,
+}
+
+#[derive(Debug, Clone)]
+pub struct VolunteerTaskEntry {
+    pub task_id: String,
+    pub geohash: String,
+    pub category: String,
+    pub description: String,
+    pub slots_needed: u32,
+    pub slots_open: u32,
+    pub claims_count: u32,
+    pub created_at_ms: u64,
+    pub ttl_secs: u64,
+    pub expires_at_ms: u64,
 }
 
 #[derive(Debug, Clone)]
@@ -1192,6 +1216,16 @@ pub fn metrics() -> NodeMetrics {
             max_peers: m.max_peers as u64,
             peer_cap_rejections: m.peer_cap_rejections,
             crisis_active: m.crisis_active,
+            crowd_density_active: m.crowd_density_active,
+            crisis_dropped_background_gossip: m.crisis_dropped_background_gossip,
+            crisis_dropped_background_forward: m.crisis_dropped_background_forward,
+            crisis_dropped_background_sync: m.crisis_dropped_background_sync,
+            webrtc_links_active: m.webrtc_links_active,
+            webrtc_host_available: m.webrtc_host_available,
+            wifi_aware_available: m.wifi_aware_available,
+            discovery_events_wifi_aware: m.discovery_events_wifi_aware,
+            discovery_events_ble: m.discovery_events_ble,
+            prefer_wifi_aware_discovery: m.prefer_wifi_aware_discovery,
         }
     })
 }
@@ -1539,13 +1573,19 @@ pub fn chat_history(peer_id: String, limit: u32) -> Vec<ChatMessage> {
     })
 }
 
-pub fn post_bulletin(scope: String, title: String, body: String, ttl_secs: u64) {
+pub fn post_bulletin(
+    scope: String,
+    title: String,
+    body: String,
+    ttl_secs: u64,
+    geohash: Option<String>,
+) {
     let state = state_arc();
     runtime().block_on(async {
         let state = state.read().await;
         let _ = state
             .app_node
-            .post_bulletin(scope, title, body, ttl_secs)
+            .post_bulletin(scope, title, body, ttl_secs, geohash.as_deref())
             .await;
     });
 }
@@ -1678,6 +1718,17 @@ pub fn refresh_crisis_auto(internet_reachable: bool, local_geohash_prefix: Optio
     });
 }
 
+pub fn set_local_geohash_prefix(prefix: Option<String>) {
+    let state = state_arc();
+    runtime().block_on(async {
+        let state = state.read().await;
+        let _ = state
+            .app_node
+            .set_local_geohash_prefix(prefix.as_deref())
+            .await;
+    });
+}
+
 pub fn post_resource_map(geohash: String, category: String, description: String, ttl_secs: u64) {
     let state = state_arc();
     runtime().block_on(async {
@@ -1687,6 +1738,54 @@ pub fn post_resource_map(geohash: String, category: String, description: String,
             .post_resource_map(&geohash, &category, &description, ttl_secs)
             .await;
     });
+}
+
+pub fn post_volunteer_task(
+    geohash: String,
+    category: String,
+    description: String,
+    slots_needed: u32,
+    ttl_secs: u64,
+) -> Result<VolunteerTaskEntry, MyceliumException> {
+    let state = state_arc();
+    runtime().block_on(async {
+        let state = state.read().await;
+        state
+            .app_node
+            .post_volunteer_task(&geohash, &category, &description, slots_needed, ttl_secs)
+            .await
+            .map(to_volunteer_task_entry)
+            .map_err(|e| MyceliumException::ChatError {
+                detail: e.to_string(),
+            })
+    })
+}
+
+pub fn list_volunteer_tasks() -> Vec<VolunteerTaskEntry> {
+    with_state(|state| {
+        state
+            .app_node
+            .list_volunteer_tasks()
+            .unwrap_or_default()
+            .into_iter()
+            .map(to_volunteer_task_entry)
+            .collect()
+    })
+}
+
+pub fn claim_volunteer_task(task_id: String) -> Result<VolunteerTaskEntry, MyceliumException> {
+    let state = state_arc();
+    runtime().block_on(async {
+        let state = state.read().await;
+        state
+            .app_node
+            .claim_volunteer_task(&task_id)
+            .await
+            .map(to_volunteer_task_entry)
+            .map_err(|e| MyceliumException::ChatError {
+                detail: e.to_string(),
+            })
+    })
 }
 
 pub fn list_scope_keys() -> Vec<ScopeKeyInfo> {
@@ -3108,6 +3207,24 @@ fn to_resource_map_entry(
         ttl_secs: e.ttl_secs,
         expires_at_ms,
         trust: to_information_trust(trust),
+    }
+}
+
+fn to_volunteer_task_entry(task: mycelium_core::volunteer::VolunteerTask) -> VolunteerTaskEntry {
+    let slots_open = task.slots_open();
+    let expires_at_ms = task.expires_at_ms();
+    let claims_count = task.claims.len() as u32;
+    VolunteerTaskEntry {
+        task_id: task.task_id,
+        geohash: task.geohash,
+        category: task.category.as_str().to_string(),
+        description: task.description,
+        slots_needed: task.slots_needed,
+        slots_open,
+        claims_count,
+        created_at_ms: task.created_at_ms,
+        ttl_secs: task.ttl_secs,
+        expires_at_ms,
     }
 }
 

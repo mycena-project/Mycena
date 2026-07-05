@@ -152,6 +152,15 @@
     <string name="resource_map_nearby_section">Ressourcen in der Nähe (%1$d)</string>
     <string name="resource_map_empty">Noch keine Ressourcen gemeldet.</string>
     <string name="resource_map_expires">Läuft ab %1$s</string>
+    <string name="volunteer_section">Freiwilligenaufgaben</string>
+    <string name="volunteer_hint">Hilfe an einem Ort anfragen (z. B. Unterkunft besetzen). Peers können Plätze übernehmen.</string>
+    <string name="volunteer_slots_label">Benötigte Helfer</string>
+    <string name="volunteer_description_hint">Aufgabenbeschreibung</string>
+    <string name="volunteer_post_button">Freiwilligenaufgabe posten (12 Stunden)</string>
+    <string name="volunteer_nearby_section">Offene Aufgaben (%1$d)</string>
+    <string name="volunteer_empty">Noch keine Freiwilligenaufgaben.</string>
+    <string name="volunteer_claims">%1$d/%2$d übernommen · %3$d frei</string>
+    <string name="volunteer_claim_button">Platz übernehmen</string>
     <string name="resource_category_water">Wasser</string>
     <string name="resource_category_food">Essen</string>
     <string name="resource_category_shelter">Unterkunft</string>

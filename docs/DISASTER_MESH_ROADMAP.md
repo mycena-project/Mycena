@@ -43,9 +43,10 @@ See also: [CONNECTIVITY_MODES.md](./CONNECTIVITY_MODES.md), [LEVEL0_ROADMAP.md](
 | 2.5.5 | App/FFI: `post_resource_map`, crisis APIs | Done (core) |
 | 2.5.6 | Android/Desktop crisis toggle + resource map UI | Done |
 | 2.5.7 | Connectivity background: `refresh_crisis_auto` tick | Done (Android service + Desktop interval) |
-| 2.5.8 | Field metrics: crisis_active, essential vs background drops | Backlog |
+| 2.5.8 | Field metrics: crisis_active, essential vs background drops | Done — `crisis_dropped_background_{gossip,forward,sync}` + existing `crisis_active` / `crowd_density_active` |
+| 2.5.9 | Volunteer task coordination (`mycelium/volunteer/v1`) | Done — core + Android/Desktop SOS UI + FFI |
 
-**Exit criteria:** Two phones in airplane mode + BLE; manual crisis on; SOS and resource pin propagate while coin/appstore gossip is deferred; UI shows non-expired pins on map/list.
+**Exit criteria:** Two phones in airplane mode + BLE; manual crisis on; SOS, resource pins, and volunteer tasks propagate while coin/appstore gossip is deferred; UI shows non-expired pins and open task slots.
 
 ---
 

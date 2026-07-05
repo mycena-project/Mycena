@@ -149,6 +149,11 @@ pub const OP_RESOURCE_MAP_BROADCAST: StateOp<LocalModel> = StateOp::new(
     "Local compose + MaximumPropagation; ephemeral geohash resource pins",
 );
 
+pub const OP_VOLUNTEER_TASK_BROADCAST: StateOp<LocalModel> = StateOp::new(
+    "volunteer.task_broadcast",
+    "Local compose + MaximumPropagation; volunteer slot assignment",
+);
+
 pub const OP_SOS_BROADCAST: StateOp<LocalModel> = StateOp::new(
     "sos.broadcast",
     "Local compose + MaximumPropagation policy; no settlement",

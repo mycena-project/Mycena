@@ -1,6 +1,6 @@
 # AR-06 scaling — remaining gaps
 
-**Status:** Mitigations shipped (2026-07); items below are follow-ups for full product intent.
+**Status:** Mitigations shipped (2026-07); P0–P1 software gaps closed 2026-07-05.
 
 ## Shipped
 
@@ -8,18 +8,20 @@
 - Kademlia query rate limit (8/min) in `Libp2pTransport`
 - Auto crowd density backoff (≥25 visible peers → Intermittent forwarding, fanout 2, mDNS cap, peer cap ~20)
 - `mycelium-sim::dense_cluster` — 520-node fanout containment model
+- **`MeshProfile::Crowd`** for manual crowd mode at node start
+- **`crowd_density_active`** in `NodeMetrics` + Android Peers + Desktop Settings
+- **Geohash prefix UX** — Settings + FFI `set_local_geohash_prefix`
+- **Wi‑Fi Direct inbound** — `WifiDirectBearerHost` TCP reader → `ingestBleFrame`
+- **Gossip mesh hot-swap (P0)** — density backoff applies `MeshProfile::Crowd` gossip params at runtime ([`gossip_mesh.rs`](../crates/mycelium-node/src/gossip_mesh.rs), vendored libp2p-gossipsub)
+- **Multi-shard SOS listen (P1)** — parent geohash prefixes via `listen_shard_prefixes` (env `MYCELIUM_SOS_LISTEN_MIN_PREFIX`, default 3)
+- **Bulletin geohash post (P1)** — `post_bulletin(..., geohash?)` + `resolve_publish_topics_with_hint`
+- **Crisis drop metrics (P1)** — `crisis_dropped_background_*` in NodeMetrics
 
-## Remaining (priority)
+## Remaining
 
-| Gap | Impact | Suggested fix |
-|-----|--------|---------------|
-| **No mobile geohash UX** | SOS listen requires `MYCELIUM_LOCAL_GEOHASH` or `NodeConfig.local_geohash_prefix`; Settings/FFI not wired | FFI field + Android SOS/settings geohash prefix |
-| **Gossip mesh degree not hot-swapped** | Density backoff affects forwarding/mDNS/peers only; gossipsub `mesh_n` set at transport init | Restart with crowd mode, or future gossipsub reconfig |
-| **`MeshProfile::Crowd` unused** | Defined but manual crowd mode still uses `Dense` | Wire crowd mode → `Crowd` profile on restart |
-| **Bulletin sharding partial** | Only SOS + `mycelium/bulletin/*` with geohash in JSON | Optional geohash on bulletin post API |
-| **Multi-shard SOS listen** | Single prefix only | Subscribe parent prefixes or user-selected radius |
-| **No density observability** | Users cannot see auto-backoff in UI | Expose `crowd_density_active` in metrics/Settings |
-| **Wi‑Fi Direct inbound (Android)** | Bulk send works; TCP read → `ingest_bearer_frame` missing | Inbound relay loop in `WifiDirectBearerHost` |
-| **Full 520-node libp2p soak** | Sim uses analytical model (CI-time tradeoff) | Optional nightly soak job |
+| Gap | Category | Notes |
+|-----|----------|-------|
+| **Full 520-node libp2p soak** | 2 — infra | Sim uses analytical model; optional nightly job |
+| **GPS-derived geohash** | 1 — product | Manual prefix UX shipped; auto-location is a separate decision |
 
-See also: [ARCHITECTURE_RISKS.md](./ARCHITECTURE_RISKS.md) §6, [CONNECTIVITY_MODES.md](./CONNECTIVITY_MODES.md).
+See [WORK_REMAINING.md](./WORK_REMAINING.md).

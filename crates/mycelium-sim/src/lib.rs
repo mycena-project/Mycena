@@ -6,6 +6,7 @@ pub mod commuter_custody_scenarios;
 pub mod custody_scenarios;
 pub mod dense_cluster;
 pub mod eclipse_scenarios;
+pub mod geohash_custody_scenarios;
 pub mod lab;
 pub mod local_sybil_dense;
 pub mod resource_disinfo_scenarios;

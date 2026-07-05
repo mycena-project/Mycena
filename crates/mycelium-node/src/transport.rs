@@ -170,6 +170,8 @@ pub struct Libp2pTransport {
     relay_reservation_confirmed: bool,
     last_circuit_dial_attempt: Option<Instant>,
     crowd_mode: bool,
+    /// Gossip profile at transport init (before auto density backoff).
+    baseline_mesh_profile: MeshProfile,
     /// Runtime density backoff (auto crowd when visible peers exceed threshold).
     density_backoff: bool,
     baseline_max_peers: usize,
@@ -208,7 +210,7 @@ impl Libp2pTransport {
         let key = crate::secrets::load_or_create_keypair(&keypair_path, storage_key)?;
         let local_peer_id = key.public().to_peer_id();
         let mesh_profile = if crowd_mode {
-            MeshProfile::Dense
+            MeshProfile::Crowd
         } else {
             MeshProfile::from_env()
         };
@@ -287,6 +289,7 @@ impl Libp2pTransport {
             relay_reservation_confirmed: false,
             last_circuit_dial_attempt: None,
             crowd_mode,
+            baseline_mesh_profile: mesh_profile,
             density_backoff: false,
             baseline_max_peers: max_peers,
             relay_pool,
@@ -310,7 +313,7 @@ impl Libp2pTransport {
         transport.setup_kad();
         if crowd_mode {
             tracing::info!(
-                "crowd mode: max_peers={} mdns_dial_cap={}/min mesh=dense",
+                "crowd mode: max_peers={} mdns_dial_cap={}/min mesh=crowd",
                 transport.peer_cap.max_peers(),
                 CROWD_MDNS_DIAL_CAP
             );
@@ -344,24 +347,30 @@ impl Libp2pTransport {
         true
     }
 
-    /// Toggle auto density backoff (tightens mDNS dial cap and direct peer cap).
+    /// Toggle auto density backoff (tightens mDNS dial cap, direct peer cap, and gossip mesh).
     pub fn set_density_backoff(&mut self, active: bool, density_max_peers: usize) {
         if self.density_backoff == active {
             return;
         }
         self.density_backoff = active;
+        let profile = if active {
+            crate::gossip_mesh::density_backoff_profile(self.baseline_mesh_profile, self.crowd_mode)
+        } else {
+            self.baseline_mesh_profile
+        };
+        crate::gossip_mesh::apply_mesh_profile(&mut self.swarm.behaviour_mut().gossip, profile);
         if active {
             let cap = density_max_peers.min(self.baseline_max_peers);
             self.peer_cap.set_max_peers(cap);
             tracing::info!(
-                "density backoff active: max_peers={} mdns_dial_cap={}/min",
+                "density backoff active: max_peers={} mdns_dial_cap={}/min gossip={profile:?}",
                 cap,
                 CROWD_MDNS_DIAL_CAP
             );
         } else {
             self.peer_cap.set_max_peers(self.baseline_max_peers);
             tracing::info!(
-                "density backoff cleared: max_peers={}",
+                "density backoff cleared: max_peers={} gossip={profile:?}",
                 self.baseline_max_peers
             );
         }
@@ -1082,6 +1091,10 @@ impl MeshTransport for Libp2pTransport {
 
     fn webrtc_host_available(&self) -> bool {
         self.webrtc.host_available()
+    }
+
+    fn webrtc_links_active(&self) -> u64 {
+        self.webrtc.active_link_count() as u64
     }
 
     fn set_webrtc_link_ready(&mut self, peer: &str, ready: bool) {

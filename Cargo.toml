@@ -72,3 +72,6 @@ x25519-dalek = { version = "2", features = ["static_secrets"] }
 rand = "0.8"
 rand_core = "0.6"
 zeroize = "1"
+
+[patch.crates-io]
+libp2p-gossipsub = { path = "third-party/libp2p-gossipsub" }

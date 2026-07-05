@@ -18,6 +18,7 @@ import network.mycelium.app.MeshEvents
 import network.mycelium.bindings.ConnectivityMode
 import network.mycelium.bindings.ResourceMapEntry
 import network.mycelium.bindings.SosPost
+import network.mycelium.bindings.VolunteerTaskEntry
 import network.mycelium.bindings.mycelium
 
 class SosViewModel(application: Application) : AndroidViewModel(application) {
@@ -42,6 +43,9 @@ class SosViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _resourceEntries = MutableStateFlow<List<ResourceMapEntry>>(emptyList())
     val resourceEntries: StateFlow<List<ResourceMapEntry>> = _resourceEntries.asStateFlow()
+
+    private val _volunteerTasks = MutableStateFlow<List<VolunteerTaskEntry>>(emptyList())
+    val volunteerTasks: StateFlow<List<VolunteerTaskEntry>> = _volunteerTasks.asStateFlow()
 
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -74,6 +78,7 @@ class SosViewModel(application: Application) : AndroidViewModel(application) {
     fun refreshAll() {
         refreshPosts()
         refreshResourceEntries()
+        refreshVolunteerTasks()
         refreshCrisisActive()
     }
 
@@ -84,6 +89,11 @@ class SosViewModel(application: Application) : AndroidViewModel(application) {
     fun refreshResourceEntries() {
         _resourceEntries.value =
             runCatching { mycelium.listResourceMapEntries() }.getOrDefault(emptyList())
+    }
+
+    fun refreshVolunteerTasks() {
+        _volunteerTasks.value =
+            runCatching { mycelium.listVolunteerTasks() }.getOrDefault(emptyList())
     }
 
     fun refreshCrisisActive() {
@@ -124,9 +134,37 @@ class SosViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun postVolunteerTask(
+        geohash: String,
+        category: String,
+        description: String,
+        slotsNeeded: Int,
+    ) {
+        viewModelScope.launch {
+            val gh = geohash.trim()
+            mycelium.postVolunteerTask(
+                gh,
+                category,
+                description.trim(),
+                slotsNeeded.coerceIn(1, 50).toUInt(),
+                43_200u,
+            )
+            rememberGeohashPrefix(gh)
+            refreshAll()
+        }
+    }
+
+    fun claimVolunteerTask(taskId: String) {
+        viewModelScope.launch {
+            runCatching { mycelium.claimVolunteerTask(taskId.trim()) }
+            refreshVolunteerTasks()
+        }
+    }
+
     private fun rememberGeohashPrefix(geohash: String) {
         val prefix = geohash.take(4).takeIf { it.length >= 4 } ?: return
         prefs.edit().putString(KEY_LOCAL_GEOHASH_PREFIX, prefix).apply()
+        mycelium.setLocalGeohashPrefix(prefix)
     }
 
     private fun syncListenToNode() {

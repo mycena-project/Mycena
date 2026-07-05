@@ -31,6 +31,7 @@ pub use mycelium_core::relay_registry;
 pub use mycelium_core::relay_status;
 pub use mycelium_core::resource_map;
 pub use mycelium_core::sos;
+pub use mycelium_core::volunteer;
 
 pub use crypto::{
     decrypt_group, encrypt_for, encrypt_group, parse_x25519_public_hex, public_key_from_bytes,

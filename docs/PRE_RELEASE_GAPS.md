@@ -1,7 +1,7 @@
 # Pre–public release — open gaps
 
-**Last updated:** July 2026 (execution pass)  
-**Context:** [THREAT_MODEL.md](./THREAT_MODEL.md) · [BETA_SECURITY_ASSESSMENT.md](./BETA_SECURITY_ASSESSMENT.md)
+**Last updated:** July 2026 (audit pass + AR-06 software gaps)  
+**Context:** [THREAT_MODEL.md](./THREAT_MODEL.md) · [BETA_SECURITY_ASSESSMENT.md](./BETA_SECURITY_ASSESSMENT.md) · [WORK_REMAINING.md](./WORK_REMAINING.md)
 
 Legend: **DO NOW** · **DOCUMENT** · **EXTERNAL** · **BLOCKS PLAY** · **DONE**
 

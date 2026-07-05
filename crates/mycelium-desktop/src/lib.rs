@@ -140,7 +140,10 @@ struct UiSettings {
     listen_sos: bool,
     #[serde(default)]
     crowd_mode: bool,
-    /// BLE mesh handoff (macOS/Linux preview — host stub until Phase 1b).
+    /// Geohash prefix (4+ chars) for SOS/bulletin gossip shards — not GPS; user-entered area hint.
+    #[serde(default)]
+    local_geohash_prefix: Option<String>,
+    /// BLE mesh handoff (macOS/Linux — blew GATT host, ADR 003 Phase 1b).
     #[serde(default)]
     ble_bootstrap: bool,
 }
@@ -162,6 +165,7 @@ impl Default for UiSettings {
             display_name: None,
             listen_sos: false,
             crowd_mode: false,
+            local_geohash_prefix: None,
             ble_bootstrap: false,
         }
     }
@@ -557,6 +561,11 @@ async fn start_node(
     if ui_settings.listen_sos {
         let _ = app_node.set_listen_sos(true).await;
     }
+    if let Some(ref gh) = ui_settings.local_geohash_prefix {
+        if !gh.trim().is_empty() {
+            let _ = app_node.set_local_geohash_prefix(Some(gh.trim())).await;
+        }
+    }
     setup_inbox_emitter(app, inbox);
 
     let user_trust = Arc::new(UserTrustStore::open(&db_path).map_err(|e| e.to_string())?);
@@ -673,9 +682,7 @@ async fn connect_peer_id(
     let discovery_timeout = discovery.clone();
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(std::time::Duration::from_secs(45)).await;
-        discovery_timeout
-            .set_connecting_from_invite(false)
-            .await;
+        discovery_timeout.set_connecting_from_invite(false).await;
     });
 
     let result = {
@@ -1006,6 +1013,26 @@ async fn refresh_crisis_auto(
 }
 
 #[tauri::command]
+async fn set_local_geohash_prefix(
+    state: State<'_, SharedState>,
+    prefix: Option<String>,
+) -> Result<(), String> {
+    let mut guard = state.write().await;
+    let s = guard
+        .as_mut()
+        .ok_or_else(|| "node not started".to_string())?;
+    let normalized = prefix.filter(|p| !p.trim().is_empty());
+    s.app_node
+        .set_local_geohash_prefix(normalized.as_deref())
+        .await
+        .map_err(|e| e.to_string())?;
+    let mut ui = load_ui_settings(&s.db_path);
+    ui.local_geohash_prefix = normalized;
+    save_ui_settings(&s.db_path, &ui);
+    Ok(())
+}
+
+#[tauri::command]
 async fn post_resource_map(
     state: State<'_, SharedState>,
     geohash: String,
@@ -1048,6 +1075,84 @@ async fn list_resource_map_entries(
             })
         })
         .collect())
+}
+
+#[tauri::command]
+async fn post_volunteer_task(
+    state: State<'_, SharedState>,
+    geohash: String,
+    category: String,
+    description: String,
+    slots_needed: u32,
+    ttl_secs: u64,
+) -> Result<serde_json::Value, String> {
+    let guard = state.read().await;
+    let s = guard
+        .as_ref()
+        .ok_or_else(|| "node not started".to_string())?;
+    let task = s
+        .app_node
+        .post_volunteer_task(&geohash, &category, &description, slots_needed, ttl_secs)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(json!({
+        "task_id": task.task_id,
+        "geohash": task.geohash,
+        "category": task.category.as_str(),
+        "description": task.description,
+        "slots_needed": task.slots_needed,
+        "slots_open": task.slots_open(),
+        "claims_count": task.claims.len(),
+    }))
+}
+
+#[tauri::command]
+async fn list_volunteer_tasks(
+    state: State<'_, SharedState>,
+) -> Result<Vec<serde_json::Value>, String> {
+    let guard = state.read().await;
+    let s = guard
+        .as_ref()
+        .ok_or_else(|| "node not started".to_string())?;
+    Ok(s.app_node
+        .list_volunteer_tasks()
+        .map_err(|e| e.to_string())?
+        .into_iter()
+        .map(|task| {
+            json!({
+                "task_id": task.task_id,
+                "geohash": task.geohash,
+                "category": task.category.as_str(),
+                "description": task.description,
+                "slots_needed": task.slots_needed,
+                "slots_open": task.slots_open(),
+                "claims_count": task.claims.len(),
+                "created_at_ms": task.created_at_ms,
+                "expires_at_ms": task.expires_at_ms(),
+            })
+        })
+        .collect())
+}
+
+#[tauri::command]
+async fn claim_volunteer_task(
+    state: State<'_, SharedState>,
+    task_id: String,
+) -> Result<serde_json::Value, String> {
+    let guard = state.read().await;
+    let s = guard
+        .as_ref()
+        .ok_or_else(|| "node not started".to_string())?;
+    let task = s
+        .app_node
+        .claim_volunteer_task(&task_id)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(json!({
+        "task_id": task.task_id,
+        "slots_open": task.slots_open(),
+        "claims_count": task.claims.len(),
+    }))
 }
 
 fn trust_json(
@@ -1099,6 +1204,19 @@ async fn get_metrics(state: State<'_, SharedState>) -> Result<serde_json::Value,
         "messages_delivered_local": m.messages_delivered_local,
         "pending_queue_size": m.pending_queue_size,
         "seen_cache_size": m.seen_cache_size,
+        "connected_peers": m.connected_peers,
+        "max_peers": m.max_peers,
+        "crisis_active": m.crisis_active,
+        "crowd_density_active": m.crowd_density_active,
+        "crisis_dropped_background_gossip": m.crisis_dropped_background_gossip,
+        "crisis_dropped_background_forward": m.crisis_dropped_background_forward,
+        "crisis_dropped_background_sync": m.crisis_dropped_background_sync,
+        "webrtc_links_active": m.webrtc_links_active,
+        "webrtc_host_available": m.webrtc_host_available,
+        "wifi_aware_available": m.wifi_aware_available,
+        "discovery_events_wifi_aware": m.discovery_events_wifi_aware,
+        "discovery_events_ble": m.discovery_events_ble,
+        "prefer_wifi_aware_discovery": m.prefer_wifi_aware_discovery,
     }))
 }
 
@@ -1292,7 +1410,7 @@ async fn post_bulletin(
         .as_ref()
         .ok_or_else(|| "node not started".to_string())?;
     s.app_node
-        .post_bulletin(scope, title, body, ttl_secs)
+        .post_bulletin(scope, title, body, ttl_secs, None)
         .await
         .map_err(|e| e.to_string())
 }
@@ -1926,6 +2044,7 @@ async fn get_settings(state: State<'_, SharedState>) -> Result<serde_json::Value
         "max_connectivity": ui.max_connectivity,
         "listen_sos": ui.listen_sos,
         "crowd_mode": ui.crowd_mode,
+        "local_geohash_prefix": ui.local_geohash_prefix,
         "ble_bootstrap": ui.ble_bootstrap,
         "connectivity_mode": connectivity_label(connectivity),
         "connectivity_detail": connectivity_detail(s.internet_enabled, s.rendezvous_enabled, connectivity),
@@ -2082,7 +2201,10 @@ async fn set_ble_bootstrap(
 }
 
 #[tauri::command]
-async fn webrtc_set_available(state: State<'_, SharedState>, available: bool) -> Result<(), String> {
+async fn webrtc_set_available(
+    state: State<'_, SharedState>,
+    available: bool,
+) -> Result<(), String> {
     let guard = state.read().await;
     let s = guard
         .as_ref()
@@ -2551,8 +2673,12 @@ pub fn run() {
             set_crisis_manual_mode,
             is_crisis_mode_active,
             refresh_crisis_auto,
+            set_local_geohash_prefix,
             post_resource_map,
             list_resource_map_entries,
+            post_volunteer_task,
+            list_volunteer_tasks,
+            claim_volunteer_task,
             user_trust_summary,
             get_metrics,
             send_chat,

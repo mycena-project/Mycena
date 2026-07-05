@@ -120,6 +120,18 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         prefs.edit().putStringSet(KEY_BULLETIN_SUBSCRIPTIONS, scopes.toSet()).apply()
     }
 
+    fun localGeohashPrefix(): String =
+        prefs.getString(SosViewModel.KEY_LOCAL_GEOHASH_PREFIX, "").orEmpty()
+
+    fun setLocalGeohashPrefix(prefix: String) {
+        val normalized = prefix.trim().takeIf { it.length >= 4 }
+        prefs.edit()
+            .putString(SosViewModel.KEY_LOCAL_GEOHASH_PREFIX, normalized)
+            .apply()
+        mycelium.setLocalGeohashPrefix(normalized)
+        SosViewModel.refreshCrisisAutoFromPrefs(getApplication())
+    }
+
     companion object {
         const val PREFS_NAME = "settings"
         const val KEY_BLE_BOOTSTRAP = "ble_bootstrap_enabled"

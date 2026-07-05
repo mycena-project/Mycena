@@ -87,6 +87,7 @@ Verify locally:
 
 ```bash
 curl -s http://127.0.0.1:8080/status | jq .
+# Includes "wire_protocol": "mycelium/0.1" — must match mesh nodes (`mycelium_core::protocol::IDENTIFY_PROTOCOL`).
 ```
 
 ---

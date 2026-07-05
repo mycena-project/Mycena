@@ -397,6 +397,9 @@ pub trait MeshTransport: Send {
     fn webrtc_host_available(&self) -> bool {
         false
     }
+    fn webrtc_links_active(&self) -> u64 {
+        0
+    }
     fn set_webrtc_link_ready(&mut self, _peer: &str, _ready: bool) {}
     fn webrtc_link_ready(&self, _peer: &str) -> bool {
         false
@@ -405,7 +408,11 @@ pub trait MeshTransport: Send {
     fn drain_webrtc_negotiation_requests(&mut self, _max: usize) -> Vec<String> {
         Vec::new()
     }
-    fn push_webrtc_inbound_signal(&mut self, _signal: crate::webrtc_signaling::WebRtcSignalInbound) {}
+    fn push_webrtc_inbound_signal(
+        &mut self,
+        _signal: crate::webrtc_signaling::WebRtcSignalInbound,
+    ) {
+    }
     fn drain_webrtc_inbound_signals(
         &mut self,
         _max: usize,

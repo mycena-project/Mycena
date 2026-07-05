@@ -7,6 +7,7 @@ typealias ChatMessage = uniffi.mycelium.ChatMessage
 typealias BulletinPost = uniffi.mycelium.BulletinPost
 typealias SosPost = uniffi.mycelium.SosPost
 typealias ResourceMapEntry = uniffi.mycelium.ResourceMapEntry
+typealias VolunteerTaskEntry = uniffi.mycelium.VolunteerTaskEntry
 typealias MailMessage = uniffi.mycelium.MailMessage
 typealias NodeMetrics = uniffi.mycelium.NodeMetrics
 typealias WalletBalance = uniffi.mycelium.WalletBalance
@@ -83,8 +84,8 @@ object mycelium {
     fun hasEncKeyFor(peerId: String): Boolean = uniffi.mycelium.hasEncKeyFor(peerId)
     fun sendChatBroadcast(body: String) = uniffi.mycelium.sendChatBroadcast(body)
     fun chatHistory(peerId: String, limit: UInt): List<ChatMessage> = uniffi.mycelium.chatHistory(peerId, limit)
-    fun postBulletin(scope: String, title: String, body: String, ttlSecs: ULong) =
-        uniffi.mycelium.postBulletin(scope, title, body, ttlSecs)
+    fun postBulletin(scope: String, title: String, body: String, ttlSecs: ULong, geohash: String? = null) =
+        uniffi.mycelium.postBulletin(scope, title, body, ttlSecs, geohash)
     fun bulletinsForScope(scope: String): List<BulletinPost> = uniffi.mycelium.bulletinsForScope(scope)
     fun postSos(geohash: String, message: String, ttlSecs: ULong) =
         uniffi.mycelium.postSos(geohash, message, ttlSecs)
@@ -95,9 +96,22 @@ object mycelium {
     fun isCrisisModeActive(): Boolean = uniffi.mycelium.isCrisisModeActive()
     fun refreshCrisisAuto(internetReachable: Boolean, localGeohashPrefix: String?) =
         uniffi.mycelium.refreshCrisisAuto(internetReachable, localGeohashPrefix)
+    fun setLocalGeohashPrefix(prefix: String?) =
+        uniffi.mycelium.setLocalGeohashPrefix(prefix)
     fun postResourceMap(geohash: String, category: String, description: String, ttlSecs: ULong) =
         uniffi.mycelium.postResourceMap(geohash, category, description, ttlSecs)
     fun listResourceMapEntries(): List<ResourceMapEntry> = uniffi.mycelium.listResourceMapEntries()
+    fun postVolunteerTask(
+        geohash: String,
+        category: String,
+        description: String,
+        slotsNeeded: UInt,
+        ttlSecs: ULong,
+    ): VolunteerTaskEntry =
+        uniffi.mycelium.postVolunteerTask(geohash, category, description, slotsNeeded, ttlSecs)
+    fun listVolunteerTasks(): List<VolunteerTaskEntry> = uniffi.mycelium.listVolunteerTasks()
+    fun claimVolunteerTask(taskId: String): VolunteerTaskEntry =
+        uniffi.mycelium.claimVolunteerTask(taskId)
     fun sendMail(toPeer: String, subject: String, body: String) = uniffi.mycelium.sendMail(toPeer, subject, body)
     fun mailInbox(limit: UInt): List<MailMessage> = uniffi.mycelium.mailInbox(limit)
     fun mailSent(limit: UInt): List<MailMessage> = uniffi.mycelium.mailSent(limit)

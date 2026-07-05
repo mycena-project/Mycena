@@ -25,6 +25,8 @@
   let accountId = $state("");
   let transportEpoch = $state(0);
   let crowdMode = $state(false);
+  let localGeohashPrefix = $state('');
+  let crowdDensityActive = $state(false);
   let storeStats = $state({ count: 0, oldest_ms: 0 });
   let gcResult = $state(null);
   let saved = $state(false);
@@ -48,6 +50,9 @@
     accountId = settings.account_id ?? "";
     transportEpoch = settings.transport_epoch ?? 0;
     crowdMode = settings.crowd_mode ?? false;
+    localGeohashPrefix = settings.local_geohash_prefix ?? '';
+    const m = await invoke('get_metrics');
+    crowdDensityActive = m.crowd_density_active ?? false;
     storeStats = await invoke('get_store_stats');
     const custom = await invoke('get_custom_bootstrap_peers');
     bootstrapPeers = custom.join('\n');
@@ -107,6 +112,18 @@
     } catch (e) {
       networkError = e instanceof Error ? e.message : String(e);
       bleBootstrap = !enabled;
+    }
+  }
+
+  async function applyLocalGeohash() {
+    networkError = '';
+    try {
+      const trimmed = localGeohashPrefix.trim();
+      await invoke('set_local_geohash_prefix', {
+        prefix: trimmed.length >= 4 ? trimmed : null,
+      });
+    } catch (e) {
+      networkError = e instanceof Error ? e.message : String(e);
     }
   }
 
@@ -236,7 +253,7 @@
         bind:checked={bleBootstrap}
         onchange={() => applyBleBootstrap(bleBootstrap)}
       />
-      Bluetooth mesh (macOS preview)
+      Bluetooth mesh (macOS/Linux)
     </label>
     <small class="hint">
       Saves preference and starts desktop BLE host (scan + advertise). Pair with Android for pocket mesh.
@@ -267,8 +284,21 @@
       Crowd mode (festivals / dense events)
     </label>
     <small class="hint">
-      Applies immediately for Kademlia policy; full transport caps on next restart.
+      Applies immediately for Kademlia policy; crowd gossip profile on next restart.
     </small>
+    {#if crowdDensityActive}
+      <p class="connectivity-note">Dense mesh — auto backoff active (many nearby peers)</p>
+    {/if}
+    <label>
+      Local area (geohash prefix)
+      <input
+        bind:value={localGeohashPrefix}
+        onchange={() => applyLocalGeohash()}
+        placeholder="u4pr"
+        maxlength="12"
+      />
+      <small>4+ chars for SOS listen and bulletin shards — not GPS. Saved on blur.</small>
+    </label>
     <label class="checkbox-row">
       <input
         type="checkbox"

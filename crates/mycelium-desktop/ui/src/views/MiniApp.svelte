@@ -98,7 +98,9 @@
     });
   }
 
-  let bridgeTargetOrigin = $state("*");
+  /** srcdoc mini-app iframe uses opaque origin `"null"`. */
+  const MINIAPP_IFRAME_ORIGIN = "null";
+  let bridgeTargetOrigin = $state(MINIAPP_IFRAME_ORIGIN);
   let policy = $state(null);
 
   async function loadPolicy() {
@@ -123,7 +125,8 @@
   }
 
   function postToIframe(msg) {
-    iframeEl?.contentWindow?.postMessage(msg, bridgeTargetOrigin);
+    if (!iframeEl?.contentWindow) return;
+    iframeEl.contentWindow.postMessage(msg, bridgeTargetOrigin);
   }
 
   let wasmStatus = $state(null);
@@ -382,6 +385,9 @@
 
   function handleMessage(e) {
     if (e.source !== iframeEl?.contentWindow) return;
+    if (e.origin !== MINIAPP_IFRAME_ORIGIN && e.origin !== window.location.origin) {
+      return;
+    }
     bridgeTargetOrigin = e.origin;
     const raw = e.data && e.data.__mycelium_call;
     if (raw == null) return;

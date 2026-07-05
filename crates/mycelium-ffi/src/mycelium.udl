@@ -51,7 +51,7 @@ namespace mycelium {
   void delete_group(string group_id);
   sequence<ChatMessage> group_chat_history(string group_id, u32 limit);
 
-  void post_bulletin(string scope, string title, string body, u64 ttl_secs);
+  void post_bulletin(string scope, string title, string body, u64 ttl_secs, string? geohash);
   sequence<BulletinPost> bulletins_for_scope(string scope);
   sequence<string> get_bulletin_subscriptions();
   void subscribe_bulletin_scope(string scope);
@@ -66,8 +66,14 @@ namespace mycelium {
   void set_crisis_manual_mode(u8 mode);
   boolean is_crisis_mode_active();
   void refresh_crisis_auto(boolean internet_reachable, string? local_geohash_prefix);
+  void set_local_geohash_prefix(string? prefix);
   void post_resource_map(string geohash, string category, string description, u64 ttl_secs);
   sequence<ResourceMapEntry> list_resource_map_entries();
+  [Throws=MyceliumException]
+  VolunteerTaskEntry post_volunteer_task(string geohash, string category, string description, u32 slots_needed, u64 ttl_secs);
+  sequence<VolunteerTaskEntry> list_volunteer_tasks();
+  [Throws=MyceliumException]
+  VolunteerTaskEntry claim_volunteer_task(string task_id);
 
   sequence<ScopeKeyInfo> list_scope_keys();
   [Throws=MyceliumException]
@@ -257,6 +263,16 @@ dictionary NodeMetrics {
   u64 max_peers;
   u64 peer_cap_rejections;
   boolean crisis_active;
+  boolean crowd_density_active;
+  u64 crisis_dropped_background_gossip;
+  u64 crisis_dropped_background_forward;
+  u64 crisis_dropped_background_sync;
+  u64 webrtc_links_active;
+  boolean webrtc_host_available;
+  boolean wifi_aware_available;
+  u64 discovery_events_wifi_aware;
+  u64 discovery_events_ble;
+  boolean prefer_wifi_aware_discovery;
 };
 
 enum ExpectedDeliveryBasis {
@@ -362,6 +378,19 @@ dictionary ResourceMapEntry {
   u64 ttl_secs;
   u64 expires_at_ms;
   InformationTrustData trust;
+};
+
+dictionary VolunteerTaskEntry {
+  string task_id;
+  string geohash;
+  string category;
+  string description;
+  u32 slots_needed;
+  u32 slots_open;
+  u32 claims_count;
+  u64 created_at_ms;
+  u64 ttl_secs;
+  u64 expires_at_ms;
 };
 
 dictionary MailMessage {

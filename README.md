@@ -47,7 +47,16 @@ adb install -r android/app/build/outputs/apk/debug/app-debug.apk
 **CLI (developers):**
 
 ```bash
-cargo run -p mycelium-cli
+# Interactive node + HTTP API on :7760
+cargo run -p mycelium-cli -- --api-port 7760
+
+# Headless server (API only, no stdin)
+cargo run -p mycelium-cli -- --headless --api-port 7760
+
+# Groups, wallet, panic wipe (offline or while node runs elsewhere)
+cargo run -p mycelium-cli -- group create "Neighborhood"
+cargo run -p mycelium-cli -- wallet balance
+cargo run -p mycelium-cli -- panic --yes --db .mycelium-node
 ```
 
 Start two terminals on the same LAN, exchange peer IDs, then `/chat <peer_id> hello` or `/broadcast mycelium/chat hello`.

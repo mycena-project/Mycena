@@ -54,7 +54,8 @@ Resource map entries are **not** normal chat/bulletin gossip:
 
 **Out of scope (later):**
 
-- Volunteer task assignment, dedup by place+time, moderation queues.
+- ~~Volunteer task assignment~~ — phase 2 shipped (`mycelium/volunteer/v1`, 2026-07-05)
+- Dedup by place+time, moderation queues.
 - Map UI / offline tiles; category-specific trust weights.
 - Automatic resource-map-driven crisis activation (SOS-only for auto today).
 

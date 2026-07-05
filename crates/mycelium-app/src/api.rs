@@ -109,6 +109,21 @@ pub async fn start_api_server(
         .route("/api/v1/scopes", get(get_scopes))
         .route("/api/v1/scopes/subscribe", post(post_scope_subscribe))
         .route("/api/v1/scopes/:scope", delete(delete_scope))
+        .route("/api/v1/groups", get(get_groups).post(post_group))
+        .route("/api/v1/groups/join", post(post_group_join))
+        .route("/api/v1/groups/:group_id/chat", post(post_group_chat))
+        .route("/api/v1/wallet/address", get(get_wallet_address))
+        .route("/api/v1/wallet/balance", get(get_wallet_balance))
+        .route("/api/v1/wallet/send", post(post_wallet_send))
+        .route(
+            "/api/v1/volunteer/tasks",
+            get(get_volunteer_tasks).post(post_volunteer_task),
+        )
+        .route(
+            "/api/v1/volunteer/tasks/:task_id/claim",
+            post(post_volunteer_claim),
+        )
+        .route("/api/v1/panic/wipe", post(post_panic_wipe))
         .layer(CorsLayer::permissive())
         .with_state(state);
 
@@ -187,7 +202,7 @@ async fn post_bulletin(
 ) -> Result<StatusCode, (StatusCode, String)> {
     state
         .app
-        .post_bulletin(scope, body.title, body.body, body.ttl_secs)
+        .post_bulletin(scope, body.title, body.body, body.ttl_secs, None)
         .await
         .map(|_| StatusCode::OK)
         .map_err(internal_err)
@@ -375,5 +390,223 @@ async fn delete_scope(
         .send(NodeCommand::UnsubscribeScope(scope))
         .await
         .map_err(internal_err)?;
+    Ok(StatusCode::OK)
+}
+
+#[derive(Debug, Deserialize)]
+struct GroupCreateBody {
+    name: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct GroupJoinBody {
+    invite_json: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct GroupChatBody {
+    body: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct VolunteerTaskBody {
+    geohash: String,
+    category: String,
+    description: String,
+    slots_needed: u32,
+    ttl_secs: Option<u64>,
+}
+
+#[derive(Debug, Deserialize)]
+struct WalletSendBody {
+    to: String,
+    amount_muon: u64,
+}
+
+#[derive(Debug, Deserialize)]
+struct PanicWipeBody {
+    db_path: Option<String>,
+    confirm: bool,
+}
+
+async fn get_groups(
+    State(state): State<ApiState>,
+) -> Result<Json<Vec<serde_json::Value>>, (StatusCode, String)> {
+    let groups = state.app.list_groups().map_err(internal_err)?;
+    Ok(Json(
+        groups
+            .into_iter()
+            .map(|g| {
+                serde_json::json!({
+                    "id": g.id,
+                    "name": g.name,
+                    "members": g.members,
+                })
+            })
+            .collect(),
+    ))
+}
+
+async fn post_group(
+    State(state): State<ApiState>,
+    Json(body): Json<GroupCreateBody>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let group = state
+        .app
+        .create_group(body.name)
+        .await
+        .map_err(internal_err)?;
+    Ok(Json(serde_json::json!({
+        "id": group.id,
+        "name": group.name,
+        "invite": group.export_invite(),
+    })))
+}
+
+async fn post_group_join(
+    State(state): State<ApiState>,
+    Json(body): Json<GroupJoinBody>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let group = state
+        .app
+        .join_group_from_invite(&body.invite_json)
+        .await
+        .map_err(internal_err)?;
+    Ok(Json(serde_json::json!({
+        "id": group.id,
+        "name": group.name,
+    })))
+}
+
+async fn post_group_chat(
+    Path(group_id): Path<String>,
+    State(state): State<ApiState>,
+    Json(body): Json<GroupChatBody>,
+) -> Result<StatusCode, (StatusCode, String)> {
+    state
+        .app
+        .send_group_message_by_id(&group_id, body.body)
+        .await
+        .map_err(internal_err)?;
+    Ok(StatusCode::OK)
+}
+
+async fn get_wallet_address(
+    State(state): State<ApiState>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let coin = state
+        .app
+        .coin_node()
+        .ok_or_else(|| (StatusCode::SERVICE_UNAVAILABLE, "coin disabled".into()))?;
+    Ok(Json(serde_json::json!({ "address": coin.local_address() })))
+}
+
+async fn get_wallet_balance(
+    State(state): State<ApiState>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let coin = state
+        .app
+        .coin_node()
+        .ok_or_else(|| (StatusCode::SERVICE_UNAVAILABLE, "coin disabled".into()))?;
+    let (confirmed, pending) = coin.balance().map_err(internal_err)?;
+    Ok(Json(serde_json::json!({
+        "confirmed_muon": confirmed,
+        "pending_muon": pending,
+    })))
+}
+
+async fn post_wallet_send(
+    State(state): State<ApiState>,
+    Json(body): Json<WalletSendBody>,
+) -> Result<StatusCode, (StatusCode, String)> {
+    let coin = state
+        .app
+        .coin_node()
+        .ok_or_else(|| (StatusCode::SERVICE_UNAVAILABLE, "coin disabled".into()))?;
+    coin.submit_transfer_from_identity_path(
+        coin.coin_identity_path(),
+        body.to,
+        body.amount_muon,
+        0,
+        None,
+    )
+    .await
+    .map_err(internal_err)?;
+    Ok(StatusCode::OK)
+}
+
+async fn get_volunteer_tasks(
+    State(state): State<ApiState>,
+) -> Result<Json<Vec<serde_json::Value>>, (StatusCode, String)> {
+    let tasks = state.app.list_volunteer_tasks().map_err(internal_err)?;
+    Ok(Json(
+        tasks
+            .into_iter()
+            .map(|t| {
+                serde_json::json!({
+                    "task_id": t.task_id,
+                    "geohash": t.geohash,
+                    "category": t.category.as_str(),
+                    "description": t.description,
+                    "slots_needed": t.slots_needed,
+                    "slots_open": t.slots_open(),
+                    "claims_count": t.claims.len(),
+                })
+            })
+            .collect(),
+    ))
+}
+
+async fn post_volunteer_task(
+    State(state): State<ApiState>,
+    Json(body): Json<VolunteerTaskBody>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let task = state
+        .app
+        .post_volunteer_task(
+            &body.geohash,
+            &body.category,
+            &body.description,
+            body.slots_needed,
+            body.ttl_secs.unwrap_or(0),
+        )
+        .await
+        .map_err(internal_err)?;
+    Ok(Json(serde_json::json!({
+        "task_id": task.task_id,
+        "slots_open": task.slots_open(),
+    })))
+}
+
+async fn post_volunteer_claim(
+    Path(task_id): Path<String>,
+    State(state): State<ApiState>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let task = state
+        .app
+        .claim_volunteer_task(&task_id)
+        .await
+        .map_err(internal_err)?;
+    Ok(Json(serde_json::json!({
+        "task_id": task.task_id,
+        "slots_open": task.slots_open(),
+    })))
+}
+
+async fn post_panic_wipe(
+    Json(body): Json<PanicWipeBody>,
+) -> Result<StatusCode, (StatusCode, String)> {
+    if !body.confirm {
+        return Err((StatusCode::BAD_REQUEST, "confirm=true required".into()));
+    }
+    let path = body.db_path.ok_or_else(|| {
+        (
+            StatusCode::BAD_REQUEST,
+            "db_path required for panic wipe".into(),
+        )
+    })?;
+    if std::path::Path::new(&path).exists() {
+        std::fs::remove_dir_all(&path).map_err(internal_err)?;
+    }
     Ok(StatusCode::OK)
 }

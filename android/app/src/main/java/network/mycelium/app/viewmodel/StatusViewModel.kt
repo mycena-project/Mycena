@@ -40,6 +40,9 @@ class StatusViewModel(app: Application) : AndroidViewModel(app) {
     private val _crisisActive = MutableStateFlow(false)
     val crisisActive: StateFlow<Boolean> = _crisisActive.asStateFlow()
 
+    private val _offlineMeshActive = MutableStateFlow(false)
+    val offlineMeshActive: StateFlow<Boolean> = _offlineMeshActive.asStateFlow()
+
     private var hideSearchingJob: Job? = null
 
     init {
@@ -49,6 +52,7 @@ class StatusViewModel(app: Application) : AndroidViewModel(app) {
             }
             refreshPeerCount()
             refreshCrisisActive()
+            refreshOfflineMesh()
             runCatching { mycelium.currentConnectivityMode() }.getOrNull()?.let {
                 _connectivityMode.value = it
             }
@@ -58,6 +62,7 @@ class StatusViewModel(app: Application) : AndroidViewModel(app) {
                 when (event) {
                     MeshEvent.PeerUp, MeshEvent.PeerDown, MeshEvent.Chat -> {
                         refreshPeerCount()
+                        refreshOfflineMesh()
                         if (_peerCount.value > 0) {
                             stopSearchingBanner()
                         }
@@ -65,6 +70,7 @@ class StatusViewModel(app: Application) : AndroidViewModel(app) {
                     is MeshEvent.Connectivity -> {
                         _connectivityMode.value = event.mode
                         refreshCrisisActive()
+                        refreshOfflineMesh()
                         pulseSearchingBanner()
                     }
                     MeshEvent.Sos -> refreshCrisisActive()
@@ -76,6 +82,14 @@ class StatusViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun refreshCrisisActive() {
         _crisisActive.value = runCatching { mycelium.isCrisisModeActive() }.getOrDefault(false)
+    }
+
+    private fun refreshOfflineMesh() {
+        val prefs = appContext.getSharedPreferences(SettingsViewModel.PREFS_NAME, Application.MODE_PRIVATE)
+        val bleOn = prefs.getBoolean(SettingsViewModel.KEY_BLE_BOOTSTRAP, false)
+            || prefs.getBoolean(SettingsViewModel.KEY_MAX_CONNECTIVITY, false)
+        val meshOnly = _connectivityMode.value == ConnectivityMode.MESHONLY
+        _offlineMeshActive.value = meshOnly && bleOn && _peerCount.value > 0
     }
 
     private fun refreshPeerCount() {

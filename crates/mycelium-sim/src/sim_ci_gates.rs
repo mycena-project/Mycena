@@ -8,7 +8,8 @@
 use crate::commuter_custody_scenarios::commuter_custody_comparison;
 use crate::custody_scenarios::city_custody_delivery;
 use crate::dense_cluster::dense_cluster_shard_containment;
-use crate::eclipse_scenarios::eclipse_relay_resilience;
+use crate::eclipse_scenarios::{eclipse_relay_resilience, geohash_eclipse_relay_resilience};
+use crate::geohash_custody_scenarios::geohash_custody_carrier_resilience;
 use crate::lab::gates::lab_delivery_thresholds;
 use crate::lab::preset::LabPreset;
 use crate::lab::report::LabReport;
@@ -101,6 +102,44 @@ pub fn run_eclipse_ci_gate() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Geohash-clustered eclipse relay: diversity preserves geographically distinct legit peer.
+pub fn run_geohash_eclipse_ci_gate() -> anyhow::Result<()> {
+    let report = geohash_eclipse_relay_resilience(20);
+    if report.score_only_legit_relay_rounds != 0 {
+        anyhow::bail!(
+            "geohash eclipse CI gate: score-only routing picked legit peer {} times (expected 0)",
+            report.score_only_legit_relay_rounds
+        );
+    }
+    if report.diverse_legit_relay_rounds != report.traffic_rounds {
+        anyhow::bail!(
+            "geohash eclipse CI gate: diverse routing missed legit peer ({}/{})",
+            report.diverse_legit_relay_rounds,
+            report.traffic_rounds
+        );
+    }
+    Ok(())
+}
+
+/// Geohash-clustered custody carrier: diversity picks distant legit carrier every round.
+pub fn run_geohash_custody_ci_gate() -> anyhow::Result<()> {
+    let report = geohash_custody_carrier_resilience(20);
+    if report.score_only_legit_rounds != 0 {
+        anyhow::bail!(
+            "geohash custody CI gate: score-only picked legit carrier {} times (expected 0)",
+            report.score_only_legit_rounds
+        );
+    }
+    if report.diverse_legit_rounds != report.selection_rounds {
+        anyhow::bail!(
+            "geohash custody CI gate: diverse routing missed legit carrier ({}/{})",
+            report.diverse_legit_rounds,
+            report.selection_rounds
+        );
+    }
+    Ok(())
+}
+
 /// Local dense Sybil (200 legit + 500 co-located fakes): diversity preserves legit delivery.
 pub fn run_local_sybil_dense_ci_gate() -> anyhow::Result<()> {
     run_local_sybil_dense_gate().map(|_| ())
@@ -143,6 +182,8 @@ pub fn run_all_sim_ci_gates() -> anyhow::Result<Vec<LabReport>> {
     run_custody_ci_gate()?;
     run_commuter_custody_ci_gate()?;
     run_eclipse_ci_gate()?;
+    run_geohash_eclipse_ci_gate()?;
+    run_geohash_custody_ci_gate()?;
     run_local_sybil_dense_ci_gate()?;
     run_sos_flood_ci_gate_wrapper()?;
     run_resource_disinfo_ci_gate_wrapper()?;

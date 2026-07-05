@@ -3,7 +3,7 @@
 //! WebRTC RTCDataChannel bearer — MYBR frames after ICE via libp2p-relay signaling.
 
 use mycelium_core::bearer_transport::{
-    BearerMedium, BearerMtu, BearerTransport, ReliabilityClass, webrtc_mtu,
+    webrtc_mtu, BearerMedium, BearerMtu, BearerTransport, ReliabilityClass,
 };
 use mycelium_core::data::now_ms;
 use mycelium_core::transport_score::{TransportBearer, TransportScoreSample, TransportScoreStore};
@@ -53,6 +53,10 @@ impl BearerWebRtcRouter {
 
     pub fn is_link_ready(&self, peer: &str) -> bool {
         self.links_ready.contains(peer)
+    }
+
+    pub fn active_link_count(&self) -> usize {
+        self.links_ready.len()
     }
 
     pub fn transport_scores(&self) -> &TransportScoreStore {
