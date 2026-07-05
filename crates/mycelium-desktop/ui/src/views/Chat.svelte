@@ -22,6 +22,7 @@
   let locationLoading = $state(false);
   let peerReputation = $state(null);
   let pendingCustody = $state([]);
+  let meshOnly = $state(false);
   let showLocationPrivacy = $state(false);
   let locationPrivacyAck = $state(
     typeof localStorage !== "undefined" &&
@@ -77,28 +78,32 @@
     return Math.max(1, Math.round(ms / 60000));
   }
 
-  function custodyBannerText(entries) {
-    if (!entries.length) return "";
-    const etaMin = Math.min(...entries.map((e) => e.expected.eta_min_ms));
-    const etaMax = Math.max(...entries.map((e) => e.expected.eta_max_ms));
-    const carriers = Math.max(
-      ...entries.map((e) => e.expected.active_carrier_count ?? 0),
-    );
-    const minMin = msToMinutes(etaMin);
-    const minMax = msToMinutes(etaMax);
-    const prefix =
-      entries.length === 1
-        ? "Message stored"
-        : `${entries.length} messages stored`;
-    let text = `${prefix}, expected delivery in ${minMin}–${minMax} min`;
-    if (carriers === 0) {
-      text += ", no carriers nearby";
-    } else if (carriers === 1) {
-      text += ", 1 possible carrier nearby";
-    } else {
-      text += `, ${carriers} possible carriers nearby`;
+  function custodyMessageText(status) {
+    const carriers = status.expected?.active_carrier_count ?? 0;
+    const noCarriers =
+      carriers === 0 || status.expected?.basis === "NoCarriersNearby";
+    if (noCarriers) {
+      return "Stored locally · will deliver when someone is nearby";
     }
-    return text;
+    const minMin = msToMinutes(status.expected.eta_min_ms);
+    const maxMin = msToMinutes(status.expected.eta_max_ms);
+    const carrierText =
+      carriers === 1
+        ? "1 possible carrier nearby"
+        : `${carriers} possible carriers nearby`;
+    return `Stored locally · expected delivery: ${minMin}–${maxMin} min · ${carrierText}`;
+  }
+
+  function custodyForMessage(msg) {
+    if (!msg.is_mine || !meshOnly) return null;
+    return (
+      pendingCustody.find(
+        (entry) =>
+          entry.chat_body === msg.body &&
+          Math.abs(Number(entry.enqueued_at_ms) - Number(msg.timestamp_ms)) <=
+            120_000,
+      ) ?? null
+    );
   }
 
   function formatTime(timestampMs) {
@@ -138,11 +143,18 @@
       } catch {
         pendingCustody = [];
       }
+      try {
+        const mode = await invoke("get_connectivity_mode");
+        meshOnly = mode === "mesh_only";
+      } catch {
+        meshOnly = false;
+      }
       await scrollMessagesToBottom();
     } else {
       isEncrypted = false;
       peerReputation = null;
       pendingCustody = [];
+      meshOnly = false;
     }
   }
 
@@ -176,11 +188,17 @@
       if (msg.includes("enc_key_not_yet_exchanged")) {
         errorMsg =
           "Key exchange pending — message not sent. Try again shortly.";
-      } else if (msg.includes("peer_not_connected")) {
+      } else if (
+        !meshOnly &&
+        (msg.includes("peer_not_connected") ||
+          msg.includes("not connected to peer"))
+      ) {
         errorMsg =
           "Not connected yet — wait a moment after scanning QR, then try again.";
-      } else {
+      } else if (!meshOnly) {
         errorMsg = sanitizeUserError(msg);
+      } else {
+        await refresh();
       }
     }
   }
@@ -311,14 +329,12 @@
         <button type="button" class="small secondary" onclick={blockPeer}>Block contact</button>
       </div>
     {/if}
-    {#if selectedPeer && pendingCustody.length > 0}
-      <div class="custody-banner">{custodyBannerText(pendingCustody)}</div>
-    {/if}
     {#if errorMsg}
       <div class="error-banner">{errorMsg}</div>
     {/if}
     <div class="messages" bind:this={messagesEl}>
       {#each messages as msg}
+        {@const custody = custodyForMessage(msg)}
         <div class="msg-row" class:own={msg.is_mine}>
           <div class="msg">
             {#if !msg.is_mine}
@@ -326,6 +342,9 @@
             {/if}
             <span class="body">{msg.body}</span>
             <span class="time">{formatTime(msg.timestamp_ms)}</span>
+            {#if custody}
+              <span class="custody-status">{custodyMessageText(custody)}</span>
+            {/if}
             {#if msg.body.startsWith("📍")}
               {@const coords = extractCoordinates(msg.body)}
               {#if coords}
@@ -464,12 +483,19 @@
     color: #c0392b;
     border-bottom: 1px solid var(--border);
   }
-  .custody-banner {
-    font-size: 12px;
-    padding: 8px 10px;
-    background: rgba(46, 125, 90, 0.12);
-    color: var(--text);
-    border-bottom: 1px solid var(--border);
+  .custody-status {
+    display: block;
+    margin-top: 6px;
+    font-size: 11px;
+    line-height: 1.35;
+    padding: 4px 8px;
+    border-radius: 6px;
+    background: rgba(52, 120, 190, 0.14);
+    color: #2c5282;
+  }
+  .msg-row.own .custody-status {
+    background: rgba(52, 120, 190, 0.18);
+    color: #1e4f7a;
   }
   .messages {
     flex: 1;

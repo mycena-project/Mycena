@@ -261,6 +261,7 @@ dictionary ExpectedDeliveryData {
 dictionary CustodyPendingStatus {
   string message_id;
   string? dest_peer;
+  string chat_body;
   u64 enqueued_at_ms;
   u8 sprays_released;
   u8 max_spray;

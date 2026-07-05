@@ -31,9 +31,14 @@ import network.mycelium.app.R
 import network.mycelium.app.util.ChatTimeFormatter
 import network.mycelium.app.util.LocationHelper
 import network.mycelium.bindings.ChatMessage
+import network.mycelium.bindings.CustodyPendingStatus
 
 @Composable
-fun ChatMessageBubble(message: ChatMessage, isOwn: Boolean) {
+fun ChatMessageBubble(
+    message: ChatMessage,
+    isOwn: Boolean,
+    custodyStatus: CustodyPendingStatus? = null,
+) {
     val context = LocalContext.current
     val isLocationMessage = message.body.startsWith("📍")
     val maxBubbleWidth = (LocalConfiguration.current.screenWidthDp * 0.78f).dp
@@ -67,6 +72,9 @@ fun ChatMessageBubble(message: ChatMessage, isOwn: Boolean) {
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                     modifier = Modifier.padding(top = 4.dp),
                 )
+                if (custodyStatus != null) {
+                    CustodyDeliveryStatusChip(status = custodyStatus)
+                }
                 if (isLocationMessage) {
                     val coords = LocationHelper.extractCoordinates(message.body)
                     if (coords != null) {

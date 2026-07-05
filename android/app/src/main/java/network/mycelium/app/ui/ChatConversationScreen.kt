@@ -45,12 +45,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import kotlin.math.max
-import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 import network.mycelium.app.MeshUiState
 import network.mycelium.app.R
-import network.mycelium.bindings.CustodyPendingStatus
 import network.mycelium.app.viewmodel.ChatUiEvent
 import network.mycelium.app.viewmodel.ChatViewModel
 
@@ -94,51 +91,6 @@ fun EncryptionBadge(isEncrypted: Boolean) {
     }
 }
 
-private fun msToMinutes(ms: ULong): Int = max(1, (ms.toLong() / 60_000.0).roundToInt())
-
-@Composable
-private fun custodyStatusText(entries: List<CustodyPendingStatus>): String? {
-    if (entries.isEmpty()) return null
-    val etaMin = entries.minOf { it.expected.etaMinMs }
-    val etaMax = entries.maxOf { it.expected.etaMaxMs }
-    val carriers = entries.maxOf { it.expected.activeCarrierCount }
-    val minMin = msToMinutes(etaMin)
-    val minMax = msToMinutes(etaMax)
-    val carriersText =
-        when (carriers) {
-            0u -> stringResource(R.string.chat_custody_carriers_none)
-            1u -> stringResource(R.string.chat_custody_carriers_one)
-            else -> stringResource(R.string.chat_custody_carriers_many, carriers.toInt())
-        }
-    return if (entries.size == 1) {
-        stringResource(R.string.chat_custody_stored_single, minMin, minMax, carriersText)
-    } else {
-        stringResource(
-            R.string.chat_custody_stored_plural,
-            entries.size,
-            minMin,
-            minMax,
-            carriersText,
-        )
-    }
-}
-
-@Composable
-fun CustodyStatusBanner(entries: List<CustodyPendingStatus>) {
-    val text = custodyStatusText(entries) ?: return
-    Surface(
-        color = MaterialTheme.colorScheme.secondaryContainer,
-        shape = MaterialTheme.shapes.small,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
-    ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-        )
-    }
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatConversationScreen(
@@ -149,6 +101,7 @@ fun ChatConversationScreen(
     val messages by vm.chatHistory(peerId).collectAsState()
     val hasEncKey by vm.peerHasEncKey(peerId).collectAsState()
     val pendingCustody by vm.pendingCustodyForPeer(peerId).collectAsState()
+    val meshOnly by vm.meshOnlyConnectivity.collectAsState()
     val accepted by vm.acceptedContacts.collectAsState()
     val pending by vm.pendingContacts.collectAsState()
     val localPeerId = vm.localPeerId
@@ -250,9 +203,6 @@ fun ChatConversationScreen(
             ) {
                 EncryptionBadge(isEncrypted = hasEncKey)
             }
-            if (pendingCustody.isNotEmpty()) {
-                CustodyStatusBanner(entries = pendingCustody)
-            }
             LazyColumn(
                 modifier = Modifier.weight(1f, fill = true),
                 state = listState,
@@ -269,7 +219,14 @@ fun ChatConversationScreen(
                 }
                 items(messages, key = { it.id }) { msg ->
                     val isOwn = msg.fromPeer == localPeerId
-                    ChatMessageBubble(message = msg, isOwn = isOwn)
+                    val custody =
+                        custodyStatusForMessage(
+                            message = msg,
+                            pending = pendingCustody,
+                            isOwn = isOwn,
+                            meshOnly = meshOnly,
+                        )
+                    ChatMessageBubble(message = msg, isOwn = isOwn, custodyStatus = custody)
                 }
             }
             ChatInputRow(

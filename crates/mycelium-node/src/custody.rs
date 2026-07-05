@@ -143,6 +143,8 @@ impl ExpectedDelivery {
 pub struct CustodyPendingStatus {
     pub message_id: String,
     pub dest_peer: Option<String>,
+    /// Plaintext body from the stored custody message (for UI correlation with chat).
+    pub chat_body: String,
     pub enqueued_at_ms: u64,
     pub sprays_released: u8,
     pub max_spray: u8,
@@ -398,6 +400,7 @@ impl CustodyQueue {
             out.push(CustodyPendingStatus {
                 message_id: stored.message.envelope.id.0.clone(),
                 dest_peer: stored.message.envelope.to_peer.clone(),
+                chat_body: stored.message.body.clone(),
                 enqueued_at_ms: stored.enqueued_at_ms,
                 sprays_released: stored.sprays_released,
                 max_spray: stored.message.envelope.max_custody_spray,

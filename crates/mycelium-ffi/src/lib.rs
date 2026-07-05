@@ -192,6 +192,7 @@ pub struct ExpectedDeliveryData {
 pub struct CustodyPendingStatus {
     pub message_id: String,
     pub dest_peer: Option<String>,
+    pub chat_body: String,
     pub enqueued_at_ms: u64,
     pub sprays_released: u8,
     pub max_spray: u8,
@@ -219,6 +220,7 @@ fn custody_pending_from_node(s: mycelium_node::CustodyPendingStatus) -> CustodyP
     CustodyPendingStatus {
         message_id: s.message_id,
         dest_peer: s.dest_peer,
+        chat_body: s.chat_body,
         enqueued_at_ms: s.enqueued_at_ms,
         sprays_released: s.sprays_released,
         max_spray: s.max_spray,

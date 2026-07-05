@@ -22,6 +22,7 @@ import network.mycelium.app.R
 import network.mycelium.app.util.shareCurrentLocation
 import network.mycelium.app.util.userVisibleContactName
 import network.mycelium.bindings.ChatMessage
+import network.mycelium.bindings.ConnectivityMode
 import network.mycelium.bindings.CustodyPendingStatus
 import network.mycelium.bindings.PeerReputationData
 import network.mycelium.bindings.mycelium
@@ -177,6 +178,19 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    val meshOnlyConnectivity: StateFlow<Boolean> =
+        flow {
+            awaitNodeReady()
+            emit(isMeshOnly())
+            MeshUiState.chatRevision.collect {
+                emit(isMeshOnly())
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    private fun isMeshOnly(): Boolean =
+        runCatching { mycelium.currentConnectivityMode() == ConnectivityMode.MESH_ONLY }
+            .getOrDefault(false)
+
     private fun pendingCustodyEntries(peerId: String): List<CustodyPendingStatus> =
         runCatching {
             mycelium.listPendingCustody().filter { it.destPeer == peerId }
@@ -194,13 +208,23 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                         e.detail.contains("enc_key_not_yet_exchanged") ->
                             appContext.getString(R.string.chat_key_not_yet_exchanged)
                         e.detail.contains("peer_not_connected") ->
-                            appContext.getString(R.string.chat_peer_not_connected)
+                            if (isMeshOnly()) {
+                                null
+                            } else {
+                                appContext.getString(R.string.chat_peer_not_connected)
+                            }
                         e.detail.contains("channel closed", ignoreCase = true) ||
                             e.detail.contains("not connected to peer", ignoreCase = true) ->
-                            appContext.getString(R.string.chat_peer_not_connected)
+                            if (isMeshOnly()) {
+                                null
+                            } else {
+                                appContext.getString(R.string.chat_peer_not_connected)
+                            }
                         else -> appContext.getString(R.string.chat_send_failed)
                     }
-                _uiEvent.emit(ChatUiEvent.ShowError(message))
+                if (message != null) {
+                    _uiEvent.emit(ChatUiEvent.ShowError(message))
+                }
             } catch (_: Exception) {
                 _uiEvent.emit(ChatUiEvent.ShowError(appContext.getString(R.string.chat_send_failed)))
             }

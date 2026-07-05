@@ -19,7 +19,8 @@ impl NodeCommand {
             NodeCommand::SendDirect { .. }
             | NodeCommand::SendDirectPayload { .. }
             | NodeCommand::SendWire { .. }
-            | NodeCommand::SendWireOrQueueBle { .. } => Some(Consistency::EventuallyConsistent),
+            | NodeCommand::SendWireOrQueueBle { .. }
+            | NodeCommand::SendEncryptedDirect { .. } => Some(Consistency::EventuallyConsistent),
             NodeCommand::Broadcast { scope, .. } | NodeCommand::BroadcastPayload { scope, .. } => {
                 if ingest_guard::is_sos_scope(scope)
                     || scope.starts_with(mycelium_core::resource_map::RESOURCE_MAP_SCOPE)

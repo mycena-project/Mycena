@@ -38,8 +38,8 @@
     <string name="chat_custody_carriers_many">%1$d possible carriers nearby</string>
     <string name="chat_custody_carriers_none">no carriers nearby</string>
     <string name="chat_custody_carriers_one">1 possible carrier nearby</string>
-    <string name="chat_custody_stored_plural">%1$d messages stored, expected delivery in %2$d–%3$d min, %4$s</string>
-    <string name="chat_custody_stored_single">Message stored, expected delivery in %1$d–%2$d min, %3$s</string>
+    <string name="chat_custody_message_status">Stored locally · expected delivery: %1$d–%2$d min · %3$s</string>
+    <string name="chat_custody_waiting_nearby">Stored locally · will deliver when someone is nearby</string>
     <string name="chat_send">Send</string>
     <string name="chat_send_failed">Could not send the message. Please try again.</string>
     <string name="chat_sending_encrypted">🔒 Sending encrypted…</string>

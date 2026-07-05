@@ -454,6 +454,14 @@ pub enum NodeCommand {
     QueryPendingCustody {
         reply: tokio::sync::oneshot::Sender<Vec<CustodyPendingStatus>>,
     },
+    QueryConnectivityMode {
+        reply: tokio::sync::oneshot::Sender<ConnectivityMode>,
+    },
+    SendEncryptedDirect {
+        to_peer: String,
+        inner_plaintext: Vec<u8>,
+        priority: Priority,
+    },
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
@@ -687,6 +695,32 @@ impl NodeHandle {
             return Vec::new();
         }
         rx.await.unwrap_or_default()
+    }
+
+    pub async fn connectivity_mode(&self) -> ConnectivityMode {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        if self
+            .send(NodeCommand::QueryConnectivityMode { reply: tx })
+            .await
+            .is_err()
+        {
+            return ConnectivityMode::MeshOnly;
+        }
+        rx.await.unwrap_or(ConnectivityMode::MeshOnly)
+    }
+
+    pub async fn mesh_send_encrypted_direct(
+        &self,
+        to_peer: String,
+        inner_plaintext: Vec<u8>,
+        priority: Priority,
+    ) -> anyhow::Result<()> {
+        self.send(NodeCommand::SendEncryptedDirect {
+            to_peer,
+            inner_plaintext,
+            priority,
+        })
+        .await
     }
 
     pub async fn set_thermal_state(&self, thermal: ThermalState) -> anyhow::Result<()> {
@@ -2235,6 +2269,17 @@ impl NodeRunner {
                     )
                     .unwrap_or_default();
                 let _ = reply.send(statuses);
+            }
+            NodeCommand::QueryConnectivityMode { reply } => {
+                let _ = reply.send(self.transport.connectivity_mode());
+            }
+            NodeCommand::SendEncryptedDirect {
+                to_peer,
+                inner_plaintext,
+                priority,
+            } => {
+                self.send_encrypted_direct_internal(&to_peer, &inner_plaintext, priority)
+                    .await?;
             }
         }
         Ok(())

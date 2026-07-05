@@ -31,8 +31,8 @@
     <string name="chat_custody_carriers_many">%1$d mögliche Träger in der Nähe</string>
     <string name="chat_custody_carriers_none">keine Träger in der Nähe</string>
     <string name="chat_custody_carriers_one">1 möglicher Träger in der Nähe</string>
-    <string name="chat_custody_stored_plural">%1$d Nachrichten gespeichert, erwartete Zustellung in %2$d–%3$d Min, %4$s</string>
-    <string name="chat_custody_stored_single">Nachricht gespeichert, erwartete Zustellung in %1$d–%2$d Min, %3$s</string>
+    <string name="chat_custody_message_status">Lokal gespeichert · erwartete Zustellung: %1$d–%2$d Min · %3$s</string>
+    <string name="chat_custody_waiting_nearby">Lokal gespeichert · wird zugestellt, sobald jemand in der Nähe ist</string>
     <string name="chat_reject_contact">Ablehnen</string>
     <string name="chat_send">Senden</string>
     <string name="chat_send_failed">Nachricht konnte nicht gesendet werden. Bitte erneut versuchen.</string>

@@ -35,7 +35,7 @@ use mycelium_l0_facade::resource_map::{
 use mycelium_l0_facade::{
     decrypt_group, encrypt_for, encrypt_group, parse_x25519_public_hex, EncKey,
 };
-use mycelium_l1_facade::{DirectMessage, NodeCommand, NodeHandle, WireMessage};
+use mycelium_l1_facade::{DirectMessage, NodeCommand, NodeHandle, WireMessage, ConnectivityMode};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tokio::sync::{broadcast, Mutex, RwLock};
@@ -67,6 +67,15 @@ pub struct AppNode {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EncryptionResult {
     Encrypted,
+    QueuedCustody,
+}
+
+fn peer_offline_send_error(err: &anyhow::Error) -> bool {
+    let msg = err.to_string().to_ascii_lowercase();
+    msg.contains("peer_not_connected")
+        || msg.contains("no delivery path")
+        || msg.contains("not connected to peer")
+        || msg.contains("no path to")
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -715,6 +724,37 @@ impl AppNode {
             }
         }
         if let Some(e) = last_err {
+            if peer_offline_send_error(&e) {
+                if self
+                    .handle
+                    .mesh_send_encrypted_direct(to_peer.clone(), plaintext.clone(), priority)
+                    .await
+                    .is_ok()
+                {
+                    self.storage.save_chat(&to_peer, &chat)?;
+                    tracing::info!(
+                        "encrypted chat queued via relay toward {to_peer} ({} bytes)",
+                        body.len()
+                    );
+                    return Ok(EncryptionResult::Encrypted);
+                }
+                if self.handle.connectivity_mode().await == ConnectivityMode::MeshOnly {
+                    self.storage.save_chat(&to_peer, &chat)?;
+                    self.handle
+                        .mesh_send_direct(
+                            to_peer.clone(),
+                            body.clone(),
+                            plaintext.clone(),
+                            OP_DIRECT_MESSAGE_SEND,
+                        )
+                        .await?;
+                    tracing::info!(
+                        "chat stored for DTN custody toward {to_peer} ({} bytes)",
+                        body.len()
+                    );
+                    return Ok(EncryptionResult::QueuedCustody);
+                }
+            }
             return Err(e);
         }
         Err(enc_key_not_yet_exchanged_err())
