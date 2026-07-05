@@ -139,7 +139,10 @@ class WifiAwareDiscoveryHost(
                     matchFilter: List<ByteArray>?,
                 ) {
                     val uri =
-                        serviceSpecificInfo?.toString(Charsets.UTF_8)?.trim().orEmpty()
+                        serviceSpecificInfo
+                            ?.let { String(it, Charsets.UTF_8) }
+                            ?.trim()
+                            .orEmpty()
                     if (uri.isEmpty()) return
                     val hint = peerHandle.hashCode().toString(16)
                     scope.launch(Dispatchers.IO) {
@@ -175,7 +178,14 @@ class WifiAwareDiscoveryHost(
                             override fun onResolveFailed(info: NsdServiceInfo, code: Int) = Unit
 
                             override fun onServiceResolved(info: NsdServiceInfo) {
-                                val uri = info.attributes?.get("invite")?.trim().orEmpty()
+                                val uri =
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                                        info.attributes?.get("invite")?.let { raw ->
+                                            String(raw, Charsets.UTF_8).trim()
+                                        }.orEmpty()
+                                    } else {
+                                        ""
+                                    }
                                 if (uri.isEmpty()) return
                                 val hint = info.serviceName ?: "nsd"
                                 scope.launch(Dispatchers.IO) {

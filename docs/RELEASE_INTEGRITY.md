@@ -23,7 +23,7 @@ Mycelium **core** releases (Android APK, future desktop bundles) must be **repro
 
 | Component | Location |
 |-----------|----------|
-| Rust toolchain | `rust-toolchain.toml` (currently **1.85.0**) |
+| Rust toolchain | `rust-toolchain.toml` (currently **1.88.0**) |
 | Crate lockfile | `Cargo.lock` (`cargo build --locked`) |
 | Container definition | `docker/reproducible-build/` (`Dockerfile`, `toolchain.env`, `entrypoint.sh`) |
 | Build driver | `scripts/reproducible-build.sh` |

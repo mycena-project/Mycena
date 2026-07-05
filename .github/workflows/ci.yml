@@ -130,7 +130,7 @@ jobs:
 
       - uses: ./.github/actions/setup-rust-cache
         with:
-          toolchain: "1.85.0"
+          toolchain: "1.88.0"
           components: "rustfmt,clippy"
           cache-key-suffix: budget
 
@@ -190,7 +190,7 @@ jobs:
 
       - uses: ./.github/actions/setup-rust-cache
         with:
-          toolchain: "1.85.0"
+          toolchain: "1.88.0"
           components: "rustfmt,clippy"
           cache-key-suffix: full-linux
 
@@ -256,7 +256,7 @@ jobs:
 
       - uses: ./.github/actions/setup-rust-cache
         with:
-          toolchain: "1.85.0"
+          toolchain: "1.88.0"
           components: "clippy"
           cache-key-suffix: ${{ matrix.cache_suffix }}
 

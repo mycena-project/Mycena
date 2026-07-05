@@ -59,7 +59,7 @@ jobs:
 
       - uses: ./.github/actions/setup-rust-cache
         with:
-          toolchain: "1.85.0"
+          toolchain: "1.88.0"
           cache-key-suffix: android
 
       - name: Install cargo-ndk

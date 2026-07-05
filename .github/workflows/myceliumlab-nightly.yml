@@ -24,7 +24,7 @@ jobs:
 
       - uses: ./.github/actions/setup-rust-cache
         with:
-          toolchain: "1.85.0"
+          toolchain: "1.88.0"
           cache-key-suffix: myceliumlab-nightly
 
       - name: Dense cluster 10k smoke
