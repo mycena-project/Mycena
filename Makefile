@@ -1,6 +1,6 @@
 SHELL := /bin/zsh
 
-.PHONY: help desktop-dev desktop-stop desktop-nuke desktop-check-relay android-apk android-apk-ci android-apk-local android-install android-deploy android-nuke clean test test-fast test-integration test-unit test-sim check check-app-layer check-layer-boundaries check-unwrap-audit check-invariant-whitelist check-no-unwrap-prod check-dependencies clippy ci fmt fuzz-smoke docker-android-ci docker-compose-android gradle-wrapper sync-privacy-policy reproducible-build release-verify generate-sbom
+.PHONY: help desktop-dev desktop-stop desktop-nuke desktop-check-relay android-apk android-apk-ci android-apk-local android-install android-deploy android-nuke clean test test-fast test-integration test-unit test-sim check check-app-layer check-layer-boundaries check-unwrap-audit check-invariant-whitelist check-no-unwrap-prod check-dependencies clippy ci fmt fuzz-smoke docker-android-ci docker-compose-android gradle-wrapper sync-privacy-policy sync-onboarding-copy reproducible-build release-verify generate-sbom
 
 help:
 	@echo "Mycelium — the maintainer mesh client (no server stack)"
@@ -13,7 +13,7 @@ help:
 	@echo "  make android-deploy   Stop desktop, rebuild APK, install on device"
 	@echo "  make android-nuke     Clear ALL app data on USB device (scorched earth)"
 	@echo "  make clean            Clean build artifacts (not a running mesh)"
-	@echo "  make sync-privacy-policy  Copy docs/legal/privacy-policy.html → Android assets"
+	@echo "  make sync-onboarding-copy  Copy ui-copy/onboarding → Android assets"
 	@echo ""
 	@echo "See docs/ECOSYSTEM.md · Android: ./android/build.sh"
 
@@ -127,6 +127,9 @@ android-nuke:
 
 sync-privacy-policy:
 	./scripts/sync-privacy-policy.sh
+
+sync-onboarding-copy:
+	./scripts/sync-onboarding-copy.sh
 
 reproducible-build:
 	./scripts/reproducible-build.sh

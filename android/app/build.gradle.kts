@@ -62,6 +62,15 @@ android {
             )
     }
 
+    testOptions {
+        unitTests.all {
+            it.systemProperty(
+                "onboarding.copy.dir",
+                rootProject.projectDir.resolve("../ui-copy/onboarding").absolutePath,
+            )
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
@@ -104,7 +113,16 @@ val copyMiniappBridge =
         from(rootProject.projectDir.resolve("../crates/mycelium-miniapp/src/bridge_api.js"))
         into(layout.projectDirectory.dir("src/main/assets/miniapp"))
     }
-tasks.named("preBuild").configure { dependsOn(copyMiniappBridge) }
+val copyOnboardingCopy =
+    tasks.register<Copy>("copyOnboardingCopy") {
+        from(rootProject.projectDir.resolve("../ui-copy/onboarding"))
+        into(layout.projectDirectory.dir("src/main/assets/onboarding"))
+        include("*.json")
+    }
+tasks.named("preBuild").configure {
+    dependsOn(copyMiniappBridge)
+    dependsOn(copyOnboardingCopy)
+}
 
 dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
@@ -127,6 +145,7 @@ dependencies {
     implementation(project(":uniffi-bindings"))
 
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20240303")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test:runner:1.6.2")
     androidTestImplementation("androidx.test:core-ktx:1.6.1")

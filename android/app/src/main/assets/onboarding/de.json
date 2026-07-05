@@ -1,0 +1,59 @@
+{
+  "locale": "de",
+  "positioning": {
+    "default_variant": "a",
+    "variants": {
+      "a": {
+        "headline": "Deine Kommunikation funktioniert weiter, auch wenn alles andere ausfällt."
+      },
+      "b": {
+        "headline": "Bleib erreichbar – auch ohne Netz, ohne Konto, ohne Wartezeit."
+      },
+      "c": {
+        "headline": "Wenn Mobilfunk und WLAN weg sind, funktioniert dein Chat trotzdem."
+      }
+    }
+  },
+  "why": {
+    "title": "Warum diese App?",
+    "bullets": [
+      "Deine Nachrichten bleiben auf deinen Geräten",
+      "Keine Telefonnummer nötig",
+      "Funktioniert mit und ohne Internet"
+    ]
+  },
+  "faq": {
+    "title": "Kurz gefragt",
+    "items": [
+      {
+        "question": "Verfolgt mich das?",
+        "answer": "Nein. Es gibt kein Konto und keine Werbung. Nachrichten gehen nur an Geräte, die du verbindest – wir können sie nicht mitlesen."
+      },
+      {
+        "question": "Braucht das ständig Bluetooth?",
+        "answer": "Nein. Bluetooth und WLAN in der Nähe werden nur genutzt, wenn du sendest oder empfängst. In den Einstellungen kannst du Funkarten an- und ausschalten."
+      },
+      {
+        "question": "Zieht das meinen Akku leer?",
+        "answer": "Im normalen Gebrauch fällt das meist kaum auf. Im Hintergrund ist die App oft ruhig. Wenn alles aktiv bleibt, kann der Verbrauch steigen – du siehst den Status in den Einstellungen."
+      },
+      {
+        "question": "Wer steckt dahinter?",
+        "answer": "Open-Source-Software vom Mycelium-Projekt. Kein Konzern, keine Werbung. Den Quellcode kannst du einsehen."
+      }
+    ]
+  },
+  "completion": {
+    "title": "Wie sollen andere dich nennen?",
+    "body": "Du kannst einen Spitznamen wählen. Du kannst ihn später ändern.",
+    "fresh_identity_note": "Beim Start wird auf diesem Gerät eine neue Identität angelegt. Frühere Chats und Kontakte auf diesem Gerät werden gelöscht.",
+    "name_hint": "Anzeigename",
+    "name_placeholder": "z. B. Alex, Feuerwehr Nord",
+    "name_privacy_note": "Dieser Name ist für deine Kontakte sichtbar. Ein Pseudonym ist möglich.",
+    "start_button": "Los geht's"
+  },
+  "actions": {
+    "next": "Weiter",
+    "back": "Zurück"
+  }
+}

@@ -28,10 +28,6 @@ pub mod wasm_runtime;
 #[cfg(not(feature = "wasm-runtime"))]
 mod wasm_stubs;
 
-#[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)]
-mod miniapp_security_tests;
-
 pub use bridge_session::{issue_session, revoke_session, validate_session};
 pub use bundle::MiniAppBundle;
 pub use bundle_scan::scan_bundle;

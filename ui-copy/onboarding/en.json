@@ -1,0 +1,59 @@
+{
+  "locale": "en",
+  "positioning": {
+    "default_variant": "a",
+    "variants": {
+      "a": {
+        "headline": "Your messages keep working even when everything else goes down."
+      },
+      "b": {
+        "headline": "Stay reachable — no cell network, no account, no waiting."
+      },
+      "c": {
+        "headline": "When mobile data and Wi‑Fi fail, your chat still works."
+      }
+    }
+  },
+  "why": {
+    "title": "Why this app?",
+    "bullets": [
+      "Your messages stay on your devices",
+      "No phone number needed",
+      "Works with or without internet"
+    ]
+  },
+  "faq": {
+    "title": "Quick questions",
+    "items": [
+      {
+        "question": "Is this tracking me?",
+        "answer": "No. There is no account and no ads. Messages only go to devices you connect with — we cannot read them."
+      },
+      {
+        "question": "Does it need Bluetooth all the time?",
+        "answer": "No. Nearby Bluetooth and Wi‑Fi are used when you send or receive. You can turn radios on or off in Settings."
+      },
+      {
+        "question": "Will it drain my battery?",
+        "answer": "For normal use you will barely notice. The app is often quiet in the background. If everything stays active, use may rise — check status in Settings."
+      },
+      {
+        "question": "Who is behind this?",
+        "answer": "Open-source software from the Mycelium project. No big corporation, no ads. You can inspect the source code."
+      }
+    ]
+  },
+  "completion": {
+    "title": "What should others call you?",
+    "body": "You can pick a nickname. You can change it later.",
+    "fresh_identity_note": "Starting here creates a new identity on this device. Previous chats and contacts on this device are deleted.",
+    "name_hint": "Display name",
+    "name_placeholder": "e.g. Alex, North Aid Team",
+    "name_privacy_note": "This name is visible to people you message. A pseudonym is fine.",
+    "start_button": "Get started"
+  },
+  "actions": {
+    "next": "Continue",
+    "back": "Back"
+  }
+}

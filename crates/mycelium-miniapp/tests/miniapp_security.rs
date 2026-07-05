@@ -2,15 +2,15 @@
 // Copyright (C) 2026 Mycelium Project
 //! Cross-cutting mini-app security tests (H27 / P4).
 
-use super::bundle::MiniAppBundle;
-use super::bundle_scan::scan_bundle;
-use super::capability_token::{
+use libp2p::identity::Keypair;
+use mycelium_miniapp::bundle::MiniAppBundle;
+use mycelium_miniapp::bundle_scan::scan_bundle;
+use mycelium_miniapp::capability_token::{
     issue_capability, mac_key_from_db_path, permission_for_method, validate_capability,
     DEFAULT_CAP_TTL_MS,
 };
-use super::manifest::Permission;
-use super::store::AppStore;
-use libp2p::identity::Keypair;
+use mycelium_miniapp::manifest::Permission;
+use mycelium_miniapp::store::AppStore;
 use std::io::Write;
 use tempfile::tempdir;
 use zip::write::FileOptions;
@@ -49,7 +49,9 @@ fn bundle_scan_blocks_javascript_urls() {
 
 #[test]
 fn bridge_chain_budget_enforced() {
-    use super::bridge_limits::{check_chain_budget, record_bridge_elapsed, BRIDGE_CHAIN_BUDGET_MS};
+    use mycelium_miniapp::bridge_limits::{
+        check_chain_budget, record_bridge_elapsed, BRIDGE_CHAIN_BUDGET_MS,
+    };
     let app = "budget-test-app";
     record_bridge_elapsed(app, BRIDGE_CHAIN_BUDGET_MS - 1_000);
     assert!(check_chain_budget(app, 500).is_ok());
