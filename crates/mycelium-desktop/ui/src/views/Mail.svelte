@@ -2,7 +2,7 @@
   // SPDX-License-Identifier: AGPL-3.0-or-later
   // Copyright (C) 2026 Mycelium Project
   import { invoke } from "@tauri-apps/api/core";
-  import { listen } from "@tauri-apps/api/event";
+  import { sanitizeUserError, userVisibleContactName } from "../lib/contactDisplay.js";
 
   let contacts = $state([]);
   let toPeer = $state("");
@@ -40,7 +40,7 @@
       await refreshInbox();
     } catch (e) {
       success = "";
-      error = String(e);
+      error = sanitizeUserError(e instanceof Error ? e.message : String(e));
     }
   }
 
@@ -80,13 +80,13 @@
         <select bind:value={toPeer}>
           <option value="">Select contact…</option>
           {#each contacts as c (c.peer_id)}
-            <option value={c.peer_id}>{c.display_name}</option>
+            <option value={c.peer_id}>{userVisibleContactName(c, "Unknown contact")}</option>
           {/each}
         </select>
       </label>
     {:else}
       <p class="hint">Add a contact on the Connect tab first.</p>
-      <input bind:value={toPeer} placeholder="Peer ID" />
+      <input bind:value={toPeer} placeholder="Contact" />
     {/if}
     <input bind:value={subject} placeholder="Subject" />
     <textarea bind:value={body} placeholder="Message"></textarea>

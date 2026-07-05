@@ -306,7 +306,7 @@
       const ok = await ensureGrant(
         "Identity",
         "Share identity?",
-        `${appId} wants your Peer ID and encryption public key.`
+        `${appId} wants your display name and public encryption key.`
       );
       if (!ok) {
         postToIframe({

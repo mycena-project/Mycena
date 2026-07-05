@@ -19,7 +19,7 @@ import kotlinx.coroutines.launch
 import network.mycelium.app.MeshService
 import network.mycelium.app.MeshUiState
 import network.mycelium.app.R
-import network.mycelium.app.util.shareCurrentLocation
+import network.mycelium.app.util.userVisibleContactName
 import network.mycelium.bindings.ChatMessage
 import network.mycelium.bindings.CustodyPendingStatus
 import network.mycelium.bindings.PeerReputationData
@@ -55,6 +55,13 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    private fun visibleName(displayName: String, peerId: String): String =
+        userVisibleContactName(
+            displayName,
+            peerId,
+            appContext.getString(R.string.contact_unnamed),
+        )
+
     private fun refreshContacts(): Pair<List<ChatListEntry>, List<ChatListEntry>> =
         runCatching {
             val online = mycelium.connectedPeers().toSet()
@@ -63,7 +70,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                     val last = mycelium.chatHistory(c.peerId, 1u).lastOrNull()
                     ChatListEntry(
                         peerId = c.peerId,
-                        displayName = c.displayName.ifBlank { c.peerId.take(16) },
+                        displayName = visibleName(c.displayName, c.peerId),
                         online = c.peerId in online,
                         lastMessagePreview = last?.body?.take(80).orEmpty(),
                         lastMessageTimeMs = last?.timestampMs?.toLong() ?: 0L,
@@ -73,7 +80,7 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                 mycelium.listPendingContacts().map { c ->
                     ChatListEntry(
                         peerId = c.peerId,
-                        displayName = c.displayName.ifBlank { c.peerId.take(16) },
+                        displayName = visibleName(c.displayName, c.peerId),
                         online = c.peerId in online,
                     )
                 }
@@ -190,11 +197,11 @@ class ChatViewModel(app: Application) : AndroidViewModel(app) {
                         e.detail.contains("channel closed", ignoreCase = true) ||
                             e.detail.contains("not connected to peer", ignoreCase = true) ->
                             appContext.getString(R.string.chat_peer_not_connected)
-                        else -> e.detail
+                        else -> appContext.getString(R.string.chat_send_failed)
                     }
                 _uiEvent.emit(ChatUiEvent.ShowError(message))
-            } catch (e: Exception) {
-                _uiEvent.emit(ChatUiEvent.ShowError(e.message ?: "Unknown error"))
+            } catch (_: Exception) {
+                _uiEvent.emit(ChatUiEvent.ShowError(appContext.getString(R.string.chat_send_failed)))
             }
         }
     }

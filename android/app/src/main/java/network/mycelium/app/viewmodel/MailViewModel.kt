@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import network.mycelium.app.R
+import network.mycelium.app.util.userVisibleContactName
 import uniffi.mycelium.MyceliumException
 
 data class MailContact(
@@ -47,7 +48,12 @@ class MailViewModel(app: Application) : AndroidViewModel(app) {
             mycelium.listAcceptedContacts().map { c ->
                 MailContact(
                     peerId = c.peerId,
-                    displayName = c.displayName.ifBlank { c.peerId.take(16) },
+                    displayName =
+                        userVisibleContactName(
+                            c.displayName,
+                            c.peerId,
+                            appContext.getString(R.string.contact_unnamed),
+                        ),
                 )
             }
         }.getOrElse { emptyList() }
@@ -74,7 +80,10 @@ class MailViewModel(app: Application) : AndroidViewModel(app) {
                 appContext.getString(R.string.mail_node_stopped)
             d.contains("unknown recipient", ignoreCase = true) ->
                 appContext.getString(R.string.mail_unknown_recipient)
-            d.isNotBlank() -> d
+            d.contains("12D3Koo", ignoreCase = true) ||
+                d.contains("peer", ignoreCase = true) && d.contains("id", ignoreCase = true) ->
+                appContext.getString(R.string.mail_send_failed)
+            d.isNotBlank() && d.length <= 120 -> d
             else -> appContext.getString(R.string.mail_send_failed)
         }
     }

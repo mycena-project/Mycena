@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Mycelium Project
 use crate::contacts::{Contact, ContactStatus};
 use crate::crdt_sync::{self, CONTACT_CRDT_BODY, MARKETPLACE_STOCK_SCOPE};
+use crate::display_name::{looks_like_peer_id_stub, PENDING_DISPLAY_NAME};
 use crate::envelope::{
     AppId, AppMessage, AppPayload, Attachment, BulletinPost, ChatMessage, MailMessage,
 };
@@ -222,7 +223,7 @@ impl AppNode {
             Ok(Some(c)) if c.status == ContactStatus::Blocked => false,
             Ok(Some(_)) | Ok(None) => {
                 let name = if display_name.is_empty() {
-                    peer.chars().take(12).collect::<String>()
+                    PENDING_DISPLAY_NAME.to_string()
                 } else {
                     display_name.to_string()
                 };
@@ -255,9 +256,7 @@ impl AppNode {
         if c.status != ContactStatus::Accepted {
             return false;
         }
-        let stub = peer.chars().take(16).collect::<String>();
-        let looks_like_stub = c.display_name == stub
-            || (c.display_name.starts_with("12D3") && c.display_name.len() <= 20);
+        let looks_like_stub = looks_like_peer_id_stub(&c.display_name, peer);
         if !looks_like_stub || c.display_name == name {
             return false;
         }
@@ -1232,7 +1231,7 @@ impl AppNode {
             self.storage
                 .contact_by_id(peer_id)?
                 .map(|c| c.display_name)
-                .unwrap_or_else(|| peer_id.chars().take(12).collect())
+                .unwrap_or_else(|| PENDING_DISPLAY_NAME.to_string())
         } else {
             display_name.to_string()
         };
@@ -1286,7 +1285,7 @@ impl AppNode {
                 return Ok(contact.peer_id);
             }
         }
-        anyhow::bail!("unknown recipient — pick a contact or use a peer ID");
+        anyhow::bail!("unknown recipient — pick a contact from your list");
     }
 
     /// Parse QR/deep-link invite: seed E2E key (v2), add contact, dial direct + relay.
@@ -1297,7 +1296,7 @@ impl AppNode {
             mycelium_l0_facade::invite::InviteTarget::Peer(info) => {
                 let target_peer = info.peer_id.clone();
                 self.register_transport_for_peer(&info).await?;
-                let label = info.peer_id.chars().take(16).collect::<String>();
+                let label = PENDING_DISPLAY_NAME;
                 let contact = self.storage.upsert_contact_with_account(
                     &info.peer_id,
                     &label,
@@ -1423,7 +1422,7 @@ impl AppNode {
                     warn!("contact hello enc key seed for {from_peer}: {e}");
                 }
                 let name = if hello.display_name.trim().is_empty() {
-                    from_peer.chars().take(16).collect::<String>()
+                    PENDING_DISPLAY_NAME.to_string()
                 } else {
                     hello.display_name.trim().to_string()
                 };

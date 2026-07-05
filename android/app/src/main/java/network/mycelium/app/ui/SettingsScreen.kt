@@ -157,6 +157,7 @@ fun SettingsScreen(navController: NavController) {
     var crowdModeEnabled by remember {
         mutableStateOf(prefs.getBoolean(KEY_CROWD_MODE, false))
     }
+    var showTechnicalIds by remember { mutableStateOf(false) }
     var bleBootstrapEnabled by remember {
         mutableStateOf(
             prefs.getBoolean(SettingsViewModel.KEY_BLE_BOOTSTRAP, false)
@@ -193,7 +194,18 @@ fun SettingsScreen(navController: NavController) {
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
             )
-            IdentityIdsSection(modifier = Modifier.padding(top = 12.dp))
+            TextButton(onClick = { showTechnicalIds = !showTechnicalIds }) {
+                Text(
+                    if (showTechnicalIds) {
+                        stringResource(R.string.settings_hide_technical_ids)
+                    } else {
+                        stringResource(R.string.settings_show_technical_ids)
+                    },
+                )
+            }
+            if (showTechnicalIds) {
+                IdentityIdsSection(modifier = Modifier.padding(top = 4.dp))
+            }
 
             Spacer(Modifier.height(20.dp))
             Text(

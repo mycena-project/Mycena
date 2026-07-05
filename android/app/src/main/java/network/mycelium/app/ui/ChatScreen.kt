@@ -152,7 +152,7 @@ private fun PendingContactRow(
     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)) {
         Text(text = entry.displayName, style = MaterialTheme.typography.bodyMedium)
         Text(
-            text = entry.peerId.take(24) + "…",
+            text = stringResource(R.string.chat_pending_subtitle),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

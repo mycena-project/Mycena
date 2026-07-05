@@ -5,6 +5,12 @@
   import { listen } from "@tauri-apps/api/event";
   import { onMount, tick } from "svelte";
 
+  import {
+    contactPeerId,
+    sanitizeUserError,
+    userVisibleContactName,
+  } from "../lib/contactDisplay.js";
+
   let { peerId } = $props();
   let selectedPeer = $state("");
   let acceptedContacts = $state([]);
@@ -42,14 +48,8 @@
     return { lat, lon };
   }
 
-  function contactPeerId(c) {
-    return c?.peer_id ?? c?.peerId ?? "";
-  }
-
   function contactDisplayName(c) {
-    const id = contactPeerId(c);
-    const name = c?.display_name ?? c?.displayName ?? "";
-    return name || (id ? id.slice(0, 16) + "…" : "?");
+    return userVisibleContactName(c, "Unknown contact");
   }
 
   async function refreshContacts() {
@@ -59,8 +59,8 @@
       if (!Array.isArray(acceptedContacts)) {
         acceptedContacts = [];
       }
-    } catch (e) {
-      errorMsg = String(e);
+    } catch {
+      errorMsg = sanitizeUserError(null);
       acceptedContacts = [];
     }
     try {
@@ -180,7 +180,7 @@
         errorMsg =
           "Not connected yet — wait a moment after scanning QR, then try again.";
       } else {
-        errorMsg = msg;
+        errorMsg = sanitizeUserError(msg);
       }
     }
   }
@@ -288,7 +288,7 @@
     {/if}
     <p class="section-label">Contacts</p>
     {#if acceptedContacts.length === 0}
-      <p class="empty-hint">No contacts yet. Connect a device on the Connect tab (scan QR or paste invite).</p>
+      <p class="empty-hint">No contacts yet. Connect a device on the Connect tab by scanning a QR code.</p>
     {/if}
     {#each acceptedContacts as c (contactPeerId(c))}
       <button

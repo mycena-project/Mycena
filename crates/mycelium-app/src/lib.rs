@@ -4,6 +4,7 @@ pub mod api;
 pub mod bridge_host;
 pub mod contacts;
 pub mod crdt_sync;
+pub mod display_name;
 pub mod envelope;
 pub mod groups;
 pub mod miniapp_epidemic;

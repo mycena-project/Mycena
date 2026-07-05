@@ -26,6 +26,7 @@
   let appVersion = $state('');
   let dangerError = $state('');
   let networkError = $state('');
+  let showTechnicalIds = $state(false);
 
   const energyOptions = ['Active', 'Intermittent', 'Passive'];
 
@@ -170,19 +171,24 @@
 
   <section>
     <h4>Identity</h4>
-    <p class="field-label">Peer ID</p>
-    <code class="peer-id">{peerId}</code>
-    {#if accountId}
-      <p class="field-label">Account ID (stable)</p>
-      <code class="peer-id">{accountId}</code>
-      <p class="hint">Transport epoch: {transportEpoch} — dial PeerId may rotate daily.</p>
-    {/if}
     <label for="settings-display-name">Display name</label>
     <input
       id="settings-display-name"
       bind:value={displayName}
       placeholder="Your name in the network"
     />
+    <button type="button" class="linkish" onclick={() => (showTechnicalIds = !showTechnicalIds)}>
+      {showTechnicalIds ? "Hide technical IDs" : "Show technical IDs (advanced)"}
+    </button>
+    {#if showTechnicalIds}
+      {#if accountId}
+        <p class="field-label">Account ID (stable)</p>
+        <code class="peer-id">{accountId}</code>
+        <p class="hint">Transport epoch: {transportEpoch}</p>
+      {/if}
+      <p class="field-label">Network ID</p>
+      <code class="peer-id">{peerId}</code>
+    {/if}
   </section>
 
   <section>
@@ -242,7 +248,7 @@
       Custom bootstrap peers
       <textarea
         bind:value={bootstrapPeers}
-        placeholder="/dns4/mycelium-relay.fly.dev/tcp/4001/p2p/12D3KooW..."
+        placeholder="Relay bootstrap address (one per line)"
         rows="3"
       ></textarea>
       <small>One per line. Saved with “Save settings”. Leave empty for default relay.</small>
@@ -376,6 +382,13 @@
   button.secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
   button.danger-outline { border-color: var(--danger, #dc2626); color: var(--danger, #dc2626); margin-bottom: 8px; }
   button.danger { background: #dc2626; color: white; }
+  button.linkish {
+    margin: 10px 0 0;
+    padding: 0;
+    background: transparent;
+    color: var(--accent);
+    font-size: 13px;
+  }
   .success { color: var(--accent); font-size: 12px; }
   .danger-zone { border-color: #dc2626; }
   .danger-zone h4 { color: #dc2626; }

@@ -69,6 +69,7 @@ import network.mycelium.app.bootstrap.InviteConnect
 import network.mycelium.app.bootstrap.PeerInvite
 import network.mycelium.app.viewmodel.PeersViewModel
 import network.mycelium.app.util.sharePlainText
+import network.mycelium.app.util.userVisibleContactName
 import androidx.compose.material3.Slider
 import androidx.compose.material.icons.filled.ThumbUp
 import androidx.compose.ui.Alignment
@@ -392,51 +393,6 @@ fun PeersScreen(navController: NavController, vm: PeersViewModel = viewModel()) 
                     OutlinedButton(onClick = { showMyQr = true }, modifier = Modifier.fillMaxWidth()) {
                         Text(stringResource(R.string.connect_show_qr_button))
                     }
-                    OutlinedButton(
-                        onClick = {
-                            sharePlainText(
-                                context,
-                                invitePayload,
-                                context.getString(R.string.peers_share),
-                            )
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text(stringResource(R.string.peers_share))
-                    }
-                }
-            }
-
-            item {
-                OutlinedTextField(
-                    value = pasteInvite,
-                    onValueChange = { pasteInvite = it },
-                    modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
-                    label = { Text(stringResource(R.string.connect_paste_label)) },
-                    placeholder = { Text(stringResource(R.string.connect_paste_hint)) },
-                    minLines = 2,
-                )
-            }
-            item {
-                Button(
-                    onClick = {
-                        val raw = pasteInvite.trim()
-                        if (raw.isEmpty()) return@Button
-                        InviteConnect.apply(raw)
-                            .onSuccess { peerId ->
-                                pasteInvite = ""
-                                onInviteApplied(context.getString(R.string.connect_success), peerId)
-                            }
-                            .onFailure {
-                                scope.launch {
-                                    snackbar.showSnackbar(context.getString(R.string.error_invalid_qr))
-                                }
-                            }
-                    },
-                    modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
-                    enabled = pasteInvite.isNotBlank(),
-                ) {
-                    Text(stringResource(R.string.connect_paste_button))
                 }
             }
 
@@ -460,6 +416,52 @@ fun PeersScreen(navController: NavController, vm: PeersViewModel = viewModel()) 
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                }
+                item {
+                    OutlinedTextField(
+                        value = pasteInvite,
+                        onValueChange = { pasteInvite = it },
+                        modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
+                        label = { Text(stringResource(R.string.connect_paste_label)) },
+                        placeholder = { Text(stringResource(R.string.connect_paste_hint)) },
+                        minLines = 2,
+                    )
+                }
+                item {
+                    Button(
+                        onClick = {
+                            val raw = pasteInvite.trim()
+                            if (raw.isEmpty()) return@Button
+                            InviteConnect.apply(raw)
+                                .onSuccess { peerId ->
+                                    pasteInvite = ""
+                                    onInviteApplied(context.getString(R.string.connect_success), peerId)
+                                }
+                                .onFailure {
+                                    scope.launch {
+                                        snackbar.showSnackbar(context.getString(R.string.error_invalid_qr))
+                                    }
+                                }
+                        },
+                        modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
+                        enabled = pasteInvite.isNotBlank(),
+                    ) {
+                        Text(stringResource(R.string.connect_paste_button))
+                    }
+                }
+                item {
+                    OutlinedButton(
+                        onClick = {
+                            sharePlainText(
+                                context,
+                                invitePayload,
+                                context.getString(R.string.peers_share),
+                            )
+                        },
+                        modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
+                    ) {
+                        Text(stringResource(R.string.peers_share))
+                    }
                 }
             }
 
@@ -502,14 +504,28 @@ private fun PeerRow(
     onEndorsed: () -> Unit,
     onEndorse: (String, UByte) -> Unit,
 ) {
+    val context = LocalContext.current
     var showEndorse by remember { mutableStateOf(false) }
     var strength by remember { mutableStateOf(3f) }
     var reputation by remember { mutableStateOf<PeerReputationData?>(null) }
+    var contactName by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(peerId) {
         reputation =
             withContext(Dispatchers.IO) {
                 mycelium.peerReputation(peerId)
+            }
+        contactName =
+            withContext(Dispatchers.IO) {
+                mycelium.listContacts()
+                    .find { it.peerId == peerId }
+                    ?.let {
+                        userVisibleContactName(
+                            it.displayName,
+                            it.peerId,
+                            context.getString(R.string.contact_unnamed),
+                        )
+                    }
             }
     }
 
@@ -524,7 +540,10 @@ private fun PeerRow(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(peerId.take(20) + "…", style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    contactName ?: stringResource(R.string.peers_nearby_device),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
                 reputation?.let { rep ->
                     Text(
                         stringResource(

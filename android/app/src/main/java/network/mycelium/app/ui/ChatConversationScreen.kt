@@ -157,7 +157,7 @@ fun ChatConversationScreen(
     var menuOpen by remember { mutableStateOf(false) }
 
     val contact = accepted.find { it.peerId == peerId } ?: pending.find { it.peerId == peerId }
-    val title = contact?.displayName ?: peerId.take(16)
+    val title = contact?.displayName ?: stringResource(R.string.contact_unnamed)
     val subtitle =
         contact?.let {
             if (it.online) stringResource(R.string.chat_online) else stringResource(R.string.chat_offline)
