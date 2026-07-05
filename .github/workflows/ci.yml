@@ -1,5 +1,8 @@
 name: Mycelium CI
 
+# Budget-first CI for private repos. Set repository variable MYCELIUM_CI_TIER=full
+# when going public (see docs/CI_PUBLIC_TRANSITION.md).
+
 on:
   push:
     branches:
@@ -9,6 +12,8 @@ on:
       - "fix/**"
       - "chore/**"
       - "release/**"
+    tags:
+      - "v*"
   pull_request:
     branches: [main, master]
   workflow_dispatch:
@@ -17,51 +22,248 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # Default "budget" when the repo variable is unset (private pilot).
+  CI_TIER: ${{ vars.MYCELIUM_CI_TIER || 'budget' }}
+
 jobs:
-  rust:
+  changes:
     if: github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    outputs:
+      docs: ${{ steps.filter.outputs.docs }}
+      rust: ${{ steps.filter.outputs.rust }}
+      workflows: ${{ steps.filter.outputs.workflows }}
+      android: ${{ steps.filter.outputs.android }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            docs:
+              - '**/*.md'
+              - 'docs/**'
+              - 'README*'
+            rust:
+              - '**/*.rs'
+              - '**/Cargo.toml'
+              - '**/Cargo.lock'
+              - 'rust-toolchain.toml'
+              - 'scripts/**'
+              - 'deny.toml'
+              - 'fuzz/**'
+              - '.config/**'
+              - 'crates/**'
+              - '!**/*.md'
+            workflows:
+              - '.github/**'
+            android:
+              - 'android/**'
+              - 'crates/mycelium-ffi/**'
+              - 'crates/mycelium-android/**'
+
+  meta:
+    if: github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    outputs:
+      full_ci: ${{ steps.out.outputs.full_ci }}
+      is_pr: ${{ steps.out.outputs.is_pr }}
+    steps:
+      - id: out
+        run: |
+          FULL=false
+          if [ "${{ env.CI_TIER }}" = "full" ]; then
+            FULL=true
+          fi
+          IS_PR=false
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            IS_PR=true
+            FULL=false
+          fi
+          echo "full_ci=${FULL}" >> "$GITHUB_OUTPUT"
+          echo "is_pr=${IS_PR}" >> "$GITHUB_OUTPUT"
+          echo "CI tier=${{ env.CI_TIER }} full_ci=${FULL} is_pr=${IS_PR}"
+
+  docs-lint:
+    needs: [changes]
+    if: |
+      github.actor != 'dependabot[bot]' &&
+      needs.changes.outputs.docs == 'true' &&
+      needs.changes.outputs.rust != 'true' &&
+      needs.changes.outputs.workflows != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+      - name: Markdown lint
+        run: |
+          npx --yes markdownlint-cli2@0.17.2 "README*.md" "docs/**/*.md" "**/*.md" \
+            "!**/node_modules/**" "!**/target/**" "!fuzz/corpus/**"
+      - name: Check internal doc links (basic)
+        run: |
+          set -euo pipefail
+          for f in docs/*.md; do
+            [ -f "$f" ] || continue
+            grep -oE '\]\(\./[^)]+\)' "$f" | sed 's/](\(\.\/[^)]*\))/\1/' | while read -r link; do
+              target="docs/${link#./}"
+              if [[ "$link" == *.md ]] && [ ! -f "$target" ]; then
+                echo "::error file=$f::broken relative link: $link"
+                exit 1
+              fi
+            done
+          done
+
+  rust-budget:
+    needs: [changes, meta]
+    if: |
+      github.actor != 'dependabot[bot]' &&
+      (needs.changes.outputs.rust == 'true' || needs.changes.outputs.workflows == 'true') &&
+      needs.meta.outputs.full_ci != 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@v6
+
+      - uses: ./.github/actions/setup-rust-cache
+        with:
+          toolchain: "1.85.0"
+          components: "rustfmt,clippy"
+          cache-key-suffix: budget
+
+      - uses: ./.github/actions/setup-cargo-nextest
+
+      - name: Format
+        run: cargo fmt --all -- --check
+
+      - name: Unwrap/expect lint gate
+        run: ./scripts/check-no-unwrap-prod.sh
+
+      - name: INVARIANT whitelist + unwrap regression gate
+        run: |
+          ./scripts/check-invariant-whitelist.sh
+          ./scripts/check-unwrap-audit.sh
+
+      - name: Dependency supply-chain gate
+        run: ./scripts/check-dependencies.sh
+
+      - name: Privacy policy sync check
+        run: |
+          ./scripts/sync-privacy-policy.sh
+          git diff --exit-code android/app/src/main/assets/privacy_policy.html
+
+      - name: Clippy (exclude desktop — saves UI/npm build on PR)
+        run: cargo clippy --workspace --exclude mycelium-desktop --all-targets -- -D warnings
+
+      - name: Unit tests (nextest, lib only)
+        run: cargo nextest run --workspace --exclude mycelium-desktop --lib --profile ci-budget
+
+      - name: Security regression gates
+        run: |
+          cargo nextest run -p mycelium-core release_integrity --lib --profile ci-budget
+          cargo nextest run -p mycelium-node --test mutex_poison_recovery --profile ci-budget
+          cargo nextest run -p mycelium-ffi ffi_global_slots_survive_mutex_poison --lib --profile ci-budget
+
+      - name: MyceliumLab CI gates
+        run: cargo nextest run -p mycelium-sim sim_ci_gates --profile ci-budget --test-threads 1
+
+  rust-full-linux:
+    needs: [changes, meta]
+    if: |
+      github.actor != 'dependabot[bot]' &&
+      (needs.changes.outputs.rust == 'true' || needs.changes.outputs.workflows == 'true') &&
+      needs.meta.outputs.full_ci == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+
       - name: Install Linux libraries (Tauri / desktop)
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libssl-dev \
             libayatana-appindicator3-dev librsvg2-dev
-      - uses: dtolnay/rust-toolchain@1.85.0
+
+      - uses: ./.github/actions/setup-rust-cache
         with:
-          components: rustfmt, clippy
-      - name: Setup Node
-        uses: actions/setup-node@v6
+          toolchain: "1.85.0"
+          components: "rustfmt,clippy"
+          cache-key-suffix: full-linux
+
+      - uses: ./.github/actions/setup-cargo-nextest
+
+      - uses: actions/setup-node@v6
         with:
           node-version: "20"
           cache: npm
           cache-dependency-path: crates/mycelium-desktop/ui/package-lock.json
+
       - name: Build desktop UI
         working-directory: crates/mycelium-desktop/ui
         run: npm ci && npm run build
+
       - name: Format
         run: cargo fmt --all -- --check
-      - name: Unwrap/expect lint gate (node, core, coin, miniapp)
+
+      - name: Unwrap/expect lint gate
         run: ./scripts/check-no-unwrap-prod.sh
-      - name: INVARIANT whitelist + unwrap regression gate
+
+      - name: INVARIANT + unwrap audit
         run: |
           ./scripts/check-invariant-whitelist.sh
           ./scripts/check-unwrap-audit.sh
+
+      - name: Dependency supply-chain gate
+        run: ./scripts/check-dependencies.sh
+
       - name: Privacy policy sync check
         run: |
           ./scripts/sync-privacy-policy.sh
           git diff --exit-code android/app/src/main/assets/privacy_policy.html
-      - name: Clippy
+
+      - name: Clippy (full workspace)
         run: cargo clippy --workspace --all-targets -- -D warnings
-      - name: Test
-        run: cargo test --workspace
-      - name: Security regression gates
-        run: |
-          cargo test -p mycelium-core release_integrity --lib
-          cargo test -p mycelium-node --test mutex_poison_recovery
-          cargo test -p mycelium-ffi ffi_global_slots_survive_mutex_poison --lib
+
+      - name: All tests (nextest, including integration)
+        run: cargo nextest run --workspace --profile ci-full
+
       - name: MyceliumLab CI gates
-        run: cargo test -p mycelium-sim sim_ci_gates -- --test-threads=1
+        run: cargo nextest run -p mycelium-sim sim_ci_gates --profile ci-full --test-threads 1
+
+  rust-cross:
+    needs: [changes, meta]
+    if: |
+      github.actor != 'dependabot[bot]' &&
+      (needs.changes.outputs.rust == 'true' || needs.changes.outputs.workflows == 'true') &&
+      needs.meta.outputs.full_ci == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            cache_suffix: full-windows
+          - os: macos-latest
+            cache_suffix: full-macos
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: ./.github/actions/setup-rust-cache
+        with:
+          toolchain: "1.85.0"
+          components: "clippy"
+          cache-key-suffix: ${{ matrix.cache_suffix }}
+
+      - uses: ./.github/actions/setup-cargo-nextest
+
+      - name: Clippy (exclude desktop)
+        run: cargo clippy --workspace --exclude mycelium-desktop --all-targets -- -D warnings
+
+      - name: Unit tests (nextest, lib only)
+        run: cargo nextest run --workspace --exclude mycelium-desktop --lib --profile ci-full

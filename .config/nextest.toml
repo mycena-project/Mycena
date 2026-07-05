@@ -1,0 +1,8 @@
+# CI profiles — see .github/workflows/ci.yml
+[profile.ci-budget]
+retries = { backoff = "fixed", count = 1, delay = "1s" }
+slow-timeout = "120s"
+
+[profile.ci-full]
+retries = { backoff = "fixed", count = 1, delay = "1s" }
+slow-timeout = "300s"

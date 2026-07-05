@@ -15,7 +15,8 @@ Targets live under [`fuzz/fuzz_targets/`](../fuzz/fuzz_targets/) and are built w
 | `fuzz_gossipsub_wire` | `mycelium-node::decode_peer_wire_message` | Gossipsub & direct bincode `WireMessage` |
 | `fuzz_sync_bloom` | `mycelium-core::sync` + sync wire variants | `BloomFilter::from_bytes`, `SyncDigest`, `WireMessage::Sync*` |
 | `fuzz_invite` | `mycelium-core::invite::parse_invite` | QR / deep-link invite strings |
-| `fuzz_coin_payload` | `mycelium-coin::decode_peer_coin_payload` | MeshCoin gossip payloads |
+| `fuzz_coin_payload` | `mycelium-coin::decode_peer_coin_payload` | MeshCoin gossip / voucher payloads |
+| `fuzz_custody_envelope` | `mycelium-core::transport::DirectMessage` | Custody / DTN direct messages (bincode) |
 | `fuzz_miniapp_bundle` | `mycelium-miniapp::bundle`, `bundle_signature` | Store `.mxa` ZIP bundles & signature sidecars |
 
 ## Prerequisites
@@ -42,10 +43,14 @@ FUZZ_SECONDS=30 ./scripts/fuzz-smoke.sh   # shorter local run
 
 ## CI
 
+Repository variable **`MYCELIUM_CI_TIER`**: `budget` (default, private pilot) or `full` (public pilot). See [CI_PUBLIC_TRANSITION.md](./CI_PUBLIC_TRANSITION.md).
+
 | Workflow | Trigger | Duration per target |
 |----------|---------|---------------------|
-| [`.github/workflows/fuzz-pr.yml`](../.github/workflows/fuzz-pr.yml) | PR + push to `main` | 5 minutes (300s) |
-| [`.github/workflows/fuzz-nightly.yml`](../.github/workflows/fuzz-nightly.yml) | Daily 02:00 UTC + manual | 4 hours (14400s) |
+| [`.github/workflows/fuzz-pr.yml`](../.github/workflows/fuzz-pr.yml) | PR + push to `main` | **90s** — `fuzz_envelope`, `fuzz_ble_frame`, `fuzz_coin_payload`, `fuzz_custody_envelope` only |
+| [`.github/workflows/fuzz-nightly.yml`](../.github/workflows/fuzz-nightly.yml) | Daily 02:00 UTC when `MYCELIUM_CI_TIER=full`; always via **manual** `workflow_dispatch` | 4 hours (14400s) — all targets |
+
+Prepared OSS-Fuzz submission (not filed until repo is public): [`integrations/oss-fuzz/`](../integrations/oss-fuzz/).
 
 Nightly uploads crash artifacts when a target fails.
 

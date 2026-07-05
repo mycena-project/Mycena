@@ -1,0 +1,10 @@
+name: Install cargo-nextest
+description: Fast parallel test runner for Rust (cached via setup-rust-cache target dir when shared).
+
+runs:
+  using: composite
+  steps:
+    - name: Install cargo-nextest
+      uses: taiki-e/install-action@v2
+      with:
+        tool: nextest

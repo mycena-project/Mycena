@@ -1,5 +1,8 @@
 name: Fuzz (PR smoke)
 
+# Security-critical targets only; 90s each. Full target set + long runs: fuzz-nightly.yml
+# when MYCELIUM_CI_TIER=full (see docs/CI_PUBLIC_TRANSITION.md).
+
 on:
   pull_request:
     branches: [main, master]
@@ -12,26 +15,46 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  FUZZ_SECONDS: "300"
+  CI_TIER: ${{ vars.MYCELIUM_CI_TIER || 'budget' }}
+  FUZZ_SECONDS: "90"
 
 jobs:
-  fuzz:
+  changes:
     if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    outputs:
+      fuzz: ${{ steps.filter.outputs.fuzz }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            fuzz:
+              - '**/*.rs'
+              - '**/Cargo.toml'
+              - '**/Cargo.lock'
+              - 'fuzz/**'
+              - 'crates/**'
+              - '.github/workflows/fuzz-pr.yml'
+              - '.github/workflows/fuzz-nightly.yml'
+
+  fuzz:
+    needs: changes
+    if: |
+      github.actor != 'dependabot[bot]' &&
+      needs.changes.outputs.fuzz == 'true' &&
+      (github.event_name == 'pull_request' || env.CI_TIER == 'budget' || env.CI_TIER == 'full')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
         target:
           - fuzz_envelope
           - fuzz_ble_frame
-          - fuzz_ble_stream
-          - fuzz_ble_multiaddr
-          - fuzz_gossipsub_wire
-          - fuzz_sync_bloom
-          - fuzz_invite
           - fuzz_coin_payload
-          - fuzz_miniapp_bundle
+          - fuzz_custody_envelope
     permissions:
       contents: read
     steps:
@@ -39,21 +62,21 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@nightly
 
-      - name: Install cargo-fuzz
-        run: cargo install cargo-fuzz --locked
-
-      - name: Cache cargo
+      - name: Cache cargo (registry, git, fuzz target)
         uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
             fuzz/target
-          key: fuzz-pr-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock', 'fuzz/**') }}
+          key: fuzz-pr-${{ matrix.target }}-nightly-${{ hashFiles('**/Cargo.lock', 'fuzz/**', 'fuzz/rust-toolchain.toml') }}
           restore-keys: |
-            fuzz-pr-${{ matrix.target }}-
+            fuzz-pr-${{ matrix.target }}-nightly-
 
-      - name: "Fuzz ${{ matrix.target }} (${{ env.FUZZ_SECONDS }}s smoke)"
+      - name: Install cargo-fuzz
+        run: cargo install cargo-fuzz --locked
+
+      - name: "Fuzz ${{ matrix.target }} (${{ env.FUZZ_SECONDS }}s)"
         working-directory: fuzz
         run: |
           cargo fuzz run "${{ matrix.target }}" -- \

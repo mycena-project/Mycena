@@ -1,0 +1,40 @@
+name: Setup Rust toolchain and Cargo cache
+description: Pin toolchain from rust-toolchain.toml and cache registry/git/target.
+
+inputs:
+  toolchain:
+    description: Rust channel (default reads rust-toolchain.toml via dtolnay/rust-toolchain@stable pattern)
+    required: false
+    default: "1.85.0"
+  components:
+    description: Comma-separated rustup components (e.g. rustfmt,clippy)
+    required: false
+    default: ""
+  cache-key-suffix:
+    description: Extra suffix to separate caches (e.g. fuzz-nightly)
+    required: false
+    default: "workspace"
+  target-path:
+    description: Cargo target directory to cache
+    required: false
+    default: target
+
+runs:
+  using: composite
+  steps:
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: ${{ inputs.toolchain }}
+        components: ${{ inputs.components }}
+
+    - name: Cache Cargo registry, git, and target
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          ${{ inputs.target-path }}
+        key: cargo-${{ runner.os }}-${{ inputs.cache-key-suffix }}-${{ inputs.toolchain }}-${{ hashFiles('**/Cargo.lock', 'rust-toolchain.toml') }}
+        restore-keys: |
+          cargo-${{ runner.os }}-${{ inputs.cache-key-suffix }}-${{ inputs.toolchain }}-
