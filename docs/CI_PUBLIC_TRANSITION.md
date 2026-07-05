@@ -60,7 +60,7 @@ If [RELEASE_INTEGRITY.md](./RELEASE_INTEGRITY.md) is in use:
 
 | Mode | Workflow | When active |
 |------|----------|-------------|
-| PR smoke (90s × 4 targets) | `fuzz-pr.yml` | Always on PRs |
+| PR smoke (90s × 4 targets) | `fuzz-pr.yml` | `MYCELIUM_CI_TIER=full` (PRs and `main` pushes) |
 | GitHub nightly (multi-hour) | `fuzz-nightly.yml` | `MYCELIUM_CI_TIER=full` schedule + manual |
 | OSS-Fuzz cluster | google/oss-fuzz | After step 3 merge |
 | Local / ad-hoc long runs | `workflow_dispatch` on `fuzz-nightly.yml` | Any time (costs private minutes if repo still private) |
@@ -94,7 +94,7 @@ Public repos use **free** GitHub-hosted minutes, but each job is still capped at
 To return to budget mode (e.g. fork stays private):
 
 1. Set `MYCELIUM_CI_TIER` back to **`budget`**.
-2. Nightly fuzz / MyceliumLab schedules stop automatically; PR smoke fuzz remains.
+2. Nightly fuzz / MyceliumLab schedules and PR smoke fuzz stop automatically.
 
 ---
 

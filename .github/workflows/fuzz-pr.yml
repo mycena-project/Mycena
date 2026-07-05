@@ -1,7 +1,8 @@
 name: Fuzz (PR smoke)
 
-# Security-critical targets only; 90s each. Full target set + long runs: fuzz-nightly.yml
-# when MYCELIUM_CI_TIER=full (see docs/CI_PUBLIC_TRANSITION.md).
+# Security-critical targets only; 90s each. Skipped while MYCELIUM_CI_TIER=budget
+# (default) to save Actions minutes; re-enabled at public pilot via MYCELIUM_CI_TIER=full.
+# Long runs: fuzz-nightly.yml (see docs/CI_PUBLIC_TRANSITION.md).
 
 on:
   pull_request:
@@ -44,10 +45,7 @@ jobs:
     if: |
       github.actor != 'dependabot[bot]' &&
       needs.changes.outputs.fuzz == 'true' &&
-      (github.event_name == 'pull_request' ||
-        vars.MYCELIUM_CI_TIER == 'budget' ||
-        vars.MYCELIUM_CI_TIER == 'full' ||
-        vars.MYCELIUM_CI_TIER == '')
+      vars.MYCELIUM_CI_TIER == 'full'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:

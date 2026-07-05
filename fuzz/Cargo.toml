@@ -92,3 +92,6 @@ path = "fuzz_targets/fuzz_miniapp_bundle.rs"
 test = false
 doc = false
 bench = false
+
+[patch.crates-io]
+libp2p-gossipsub = { path = "../third-party/libp2p-gossipsub" }
