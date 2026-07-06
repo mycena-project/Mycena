@@ -88,7 +88,7 @@ class StatusViewModel(app: Application) : AndroidViewModel(app) {
         val prefs = appContext.getSharedPreferences(SettingsViewModel.PREFS_NAME, Application.MODE_PRIVATE)
         val bleOn = prefs.getBoolean(SettingsViewModel.KEY_BLE_BOOTSTRAP, false)
             || prefs.getBoolean(SettingsViewModel.KEY_MAX_CONNECTIVITY, false)
-        val meshOnly = _connectivityMode.value == ConnectivityMode.MESHONLY
+        val meshOnly = _connectivityMode.value == ConnectivityMode.MESH_ONLY
         _offlineMeshActive.value = meshOnly && bleOn && _peerCount.value > 0
     }
 
