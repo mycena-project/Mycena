@@ -22,22 +22,22 @@ jobs:
             const projectTitle = 'Paket B — InformationTrust (6 Monate)';
             const issueNumbers = [38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49];
 
-            const orgQuery = `
+            const ownerQuery = `
               query($login: String!) {
-                organization(login: $login) {
+                user(login: $login) {
                   id
                   projectsV2(first: 50) {
                     nodes { id number title url }
                   }
                 }
               }`;
-            const org = await github.graphql(orgQuery, { login: owner });
-            if (!org.organization) {
-              core.setFailed(`Organization ${owner} not found or token lacks access`);
+            const ownerData = await github.graphql(ownerQuery, { login: owner });
+            if (!ownerData.user) {
+              core.setFailed(`User ${owner} not found or token lacks access`);
               return;
             }
 
-            let project = org.organization.projectsV2.nodes.find((p) => p.title === projectTitle);
+            let project = ownerData.user.projectsV2.nodes.find((p) => p.title === projectTitle);
             if (!project) {
               const createMutation = `
                 mutation($input: CreateProjectV2Input!) {
@@ -46,7 +46,7 @@ jobs:
                   }
                 }`;
               const created = await github.graphql(createMutation, {
-                input: { ownerId: org.organization.id, title: projectTitle },
+                input: { ownerId: ownerData.user.id, title: projectTitle },
               });
               project = created.createProjectV2.projectV2;
               core.info(`Created project: ${project.url}`);
