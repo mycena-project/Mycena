@@ -16,8 +16,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn protocol_ids_are_non_empty() {
-        assert!(!IDENTIFY_PROTOCOL.is_empty());
+    fn protocol_ids_are_well_formed() {
+        assert_eq!(IDENTIFY_PROTOCOL, "mycelium/0.1");
         assert!(KAD_PROTOCOL.starts_with('/'));
         assert!(DIRECT_REQUEST_PROTOCOL.starts_with('/'));
     }
