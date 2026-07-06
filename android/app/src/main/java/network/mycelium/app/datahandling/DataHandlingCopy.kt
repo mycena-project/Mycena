@@ -4,7 +4,7 @@ package network.mycelium.app.datahandling
 
 import android.content.Context
 import org.json.JSONObject
-import java.util.Locale
+import network.mycelium.app.i18n.LocalePreferences
 
 data class DataHandlingSection(
     val heading: String,
@@ -24,7 +24,7 @@ data class DataHandlingCopy(
 
 object DataHandlingCopyLoader {
     fun load(context: Context): DataHandlingCopy {
-        val localeTag = resolveLocaleTag()
+        val localeTag = LocalePreferences.resolveAssetLocaleTag(context)
         val json =
             readAssetJson(context, "data-handling/$localeTag.json")
                 ?: readAssetJson(context, "data-handling/en.json")
@@ -33,18 +33,6 @@ object DataHandlingCopyLoader {
     }
 
     internal fun parseFromJson(raw: String): DataHandlingCopy = parse(JSONObject(raw))
-
-    private fun resolveLocaleTag(): String {
-        val locale = Locale.getDefault()
-        return when (locale.language) {
-            "de" -> "de"
-            "ar" -> "ar"
-            "ru" -> "ru"
-            "fa" -> "fa"
-            "zh" -> "zh"
-            else -> "en"
-        }
-    }
 
     private fun readAssetJson(
         context: Context,

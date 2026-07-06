@@ -2,11 +2,13 @@
 """Merge Android strings.xml locales with base keys; fill missing via locale overlays."""
 from __future__ import annotations
 
+import json
 import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+OVERLAY_DIR = ROOT / "scripts" / "overlays"
 RES = ROOT / "android" / "app" / "src" / "main" / "res"
 BASE = RES / "values" / "strings.xml"
 LOCALES = {
@@ -17,35 +19,9 @@ LOCALES = {
     "zh": RES / "values-zh-rCN" / "strings.xml",
 }
 
-# Phase B/C + peers/discovery — explicit translations (base English as fallback elsewhere).
+# Inline overlays for locales without a JSON file; merged with scripts/overlays/{loc}.json.
 OVERLAYS: dict[str, dict[str, str]] = {
-    "de": {
-        "chat_pending_requests": "Kontaktanfragen",
-        "chat_contacts": "Kontakte",
-        "chat_accept_contact": "Annehmen",
-        "chat_reject_contact": "Ablehnen",
-        "chat_online": "Online",
-        "chat_offline": "Offline",
-        "peers_nearby_title": "Geräte in der Nähe",
-        "peers_nearby_empty": "Noch keine anderen Geräte im Netzwerk sichtbar.",
-        "peers_relay_online": "Relay: %1$d Peers",
-        "peers_relay_offline": "Relay: offline",
-        "peers_scan_qr_prompt": "Peer-QR scannen",
-        "peers_my_qr_cd": "Meine Einladung als QR-Code",
-        "peers_add_bootstrap": "Hinzufügen",
-        "peers_connect_via_relay": "Über Relay",
-        "peers_connect_relay_hint": "Peer-ID → Relay",
-        "peers_connected_count": "%1$d verbunden",
-        "error_invalid_qr": "QR-Format ungültig",
-        "settings_rendezvous_title": "Relay-Entdeckung",
-        "settings_rendezvous_sub": "Andere Relay-Nutzer finden und gefunden werden (Opt-in)",
-        "discovery_channel_name": "Knoten in der Nähe",
-        "discovery_notification_title": "Mycelium-Knoten %1$s",
-        "discovery_notification_body": "Tippen zum Verbinden (%1$s…)",
-        "discovery_very_close": "sehr nah",
-        "discovery_nearby": "in der Nähe",
-        "discovery_in_range": "in Reichweite",
-    },
+    "de": {},
     "ar": {
         "chat_pending_requests": "طلبات جهات الاتصال",
         "chat_contacts": "جهات الاتصال",
@@ -162,6 +138,25 @@ OVERLAYS: dict[str, dict[str, str]] = {
 }
 
 
+def load_overlay(loc: str) -> dict[str, str]:
+    merged: dict[str, str] = dict(OVERLAYS.get(loc, {}))
+    path = OVERLAY_DIR / f"{loc}.json"
+    if path.exists():
+        merged.update(json.loads(path.read_text(encoding="utf-8")))
+    return merged
+
+
+# Keys that should stay identical to English (brand, protocol tokens, examples).
+KEEP_ENGLISH: frozenset[str] = frozenset(
+    {
+        "app_name",
+        "settings_scope_key_placeholder",
+        "bulletin_scope_example",
+        "wallet_cold_wallet_hint",
+    }
+)
+
+
 def parse_strings(path: Path) -> dict[str, str]:
     tree = ET.parse(path)
     out: dict[str, str] = {}
@@ -226,22 +221,30 @@ def main() -> None:
     for loc, path in LOCALES.items():
         existing = parse_strings(path) if path.exists() else {}
         merged = dict(existing)
-        overlay = OVERLAYS.get(loc, {})
+        overlay = load_overlay(loc)
         missing = [k for k in base if k not in merged]
-        if GoogleTranslator and missing:
+        stale = [
+            k
+            for k in base
+            if k in merged
+            and merged[k] == base[k]
+            and k not in KEEP_ENGLISH
+            and k not in overlay
+        ]
+        to_translate = sorted(set(missing) | set(stale))
+        translated = 0
+        if GoogleTranslator and to_translate:
             lang = {"de": "de", "ar": "ar", "ru": "ru", "fa": "fa", "zh": "zh-CN"}[loc]
             tr = GoogleTranslator(source="en", target=lang)
-            batch_size = 40
-            for i in range(0, len(missing), batch_size):
-                batch = missing[i : i + batch_size]
-                for key in batch:
-                    if key in overlay:
-                        merged[key] = overlay[key]
-                        continue
-                    try:
-                        merged[key] = tr.translate(base[key])
-                    except Exception:
-                        merged[key] = base[key]
+            for key in to_translate:
+                if key in overlay:
+                    merged[key] = overlay[key]
+                    continue
+                try:
+                    merged[key] = tr.translate(base[key])
+                    translated += 1
+                except Exception:
+                    merged[key] = base[key]
         else:
             for key in base:
                 if key not in merged:
@@ -249,7 +252,10 @@ def main() -> None:
         for key, val in overlay.items():
             merged[key] = val
         write_strings(path, merged)
-        print(f"{loc}: {len(merged)} keys ({len(missing)} were missing)")
+        print(
+            f"{loc}: {len(merged)} keys "
+            f"({len(missing)} missing, {len(stale)} stale-en, {translated} translated)"
+        )
 
 
 if __name__ == "__main__":

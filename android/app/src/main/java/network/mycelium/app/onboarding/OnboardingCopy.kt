@@ -4,7 +4,7 @@ package network.mycelium.app.onboarding
 
 import android.content.Context
 import org.json.JSONObject
-import java.util.Locale
+import network.mycelium.app.i18n.LocalePreferences
 import kotlin.random.Random
 
 data class PositioningVariant(
@@ -41,7 +41,7 @@ object OnboardingCopyLoader {
     private const val KEY_POSITIONING_VARIANT = "onboarding_positioning_variant"
 
     fun load(context: Context): OnboardingCopy {
-        val localeTag = resolveLocaleTag()
+        val localeTag = LocalePreferences.resolveAssetLocaleTag(context)
         val json =
             readAssetJson(context, "onboarding/$localeTag.json")
                 ?: readAssetJson(context, "onboarding/en.json")
@@ -76,15 +76,6 @@ object OnboardingCopyLoader {
 
         prefs.edit().putString(KEY_POSITIONING_VARIANT, variant.id).apply()
         return variant
-    }
-
-    private fun resolveLocaleTag(): String {
-        val locale = Locale.getDefault()
-        return when (locale.language) {
-            "de" -> "de"
-            "zh" -> if (locale.country.equals("CN", ignoreCase = true)) "zh-CN" else "zh"
-            else -> locale.language.takeIf { it.length == 2 } ?: "en"
-        }
     }
 
     private fun readAssetJson(

@@ -3,30 +3,58 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
+
+# shellcheck source=ensure-rust-env.sh
+source "$ROOT/scripts/ensure-rust-env.sh"
+require_cargo
+
+export IPHONEOS_DEPLOYMENT_TARGET="${IPHONEOS_DEPLOYMENT_TARGET:-16.0}"
+TARGET_DIR="${CARGO_TARGET_DIR:-$ROOT/target}"
+
+"$ROOT/scripts/regenerate-uniffi-bindings.sh" swift
+
 OUT="$ROOT/ios/rust-build"
+HEADERS="$OUT/headers"
 LIB="libuniffi_mycelium.a"
-ARCHS=(aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios)
-for t in "${ARCHS[@]}"; do
+DEVICE_TRIPLE=aarch64-apple-ios
+SIM_TRIPLES=(aarch64-apple-ios-sim)
+if rustup target list --installed | grep -qx 'x86_64-apple-ios'; then
+  SIM_TRIPLES+=(x86_64-apple-ios)
+fi
+for t in "$DEVICE_TRIPLE" "${SIM_TRIPLES[@]}"; do
   rustup target add "$t" 2>/dev/null || true
 done
-mkdir -p "$OUT"
-for t in "${ARCHS[@]}"; do
-  echo "Building mycelium-ffi for $t"
-  cargo build -p mycelium-ffi --release --target "$t"
+mkdir -p "$OUT" "$HEADERS"
+cp "$ROOT/ios/Mycelium/Generated/myceliumFFI.h" "$HEADERS/"
+cp "$ROOT/ios/Mycelium/Generated/myceliumFFI.modulemap" "$HEADERS/module.modulemap"
+
+for t in "$DEVICE_TRIPLE" "${SIM_TRIPLES[@]}"; do
+  echo "Building mycelium-ffi (staticlib) for $t"
+  cargo rustc -p mycelium-ffi --release --target "$t" --lib --crate-type staticlib
 done
-DEVICE="$ROOT/target/aarch64-apple-ios/release/$LIB"
-SIM_ARM="$ROOT/target/aarch64-apple-ios-sim/release/$LIB"
-SIM_X86="$ROOT/target/x86_64-apple-ios/release/$LIB"
+
+DEVICE="$TARGET_DIR/$DEVICE_TRIPLE/release/$LIB"
+SIM_LIBS=()
+for t in "${SIM_TRIPLES[@]}"; do
+  SIM_LIBS+=("$TARGET_DIR/$t/release/$LIB")
+done
 SIM_UNI="$OUT/sim-universal.a"
-lipo -create "$SIM_ARM" "$SIM_X86" -output "$SIM_UNI"
+if [[ ${#SIM_LIBS[@]} -eq 1 ]]; then
+  cp "${SIM_LIBS[0]}" "$SIM_UNI"
+else
+  lipo -create "${SIM_LIBS[@]}" -output "$SIM_UNI"
+fi
 rm -rf "$OUT/MyceliumFFI.xcframework"
-xcodebuild -create-xcframework \
-  -library "$DEVICE" -headers "$ROOT/crates/mycelium-ffi/include" \
-  -library "$SIM_UNI" -headers "$ROOT/crates/mycelium-ffi/include" \
-  -output "$OUT/MyceliumFFI.xcframework" 2>/dev/null || {
-  echo "Note: create-xcframework may need a module map; link static libs manually — see ios/README.md"
+if xcodebuild -create-xcframework \
+  -library "$DEVICE" -headers "$HEADERS" \
+  -library "$SIM_UNI" -headers "$HEADERS" \
+  -output "$OUT/MyceliumFFI.xcframework"; then
+  echo "iOS FFI xcframework: $OUT/MyceliumFFI.xcframework"
+else
+  echo "Note: create-xcframework failed; leaving flat static libs in $OUT" >&2
   mkdir -p "$OUT/MyceliumFFI.xcframework"
   cp "$DEVICE" "$OUT/MyceliumFFI.xcframework/device-$LIB"
   cp "$SIM_UNI" "$OUT/MyceliumFFI.xcframework/sim-$LIB"
-}
+  cp -R "$HEADERS" "$OUT/MyceliumFFI.xcframework/Headers"
+fi
 echo "iOS FFI artifacts in $OUT"

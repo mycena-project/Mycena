@@ -68,6 +68,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import network.mycelium.app.MeshUiState
 import network.mycelium.app.PortraitQrScanActivity
 import network.mycelium.app.R
 import network.mycelium.app.bootstrap.InviteConnect
@@ -85,13 +86,6 @@ import network.mycelium.bindings.PeerReputationData
 import network.mycelium.bindings.mycelium
 
 private data class RelayStatus(val online: Boolean, val reachable: Long)
-
-private fun jsonLong(json: String, key: String): Long? =
-    Regex("\"$key\"\\s*:\\s*(\\d+)")
-        .find(json)
-        ?.groupValues
-        ?.get(1)
-        ?.toLongOrNull()
 
 @Composable
 private fun RelayStatusBadge() {
@@ -118,49 +112,52 @@ private fun RelayStatusBadge() {
     var relayStatus by remember { mutableStateOf<RelayStatus?>(null) }
 
     LaunchedEffect(Unit) {
-        withContext(Dispatchers.IO) {
-            relayStatus =
-                try {
-                    val statusUrl = java.net.URL("https://mycelium-relay.fly.dev/")
-                    val statusConn = statusUrl.openConnection() as java.net.HttpURLConnection
-                    statusConn.connectTimeout = 3000
-                    statusConn.readTimeout = 3000
-                    if (statusConn.responseCode == 200) {
-                        val statusJson = statusConn.inputStream.bufferedReader().readText()
-                        val rendezvousUrl = java.net.URL("https://mycelium-relay.fly.dev/rendezvous")
-                        val rendezvousConn =
-                            rendezvousUrl.openConnection() as java.net.HttpURLConnection
-                        rendezvousConn.connectTimeout = 3000
-                        rendezvousConn.readTimeout = 3000
-                        val reachable =
-                            if (rendezvousConn.responseCode == 200) {
-                                val rendezvousJson =
-                                    rendezvousConn.inputStream.bufferedReader().readText()
-                                Regex("\"peers\"\\s*:\\s*\\[")
-                                    .find(rendezvousJson)
-                                    ?.let {
-                                        rendezvousJson
-                                            .substringAfter("[")
-                                            .substringBefore("]")
-                                            .split(',')
-                                            .count { it.contains("12D3KooW") }
-                                            .toLong()
-                                    }
-                                    ?: jsonLong(statusJson, "reachable_peers")
-                                    ?: jsonLong(statusJson, "unique_peers")
-                                    ?: 0L
-                            } else {
-                                jsonLong(statusJson, "reachable_peers")
-                                    ?: jsonLong(statusJson, "unique_peers")
-                                    ?: 0L
+        while (true) {
+            withContext(Dispatchers.IO) {
+                relayStatus =
+                    try {
+                        val statusUrl = java.net.URL("https://mycelium-relay.fly.dev/")
+                        val statusConn = statusUrl.openConnection() as java.net.HttpURLConnection
+                        statusConn.connectTimeout = 3000
+                        statusConn.readTimeout = 3000
+                        if (statusConn.responseCode == 200) {
+                            val statusJson =
+                                org.json.JSONObject(
+                                    statusConn.inputStream.bufferedReader().readText(),
+                                )
+                            var reachable = 0L
+                            try {
+                                val rendezvousUrl =
+                                    java.net.URL("https://mycelium-relay.fly.dev/rendezvous")
+                                val rendezvousConn =
+                                    rendezvousUrl.openConnection() as java.net.HttpURLConnection
+                                rendezvousConn.connectTimeout = 3000
+                                rendezvousConn.readTimeout = 3000
+                                if (rendezvousConn.responseCode == 200) {
+                                    val rendezvousJson =
+                                        org.json.JSONObject(
+                                            rendezvousConn.inputStream.bufferedReader().readText(),
+                                        )
+                                    reachable =
+                                        rendezvousJson.optJSONArray("peers")?.length()?.toLong()
+                                            ?: 0L
+                                }
+                            } catch (_: Exception) {
                             }
-                        RelayStatus(online = true, reachable = reachable)
-                    } else {
+                            if (reachable == 0L) {
+                                reachable =
+                                    statusJson.optLong("reachable_peers", 0).takeIf { it > 0 }
+                                        ?: statusJson.optLong("unique_peers", 0)
+                            }
+                            RelayStatus(online = true, reachable = reachable)
+                        } else {
+                            RelayStatus(online = false, reachable = 0)
+                        }
+                    } catch (_: Exception) {
                         RelayStatus(online = false, reachable = 0)
                     }
-                } catch (_: Exception) {
-                    RelayStatus(online = false, reachable = 0)
-                }
+            }
+            delay(30_000)
         }
     }
 
@@ -226,6 +223,12 @@ fun PeersScreen(navController: NavController, vm: PeersViewModel = viewModel()) 
             snackbar.showSnackbar(successMessage)
             vm.refresh()
             if (!peerId.isNullOrBlank()) {
+                launch {
+                    repeat(15) {
+                        delay(2_000)
+                        MeshUiState.bumpChatRevision()
+                    }
+                }
                 navController.navigate("chat") {
                     popUpTo(navController.graph.findStartDestination().id) {
                         saveState = true
@@ -237,6 +240,21 @@ fun PeersScreen(navController: NavController, vm: PeersViewModel = viewModel()) 
         }
     }
 
+    fun applyInvite(raw: String, onSuccess: () -> Unit = {}) {
+        scope.launch {
+            vm.onInviteConnectStarted()
+            InviteConnect.apply(raw)
+                .onSuccess { peerId ->
+                    onSuccess()
+                    onInviteApplied(context.getString(R.string.connect_success), peerId)
+                }
+                .onFailure {
+                    vm.onInviteConnectFinished()
+                    snackbar.showSnackbar(context.getString(R.string.error_invalid_qr))
+                }
+        }
+    }
+
     val nfcReader =
         remember(context) {
             (context as? Activity)?.let { activity ->
@@ -244,17 +262,7 @@ fun PeersScreen(navController: NavController, vm: PeersViewModel = viewModel()) 
                     activity = activity,
                     onInvite = { raw ->
                         nfcListening = false
-                        vm.onInviteConnectStarted()
-                        InviteConnect.apply(raw)
-                            .onSuccess { peerId ->
-                                onInviteApplied(context.getString(R.string.connect_success), peerId)
-                            }
-                            .onFailure {
-                                vm.onInviteConnectFinished()
-                                scope.launch {
-                                    snackbar.showSnackbar(context.getString(R.string.error_invalid_qr))
-                                }
-                            }
+                        applyInvite(raw)
                     },
                     onUnavailable = {
                         nfcListening = false
@@ -279,15 +287,7 @@ fun PeersScreen(navController: NavController, vm: PeersViewModel = viewModel()) 
         rememberLauncherForActivityResult(ScanContract()) { result ->
             val raw = result.contents
             if (raw.isNullOrBlank()) return@rememberLauncherForActivityResult
-            vm.onInviteConnectStarted()
-            InviteConnect.apply(raw)
-                .onSuccess { peerId ->
-                    onInviteApplied(context.getString(R.string.connect_success), peerId)
-                }
-                .onFailure {
-                    vm.onInviteConnectFinished()
-                    scope.launch { snackbar.showSnackbar(context.getString(R.string.error_invalid_qr)) }
-                }
+            applyInvite(raw)
         }
 
     val cameraPermissionLauncher =
@@ -414,6 +414,11 @@ fun PeersScreen(navController: NavController, vm: PeersViewModel = viewModel()) 
                             style = MaterialTheme.typography.labelLarge,
                             modifier = Modifier.padding(top = 12.dp),
                         )
+                        Text(
+                            text = stringResource(R.string.peers_connected_local_hint),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                         if (metrics.maxPeers > 0uL) {
                             val utilization =
                                 (metrics.connectedPeers.toFloat() / metrics.maxPeers.toFloat() * 100f)
@@ -508,18 +513,7 @@ fun PeersScreen(navController: NavController, vm: PeersViewModel = viewModel()) 
                         onClick = {
                             val raw = pasteInvite.trim()
                             if (raw.isEmpty()) return@Button
-                            vm.onInviteConnectStarted()
-                            InviteConnect.apply(raw)
-                                .onSuccess { peerId ->
-                                    pasteInvite = ""
-                                    onInviteApplied(context.getString(R.string.connect_success), peerId)
-                                }
-                                .onFailure {
-                                    vm.onInviteConnectFinished()
-                                    scope.launch {
-                                        snackbar.showSnackbar(context.getString(R.string.error_invalid_qr))
-                                    }
-                                }
+                            applyInvite(raw) { pasteInvite = "" }
                         },
                         modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
                         enabled = pasteInvite.isNotBlank(),
@@ -578,12 +572,13 @@ private fun PeerRow(
     onEndorse: (String, UByte) -> Unit,
 ) {
     val context = LocalContext.current
+    val chatRevision by MeshUiState.chatRevision.collectAsState()
     var showEndorse by remember { mutableStateOf(false) }
     var strength by remember { mutableStateOf(3f) }
     var reputation by remember { mutableStateOf<PeerReputationData?>(null) }
     var contactName by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(peerId) {
+    LaunchedEffect(peerId, chatRevision) {
         reputation =
             withContext(Dispatchers.IO) {
                 mycelium.peerReputation(peerId)

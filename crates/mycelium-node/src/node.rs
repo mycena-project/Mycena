@@ -2979,7 +2979,7 @@ impl NodeRunner {
                     diversity: Some(&diversity),
                 },
             );
-            if relay_candidates.is_empty() && peers.is_empty() {
+            if relay_candidates.is_empty() {
                 anyhow::bail!("no path to {to_peer}");
             }
             for relay in &relay_candidates {

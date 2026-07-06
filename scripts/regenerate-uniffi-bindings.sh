@@ -19,10 +19,7 @@ case "$TARGET" in
     exec "$ROOT/scripts/regenerate-uniffi-kotlin.sh"
     ;;
   swift|ios)
-    echo "iOS Swift bindings are not wired yet." >&2
-    echo "Planned output: ios/Mycelium/Generated/" >&2
-    echo "See ios/README.md and docs/MOBILE_PLATFORMS.md" >&2
-    exit 1
+    exec "$ROOT/scripts/regenerate-uniffi-swift.sh"
     ;;
   all)
     "$ROOT/scripts/regenerate-uniffi-kotlin.sh"

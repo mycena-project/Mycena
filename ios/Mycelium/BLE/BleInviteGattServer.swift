@@ -201,8 +201,8 @@ extension BleInviteGattServer: CBPeripheralManagerDelegate {
                 peripheral.respond(to: request, withResult: .attributeNotFound)
                 continue
             }
-            if let central = request.central, let value = request.value {
-                ingestMeshChunk(central: central, chunk: value)
+            if let value = request.value {
+                ingestMeshChunk(central: request.central, chunk: value)
             }
             if request.characteristic.properties.contains(.write) {
                 peripheral.respond(to: request, withResult: .success)

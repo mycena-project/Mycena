@@ -4,7 +4,6 @@ package network.mycelium.app.ui
 
 import android.content.Context
 import android.content.Intent
-import androidx.appcompat.app.AppCompatDelegate
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -61,7 +60,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
-import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import network.mycelium.app.BuildConfig
@@ -70,12 +68,13 @@ import network.mycelium.app.PrivacyShapingPrefs
 import network.mycelium.app.performFreshIdentity
 import network.mycelium.app.performPanicWipe
 import network.mycelium.app.bootstrap.BleBootstrapPermissions
+import network.mycelium.app.i18n.LocalePreferences
 import network.mycelium.app.viewmodel.SettingsViewModel
 import network.mycelium.bindings.EnergyState
 import network.mycelium.bindings.PrivacyShapingProfile
 import network.mycelium.bindings.mycelium
 
-private const val PREFS_NAME = "settings"
+private const val PREFS_NAME = LocalePreferences.PREFS_NAME
 private const val KEY_BOOTSTRAP_PEERS = "bootstrap_peers"
 private const val KEY_ENERGY_STATE = "energy_state"
 private const val KEY_RENDEZVOUS = "rendezvous_enabled"
@@ -197,6 +196,7 @@ fun SettingsScreen(navController: NavController) {
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
             )
+            LanguageSelector(modifier = Modifier.padding(top = 12.dp).fillMaxWidth())
             TextButton(onClick = { showTechnicalIds = !showTechnicalIds }) {
                 Text(
                     if (showTechnicalIds) {
@@ -438,8 +438,6 @@ fun SettingsScreen(navController: NavController) {
             ) {
                 Text(stringResource(R.string.settings_share_app))
             }
-
-            LanguageSelector(modifier = Modifier.padding(top = 24.dp).fillMaxWidth())
 
             PanicWipeSection(
                 modifier = Modifier.padding(top = 24.dp),
@@ -703,7 +701,7 @@ fun BulletinSettingsSection(vm: SettingsViewModel = viewModel()) {
                     ) {
                         Icon(
                             Icons.Default.Close,
-                            contentDescription = "Unsubscribe",
+                            contentDescription = stringResource(R.string.action_unsubscribe),
                             modifier = Modifier.size(16.dp),
                         )
                     }
@@ -720,7 +718,7 @@ fun BulletinSettingsSection(vm: SettingsViewModel = viewModel()) {
                     value = newScope,
                     onValueChange = { newScope = it.lowercase().replace(" ", "/") },
                     label = { Text(stringResource(R.string.settings_bulletin_add_scope)) },
-                    placeholder = { Text("city/berlin") },
+                    placeholder = { Text(stringResource(R.string.bulletin_scope_example)) },
                     modifier = Modifier.weight(1f),
                     singleLine = true,
                 )
@@ -733,7 +731,7 @@ fun BulletinSettingsSection(vm: SettingsViewModel = viewModel()) {
                     },
                     enabled = newScope.isNotBlank(),
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = "Subscribe")
+                    Icon(Icons.Default.Add, contentDescription = stringResource(R.string.action_subscribe))
                 }
             }
         }
@@ -748,6 +746,9 @@ fun EncryptedChannelsSection(vm: SettingsViewModel = viewModel()) {
     var showCreateDialog by remember { mutableStateOf(false) }
     var newScope by remember { mutableStateOf("") }
     var newDisplayName by remember { mutableStateOf("") }
+    val invalidInviteMessage = stringResource(R.string.error_invalid_invite)
+    val scanChannelPrompt = stringResource(R.string.settings_scan_channel_prompt)
+    val scopePlaceholder = stringResource(R.string.settings_scope_key_placeholder)
 
     val scanLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
         val raw = result.contents?.trim()
@@ -755,7 +756,7 @@ fun EncryptedChannelsSection(vm: SettingsViewModel = viewModel()) {
         try {
             vm.addScopeKeyFromInvite(raw)
         } catch (e: Exception) {
-            scanError = e.message ?: "Invalid invite"
+            scanError = e.message ?: invalidInviteMessage
         }
     }
 
@@ -809,15 +810,15 @@ fun EncryptedChannelsSection(vm: SettingsViewModel = viewModel()) {
                     OutlinedTextField(
                         value = newDisplayName,
                         onValueChange = { newDisplayName = it },
-                        label = { Text("Display name") },
+                        label = { Text(stringResource(R.string.settings_display_name)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
                     OutlinedTextField(
                         value = newScope,
                         onValueChange = { newScope = it.lowercase().replace(" ", "/") },
-                        label = { Text("Scope") },
-                        placeholder = { Text("mycelium/rescue/team-alpha") },
+                        label = { Text(stringResource(R.string.settings_scope_label)) },
+                        placeholder = { Text(scopePlaceholder) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -886,14 +887,14 @@ fun EncryptedChannelsSection(vm: SettingsViewModel = viewModel()) {
                         }) {
                             Icon(
                                 Icons.Default.QrCode,
-                                contentDescription = "Export",
+                                contentDescription = stringResource(R.string.action_export),
                                 modifier = Modifier.size(18.dp),
                             )
                         }
                         IconButton(onClick = { vm.deleteScopeKey(key.scope) }) {
                             Icon(
                                 Icons.Default.Delete,
-                                contentDescription = "Delete",
+                                contentDescription = stringResource(R.string.action_delete),
                                 modifier = Modifier.size(18.dp),
                                 tint = MaterialTheme.colorScheme.error,
                             )
@@ -918,7 +919,7 @@ fun EncryptedChannelsSection(vm: SettingsViewModel = viewModel()) {
                         ScanOptions()
                             .setDesiredBarcodeFormats(ScanOptions.QR_CODE)
                             .setBeepEnabled(false)
-                            .setPrompt("Scan channel invite"),
+                            .setPrompt(scanChannelPrompt),
                     )
                 },
                 modifier = Modifier.fillMaxWidth(),
@@ -1183,15 +1184,18 @@ fun PanicWipeSection(
 fun LanguageSelector(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val prefs = remember {
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        context.getSharedPreferences(LocalePreferences.PREFS_NAME, Context.MODE_PRIVATE)
     }
     var expanded by remember { mutableStateOf(false) }
     var selected by remember {
-        mutableStateOf(prefs.getString("language", "system") ?: "system")
+        mutableStateOf(
+            prefs.getString(LocalePreferences.KEY_LANGUAGE, LocalePreferences.LANGUAGE_SYSTEM)
+                ?: LocalePreferences.LANGUAGE_SYSTEM,
+        )
     }
     val languages = remember(context) {
         listOf(
-            "system" to context.getString(R.string.language_system),
+            LocalePreferences.LANGUAGE_SYSTEM to context.getString(R.string.language_system),
             "en" to "English",
             "de" to "Deutsch",
             "ru" to "Русский",
@@ -1210,6 +1214,7 @@ fun LanguageSelector(modifier: Modifier = Modifier) {
             onValueChange = {},
             readOnly = true,
             label = { Text(stringResource(R.string.settings_language)) },
+            supportingText = { Text(stringResource(R.string.settings_language_sub)) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .menuAnchor()
@@ -1225,13 +1230,8 @@ fun LanguageSelector(modifier: Modifier = Modifier) {
                     onClick = {
                         selected = code
                         expanded = false
-                        prefs.edit().putString("language", code).apply()
-                        val locales = when (code) {
-                            "system" -> LocaleListCompat.getEmptyLocaleList()
-                            "zh-CN" -> LocaleListCompat.forLanguageTags("zh-CN")
-                            else -> LocaleListCompat.forLanguageTags(code)
-                        }
-                        AppCompatDelegate.setApplicationLocales(locales)
+                        prefs.edit().putString(LocalePreferences.KEY_LANGUAGE, code).apply()
+                        LocalePreferences.applyLanguageCode(code)
                     },
                 )
             }

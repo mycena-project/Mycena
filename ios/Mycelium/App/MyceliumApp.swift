@@ -8,15 +8,33 @@ struct MyceliumApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            RootView()
                 .environmentObject(meshHost)
-                .onAppear {
+                .task {
                     #if targetEnvironment(simulator)
-                    meshHost.startNode(bleBootstrap: false)
+                    await meshHost.startNode(bleBootstrap: false)
                     #else
-                    meshHost.startNode(bleBootstrap: true)
+                    await meshHost.startNode(bleBootstrap: true)
                     #endif
                 }
+        }
+    }
+}
+
+private struct RootView: View {
+    @EnvironmentObject var meshHost: MeshHost
+
+    var body: some View {
+        Group {
+            if meshHost.isStarting || !meshHost.nodeInitialized {
+                VStack(spacing: 16) {
+                    ProgressView()
+                    Text("Starting mesh node…")
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                ContentView()
+            }
         }
     }
 }
@@ -27,6 +45,15 @@ struct ContentView: View {
     var body: some View {
         NavigationStack {
             List {
+                Section("Identity") {
+                    LabeledContent("Peer ID") {
+                        Text(shortPeerId(meshHost.localPeerId))
+                            .font(.caption.monospaced())
+                            .textSelection(.enabled)
+                    }
+                    LabeledContent("Connectivity", value: meshHost.connectivityLabel)
+                    LabeledContent("Connected peers", value: "\(meshHost.connectedPeerCount)")
+                }
                 Section("Mesh") {
                     LabeledContent("Node", value: meshHost.nodeRunning ? "Running" : "Stopped")
                     Toggle(
@@ -36,15 +63,21 @@ struct ContentView: View {
                             set: { meshHost.setBleBootstrapEnabled($0) }
                         )
                     )
+                    .disabled(!meshHost.nodeInitialized)
                 }
                 Section {
-                    Text("Native SwiftUI shell over UniFFI + Rust core.")
+                    Text("Rust node via UniFFI. Test BLE mesh on a physical iPhone with a second device.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
             }
             .navigationTitle("Mycelium")
         }
+    }
+
+    private func shortPeerId(_ id: String) -> String {
+        guard id.count > 16 else { return id.isEmpty ? "—" : id }
+        return "\(id.prefix(8))…\(id.suffix(6))"
     }
 }
 

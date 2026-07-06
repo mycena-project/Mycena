@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import network.mycelium.app.R
 import network.mycelium.app.MeshEvent
 import network.mycelium.app.meshEvents
 import network.mycelium.app.miniapp.MiniAppGrants
@@ -27,10 +28,10 @@ data class PendingMiniAppInstall(
     val preview: MiniAppInstallPreview,
 )
 
-private fun installErrorMessage(e: MyceliumException): String =
+private fun installErrorMessage(context: Context, e: MyceliumException): String =
     when (e) {
         is MyceliumException.InstallException -> e.`detail`
-        else -> e.message ?: "Install failed"
+        else -> e.message ?: context.getString(R.string.miniapp_install_failed)
     }
 
 class MiniAppViewModel(app: Application) : AndroidViewModel(app) {
@@ -86,7 +87,8 @@ class MiniAppViewModel(app: Application) : AndroidViewModel(app) {
                     context.contentResolver.openInputStream(uri)?.use { ins -> ins.readBytes() }
                         ?: run {
                             withContext(Dispatchers.Main) {
-                                _toast.value = "Could not read bundle"
+                                _toast.value =
+                                    appContext.getString(R.string.miniapp_read_bundle_failed)
                             }
                             return@launch
                         }
@@ -96,11 +98,12 @@ class MiniAppViewModel(app: Application) : AndroidViewModel(app) {
                 }
             } catch (e: MyceliumException) {
                 withContext(Dispatchers.Main) {
-                    _toast.value = installErrorMessage(e)
+                    _toast.value = installErrorMessage(appContext, e)
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    _toast.value = e.message ?: "Install failed"
+                    _toast.value =
+                        e.message ?: appContext.getString(R.string.miniapp_install_failed)
                 }
             }
         }
@@ -125,16 +128,18 @@ class MiniAppViewModel(app: Application) : AndroidViewModel(app) {
                 )
                 withContext(Dispatchers.Main) {
                     _pendingInstall.value = null
-                    _toast.value = "Installed ${info.name}"
+                    _toast.value =
+                        appContext.getString(R.string.miniapp_installed_toast, info.name)
                     refresh()
                 }
             } catch (e: MyceliumException) {
                 withContext(Dispatchers.Main) {
-                    _toast.value = installErrorMessage(e)
+                    _toast.value = installErrorMessage(appContext, e)
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    _toast.value = e.message ?: "Install failed"
+                    _toast.value =
+                        e.message ?: appContext.getString(R.string.miniapp_install_failed)
                 }
             }
         }
@@ -158,12 +163,13 @@ class MiniAppViewModel(app: Application) : AndroidViewModel(app) {
                 mycelium.uninstallApp(appId)
                 MiniAppGrants.clearApp(appContext, appId)
                 withContext(Dispatchers.Main) {
-                    _toast.value = "Uninstalled"
+                    _toast.value = appContext.getString(R.string.miniapp_uninstalled_toast)
                     refresh()
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    _toast.value = e.message ?: "Uninstall failed"
+                    _toast.value =
+                        e.message ?: appContext.getString(R.string.miniapp_uninstall_failed)
                 }
             }
         }
@@ -179,16 +185,18 @@ class MiniAppViewModel(app: Application) : AndroidViewModel(app) {
                 val info = mycelium.installOfficialBundle(appId)
                 MiniAppGrants.recordInstallTrust(appContext, info.id, "verified_listing")
                 withContext(Dispatchers.Main) {
-                    _toast.value = "Installed ${info.name}"
+                    _toast.value =
+                        appContext.getString(R.string.miniapp_installed_toast, info.name)
                     refresh()
                 }
             } catch (e: MyceliumException) {
                 withContext(Dispatchers.Main) {
-                    _toast.value = installErrorMessage(e)
+                    _toast.value = installErrorMessage(appContext, e)
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    _toast.value = e.message ?: "Install failed"
+                    _toast.value =
+                        e.message ?: appContext.getString(R.string.miniapp_install_failed)
                 }
             }
         }

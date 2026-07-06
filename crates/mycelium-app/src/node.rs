@@ -688,13 +688,22 @@ impl AppNode {
             mycelium_l0_facade::e2e_direct_wrap::wrap_inner(&self.local_peer_id, &plaintext);
         let candidates = self.storage.transport_peer_candidates(&to_peer)?;
         let mut last_err = None;
+        if self.connected_transport_peer(&to_peer).await.is_none() {
+            let _ = self
+                .wait_transport_connected(&to_peer, 8, std::time::Duration::from_secs(1))
+                .await;
+        }
+        let delivery_peer = self.resolve_delivery_peer_id(&to_peer).await?;
+        let Some(enc_peer) = self.enc_key_peer_for_send(&to_peer, &candidates).await else {
+            return Err(enc_key_not_yet_exchanged_err());
+        };
         for target in candidates {
-            if !self.handle.has_enc_key_for(&target).await {
+            if !self.handle.is_peer_connected(&target).await {
                 continue;
             }
             let (encrypted, e2e_version) = match self
                 .handle
-                .encrypt_e2e_payload(&target, wrapped.clone())
+                .encrypt_e2e_payload(&enc_peer, wrapped.clone())
                 .await
             {
                 Ok(v) => v,
@@ -704,7 +713,7 @@ impl AppNode {
                 }
             };
             let wire = WireMessage::EncryptedDirect {
-                to_peer: target.clone(),
+                to_peer: delivery_peer.clone(),
                 sender_enc_pubkey: self.handle.local_enc_pubkey_hex(),
                 encrypted_payload: encrypted,
                 mesh_signature: None,
@@ -720,7 +729,10 @@ impl AppNode {
             {
                 Ok(()) => {
                     self.storage.save_chat(&to_peer, &chat)?;
-                    tracing::info!("sent encrypted chat to {target} ({} bytes)", body.len());
+                    tracing::info!(
+                        "sent encrypted chat to {target} for {to_peer} ({} bytes)",
+                        body.len()
+                    );
                     return Ok(EncryptionResult::Encrypted);
                 }
                 Err(e) => last_err = Some(e),
@@ -730,7 +742,7 @@ impl AppNode {
             if peer_offline_send_error(&e) {
                 if self
                     .handle
-                    .mesh_send_encrypted_direct(to_peer.clone(), plaintext.clone(), priority)
+                    .mesh_send_encrypted_direct(delivery_peer, plaintext.clone(), priority)
                     .await
                     .is_ok()
                 {
@@ -1339,15 +1351,75 @@ impl AppNode {
         attempts: u32,
         delay: std::time::Duration,
     ) -> bool {
+        self.wait_transport_connected(peer_id, attempts, delay)
+            .await
+            .is_some()
+    }
+
+    /// First connected libp2p id for a contact (canonical or rotated transport id).
+    async fn wait_transport_connected(
+        &self,
+        contact_peer: &str,
+        attempts: u32,
+        delay: std::time::Duration,
+    ) -> Option<String> {
         for i in 0..attempts {
-            if self.handle.is_peer_connected(peer_id).await {
-                return true;
+            if let Some(p) = self.connected_transport_peer(contact_peer).await {
+                return Some(p);
             }
             if i + 1 < attempts {
                 tokio::time::sleep(delay).await;
             }
         }
-        false
+        None
+    }
+
+    async fn connected_transport_peer(&self, contact_peer: &str) -> Option<String> {
+        if let Ok(candidates) = self.storage.transport_peer_candidates(contact_peer) {
+            for c in &candidates {
+                if self.handle.is_peer_connected(&c).await {
+                    return Some(c.clone());
+                }
+            }
+        }
+        // Same Wi‑Fi/mDNS may connect before the contact id matches the invite record.
+        let connected = self.handle.connected_peers().await;
+        let mesh: Vec<String> = connected
+            .into_iter()
+            .filter(|p| !mycelium_l0_facade::bootstrap::is_relay_peer(p))
+            .collect();
+        if mesh.len() == 1 {
+            return Some(mesh[0].clone());
+        }
+        None
+    }
+
+    /// Recipient libp2p id for EncryptedDirect delivery (current transport id when connected).
+    async fn resolve_delivery_peer_id(&self, contact_peer: &str) -> anyhow::Result<String> {
+        if let Some(p) = self.connected_transport_peer(contact_peer).await {
+            return Ok(p);
+        }
+        let candidates = self.storage.transport_peer_candidates(contact_peer)?;
+        Ok(candidates
+            .into_iter()
+            .next()
+            .unwrap_or_else(|| contact_peer.to_string()))
+    }
+
+    async fn enc_key_peer_for_send(
+        &self,
+        contact_peer: &str,
+        candidates: &[String],
+    ) -> Option<String> {
+        if self.handle.has_enc_key_for(contact_peer).await {
+            return Some(contact_peer.to_string());
+        }
+        for c in candidates {
+            if self.handle.has_enc_key_for(c).await {
+                return Some(c.clone());
+            }
+        }
+        None
     }
 
     pub fn list_contacts(&self) -> anyhow::Result<Vec<Contact>> {
@@ -1449,25 +1521,29 @@ impl AppNode {
     fn schedule_contact_hello(self: &Arc<Self>, target_peer: String) {
         let this = Arc::clone(self);
         tokio::spawn(async move {
-            for attempt in 0..15 {
-                if this
-                    .wait_peer_connected(&target_peer, 1, std::time::Duration::from_secs(2))
-                    .await
+            const MAX_ATTEMPTS: u32 = 15;
+            const WAIT: std::time::Duration = std::time::Duration::from_secs(2);
+            for attempt in 0..MAX_ATTEMPTS {
+                if let Some(transport_peer) =
+                    this.wait_transport_connected(&target_peer, 1, WAIT).await
                 {
-                    match this.send_contact_hello(&target_peer).await {
+                    match this.send_contact_hello(&transport_peer).await {
                         Ok(()) => return,
-                        Err(e) if attempt + 1 >= 15 => {
-                            warn!("contact hello to {target_peer}: {e}");
+                        Err(e) if attempt + 1 >= MAX_ATTEMPTS => {
+                            warn!("contact hello to {target_peer} via {transport_peer}: {e}");
                         }
                         Err(e) => {
-                            warn!("contact hello retry {target_peer} ({attempt}): {e}");
+                            warn!(
+                                "contact hello retry {target_peer} via {transport_peer} ({attempt}): {e}"
+                            );
                         }
                     }
                 }
-                if attempt + 1 >= 15 {
+                if attempt + 1 >= MAX_ATTEMPTS {
                     warn!("contact hello: {target_peer} never connected");
                     return;
                 }
+                tokio::time::sleep(WAIT).await;
             }
         });
     }
@@ -1507,6 +1583,13 @@ impl AppNode {
                     .ok()
                     .flatten()
                     .is_some_and(|c| c.status == ContactStatus::Accepted);
+                let had_stub_name = self
+                    .storage
+                    .contact_by_id(from_peer)
+                    .ok()
+                    .flatten()
+                    .map(|c| looks_like_peer_id_stub(&c.display_name, from_peer))
+                    .unwrap_or(true);
                 if let Err(e) = self
                     .handle
                     .seed_peer_enc_key(from_peer, &hello.enc_pubkey_hex)
@@ -1535,7 +1618,9 @@ impl AppNode {
                     }
                     Err(e) => warn!("contact hello upsert {from_peer}: {e}"),
                 }
-                if !had_accepted {
+                // Reply when newly accepted, or when we still have a placeholder name for them
+                // (e.g. they re-scanned our QR but we already had them from an earlier session).
+                if !had_accepted || had_stub_name {
                     if let Err(e) = self.send_contact_hello(from_peer).await {
                         warn!("contact hello reply to {from_peer}: {e}");
                     }

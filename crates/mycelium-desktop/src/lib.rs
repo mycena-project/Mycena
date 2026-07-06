@@ -1028,7 +1028,7 @@ async fn set_local_geohash_prefix(
         .map_err(|e| e.to_string())?;
     let mut ui = load_ui_settings(&s.db_path);
     ui.local_geohash_prefix = normalized;
-    save_ui_settings(&s.db_path, &ui);
+    save_ui_settings(&s.db_path, &ui)?;
     Ok(())
 }
 

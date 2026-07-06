@@ -2,6 +2,12 @@
 // Copyright (C) 2026 Mycelium Project
 import Foundation
 
+struct BleOutboundItem {
+    let toPeer: String
+    let frame: Data
+    let medium: UInt8
+}
+
 /// Rust node surface used by the BLE host (mirrors Android `mycelium` UniFFI facade).
 protocol MyceliumNodeBridge: AnyObject {
     func getShareableMultiaddrs() -> [String]
@@ -12,12 +18,7 @@ protocol MyceliumNodeBridge: AnyObject {
     func connectTransportInvite(_ raw: String) throws
     func connectedPeers() -> [String]
     func drainBleStreamOutbound(toPeer: String, max: UInt32) -> [Data]
-    func drainBleOutbound(toPeer: String?, max: UInt32) -> [(toPeer: String, frame: Data)]
-    func drainBearerOutbound(toPeer: String?, max: UInt32) -> [(toPeer: String, frame: Data)]
+    func drainBleOutbound(toPeer: String?, max: UInt32) -> [BleOutboundItem]
+    func drainBearerOutbound(toPeer: String?, max: UInt32) -> [BleOutboundItem]
     func blePeerAddrs() -> [String]
-}
-
-struct BleOutboundItem {
-    let toPeer: String
-    let frame: Data
 }

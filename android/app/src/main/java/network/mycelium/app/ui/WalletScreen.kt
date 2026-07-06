@@ -464,6 +464,7 @@ private fun SendTransactionDialog(
     var memo by remember { mutableStateOf("") }
     var scanError by remember { mutableStateOf<String?>(null) }
     val expiredQrMessage = stringResource(R.string.wallet_payment_expired)
+    val notMxcpayMessage = stringResource(R.string.wallet_not_mxcpay_qr)
 
     LaunchedEffect(prefill) {
         to = prefill.first
@@ -480,7 +481,7 @@ private fun SendTransactionDialog(
                 if (trimmed.startsWith("mxcpay:", ignoreCase = true)) {
                     expiredQrMessage
                 } else {
-                    "Not a mxcpay QR"
+                    notMxcpayMessage
                 }
         } else {
             scanError = null
