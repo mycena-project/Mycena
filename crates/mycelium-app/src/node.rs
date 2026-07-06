@@ -1345,17 +1345,6 @@ impl AppNode {
         Ok(())
     }
 
-    async fn wait_peer_connected(
-        &self,
-        peer_id: &str,
-        attempts: u32,
-        delay: std::time::Duration,
-    ) -> bool {
-        self.wait_transport_connected(peer_id, attempts, delay)
-            .await
-            .is_some()
-    }
-
     /// First connected libp2p id for a contact (canonical or rotated transport id).
     async fn wait_transport_connected(
         &self,
@@ -1377,7 +1366,7 @@ impl AppNode {
     async fn connected_transport_peer(&self, contact_peer: &str) -> Option<String> {
         if let Ok(candidates) = self.storage.transport_peer_candidates(contact_peer) {
             for c in &candidates {
-                if self.handle.is_peer_connected(&c).await {
+                if self.handle.is_peer_connected(c).await {
                     return Some(c.clone());
                 }
             }
