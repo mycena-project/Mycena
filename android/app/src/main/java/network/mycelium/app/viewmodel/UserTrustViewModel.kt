@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import network.mycelium.app.MeshService
 import network.mycelium.bindings.UserTrustSummary
 import network.mycelium.bindings.mycelium
 
@@ -19,6 +20,9 @@ class UserTrustViewModel : ViewModel() {
 
     init {
         viewModelScope.launch {
+            while (!MeshService.isNodeReady()) {
+                delay(50)
+            }
             while (isActive) {
                 runCatching { mycelium.userTrustSummary() }
                     .onSuccess { _summary.value = it }

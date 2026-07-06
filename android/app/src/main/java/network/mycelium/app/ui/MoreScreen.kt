@@ -143,10 +143,10 @@ private fun NetworkContributionCard(viewModel: UserTrustViewModel) {
                 Text(
                     stringResource(
                         R.string.network_contribution_stats,
-                        s.relayContribution,
-                        s.successfulDeliveries,
+                        s.relayContribution.toInt(),
+                        s.successfulDeliveries.toInt(),
                         formatUptime(s.uptimeSecs),
-                        s.localEndorsements,
+                        s.localEndorsements.toInt(),
                     ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,

@@ -88,6 +88,11 @@ if [[ ! -d "$UI_DIR/node_modules" ]]; then
   (cd "$UI_DIR" && npm install)
 fi
 
+if [[ ! -f "$UI_DIR/dist/index.html" ]]; then
+  echo "Building desktop UI (one-time dist/ for build.rs; tauri dev uses Vite on :1420)…"
+  (cd "$UI_DIR" && npm run build)
+fi
+
 if ! cargo tauri --version >/dev/null 2>&1; then
   echo "Installing tauri-cli…"
   cargo install tauri-cli --version "^2" --locked
