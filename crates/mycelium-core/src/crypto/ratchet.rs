@@ -187,14 +187,14 @@ pub struct LocalPrekeyStore {
 impl LocalPrekeyStore {
     pub fn generate(identity: &EncryptionKeypair, one_time_count: u32) -> Self {
         let registration_id = rand::random::<u32>();
-        let signed_prekey_secret = StaticSecret::random_from_rng(OsRng);
+        let signed_prekey_secret = StaticSecret::random();
         let signed_prekey_public = *PublicKey::from(&signed_prekey_secret).as_bytes();
         let signed_prekey_sig =
             sign_prekey_public(identity.public.as_bytes(), &signed_prekey_public);
         let mut one_time = HashMap::new();
         let mut next_one_time_id = 1u32;
         for _ in 0..one_time_count {
-            let sk = StaticSecret::random_from_rng(OsRng);
+            let sk = StaticSecret::random();
             one_time.insert(next_one_time_id, sk.to_bytes());
             next_one_time_id += 1;
         }
@@ -448,9 +448,9 @@ impl RatchetSession {
         if !verify_prekey_bundle(bundle) {
             anyhow::bail!("invalid prekey bundle signature");
         }
-        let ek_secret = StaticSecret::random_from_rng(OsRng);
+        let ek_secret = StaticSecret::random();
         let shared = x3dh_shared_secret(identity, &ek_secret, bundle)?;
-        let dh_send = StaticSecret::random_from_rng(OsRng);
+        let dh_send = StaticSecret::random();
         let dh_send_pub = *PublicKey::from(&dh_send).as_bytes();
         let (root_key, send_chain_key) = kdf_root(&shared, &dh_send_pub);
         let mut session = Self {
@@ -628,7 +628,7 @@ impl RatchetSession {
             .secrets
             .dh_remote_public
             .ok_or_else(|| anyhow::anyhow!("no remote ratchet key for send bootstrap"))?;
-        let dh_send = StaticSecret::random_from_rng(OsRng);
+        let dh_send = StaticSecret::random();
         let ss = dh_send.diffie_hellman(&PublicKey::from(dh_remote));
         let (rk, ck) = kdf_root(&self.secrets.root_key, ss.as_bytes());
         self.secrets.root_key = rk;
@@ -649,7 +649,7 @@ impl RatchetSession {
             self.secrets.root_key = rk;
             self.secrets.recv_chain_key = Some(ck);
         }
-        let dh_send = StaticSecret::random_from_rng(OsRng);
+        let dh_send = StaticSecret::random();
         let ss = dh_send.diffie_hellman(&dh_recv);
         let (rk, ck) = kdf_root(&self.secrets.root_key, ss.as_bytes());
         self.secrets.root_key = rk;
