@@ -68,7 +68,7 @@ toml = "0.8.23"
 chacha20poly1305 = "0.10"
 hkdf = "0.12"
 sha2 = "0.10"
-x25519-dalek = { version = "2", features = ["static_secrets"] }
+x25519-dalek = { version = "3", features = ["static_secrets"] }
 rand = "0.8"
 rand_core = "0.6"
 zeroize = "1"
