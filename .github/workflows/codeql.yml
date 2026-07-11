@@ -8,6 +8,11 @@ on:
   schedule:
     - cron: "22 3 * * 1"
 
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   CI_TIER: ${{ vars.MYCELIUM_CI_TIER || 'budget' }}
 
