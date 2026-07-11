@@ -58,6 +58,25 @@ object MeshDiscoveryState {
         }
     }
 
+    fun onScanWindowActive(nowMs: Long = System.currentTimeMillis()) {
+        _snapshot.update {
+            it.copy(
+                scanActive = true,
+                lastScanRestartAtMs = nowMs,
+                nowMs = nowMs,
+            )
+        }
+    }
+
+    fun onScanPaused(nowMs: Long = System.currentTimeMillis()) {
+        _snapshot.update {
+            it.copy(
+                scanActive = false,
+                nowMs = nowMs,
+            )
+        }
+    }
+
     fun onScanRestarted(nowMs: Long = System.currentTimeMillis()) {
         _snapshot.update {
             it.copy(

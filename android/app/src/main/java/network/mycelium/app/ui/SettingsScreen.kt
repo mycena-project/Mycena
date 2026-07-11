@@ -6,7 +6,10 @@ import android.content.Context
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.material3.RadioButton
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -69,14 +72,14 @@ import network.mycelium.app.performFreshIdentity
 import network.mycelium.app.performPanicWipe
 import network.mycelium.app.bootstrap.BleBootstrapPermissions
 import network.mycelium.app.i18n.LocalePreferences
+import network.mycelium.app.settings.ActivityLevel
+import network.mycelium.app.settings.ActivityProfiles
 import network.mycelium.app.viewmodel.SettingsViewModel
-import network.mycelium.bindings.EnergyState
 import network.mycelium.bindings.PrivacyShapingProfile
 import network.mycelium.bindings.mycelium
 
 private const val PREFS_NAME = LocalePreferences.PREFS_NAME
 private const val KEY_BOOTSTRAP_PEERS = "bootstrap_peers"
-private const val KEY_ENERGY_STATE = "energy_state"
 private const val KEY_RENDEZVOUS = "rendezvous_enabled"
 private const val KEY_INTERNET_ENABLED = "internet_enabled"
 private const val KEY_MAX_CONNECTIVITY = SettingsViewModel.KEY_MAX_CONNECTIVITY
@@ -182,6 +185,14 @@ fun SettingsScreen(navController: NavController) {
                 .padding(16.dp)
                 .verticalScroll(rememberScrollState()),
         ) {
+            ActivityLevelSelector(
+                initial = ActivityProfiles.readLevel(prefs),
+                onSelected = { level ->
+                    ActivityProfiles.applyLevel(context, level)
+                },
+            )
+
+            Spacer(Modifier.height(20.dp))
             Text(
                 stringResource(R.string.settings_identity_section),
                 style = MaterialTheme.typography.titleSmall,
@@ -217,13 +228,6 @@ fun SettingsScreen(navController: NavController) {
                 color = MaterialTheme.colorScheme.primary,
             )
             Spacer(Modifier.height(8.dp))
-            EnergyModeSelector(
-                initial = prefs.getString(KEY_ENERGY_STATE, "Active") ?: "Active",
-                onSelected = { mode ->
-                    prefs.edit().putString(KEY_ENERGY_STATE, mode).apply()
-                },
-            )
-            Spacer(Modifier.height(12.dp))
             OutlinedTextField(
                 value = bootstrapPeers,
                 onValueChange = { bootstrapPeers = it },
@@ -956,55 +960,97 @@ fun DistributionSettings(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun EnergyModeSelector(
-    initial: String,
-    onSelected: (String) -> Unit,
+private fun ActivityLevelSelector(
+    initial: ActivityLevel,
+    onSelected: (ActivityLevel) -> Unit,
 ) {
-    var expanded by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf(initial) }
-    val options = listOf(
-        "Active" to stringResource(R.string.settings_energy_active),
-        "Intermittent" to stringResource(R.string.settings_energy_intermittent),
-        "Passive" to stringResource(R.string.settings_energy_passive),
-    )
-
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = it },
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        OutlinedTextField(
-            value = options.find { it.first == selected }?.second ?: options.first().second,
-            onValueChange = {},
-            readOnly = true,
-            label = { Text(stringResource(R.string.settings_energy)) },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier
-                .menuAnchor()
-                .fillMaxWidth(),
+    val options =
+        listOf(
+            ActivityLevel.AlwaysActive to R.string.settings_activity_always,
+            ActivityLevel.Balanced to R.string.settings_activity_balanced,
+            ActivityLevel.BatterySaver to R.string.settings_activity_battery,
         )
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-        ) {
-            options.forEach { (code, label) ->
-                DropdownMenuItem(
-                    text = { Text(label) },
-                    onClick = {
-                        selected = code
-                        expanded = false
-                        val state = when (code) {
-                            "Intermittent" -> EnergyState.INTERMITTENT
-                            "Passive" -> EnergyState.PASSIVE
-                            else -> EnergyState.ACTIVE
-                        }
-                        mycelium.setEnergyState(state)
-                        onSelected(code)
-                    },
-                )
+    val consequenceRes =
+        when (selected) {
+            ActivityLevel.AlwaysActive -> R.string.settings_activity_consequence_always
+            ActivityLevel.Balanced -> R.string.settings_activity_consequence_balanced
+            ActivityLevel.BatterySaver -> R.string.settings_activity_consequence_battery
+        }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors =
+            CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                stringResource(R.string.settings_activity),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Spacer(Modifier.height(12.dp))
+            options.forEach { (level, labelRes) ->
+                val isSelected = selected == level
+                Card(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp)
+                            .selectable(
+                                selected = isSelected,
+                                onClick = {
+                                    selected = level
+                                    onSelected(level)
+                                },
+                            ),
+                    border =
+                        if (isSelected) {
+                            BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+                        } else {
+                            BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                        },
+                    colors =
+                        CardDefaults.cardColors(
+                            containerColor =
+                                if (isSelected) {
+                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+                                } else {
+                                    MaterialTheme.colorScheme.surface
+                                },
+                        ),
+                ) {
+                    Row(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(
+                            selected = isSelected,
+                            onClick = {
+                                selected = level
+                                onSelected(level)
+                            },
+                        )
+                        Text(
+                            stringResource(labelRes),
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.padding(start = 4.dp),
+                        )
+                    }
+                }
             }
+            Text(
+                stringResource(consequenceRes),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 12.dp),
+            )
         }
     }
 }

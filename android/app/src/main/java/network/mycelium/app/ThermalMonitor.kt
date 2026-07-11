@@ -5,15 +5,18 @@ package network.mycelium.app
 import android.content.Context
 import android.os.Build
 import android.os.PowerManager
+import network.mycelium.app.thermal.ThermalEnforcement
 import network.mycelium.bindings.ThermalState
 import network.mycelium.bindings.mycelium
 
 /**
- * Maps Android [PowerManager] thermal status to mesh bearer throttling (Wi‑Fi Direct caps).
+ * Maps Android [PowerManager] thermal status to mesh throttling (Rust + platform enforcement).
  */
 object ThermalMonitor {
     fun start(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            ThermalEnforcement.Runtime.update(ThermalState.NORMAL)
+            mycelium.setThermalState(ThermalState.NORMAL)
             return
         }
         val pm = context.getSystemService(Context.POWER_SERVICE) as? PowerManager ?: return
@@ -24,7 +27,9 @@ object ThermalMonitor {
     }
 
     private fun applyThermal(status: Int) {
-        mycelium.setThermalState(mapThermal(status))
+        val mapped = mapThermal(status)
+        ThermalEnforcement.Runtime.update(mapped)
+        mycelium.setThermalState(mapped)
     }
 
     private fun mapThermal(status: Int): ThermalState =

@@ -288,6 +288,13 @@
     <string name="settings_display_name_hint">Ваше имя в сети</string>
     <string name="settings_encrypted_channels">Encrypted channels</string>
     <string name="settings_encrypted_channels_desc">Channels you have joined with a key. Messages are encrypted even as they travel through other devices.</string>
+    <string name="settings_activity">Активность</string>
+    <string name="settings_activity_always">Всегда активно</string>
+    <string name="settings_activity_balanced">Сбалансировано</string>
+    <string name="settings_activity_battery">Экономия батареи</string>
+    <string name="settings_activity_consequence_always">Быстрее доставляет сообщения рядом с людьми, чуть выше расход батареи</string>
+    <string name="settings_activity_consequence_balanced">Хороший баланс дальности, скорости доставки и батареи</string>
+    <string name="settings_activity_consequence_battery">Меньше активности в пути — сообщения могут идти дольше</string>
     <string name="settings_energy">Энергетический режим</string>
     <string name="settings_energy_active">Активный (полная переадресация)</string>
     <string name="settings_energy_intermittent">Прерывистый (средний)</string>

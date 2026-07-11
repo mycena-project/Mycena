@@ -45,6 +45,9 @@ class BleBootstrapScanner(private val context: Context) {
     private val seenAddresses = linkedMapOf<String, NearbyNode>()
 
     var onScanRestarted: (() -> Unit)? = null
+    var onPeerObserved: (() -> Unit)? = null
+
+    fun isScanning(): Boolean = isScanning
 
     /** When Wi-Fi Aware handles discovery, reduce BLE scan duty (TransportScore policy). */
     fun setLowPowerScan(enabled: Boolean) {
@@ -92,6 +95,7 @@ class BleBootstrapScanner(private val context: Context) {
                         )
                     seenAddresses[address] = node
                     _nearbyNodes.tryEmit(seenAddresses.values.toList())
+                    onPeerObserved?.invoke()
                     if (callbackType == ScanSettings.CALLBACK_TYPE_FIRST_MATCH) {
                         Log.i(
                             "BleScanner",
@@ -118,14 +122,19 @@ class BleBootstrapScanner(private val context: Context) {
         isScanning = true
     }
 
-    /** Stop and restart scan without clearing the UI nearby cache (used by stale watchdog). */
-    fun restartScanSilently() {
-        val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
-        val scanner = bluetoothManager.adapter?.bluetoothLeScanner
-        scanCallback?.let { cb ->
-            runCatching { scanner?.stopScan(cb) }
+    /** Stop LE scan only — keeps nearby cache (duty-cycle pause). */
+    fun stopScanOnly() {
+        scanCallback?.let {
+            val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE)
+                as BluetoothManager
+            runCatching { bluetoothManager.adapter?.bluetoothLeScanner?.stopScan(it) }
         }
         isScanning = false
+    }
+
+    /** Stop and restart scan without clearing the UI nearby cache (scan failure recovery). */
+    fun restartScanSilently() {
+        stopScanOnly()
         startScanning()
         onScanRestarted?.invoke()
     }

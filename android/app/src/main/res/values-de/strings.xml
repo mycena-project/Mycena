@@ -288,6 +288,13 @@
     <string name="settings_display_name_hint">Ihr Name im Netzwerk</string>
     <string name="settings_encrypted_channels">Verschlüsselte Kanäle</string>
     <string name="settings_encrypted_channels_desc">Kanäle, denen du mit einem Schlüssel beigetreten bist. Nachrichten bleiben verschlüsselt, auch wenn sie über andere Geräte laufen.</string>
+    <string name="settings_activity">Aktivität</string>
+    <string name="settings_activity_always">Immer aktiv</string>
+    <string name="settings_activity_balanced">Ausgewogen</string>
+    <string name="settings_activity_battery">Akku sparen</string>
+    <string name="settings_activity_consequence_always">Kürzere Verzögerung bei Nachrichten, etwas höherer Akkuverbrauch</string>
+    <string name="settings_activity_consequence_balanced">Gute Balance aus Reichweite, Zustellgeschwindigkeit und Akku</string>
+    <string name="settings_activity_consequence_battery">Weniger aktiv unterwegs – Nachrichten können länger brauchen</string>
     <string name="settings_energy">Energiemodus</string>
     <string name="settings_energy_active">Aktiv (vollständige Weiterleitung)</string>
     <string name="settings_energy_intermittent">Intermittierend (mittel)</string>

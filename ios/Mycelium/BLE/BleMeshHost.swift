@@ -20,6 +20,7 @@ final class BleMeshHost {
     private var inviteTimer: Timer?
     private var relayTimer: Timer?
     private var isRunning = false
+    private var thermalScanSuspended = false
 
     /// Defaults to live UniFFI bridge; inject a test double in unit tests.
     init(bridge: MyceliumNodeBridge = UniffiMyceliumBridge()) {
@@ -90,6 +91,7 @@ final class BleMeshHost {
         inviteTimer = nil
         relayTimer?.invalidate()
         relayTimer = nil
+        thermalScanSuspended = false
         scanner?.onHandoffTarget = nil
         scanner?.stopScanning()
         advertiser?.stopAdvertising()
@@ -99,5 +101,30 @@ final class BleMeshHost {
         advertiser = nil
         gattServer = nil
         log.info("BLE mesh host stopped")
+    }
+
+    /// Called from [ThermalMonitor] — no user notification.
+    func applyThermalThrottle(level: ThermalEnforcementLevel) {
+        guard isRunning else { return }
+        switch level {
+        case .critical:
+            if !thermalScanSuspended {
+                scanner?.stopScanning()
+                thermalScanSuspended = true
+                log.info("thermal critical — BLE scan suspended")
+            }
+        case .warm:
+            if thermalScanSuspended {
+                scanner?.startScanning()
+                thermalScanSuspended = false
+                log.info("thermal eased — BLE scan resumed")
+            }
+        case .normal:
+            if thermalScanSuspended {
+                scanner?.startScanning()
+                thermalScanSuspended = false
+                log.info("thermal eased — BLE scan resumed")
+            }
+        }
     }
 }

@@ -6,6 +6,12 @@ package network.mycelium.app.bootstrap
 object WifiDirectBearer {
     const val SOCKET_PORT = 7765
     const val SERVICE_NAME = "MyceliumBearer"
-    /** Idle time before tearing down P2P group and returning to BLE-only. */
-    const val IDLE_DOWNGRADE_MS = 30_000L
+    /** Idle before teardown — [ActivityProfile] Always active. */
+    const val IDLE_DOWNGRADE_MS_ACTIVE = 120_000L
+    /** Idle before teardown — balanced (default). */
+    const val IDLE_DOWNGRADE_MS_BALANCED = 30_000L
+    /** Idle before teardown — battery saver. */
+    const val IDLE_DOWNGRADE_MS_SAVER = 10_000L
+    /** @deprecated Use [ActivityProfileRuntime.wifiDirectIdleDowngradeMs]. */
+    const val IDLE_DOWNGRADE_MS = IDLE_DOWNGRADE_MS_BALANCED
 }

@@ -289,6 +289,13 @@
     <string name="settings_display_name_hint">اسمك في الشبكة</string>
     <string name="settings_encrypted_channels">Encrypted channels</string>
     <string name="settings_encrypted_channels_desc">Channels you have joined with a key. Messages are encrypted even as they travel through other devices.</string>
+    <string name="settings_activity">النشاط</string>
+    <string name="settings_activity_always">نشط دائمًا</string>
+    <string name="settings_activity_balanced">متوازن</string>
+    <string name="settings_activity_battery">توفير البطارية</string>
+    <string name="settings_activity_consequence_always">تسليم أسرع للرسائل عند وجود أشخاص قريبين، استهلاك بطارية أعلى قليلًا</string>
+    <string name="settings_activity_consequence_balanced">توازن جيد بين الوصول وسرعة التسليم والبطارية</string>
+    <string name="settings_activity_consequence_battery">أقل نشاطًا أثناء التنقل — قد تتأخر الرسائل</string>
     <string name="settings_energy">وضع الطاقة</string>
     <string name="settings_energy_active">نشط (إعادة توجيه كاملة)</string>
     <string name="settings_energy_intermittent">متقطع (متوسط)</string>

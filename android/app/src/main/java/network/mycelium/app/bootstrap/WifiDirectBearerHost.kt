@@ -12,6 +12,8 @@ import android.net.wifi.p2p.WifiP2pInfo
 import android.net.wifi.p2p.WifiP2pManager
 import android.os.Build
 import android.util.Log
+import network.mycelium.app.settings.ActivityProfileRuntime
+import network.mycelium.app.thermal.ThermalEnforcement
 import network.mycelium.bindings.mycelium
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -125,7 +127,13 @@ class WifiDirectBearerHost(
 
     fun noteIdleDowngradeIfNeeded(onDowngrade: () -> Unit) {
         val idle = System.currentTimeMillis() - lastActivityMs.get()
-        if (lastActivityMs.get() == 0L || idle < WifiDirectBearer.IDLE_DOWNGRADE_MS) return
+        if (lastActivityMs.get() == 0L ||
+            idle < ThermalEnforcement.effectiveWifiDirectIdleMs(
+                ActivityProfileRuntime.wifiDirectIdleDowngradeMs,
+            )
+        ) {
+            return
+        }
         if (sessions.isEmpty()) return
         Log.i(logTag, "downgrading to BLE idle after ${idle}ms")
         teardownAll()

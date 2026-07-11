@@ -288,6 +288,13 @@
     <string name="settings_display_name_hint">你在网络中的名字</string>
     <string name="settings_encrypted_channels">Encrypted channels</string>
     <string name="settings_encrypted_channels_desc">Channels you have joined with a key. Messages are encrypted even as they travel through other devices.</string>
+    <string name="settings_activity">活动</string>
+    <string name="settings_activity_always">始终活跃</string>
+    <string name="settings_activity_balanced">均衡</string>
+    <string name="settings_activity_battery">省电</string>
+    <string name="settings_activity_consequence_always">附近有人时消息更快，电池消耗略高</string>
+    <string name="settings_activity_consequence_balanced">覆盖范围、送达速度与电量的良好平衡</string>
+    <string name="settings_activity_consequence_battery">外出时较少主动转发——消息可能更慢</string>
     <string name="settings_energy">能量模式</string>
     <string name="settings_energy_active">主动（完全转发）</string>
     <string name="settings_energy_intermittent">间歇（中）</string>

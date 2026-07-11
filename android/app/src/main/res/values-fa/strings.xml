@@ -288,6 +288,13 @@
     <string name="settings_display_name_hint">نام شما در شبکه</string>
     <string name="settings_encrypted_channels">Encrypted channels</string>
     <string name="settings_encrypted_channels_desc">Channels you have joined with a key. Messages are encrypted even as they travel through other devices.</string>
+    <string name="settings_activity">فعالیت</string>
+    <string name="settings_activity_always">همیشه فعال</string>
+    <string name="settings_activity_balanced">متعادل</string>
+    <string name="settings_activity_battery">صرفه‌جویی باتری</string>
+    <string name="settings_activity_consequence_always">تحویل سریع‌تر پیام وقتی کسی نزدیک است، مصرف باتری کمی بیشتر</string>
+    <string name="settings_activity_consequence_balanced">تعادل خوب بین دسترسی، سرعت تحویل و باتری</string>
+    <string name="settings_activity_consequence_battery">کمتر فعال در مسیر — پیام‌ها ممکن است دیرتر برسند</string>
     <string name="settings_energy">حالت انرژی</string>
     <string name="settings_energy_active">فعال (ارسال کامل)</string>
     <string name="settings_energy_intermittent">متناوب (متوسط)</string>

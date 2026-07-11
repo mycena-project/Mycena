@@ -22,6 +22,7 @@ final class MeshHost: ObservableObject {
     private let bridge: MyceliumNodeBridge
     private var bleHost: BleMeshHost?
     private var eventCallback: MeshNodeCallback?
+    private var thermalMonitorStarted = false
 
     @Published private(set) var bleBootstrapEnabled = false
     @Published private(set) var nodeRunning = false
@@ -67,6 +68,7 @@ final class MeshHost: ObservableObject {
         nodeInitialized = true
         nodeRunning = true
         bleBootstrapEnabled = bleBootstrap
+        startThermalMonitorIfNeeded()
         updateBleBootstrap()
         log.info("MeshHost started peer=\(self.localPeerId.prefix(12), privacy: .public)… ble=\(bleBootstrap, privacy: .public)")
     }
@@ -77,6 +79,8 @@ final class MeshHost: ObservableObject {
     }
 
     func stop() {
+        ThermalMonitor.shared.stop()
+        thermalMonitorStarted = false
         bleHost?.stop()
         bleHost = nil
         #if MYCELIUM_RUST_FFI
@@ -105,6 +109,14 @@ final class MeshHost: ObservableObject {
 
     var nodeBridge: MyceliumNodeBridge { bridge }
 
+    private func startThermalMonitorIfNeeded() {
+        guard !thermalMonitorStarted else { return }
+        thermalMonitorStarted = true
+        ThermalMonitor.shared.start { [weak self] level in
+            self?.bleHost?.applyThermalThrottle(level: level)
+        }
+    }
+
     private func updateBleBootstrap() {
         guard nodeRunning else {
             bleHost?.stop()
@@ -116,6 +128,7 @@ final class MeshHost: ObservableObject {
                 bleHost = BleMeshHost(bridge: bridge)
             }
             bleHost?.start(enabled: true)
+            bleHost?.applyThermalThrottle(level: ThermalEnforcement.level)
         } else {
             bleHost?.stop()
             bleHost = nil

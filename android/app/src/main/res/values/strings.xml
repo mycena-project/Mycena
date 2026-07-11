@@ -288,6 +288,13 @@
     <string name="settings_display_name_hint">Your name in the network</string>
     <string name="settings_encrypted_channels">Encrypted channels</string>
     <string name="settings_encrypted_channels_desc">Channels you have joined with a key. Messages are encrypted even as they travel through other devices.</string>
+    <string name="settings_activity">Activity</string>
+    <string name="settings_activity_always">Always active</string>
+    <string name="settings_activity_balanced">Balanced</string>
+    <string name="settings_activity_battery">Save battery</string>
+    <string name="settings_activity_consequence_always">Faster message delivery when people are nearby, somewhat higher battery use</string>
+    <string name="settings_activity_consequence_balanced">Good balance of reach, delivery speed, and battery</string>
+    <string name="settings_activity_consequence_battery">Less active on the go — messages may take longer to move</string>
     <string name="settings_energy">Energy Mode</string>
     <string name="settings_energy_active">Active (full forwarding)</string>
     <string name="settings_energy_intermittent">Intermittent (medium)</string>

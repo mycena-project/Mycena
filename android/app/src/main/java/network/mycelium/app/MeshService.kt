@@ -18,10 +18,12 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import network.mycelium.app.discovery.MeshDiscoveryState
-import network.mycelium.app.discovery.PeersDiscoveryUi
 import network.mycelium.app.bootstrap.BleBootstrapAdvertiser
 import network.mycelium.app.bootstrap.BleBootstrapScanner
 import network.mycelium.app.bootstrap.BleBootstrapPermissions
+import network.mycelium.app.bootstrap.BleScanDutyCycleRunner
+import network.mycelium.app.bootstrap.BleEnergyTier
+import network.mycelium.app.settings.ActivityProfiles
 import network.mycelium.app.bootstrap.BleInviteGattServer
 import network.mycelium.app.bootstrap.BleMeshHandoff
 import network.mycelium.app.bootstrap.BleMeshDataSession
@@ -33,6 +35,7 @@ import network.mycelium.app.bootstrap.TransportInviteHandoff
 import network.mycelium.app.bootstrap.WebRtcDiscoveryHost
 import network.mycelium.app.bootstrap.WifiAwareDiscoveryHost
 import network.mycelium.app.bootstrap.WifiMulticastLock
+import network.mycelium.app.thermal.ThermalEnforcement
 import network.mycelium.app.viewmodel.SettingsViewModel
 import network.mycelium.app.viewmodel.SosViewModel
 import network.mycelium.bindings.AppStoreListing
@@ -127,12 +130,16 @@ class MeshService : Service() {
         if (crowdModeEnabled) {
             mycelium.setCrowdMode(true)
         }
-        when (prefs.getString("energy_state", "Active")) {
-            "Intermittent" -> mycelium.setEnergyState(EnergyState.INTERMITTENT)
-            "Passive" -> mycelium.setEnergyState(EnergyState.PASSIVE)
-            else -> mycelium.setEnergyState(EnergyState.ACTIVE)
-        }
+        ActivityProfiles.loadRuntimeFromPrefs(this)
+        mycelium.setEnergyState(
+            ActivityProfiles.bundle(
+                ActivityProfiles.readLevel(getSharedPreferences("settings", MODE_PRIVATE)),
+            ).energyState,
+        )
         ThermalMonitor.start(applicationContext)
+        ThermalEnforcement.Runtime.onEnterCritical = {
+            wifiDirectHost?.teardownAll()
+        }
         if (prefs.getBoolean(SosViewModel.KEY_LISTEN_SOS, false)) {
             mycelium.setListenSos(true)
         }
@@ -227,6 +234,11 @@ class MeshService : Service() {
         webrtcHost = null
     }
 
+    private fun readBleEnergyTier(): BleEnergyTier {
+        val level = ActivityProfiles.readLevel(getSharedPreferences("settings", MODE_PRIVATE))
+        return ActivityProfiles.bundle(level).bleTier
+    }
+
     private fun updateBleBootstrap() {
         val prefs = getSharedPreferences("settings", MODE_PRIVATE)
         var enabled = prefs.getBoolean(SettingsViewModel.KEY_BLE_BOOTSTRAP, false)
@@ -274,10 +286,24 @@ class MeshService : Service() {
         wifiAwareDiscovery?.refreshAnnouncement(inviteProvider)
 
         bleAdvertiser?.startAdvertising()
+        val dutyRunner =
+            BleScanDutyCycleRunner(
+                scanner = bleScanner!!,
+                energyTierProvider = { readBleEnergyTier() },
+                wifiAwarePreferredProvider = {
+                    withContext(Dispatchers.IO) {
+                        runCatching { mycelium.preferWifiAwareForDiscovery() }.getOrDefault(false)
+                    }
+                },
+                connectedPeerCount = { MeshDiscoveryState.snapshot.value.connectedPeerCount },
+            )
         bleScanner?.onScanRestarted = { MeshDiscoveryState.onScanRestarted() }
-        bleScanner?.startScanning()
+        bleScanner?.onPeerObserved = { dutyRunner.onPeerObserved() }
         MeshDiscoveryState.onBleBootstrapStarted()
-        android.util.Log.i("MeshService", "BLE bootstrap started — watch logcat tag BleBootstrap for advertising result")
+        android.util.Log.i(
+            "MeshService",
+            "BLE bootstrap started — duty-cycled scan (energy tier=${readBleEnergyTier()})",
+        )
 
         bleCollectJob = serviceScope.launch {
             launch {
@@ -286,13 +312,12 @@ class MeshService : Service() {
                 }
             }
             launch {
+                dutyRunner.runLoop()
+            }
+            launch {
                 while (true) {
                     delay(1_000)
                     MeshDiscoveryState.tick()
-                    val snap = MeshDiscoveryState.snapshot.value
-                    if (PeersDiscoveryUi.shouldRestartBleScan(snap)) {
-                        bleScanner?.restartScanSilently()
-                    }
                 }
             }
             launch {
@@ -305,16 +330,6 @@ class MeshService : Service() {
                                 .orEmpty()
                         }
                     wifiAwareDiscovery?.refreshAnnouncement { invite }
-                }
-            }
-            launch {
-                while (true) {
-                    delay(30_000)
-                    val prefer =
-                        withContext(Dispatchers.IO) {
-                            runCatching { mycelium.preferWifiAwareForDiscovery() }.getOrDefault(false)
-                        }
-                    bleScanner?.setLowPowerScan(prefer)
                 }
             }
             launch {
