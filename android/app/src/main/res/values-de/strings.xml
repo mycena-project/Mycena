@@ -355,7 +355,13 @@
     <string name="settings_version_format">Version %1$s (Build %2$d)</string>
     <string name="share_app_description">Jemand in der Nähe kann Myzelium ohne Internet installieren. Gleiches WLAN oder Hotspot, dann QR-Code scannen.</string>
     <string name="share_app_error_generic">Teilen konnte nicht gestartet werden. Erneut versuchen oder „Gleiches Wi‑Fi“ nutzen.</string>
-    <string name="share_app_hotspot_failed">Hotspot zum Teilen konnte nicht geöffnet werden. „Gleiches Wi‑Fi“ versuchen, wenn ihr schon ein Netz teilt, oder zuerst den normalen Hotspot ausschalten.</string>
+    <string name="share_app_hotspot_failed">Hotspot zum Teilen konnte nicht geöffnet werden (Fehler %1$d). Wi‑Fi Direct wird automatisch versucht; sonst Quick Share unten oder „Gleiches Wi‑Fi“. VPN oder normalen Hotspot ggf. ausschalten.</string>
+    <string name="share_app_wifi_direct_failed">Wi‑Fi Direct hat auch nicht funktioniert. Quick Share unten nutzen oder „Gleiches Wi‑Fi“, wenn beide Handys im selben Netz sind.</string>
+    <string name="share_app_share_apk">APK per Quick Share</string>
+    <string name="share_app_share_apk_hint">APK über Nearby Share / Quick Share senden — kein Hotspot nötig. Beide Handys in der Nähe, Bluetooth an.</string>
+    <string name="share_app_wifi_paused_note">Dein Heim-WLAN wurde kurz getrennt, um das Teilen zu starten. Beim Beenden verbindet es sich automatisch wieder.</string>
+    <string name="share_app_wifi_direct_note">Wi‑Fi Direct (Fallback). Dein Freund tritt dem DIRECT-…-Netz unten bei.</string>
+    <string name="share_app_step_wifi_body_direct">QR scannen oder in Einstellungen → WLAN → Wi‑Fi Direct beitreten. Manche Handys brauchen das Passwort unten.</string>
     <string name="share_app_instructions">Empfänger: gleiches WLAN, QR scannen oder URL im Browser öffnen. Keine App nötig.</string>
     <string name="share_app_keep_open_hint">Diesen Bildschirm offen lassen, während dein Freund lädt — der Link endet, wenn du gehst.</string>
     <string name="share_app_local_network">Bereits im gleichen Wi‑Fi</string>

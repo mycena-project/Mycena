@@ -44,6 +44,13 @@ class WifiAwareDiscoveryHost(
 
     fun start(inviteProvider: () -> String) {
         if (!running.compareAndSet(false, true)) return
+        if (!BleBootstrapPermissions.hasWifiDiscovery(context)) {
+            Log.w(TAG, "Wi‑Fi discovery permission missing — using NSD only")
+            usingAware = false
+            mycelium.setWifiAwareAvailable(false)
+            startNsdFallback(inviteProvider)
+            return
+        }
         val awareManager =
             context.getSystemService(Context.WIFI_AWARE_SERVICE) as? WifiAwareManager
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && awareManager?.isAvailable == true) {
@@ -84,8 +91,13 @@ class WifiAwareDiscoveryHost(
             object : AttachCallback() {
                 override fun onAttached(session: WifiAwareSession) {
                     awareSession = session
-                    publishWifiAware(session, inviteProvider)
-                    subscribeWifiAware(session)
+                    try {
+                        publishWifiAware(session, inviteProvider)
+                        subscribeWifiAware(session)
+                    } catch (e: SecurityException) {
+                        Log.w(TAG, "Wi‑Fi Aware publish blocked — falling back to NSD", e)
+                        fallbackFromAware(session, inviteProvider)
+                    }
                 }
 
                 override fun onAttachFailed() {
@@ -97,6 +109,14 @@ class WifiAwareDiscoveryHost(
             },
             null,
         )
+    }
+
+    private fun fallbackFromAware(session: WifiAwareSession, inviteProvider: () -> String) {
+        usingAware = false
+        mycelium.setWifiAwareAvailable(false)
+        runCatching { session.close() }
+        awareSession = null
+        startNsdFallback(inviteProvider)
     }
 
     private fun publishWifiAware(session: WifiAwareSession, inviteProvider: () -> String) {

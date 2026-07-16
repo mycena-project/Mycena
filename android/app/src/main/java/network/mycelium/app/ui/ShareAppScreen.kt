@@ -35,10 +35,12 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import network.mycelium.app.R
 import network.mycelium.app.bootstrap.ApkSharePayload
+import network.mycelium.app.util.shareApkFile
 import network.mycelium.app.util.sharePlainText
 import network.mycelium.app.viewmodel.ShareAppMode
 import network.mycelium.app.viewmodel.ShareAppSession
 import network.mycelium.app.viewmodel.ShareAppViewModel
+import network.mycelium.app.viewmodel.SharePhoneTransport
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -48,6 +50,7 @@ fun ShareAppScreen(navController: NavController, vm: ShareAppViewModel = viewMod
     val isServing by vm.isServing.collectAsState()
     val transferCount by vm.transferCount.collectAsState()
     val error by vm.error.collectAsState()
+    val hotspotFailureReason by vm.hotspotFailureReason.collectAsState()
 
     Scaffold(
         topBar = {
@@ -76,7 +79,12 @@ fun ShareAppScreen(navController: NavController, vm: ShareAppViewModel = viewMod
                 Text(
                     text =
                         when (error) {
-                            "hotspot_failed" -> stringResource(R.string.share_app_hotspot_failed)
+                            "hotspot_failed" ->
+                                stringResource(
+                                    R.string.share_app_hotspot_failed,
+                                    hotspotFailureReason ?: 0,
+                                )
+                            "wifi_direct_failed" -> stringResource(R.string.share_app_wifi_direct_failed)
                             else -> stringResource(R.string.share_app_error_generic)
                         },
                     color = MaterialTheme.colorScheme.error,
@@ -84,6 +92,22 @@ fun ShareAppScreen(navController: NavController, vm: ShareAppViewModel = viewMod
                     textAlign = TextAlign.Center,
                 )
             }
+
+            OutlinedButton(
+                onClick = {
+                    shareApkFile(context, context.getString(R.string.share_app_share_apk))
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(stringResource(R.string.share_app_share_apk))
+            }
+
+            Text(
+                stringResource(R.string.share_app_share_apk_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
 
             if (isServing && session != null) {
                 ActiveShareSession(
@@ -137,6 +161,22 @@ private fun ActiveShareSession(
     val context = LocalContext.current
 
     if (session.mode == ShareAppMode.PHONE_TO_PHONE && session.hotspot != null) {
+        if (session.wifiWasPaused) {
+            Text(
+                stringResource(R.string.share_app_wifi_paused_note),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
+        }
+        if (session.phoneTransport == SharePhoneTransport.WIFI_DIRECT) {
+            Text(
+                stringResource(R.string.share_app_wifi_direct_note),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
+        }
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
@@ -151,7 +191,13 @@ private fun ActiveShareSession(
                     style = MaterialTheme.typography.titleSmall,
                 )
                 Text(
-                    stringResource(R.string.share_app_step_wifi_body),
+                    stringResource(
+                        if (session.phoneTransport == SharePhoneTransport.WIFI_DIRECT) {
+                            R.string.share_app_step_wifi_body_direct
+                        } else {
+                            R.string.share_app_step_wifi_body
+                        },
+                    ),
                     style = MaterialTheme.typography.bodySmall,
                     textAlign = TextAlign.Center,
                 )
@@ -216,6 +262,15 @@ private fun ActiveShareSession(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.primary,
         )
+    }
+
+    OutlinedButton(
+        onClick = {
+            shareApkFile(context, context.getString(R.string.share_app_share_apk))
+        },
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(stringResource(R.string.share_app_share_apk))
     }
 
     OutlinedButton(

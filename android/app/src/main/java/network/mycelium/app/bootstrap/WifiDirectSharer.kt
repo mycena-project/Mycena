@@ -33,7 +33,7 @@ class WifiDirectSharer(private val context: Context) {
                 Content-Disposition: attachment; filename="mycelium.apk"
                 Content-Length: $contentLength
                 Connection: close
-                
+
             """.trimIndent() + "\r\n"
 
         internal fun buildHtmlHttpHeader(contentLength: Int): String =
@@ -42,7 +42,7 @@ class WifiDirectSharer(private val context: Context) {
                 Content-Type: text/html; charset=utf-8
                 Content-Length: $contentLength
                 Connection: close
-                
+
             """.trimIndent() + "\r\n"
 
         internal fun buildInstallLandingHtml(installPath: String = "/mycelium.apk"): String =
@@ -171,7 +171,7 @@ class WifiDirectSharer(private val context: Context) {
                 Content-Disposition: attachment; filename="mycelium-bootstrap.myc"
                 Content-Length: ${bytes.size}
                 Connection: close
-                
+
             """.trimIndent() + "\r\n"
         output.write(header.toByteArray())
         if (bytes.isNotEmpty()) {
@@ -209,6 +209,7 @@ class WifiDirectSharer(private val context: Context) {
             }
         }
         return candidates.firstOrNull { it.startsWith("192.168.43.") }
+            ?: candidates.firstOrNull { it.startsWith("192.168.49.") }
             ?: candidates.firstOrNull { it.startsWith("192.168.4.") }
             ?: candidates.firstOrNull()
             ?: "localhost"

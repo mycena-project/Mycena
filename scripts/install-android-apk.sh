@@ -15,6 +15,8 @@ APK="$DEFAULT_APK"
 DO_BUILD=0
 FROM_GITHUB=0
 TRIGGER_GITHUB=0
+NO_REPLACE=0
+PACKAGE="${MYCELIUM_ANDROID_PACKAGE:-network.mycelium.app}"
 REPO="${MYCELIUM_GITHUB_REPO:-the maintainer/Mycelium}"
 ARTIFACT="${MYCELIUM_ANDROID_ARTIFACT:-mycelium-debug-apk}"
 # Workflows that upload the debug APK (in priority order).
@@ -25,6 +27,7 @@ for arg in "$@"; do
     --build) DO_BUILD=1 ;;
     --from-github) FROM_GITHUB=1 ;;
     --trigger-github) TRIGGER_GITHUB=1; FROM_GITHUB=1 ;;
+    --no-replace) NO_REPLACE=1 ;;
     -h|--help)
       sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'
       exit 0
@@ -113,6 +116,35 @@ if [[ "$count" -gt 1 ]]; then
   echo "Multiple devices — using first: $(echo "$devices" | head -1)" >&2
 fi
 
+install_apk() {
+  local output rc
+  set +e
+  output="$(adb install -r "$APK" 2>&1)"
+  rc=$?
+  set -e
+  if [[ $rc -eq 0 ]]; then
+    echo "$output"
+    return 0
+  fi
+  echo "$output" >&2
+  if echo "$output" | grep -qE 'INSTALL_FAILED_UPDATE_INCOMPATIBLE|signatures do not match'; then
+    if [[ "$NO_REPLACE" -eq 1 ]]; then
+      echo "" >&2
+      echo "Install blocked: signature mismatch (e.g. Play/CI build vs local debug)." >&2
+      echo "Fix: adb uninstall $PACKAGE && adb install \"$APK\"" >&2
+      echo "Or rerun without --no-replace (auto-uninstall, app data lost)." >&2
+      return 1
+    fi
+    echo "" >&2
+    echo "Signature mismatch — uninstalling $PACKAGE and installing debug APK …" >&2
+    echo "(Local debug keys differ from the installed build; app data will be reset.)" >&2
+    adb uninstall "$PACKAGE" >/dev/null 2>&1 || adb shell pm uninstall --user 0 "$PACKAGE" >/dev/null 2>&1 || true
+    adb install "$APK"
+    return $?
+  fi
+  return "$rc"
+}
+
 echo "Installing $APK …"
-adb install -r "$APK"
+install_apk
 echo "Done. Open Mycelium on the device; version is shown under Settings."

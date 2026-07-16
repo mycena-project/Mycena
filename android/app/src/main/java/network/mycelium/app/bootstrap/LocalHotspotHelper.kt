@@ -89,4 +89,12 @@ class LocalHotspotHelper(private val context: Context) {
 
     class HotspotStartException(val reason: Int) :
         Exception("Could not start local hotspot (reason=$reason)")
+
+    /** Android [WifiManager.LocalOnlyHotspotCallback] failure reasons (API 26+). */
+    object HotspotFailureReason {
+        const val NO_CHANNEL = 1
+        const val GENERIC_ERROR = 2
+        const val INCOMPATIBLE_MODE = 3
+        const val TETHERING_DISALLOWED = 4
+    }
 }

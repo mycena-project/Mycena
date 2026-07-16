@@ -15,7 +15,8 @@ Rust helpers live in `crates/mycelium-app/src/offline_share.rs`. Desktop uses `c
 
 ## Phone-to-phone APK flow (Android)
 
-1. **Device A** opens **Share app** → local-only hotspot + HTTP server on `:8765`.
+1. **Device A** opens **Share app** → local-only hotspot (or Wi‑Fi Direct fallback) + HTTP server on `:8765`.
+2. If hotspot fails while connected to home Wi‑Fi, the app briefly disconnects and retries, then falls back to Wi‑Fi Direct. Home Wi‑Fi reconnects when sharing stops.
 2. QR codes show:
    - Wi‑Fi join (`WIFI:…`) for device B’s camera app
    - Install URL (`http://192.168.43.x:8765/`) for browser download

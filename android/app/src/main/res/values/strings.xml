@@ -355,7 +355,13 @@
     <string name="settings_version_format">Version %1$s (build %2$d)</string>
     <string name="share_app_description">Share Mycelium with someone nearby when the internet is down. No Play Store needed.</string>
     <string name="share_app_error_generic">Could not start sharing. Try again or use same Wi‑Fi mode.</string>
-    <string name="share_app_hotspot_failed">Could not open a sharing hotspot on this phone. Try “Same Wi‑Fi” if you already share a network, or turn off your regular hotspot first.</string>
+    <string name="share_app_hotspot_failed">Could not open a sharing hotspot on this phone (error %1$d). We try Wi‑Fi Direct automatically; if that also fails, use Quick Share below or “Same Wi‑Fi”. Turn off VPN or your regular hotspot if needed.</string>
+    <string name="share_app_wifi_direct_failed">Wi‑Fi Direct fallback also failed. Use Quick Share below, or try “Same Wi‑Fi” if both phones share a network.</string>
+    <string name="share_app_share_apk">Quick Share APK</string>
+    <string name="share_app_share_apk_hint">Send the APK via Nearby Share / Quick Share — no hotspot needed. Both phones should be nearby with Bluetooth on.</string>
+    <string name="share_app_wifi_paused_note">Your home Wi‑Fi was paused briefly to start sharing. It reconnects automatically when you tap Stop.</string>
+    <string name="share_app_wifi_direct_note">Using Wi‑Fi Direct (fallback). Your friend joins the DIRECT-… network shown below.</string>
+    <string name="share_app_step_wifi_body_direct">Scan the QR or join the Wi‑Fi Direct network in Settings → Wi‑Fi → Wi‑Fi Direct. Some phones need the password shown below.</string>
     <string name="share_app_instructions">Recipient: connect to the same WiFi, then scan the QR code or open the URL in a browser. No app needed to receive.</string>
     <string name="share_app_keep_open_hint">Keep this screen open while your friend downloads — the link stops when you leave.</string>
     <string name="share_app_local_network">Same Wi‑Fi already</string>
