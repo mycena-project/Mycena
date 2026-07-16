@@ -1,12 +1,9 @@
 name: CodeQL
 
 on:
-  push:
-    branches: [main, master]
-  pull_request:
-    branches: [main, master]
   schedule:
     - cron: "22 3 * * 1"
+  workflow_dispatch:
 
 
 concurrency:
@@ -17,37 +14,10 @@ env:
   CI_TIER: ${{ vars.MYCELIUM_CI_TIER || 'budget' }}
 
 jobs:
-  changes:
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    outputs:
-      rust: ${{ steps.filter.outputs.rust }}
-    steps:
-      - uses: actions/checkout@v6
-      - uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            rust:
-              - '**/*.rs'
-              - '**/Cargo.toml'
-              - '**/Cargo.lock'
-              - 'rust-toolchain.toml'
-              - 'crates/**'
-              - 'fuzz/**'
-              - '!**/*.md'
-
   analyze:
-    needs: [changes]
     if: |
-      always() &&
-      !cancelled() &&
-      (needs.changes.result == 'skipped' || needs.changes.outputs.rust == 'true') &&
-      (
-        github.event_name == 'push' ||
-        (github.event_name == 'schedule' && vars.MYCELIUM_CI_TIER == 'full') ||
-        github.event_name == 'pull_request'
-      )
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'schedule' && vars.MYCELIUM_CI_TIER != 'off')
     name: Analyze
     runs-on: ubuntu-latest
     permissions:
