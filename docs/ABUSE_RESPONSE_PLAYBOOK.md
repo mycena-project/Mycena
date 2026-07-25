@@ -1,6 +1,6 @@
 # Mycelium — Abuse Response Playbook
 
-**Audience:** Operators, maintainers, on-call  
+**Audience:** Operators, maintainers, on-call
 **Assumption:** There is **no central server** with user accounts—response is **distributed**, **legal**, and **client-side**.
 
 **Registers:** [SECURITY_DEBT_REGISTER.md](./SECURITY_DEBT_REGISTER.md) · [ARCHITECTURE_RISKS.md](./ARCHITECTURE_RISKS.md)
@@ -110,7 +110,7 @@
 
 ### 5.6 Vulnerability report (security)
 
-1. **Intake:** security@[project-domain] (create before beta).
+1. **Intake:** security@example.invalid.
 2. **Triage** within 72h; acknowledge receipt.
 3. **Fix** Critical within 14 days target; coordinate disclosure.
 4. **Credit** reporter if desired.
@@ -169,10 +169,10 @@
 
 | Role | Contact |
 |------|---------|
-| Security lead | _[EMAIL]_ |
-| Legal | _[EMAIL]_ |
-| Infrastructure | _[EMAIL]_ |
-| Public communications | _[EMAIL]_ |
+| Security lead | security@example.invalid |
+| Legal | contact@example.invalid |
+| Infrastructure | contact@example.invalid |
+| Public communications | contact@example.invalid |
 
 ---
 

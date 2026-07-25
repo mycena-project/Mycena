@@ -1,9 +1,11 @@
 # Mycelium — Security Debt Register
 
-**Status:** Pre-public beta · living document  
-**Last updated:** May 2026  
-**Audience:** Engineering, security review, release management  
+**Status:** Pre-public beta · living document
+**Last updated:** 2026-07-25
+**Audience:** Engineering, security review, release management
 **Tone:** Assume hostile networks, malicious users, compromised devices, and eventual nation-state interest.
+
+**Operator note (2026-07):** Abuse / security intake contacts are filled in [ABUSE_RESPONSE_PLAYBOOK.md](./ABUSE_RESPONSE_PLAYBOOK.md) (`security@example.invalid`). Beta-blocker rows below remain the release gate until resolved or explicitly signed off — cross-check `KNOWN_LIMITATIONS.md` for mitigations that may have landed since May entries.
 
 This register records **known** security, privacy, abuse, and legal debt. It is not a certification, audit, or guarantee. Items marked **beta-blocker: yes** must be resolved or explicitly accepted with written risk sign-off before a public Play Store / wide beta.
 
