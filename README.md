@@ -85,7 +85,7 @@ Start two terminals on the same LAN, exchange peer IDs, then `/chat <peer_id> he
 ```
 
 - **Mesh layer** — libp2p with scoped gossip, bloom anti-entropy, reputation, and bounded relay fanout. See [docs/network-hardening.md](docs/network-hardening.md) and [docs/DISCOVERY.md](docs/DISCOVERY.md).
-- **Crypto** — direct messages encrypted when keys are known; signatures on envelopes. No forward secrecy yet. See [docs/SECURITY.md](docs/SECURITY.md).
+- **Crypto** — direct messages encrypted when keys are known; signatures on envelopes. Partial forward secrecy via v1 Double Ratchet for 1:1 after prekey exchange; v0/groups remain static-key. See [docs/SECURITY.md](docs/SECURITY.md).
 - **Store-and-forward** — messages persist locally (sled) with TTL and priority; nodes relay for peers when paths exist.
 
 Deeper design: [docs/architecture.md](docs/architecture.md) · [docs/CONNECT.md](docs/CONNECT.md)
