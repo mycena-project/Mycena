@@ -1,11 +1,11 @@
 # Mycelium — Security Debt Register
 
 **Status:** Pre-public beta · living document
-**Last updated:** 2026-07-25
+**Last updated:** 2026-08-01
 **Audience:** Engineering, security review, release management
 **Tone:** Assume hostile networks, malicious users, compromised devices, and eventual nation-state interest.
 
-**Operator note (2026-07):** Abuse / security intake contacts are filled in [ABUSE_RESPONSE_PLAYBOOK.md](./ABUSE_RESPONSE_PLAYBOOK.md) (`security@example.invalid`). Beta-blocker rows below remain the release gate until resolved or explicitly signed off — cross-check `KNOWN_LIMITATIONS.md` for mitigations that may have landed since May entries.
+**Operator note (2026-08):** Abuse / security intake contacts are filled in [ABUSE_RESPONSE_PLAYBOOK.md](./ABUSE_RESPONSE_PLAYBOOK.md) (`security@example.invalid`). Body rows for items marked **Mitigated** in the summary table were aligned on this date (beta-blocker **no** where mitigation shipped). Remaining open beta-blockers still gate public Play Store / wide beta — cross-check `KNOWN_LIMITATIONS.md`.
 
 This register records **known** security, privacy, abuse, and legal debt. It is not a certification, audit, or guarantee. Items marked **beta-blocker: yes** must be resolved or explicitly accepted with written risk sign-off before a public Play Store / wide beta.
 
@@ -181,13 +181,13 @@ This register records **known** security, privacy, abuse, and legal debt. It is 
 | **Severity** | High |
 | **Affected systems** | `node.rs` `handle_incoming_direct` |
 | **Exploitation scenario** | Botnet injects unlimited unsigned direct messages; nodes ingest and flood relays |
-| **Likelihood** | High |
+| **Likelihood** | High (pre-mitigation) |
 | **Impact** | Battery drain, storage fill, user harassment |
-| **Current mitigations** | TTL + hop cap + queue cap + reputation strikes **only after failed verify when sig present** |
-| **Missing mitigations** | **Mandatory** envelope signature for all `Data`; reject legacy unsigned |
-| **Proposed architecture changes** | Versioned protocol: v2 wire = sig required |
+| **Current mitigations** | **Mitigated** — `UNSIGNED_GRACE_PERIOD_UNTIL_MS = 0`; unsigned `Data` hard-rejected at ingest |
+| **Missing mitigations** | None for beta gate (do not re-enable grace period) |
+| **Proposed architecture changes** | Keep fail-closed; optional protocol version advertise in PeerInfo |
 | **Implementation complexity** | S–M |
-| **Beta-blocker** | **yes** |
+| **Beta-blocker** | **no** (mitigated) |
 
 ### SD-031 — Flood to unknown destination fans out to all peers
 
@@ -196,13 +196,13 @@ This register records **known** security, privacy, abuse, and legal debt. It is 
 | **Severity** | High |
 | **Affected systems** | `send_direct_internal`, forwarding when target not in `known_peers` |
 | **Exploitation scenario** | Attacker sends to non-existent peer ID → message queued to every connected peer (relay amplification) |
-| **Likelihood** | Medium |
+| **Likelihood** | Medium (pre-mitigation) |
 | **Impact** | O(n) network amplification per message |
-| **Current mitigations** | Pending queue cap; energy policy |
-| **Missing mitigations** | Authenticated routing hints; drop if no path to destination within TTL |
-| **Proposed architecture changes** | DHT or trusted introducer routing; max fanout 2–3 |
+| **Current mitigations** | **Mitigated** — trust-scored relay selection with **max fanout 3** (`security.rs` / SD-031) |
+| **Missing mitigations** | Authenticated routing hints / DHT (hardening, not beta gate) |
+| **Proposed architecture changes** | DHT or trusted introducer routing |
 | **Implementation complexity** | M |
-| **Beta-blocker** | **yes** |
+| **Beta-blocker** | **no** (mitigated) |
 
 ### SD-032 — Gossip bulletin/mail scopes lack per-author rate limits
 
@@ -232,11 +232,11 @@ This register records **known** security, privacy, abuse, and legal debt. It is 
 | **Exploitation scenario** | Malicious installed mini-app XSS → calls bridge APIs with user-granted permissions |
 | **Likelihood** | Medium (requires user install) |
 | **Impact** | Send messages, request payments, read storage, post bulletins |
-| **Current mitigations** | Permission-gated bridge; network blocked; no file access |
-| **Missing mitigations** | Nonce-based CSP; strict script-src hashes per bundle |
-| **Proposed architecture changes** | Bundle manifest includes CSP hash list; reject bundles without |
+| **Current mitigations** | **Mitigated** — nonce-only `script-src`; inline scripts rejected at install; bridge still permission-gated |
+| **Missing mitigations** | Optional per-bundle script hashes (hardening) |
+| **Proposed architecture changes** | Keep nonce-only default; reject regress to `unsafe-inline` |
 | **Implementation complexity** | M |
-| **Beta-blocker** | **yes** |
+| **Beta-blocker** | **no** (mitigated) |
 
 ### SD-041 — Sideload install skips listing signature verification
 
@@ -247,11 +247,11 @@ This register records **known** security, privacy, abuse, and legal debt. It is 
 | **Exploitation scenario** | User installs ZIP from QR / file share → trojan mini-app with full declared permissions |
 | **Likelihood** | Medium |
 | **Impact** | Bridge abuse as above |
-| **Current mitigations** | Path traversal check; 10 MB cap; store listings signed on gossip |
-| **Missing mitigations** | **Mandatory** Ed25519 bundle signature check at install; developer key pinning UI |
-| **Proposed architecture changes** | Install only from signed store OR explicit “unsafe sideload” flow |
+| **Current mitigations** | **Mitigated** — sideload requires valid `mycelium-bundle.sig.json`; path traversal check; size cap |
+| **Missing mitigations** | Developer key pinning UX (hardening) |
+| **Proposed architecture changes** | Keep signature mandatory; improve trust UX |
 | **Implementation complexity** | S |
-| **Beta-blocker** | **yes** |
+| **Beta-blocker** | **no** (mitigated) |
 
 ### SD-042 — Permission manifest not enforced at runtime granularity
 
@@ -381,13 +381,13 @@ This register records **known** security, privacy, abuse, and legal debt. It is 
 | **Severity** | High |
 | **Affected systems** | `node.rs` scoped receive handler |
 | **Exploitation scenario** | Node receives gossip, re-wraps payload with `Envelope::sign(local_key)` while `from_peer` is upstream relay — downstream peers may trust wrong author binding |
-| **Likelihood** | Medium |
+| **Likelihood** | Medium (pre-mitigation) |
 | **Impact** | Author confusion, false attribution, bypass of author-based policy |
-| **Current mitigations** | Docs warn; E2E inner wrap for direct chat |
-| **Missing mitigations** | Never re-sign; forward opaque signed blob unchanged |
-| **Proposed architecture changes** | Separate `ForwardedEnvelope` type without local signature |
+| **Current mitigations** | **Mitigated** — gossip relay bodies stored/forwarded unsigned; inner payload carries its own auth |
+| **Missing mitigations** | None for beta gate |
+| **Proposed architecture changes** | Keep opaque forward; document author trust model |
 | **Implementation complexity** | M |
-| **Beta-blocker** | **yes** |
+| **Beta-blocker** | **no** (mitigated) |
 
 ### SD-081 — Plaintext chat fallback when enc key missing
 
@@ -396,13 +396,13 @@ This register records **known** security, privacy, abuse, and legal debt. It is 
 | **Severity** | High |
 | **Affected systems** | `mycelium-app/node.rs` `send_chat_encrypted` |
 | **Exploitation scenario** | MITM or race before PeerInfo → app sends **unencrypted** chat with user believing E2E |
-| **Likelihood** | Medium |
+| **Likelihood** | Medium (pre-mitigation) |
 | **Impact** | Content disclosure |
-| **Current mitigations** | UI “key exchange pending”; warn log |
-| **Missing mitigations** | **Fail closed** — block send until key present; explicit user override |
-| **Proposed architecture changes** | `EncryptionResult` required; no silent fallback |
+| **Current mitigations** | **Mitigated** — fail-closed send until enc key present |
+| **Missing mitigations** | None for beta gate |
+| **Proposed architecture changes** | Keep fail-closed; optional explicit unsafe override only behind UX gate |
 | **Implementation complexity** | S |
-| **Beta-blocker** | **yes** |
+| **Beta-blocker** | **no** (mitigated) |
 
 ### SD-082 — Display name not bound to cryptographic identity
 
@@ -596,13 +596,13 @@ This register records **known** security, privacy, abuse, and legal debt. It is 
 | **Severity** | High |
 | **Affected systems** | `secrets.rs` keyring fallback |
 | **Exploitation scenario** | Predictable vault key on shared machine → decrypt `.secrets/*.enc` |
-| **Likelihood** | Medium (desktop beta) |
+| **Likelihood** | Medium (desktop beta, pre-mitigation) |
 | **Impact** | Identity theft |
-| **Current mitigations** | OS keyring preferred; warning log |
-| **Missing mitigations** | Refuse to start without keyring on desktop |
-| **Proposed architecture changes** | Mandatory user passphrase for desktop vault |
+| **Current mitigations** | **Mitigated** — refuse new weak db_path-derived fallback; OS keyring / stronger path required |
+| **Missing mitigations** | Optional passphrase UX polish |
+| **Proposed architecture changes** | Keep refusing weak fallback |
 | **Implementation complexity** | S |
-| **Beta-blocker** | **yes** (desktop public beta) |
+| **Beta-blocker** | **no** (mitigated) |
 
 ---
 
@@ -615,13 +615,13 @@ This register records **known** security, privacy, abuse, and legal debt. It is 
 | **Severity** | High |
 | **Affected systems** | `node.rs` |
 | **Exploitation scenario** | Attacker forces peer to speak “legacy” by sending unsigned frames; software accepts |
-| **Likelihood** | High |
+| **Likelihood** | High (pre-mitigation) |
 | **Impact** | MITM injection without signatures |
-| **Current mitigations** | EncryptedDirect now requires sig |
-| **Missing mitigations** | Negotiate `min_protocol_version`; reject unsigned |
+| **Current mitigations** | **Mitigated** — same as SD-030 (unsigned `Data` rejected; EncryptedDirect requires sig) |
+| **Missing mitigations** | Optional `min_protocol_version` advertise |
 | **Proposed architecture changes** | Feature flag in PeerInfo handshake |
 | **Implementation complexity** | S |
-| **Beta-blocker** | **yes** |
+| **Beta-blocker** | **no** (mitigated) |
 
 ### SD-141 — Unencrypted chat fallback is a downgrade
 
@@ -630,13 +630,13 @@ This register records **known** security, privacy, abuse, and legal debt. It is 
 | **Severity** | High |
 | **Affected systems** | `send_chat_encrypted` |
 | **Exploitation scenario** | Block PeerInfo → force plaintext |
-| **Likelihood** | Medium |
+| **Likelihood** | Medium (pre-mitigation) |
 | **Impact** | Content exposure |
-| **Current mitigations** | UI indicator |
-| **Missing mitigations** | Fail-closed send policy |
+| **Current mitigations** | **Mitigated** — same as SD-081 (fail-closed send) |
+| **Missing mitigations** | None for beta gate |
 | **Proposed architecture changes** | Same as SD-081 |
 | **Implementation complexity** | S |
-| **Beta-blocker** | **yes** |
+| **Beta-blocker** | **no** (mitigated) |
 
 ---
 
@@ -732,13 +732,13 @@ This register records **known** security, privacy, abuse, and legal debt. It is 
 | **Severity** | Medium |
 | **Affected systems** | Android backup, adb backup |
 | **Exploitation scenario** | Google account backup or adb extracts encrypted vault + DB |
-| **Likelihood** | Medium |
+| **Likelihood** | Medium (pre-mitigation) |
 | **Impact** | Offline brute-force of master key |
-| **Current mitigations** | Encrypted vault |
-| **Missing mitigations** | `android:allowBackup="false"`; exclude from cloud backup |
-| **Proposed architecture changes** | Manifest hardening |
+| **Current mitigations** | **Mitigated** — `android:allowBackup="false"` + backup exclusion rules; encrypted vault |
+| **Missing mitigations** | None for beta gate |
+| **Proposed architecture changes** | Keep manifest hardening |
 | **Implementation complexity** | S |
-| **Beta-blocker** | **yes** |
+| **Beta-blocker** | **no** (mitigated) |
 
 ---
 
@@ -955,13 +955,13 @@ This register records **known** security, privacy, abuse, and legal debt. It is 
 | **Severity** | High |
 | **Affected systems** | Mini-app install path |
 | **Exploitation scenario** | Disinformation campaign distributes ZIP via mesh bulletin → sideload malware |
-| **Likelihood** | Medium |
+| **Likelihood** | Medium (pre-mitigation) |
 | **Impact** | Mass bridge abuse among users who install |
-| **Current mitigations** | Store listing signatures (gossip only) |
-| **Missing mitigations** | Install-time signature verify (SD-041) |
+| **Current mitigations** | **Mitigated** — same as SD-041 (`mycelium-bundle.sig.json` required for sideload) |
+| **Missing mitigations** | None for beta gate |
 | **Proposed architecture changes** | Same as SD-041 |
 | **Implementation complexity** | S |
-| **Beta-blocker** | **yes** |
+| **Beta-blocker** | **no** (mitigated) |
 
 ### SD-241 — Mesh sync replicates harmful blobs to all peers
 
@@ -997,19 +997,19 @@ This register records **known** security, privacy, abuse, and legal debt. It is 
 
 ## Beta-blocker summary (must resolve or sign off)
 
-| ID | Title | Beta-blocker | Status (Jun 2026) |
+| ID | Title | Beta-blocker | Status (Aug 2026) |
 |----|-------|--------------|-------------------|
-| SD-030 | Unsigned `WireMessage::Data` accepted | **yes** | **Mitigated** — grace period removed |
-| SD-031 | Flood amplification to all peers | **yes** | **Mitigated** — max fanout 3 |
-| SD-040 | CSP `unsafe-inline` | **yes** | **Mitigated** — nonce-only; inline scripts rejected at install |
-| SD-041 | Sideload install without signature | **yes** | **Mitigated** — sideload requires `mycelium-bundle.sig.json` |
-| SD-080 | Gossip re-sign with local key | **yes** | **Mitigated** — unsigned gossip storage |
-| SD-081 | Plaintext chat fallback | **yes** | **Mitigated** — fail-closed send |
-| SD-131 | Desktop weak vault fallback | **yes** (desktop) | **Mitigated** — refuse new weak fallback |
-| SD-140 | Protocol downgrade unsigned Data | **yes** | **Mitigated** (same as SD-030) |
-| SD-141 | Unencrypted chat downgrade | **yes** | **Mitigated** (same as SD-081) |
-| SD-171 | Android backup exfiltration | **yes** | **Mitigated** |
-| SD-240 | Unsigned offline mini-app payloads | **yes** | **Mitigated** (same as SD-041) |
+| SD-030 | Unsigned `WireMessage::Data` accepted | **no** | **Mitigated** — grace period removed |
+| SD-031 | Flood amplification to all peers | **no** | **Mitigated** — max fanout 3 |
+| SD-040 | CSP `unsafe-inline` | **no** | **Mitigated** — nonce-only; inline scripts rejected at install |
+| SD-041 | Sideload install without signature | **no** | **Mitigated** — sideload requires `mycelium-bundle.sig.json` |
+| SD-080 | Gossip re-sign with local key | **no** | **Mitigated** — unsigned gossip storage |
+| SD-081 | Plaintext chat fallback | **no** | **Mitigated** — fail-closed send |
+| SD-131 | Desktop weak vault fallback | **no** | **Mitigated** — refuse new weak fallback |
+| SD-140 | Protocol downgrade unsigned Data | **no** | **Mitigated** (same as SD-030) |
+| SD-141 | Unencrypted chat downgrade | **no** | **Mitigated** (same as SD-081) |
+| SD-171 | Android backup exfiltration | **no** | **Mitigated** |
+| SD-240 | Unsigned offline mini-app payloads | **no** | **Mitigated** (same as SD-041) |
 | SD-032 | Per-author gossip/direct rate limits | no | **Mitigated** — `IngestGuard` in `mycelium-node` |
 | SD-060 | Replay window at ingest | no | **Mitigated** — 30 min freshness + author id window |
 | SD-011 | MeshCoin Sybil witnesses | **yes** only if MXC ≠ preview | Open (preview-only OK) |
