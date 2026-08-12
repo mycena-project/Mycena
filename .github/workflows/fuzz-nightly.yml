@@ -4,8 +4,6 @@ name: Fuzz (nightly)
 # Manual workflow_dispatch always available for ad-hoc local-scale runs.
 
 on:
-  schedule:
-    - cron: "0 2 * * *"
   workflow_dispatch:
     inputs:
       seconds_per_target:
