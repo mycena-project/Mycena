@@ -316,7 +316,7 @@ impl AppStorage {
                 continue;
             }
             let tree = self.db.open_tree(name)?;
-            let cutoff = format!("{:020}:", now);
+            let cutoff = format!("{now:020}:");
             let mut keys = Vec::new();
             for item in tree.range(..cutoff.as_bytes()) {
                 let (k, _) = item?;
