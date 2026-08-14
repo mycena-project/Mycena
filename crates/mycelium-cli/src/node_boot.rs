@@ -12,7 +12,8 @@ use mycelium_coin::{address_from_keypair, CoinNode, CoinTransport, LocalLedger};
 use mycelium_l0_facade::consistency::OP_GOSSIP_BULLETIN_PUBLISH;
 use mycelium_l0_facade::energy::NodeState;
 use mycelium_l1_facade::{
-    load_or_create_keypair, ConnectivityMonitor, NodeCommand, NodeConfig, NodeHandle, NodeRunner,
+    load_or_create_keypair, ConnectivityMonitor, HostNodeOptions, NodeCommand, NodeConfig,
+    NodeHandle, NodeRunner,
 };
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -86,31 +87,20 @@ pub async fn boot_node(args: &RunArgs) -> anyhow::Result<BootedNode> {
     let listen_addr = args.listen.parse().context("invalid --listen multiaddr")?;
     let (connectivity, internet_enabled) = ConnectivityMonitor::new(true);
     ConnectivityMonitor::spawn_monitor(connectivity.mode_tx.clone(), internet_enabled.clone());
-    let config = NodeConfig {
+    let config = NodeConfig::for_host(HostNodeOptions {
         listen_addr,
         db_path: args.db.clone(),
         keypair_path: None,
-        forwarding_interval_ms: 500,
-        sync_interval_secs: 30,
         bootstrap_peers: args.bootstrap.clone(),
         connectivity_rx: Some(connectivity.mode_rx),
         connectivity_mode_tx: Some(connectivity.mode_tx),
         display_name: Some(args.name.clone()),
         storage_key: None,
-        max_relay_fanout: 3,
         rendezvous_enabled: true,
         internet_enabled,
         bulletin_subscriptions: Vec::new(),
-        max_peers: 50,
         crowd_mode: false,
-        local_geohash_prefix: None,
-        crowd_density_enter: 25,
-        crowd_density_clear: 20,
-        custody_enabled: true,
-        max_custody_spray: 3,
-        privacy_shaping: mycelium_l0_facade::privacy_shaping::PrivacyShapingConfig::disabled(),
-        protocol_capabilities_override: None,
-    };
+    });
     let (runner, handle) = NodeRunner::new(config)?;
     let local_peer_id = runner.local_peer_id().to_string();
     let runner_task = tokio::spawn(async move {

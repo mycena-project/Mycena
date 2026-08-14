@@ -112,6 +112,7 @@ class MeshService : Service() {
             prefs.getStringSet(SettingsViewModel.KEY_BULLETIN_SUBSCRIPTIONS, emptySet())
                 ?.toList()
                 .orEmpty()
+        try {
         mycelium.initNode(
             NodeConfig(
                 dbPath = dbPath,
@@ -220,6 +221,10 @@ class MeshService : Service() {
         startWebRtcHost()
         updateBleBootstrap()
         return START_STICKY
+        } catch (e: Exception) {
+            android.util.Log.e("MeshService", "node init failed", e)
+            return START_STICKY
+        }
     }
 
     private fun startWebRtcHost() {

@@ -283,6 +283,7 @@ impl BearerMeshRouter {
 
     pub fn send_direct(&mut self, to_peer: &str, message: WireMessage) -> anyhow::Result<()> {
         let request = DirectMessageRequest { message };
+        // serde_cbor is unmaintained; do not swap the codec without a wire version.
         let cbor = serde_cbor::to_vec(&request)?;
         let style = self.peer_wire_version(to_peer);
         let frame = encode_stream_frame_with_version(&cbor, style)?;

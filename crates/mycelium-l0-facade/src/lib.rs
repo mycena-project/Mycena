@@ -2,6 +2,11 @@
 // Copyright (C) 2026 Mycelium Project
 //! L0 facade — stable boundary over [`mycelium_core`] for app-layer crates.
 //!
+//! This crate *is* the app-layer surface: it re-exports the core modules hosts
+//! need. Prefer `mycelium-l0-facade` / `mycelium-l1-facade` in FFI and UI crates
+//! when the type already exists there. Do not strip these re-exports without a
+//! coordinated consumer migration.
+//!
 //! App and mini-app crates should depend on this crate instead of `mycelium-core`
 //! directly. Node and transport internals may still use `mycelium-core` for ratchet
 //! and mesh protocol details.

@@ -21,6 +21,27 @@ pub enum NodeError {
     Internal(anyhow::Error),
 }
 
+/// Outbound send failed because the destination is not reachable on a live bearer.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SendPathError {
+    NotConnected { to_peer: String },
+    NoDeliveryPath { to_peer: String },
+}
+
+impl std::fmt::Display for SendPathError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::NotConnected { to_peer } => write!(f, "not connected to peer {to_peer}"),
+            Self::NoDeliveryPath { to_peer } => write!(
+                f,
+                "peer_not_connected: no delivery path to {to_peer} (connect via Wi‑Fi, relay, or BLE first)"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for SendPathError {}
+
 pub type NodeResult<T> = Result<T, NodeError>;
 
 impl std::fmt::Display for NodeError {

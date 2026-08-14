@@ -269,6 +269,13 @@ impl PeerTrustStore {
         lock_or_recover!(self.cache, "peer trust cache").clone()
     }
 
+    pub fn get(&self, peer_id: &str, now_ms: u64) -> PeerTrust {
+        lock_or_recover!(self.cache, "peer trust cache")
+            .get(peer_id)
+            .cloned()
+            .unwrap_or_else(|| PeerTrust::cold_unknown(now_ms))
+    }
+
     fn persist(&self, peer_id: &str, trust: &PeerTrust) -> anyhow::Result<()> {
         let bytes = bincode::serialize(trust)?;
         self.tree.insert(peer_id.as_bytes(), bytes)?;
@@ -291,7 +298,7 @@ impl PeerTrustStore {
         self.persist(peer_id, &trust)
     }
 
-    pub(crate) fn get(&self, peer_id: &str) -> Option<PeerTrust> {
+    pub(crate) fn get_cached(&self, peer_id: &str) -> Option<PeerTrust> {
         // POISON-RECOVER: read-only cache lookup; no partial mutation on panic.
         lock_or_recover!(self.cache, "peer trust cache")
             .get(peer_id)
@@ -361,7 +368,7 @@ mod tests {
         }
         let store2 = PeerTrustStore::open(base).expect("reopen");
         let t = store2
-            .get("12D3KooWTrustPeerIdForPersistTest01")
+            .get_cached("12D3KooWTrustPeerIdForPersistTest01")
             .expect("loaded");
         assert!((t.reliability - 0.88).abs() < f32::EPSILON);
         assert!((t.relay_success_rate - 0.91).abs() < f32::EPSILON);
@@ -373,12 +380,12 @@ mod tests {
         let base = dir.path().to_str().expect("path");
         let store = PeerTrustStore::open(base).expect("open");
         store.note_peer_geohash("peer_a", "u4pruydq", 1_000);
-        let t = store.get("peer_a").expect("loaded");
+        let t = store.get_cached("peer_a").expect("loaded");
         assert_eq!(t.last_geohash_bucket.as_deref(), Some("u4pr"));
         store.note_peer_co_presence_geohash("peer_b", "u33dxyz", 2_000);
         assert_eq!(
             store
-                .get("peer_b")
+                .get_cached("peer_b")
                 .expect("b")
                 .last_geohash_bucket
                 .as_deref(),
@@ -387,7 +394,7 @@ mod tests {
         store.note_peer_geohash("peer_b", "u4prfresh", 3_000);
         assert_eq!(
             store
-                .get("peer_b")
+                .get_cached("peer_b")
                 .expect("b2")
                 .last_geohash_bucket
                 .as_deref(),
@@ -411,7 +418,7 @@ mod tests {
             })
             .expect("recover after poison");
         let t = store
-            .get("12D3KooWRecoveredPeerIdAfterPoison01")
+            .get_cached("12D3KooWRecoveredPeerIdAfterPoison01")
             .expect("loaded after poison");
         assert!((t.relay_success_rate - 0.5).abs() < f32::EPSILON);
     }

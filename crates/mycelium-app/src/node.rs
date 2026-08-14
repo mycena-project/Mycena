@@ -38,7 +38,9 @@ use mycelium_l0_facade::volunteer::{
 use mycelium_l0_facade::{
     decrypt_group, encrypt_for, encrypt_group, parse_x25519_public_hex, EncKey,
 };
-use mycelium_l1_facade::{ConnectivityMode, DirectMessage, NodeCommand, NodeHandle, WireMessage};
+use mycelium_l1_facade::{
+    ConnectivityMode, DirectMessage, NodeCommand, NodeHandle, SendPathError, WireMessage,
+};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tokio::sync::{broadcast, Mutex, RwLock};
@@ -74,6 +76,9 @@ pub enum EncryptionResult {
 }
 
 fn peer_offline_send_error(err: &anyhow::Error) -> bool {
+    if err.chain().any(|e| e.is::<SendPathError>()) {
+        return true;
+    }
     let msg = err.to_string().to_ascii_lowercase();
     msg.contains("peer_not_connected")
         || msg.contains("no delivery path")
@@ -1649,6 +1654,7 @@ impl AppNode {
     }
 
     pub fn reject_contact(&self, peer_id: &str) -> anyhow::Result<()> {
+        self.forget_peer_enc_key_bg(peer_id);
         self.storage.delete_contact(peer_id)
     }
 
@@ -1659,6 +1665,7 @@ impl AppNode {
             .map(|c| c.display_name.clone())
             .unwrap_or_else(|| peer_id.to_string());
         let account_id = existing.and_then(|c| c.account_id);
+        self.forget_peer_enc_key_bg(peer_id);
         self.storage.upsert_contact_with_account(
             peer_id,
             &name,
@@ -2006,7 +2013,18 @@ impl AppNode {
     }
 
     pub fn remove_contact(&self, peer_id: &str) -> anyhow::Result<()> {
+        self.forget_peer_enc_key_bg(peer_id);
         self.storage.delete_contact(peer_id)
+    }
+
+    fn forget_peer_enc_key_bg(&self, peer_id: &str) {
+        let handle = self.handle.clone();
+        let peer = peer_id.to_string();
+        if let Ok(rt) = tokio::runtime::Handle::try_current() {
+            rt.spawn(async move {
+                let _ = handle.forget_peer_enc_key(&peer).await;
+            });
+        }
     }
 
     pub fn bulletins_for_scope(&self, scope: &str) -> anyhow::Result<Vec<BulletinPost>> {
@@ -2366,6 +2384,7 @@ pub struct AppInbox {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod dispatch_tests {
     use super::*;
     use crate::envelope::{AppId, AppMessage, AppPayload, BulletinPost};

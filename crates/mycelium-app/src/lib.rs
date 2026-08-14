@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Mycelium Project
+#![deny(clippy::unwrap_used, clippy::expect_used)]
 pub mod api;
 pub mod bridge_host;
 pub mod contacts;
@@ -25,14 +26,17 @@ pub mod miniapp {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 #[path = "contacts_tests.rs"]
 mod contacts_tests;
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 #[path = "invite_transport_tests.rs"]
 mod invite_transport_tests;
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use crate::envelope::{AppId, AppMessage, AppPayload, BulletinPost, ChatMessage, MailMessage};
     use crate::storage::AppStorage;

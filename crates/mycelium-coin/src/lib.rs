@@ -107,7 +107,6 @@ mod tests {
             .expect("apply outgoing")
     }
 
-    #[allow(dead_code)]
     fn apply_incoming(ledger: &LocalLedger, tx: &Transaction) -> ApplyResult {
         ledger
             .apply_incoming_transaction(tx)
@@ -144,6 +143,31 @@ mod tests {
                 need: 1,
             })
         );
+    }
+
+    #[test]
+    fn apply_incoming_credits_receiver_without_spend_token() {
+        let dir = tempdir().unwrap();
+        let ledger = LocalLedger::open(dir.path().to_str().unwrap()).unwrap();
+        let sender = Keypair::generate_ed25519();
+        let receiver = Keypair::generate_ed25519();
+        let sender_addr = address_from_keypair(&sender);
+        let receiver_addr = address_from_keypair(&receiver);
+        ledger
+            .genesis_credit(&sender_addr, 10 * MUON_PER_MXC)
+            .unwrap();
+        let tx = Transaction::new(
+            receiver_addr.clone(),
+            5 * MUON_PER_MXC,
+            1000,
+            0,
+            None,
+            &sender,
+        )
+        .unwrap();
+        assert_eq!(apply_incoming(&ledger, &tx), ApplyResult::Accepted);
+        let receiver_view = ledger.settled_balance_view(&receiver_addr).unwrap();
+        assert_eq!(receiver_view.spendable_muon(), 0);
     }
 
     #[test]

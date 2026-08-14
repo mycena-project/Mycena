@@ -7,10 +7,12 @@ use std::time::Duration;
 
 use wasmtime::{Caller, Engine, Instance, Linker, Module, ResourceLimiter, Store};
 
-/// Default deterministic instruction budget per guest invocation (~1e9).
-pub const DEFAULT_WASM_FUEL_PER_INVOCATION: u64 = 1_000_000_000;
+/// Default deterministic instruction budget per guest invocation.
+pub const DEFAULT_WASM_FUEL_PER_INVOCATION: u64 = 10_000_000;
 /// Default linear memory cap for guest modules (16 MiB).
 pub const DEFAULT_WASM_MAX_MEMORY_BYTES: usize = 16 * 1024 * 1024;
+/// Default wasm table element cap.
+pub const DEFAULT_WASM_MAX_TABLE_ELEMENTS: usize = 4096;
 /// Default wall-clock execution budget (matches bridge call timeout).
 pub const DEFAULT_WASM_EXECUTION_TIMEOUT_MS: u64 = 5_000;
 /// Standard WASM entry file for `runtime: "wasm"` bundles.
@@ -21,6 +23,7 @@ pub struct WasmSandboxLimits {
     pub fuel_per_invocation: u64,
     pub max_memory_bytes: usize,
     pub execution_timeout_ms: u64,
+    pub max_table_elements: usize,
 }
 
 impl Default for WasmSandboxLimits {
@@ -29,6 +32,7 @@ impl Default for WasmSandboxLimits {
             fuel_per_invocation: DEFAULT_WASM_FUEL_PER_INVOCATION,
             max_memory_bytes: DEFAULT_WASM_MAX_MEMORY_BYTES,
             execution_timeout_ms: DEFAULT_WASM_EXECUTION_TIMEOUT_MS,
+            max_table_elements: DEFAULT_WASM_MAX_TABLE_ELEMENTS,
         }
     }
 }
@@ -73,6 +77,7 @@ struct HostState {
 
 struct LimitState {
     max_memory_bytes: usize,
+    max_table_elements: usize,
 }
 
 impl ResourceLimiter for LimitState {
@@ -88,10 +93,10 @@ impl ResourceLimiter for LimitState {
     fn table_growing(
         &mut self,
         _current: usize,
-        _desired: usize,
+        desired: usize,
         _maximum: Option<usize>,
     ) -> anyhow::Result<bool> {
-        Ok(true)
+        Ok(desired <= self.max_table_elements)
     }
 }
 
@@ -158,21 +163,23 @@ impl WasmSandbox {
         f: impl FnOnce(GuestInstance) -> Result<R, WasmSandboxError>,
     ) -> Result<R, WasmSandboxError> {
         let timeout_ms = self.config.limits.execution_timeout_ms;
-        let engine = if timeout_ms > 0 {
-            Some(self.engine.clone())
-        } else {
-            None
-        };
+        let (cancel_tx, cancel_rx) = std::sync::mpsc::channel::<()>();
         let watcher = (timeout_ms > 0).then(|| {
+            let engine = self.engine.clone();
             std::thread::spawn(move || {
-                std::thread::sleep(Duration::from_millis(timeout_ms));
-                if let Some(engine) = engine {
-                    engine.increment_epoch();
+                match cancel_rx.recv_timeout(Duration::from_millis(timeout_ms)) {
+                    Ok(()) | Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {}
+                    Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+                        engine.increment_epoch();
+                    }
                 }
             })
         });
-        let guest = self.instantiate_guest()?;
-        let result = f(guest);
+        let result = (|| {
+            let guest = self.instantiate_guest()?;
+            f(guest)
+        })();
+        drop(cancel_tx);
         if let Some(w) = watcher {
             let _ = w.join();
         }
@@ -188,6 +195,7 @@ impl WasmSandbox {
                 },
                 limiter: LimitState {
                     max_memory_bytes: self.config.limits.max_memory_bytes,
+                    max_table_elements: self.config.limits.max_table_elements,
                 },
             },
         );
@@ -241,16 +249,6 @@ fn find_export_func(
         }
     }
     Err(WasmSandboxError::ExportMissing(names.join(" or ")))
-}
-
-#[allow(dead_code)]
-fn guest_memory(
-    store: &mut Store<StoreState>,
-    instance: &Instance,
-) -> Result<wasmtime::Memory, WasmSandboxError> {
-    instance
-        .get_memory(store, "memory")
-        .ok_or_else(|| WasmSandboxError::Runtime("guest memory export missing".into()))
 }
 
 fn bridge_call_host(
@@ -391,7 +389,12 @@ mod tests {
     #[test]
     fn run_export_returns_status() {
         let sandbox = sandbox_from_wat(RUN_WAT);
+        let started = std::time::Instant::now();
         assert_eq!(sandbox.invoke_run().expect("run"), 42);
+        assert!(
+            started.elapsed() < Duration::from_millis(1500),
+            "invoke_run must not join the full wall-clock timeout"
+        );
     }
 
     #[test]

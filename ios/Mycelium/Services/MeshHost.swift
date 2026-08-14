@@ -5,7 +5,7 @@ import os.log
 
 #if MYCELIUM_RUST_FFI
 private enum RustNode {
-    static func initialize(_ config: NodeConfig) { initNode(config: config) }
+    static func initialize(_ config: NodeConfig) throws { try initNode(config: config) }
     static func shutdown() { stopNode() }
     static func peerId() -> String { localPeerId() }
     static func connected() -> [String] { connectedPeers() }
@@ -51,11 +51,22 @@ final class MeshHost: ObservableObject {
         let config = Self.makeNodeConfig()
         log.info("initNode db=\(config.dbPath, privacy: .public)")
 
-        await Task.detached(priority: .userInitiated) {
+        let initResult: Result<Void, Error> = await Task.detached(priority: .userInitiated) {
             #if MYCELIUM_RUST_FFI
-            RustNode.initialize(config)
+            do {
+                try RustNode.initialize(config)
+                return .success(())
+            } catch {
+                return .failure(error)
+            }
+            #else
+            return .success(())
             #endif
         }.value
+        if case .failure(let error) = initResult {
+            log.error("initNode failed: \(error.localizedDescription, privacy: .public)")
+            return
+        }
 
         #if MYCELIUM_RUST_FFI
         let callback = MeshNodeCallback(host: self)

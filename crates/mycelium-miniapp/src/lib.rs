@@ -47,7 +47,7 @@ pub use revocation::{
 pub use runtime::{
     invoke_wasm_run, GuestRuntime, WasmSandboxConfig, WasmSandboxError, WasmSandboxLimits,
     DEFAULT_WASM_ENTRY, DEFAULT_WASM_EXECUTION_TIMEOUT_MS, DEFAULT_WASM_FUEL_PER_INVOCATION,
-    DEFAULT_WASM_MAX_MEMORY_BYTES,
+    DEFAULT_WASM_MAX_MEMORY_BYTES, DEFAULT_WASM_MAX_TABLE_ELEMENTS,
 };
 #[cfg(feature = "wasm-runtime")]
 pub use runtime::{is_valid_wasm_magic, BridgeInvokeCallback, WasmSandbox};

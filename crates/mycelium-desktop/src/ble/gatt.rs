@@ -14,6 +14,7 @@ pub const INVITE_CHAR_UUID: Uuid = Uuid::from_u128(0x6e400002_b5a3_f393_e0a9_e50
 pub const MESH_DATA_CHAR_UUID: Uuid = Uuid::from_u128(0x6e400003_b5a3_f393_e0a9_e50e24dcca9e);
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::{INVITE_CHAR_UUID, MESH_DATA_CHAR_UUID, SERVICE_UUID};
 

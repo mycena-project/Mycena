@@ -9,6 +9,8 @@ const ORDER_TREE: &str = "message_order";
 const TS_PREFIX_LEN: usize = 8;
 const MAX_AGE_MS: u64 = 7 * 24 * 60 * 60 * 1000;
 
+/// Local DTN store. sled 0.34 is unmaintained; a redb/sqlite migration is tracked
+/// as storage-format work, not a silent swap (wire/on-disk compatibility).
 pub struct SledMessageStore {
     db: sled::Db,
     order: sled::Tree,
@@ -53,16 +55,6 @@ impl SledMessageStore {
         Ok(store)
     }
 
-    /// Next sort key timestamp: wall clock, but strictly after the last persisted order key.
-    fn next_order_ts(&self, wall_ms: u64) -> anyhow::Result<u64> {
-        let last_ts = match self.order.last() {
-            Ok(Some((k, _))) => timestamp_from_order_key(&k),
-            Ok(None) => 0,
-            Err(e) => return Err(e.into()),
-        };
-        Ok(wall_ms.max(last_ts.saturating_add(1)))
-    }
-
     /// One-time rebuild when messages exist but the order tree is empty (pre-fix stores).
     fn migrate_legacy_messages(&self) -> anyhow::Result<()> {
         if !self.order.is_empty() {
@@ -88,24 +80,27 @@ impl SledMessageStore {
     }
 
     pub async fn gc_expired(&self) -> anyhow::Result<usize> {
-        let now = now_ms();
-        let mut deleted = 0usize;
-        let mut order_batch = sled::Batch::default();
-        let mut db_batch = sled::Batch::default();
-        for item in self.order.iter() {
-            let (key, _) = item?;
-            let ts = timestamp_from_order_key(&key);
-            let id = message_id_from_order_key(&key)
-                .with_context(|| format!("invalid order key: {key:?}"))?;
-            if now.saturating_sub(ts) > MAX_AGE_MS {
+        let db = self.db.clone();
+        let order = self.order.clone();
+        tokio::task::spawn_blocking(move || {
+            let now = now_ms();
+            let cutoff = now.saturating_sub(MAX_AGE_MS);
+            let mut deleted = 0usize;
+            let mut order_batch = sled::Batch::default();
+            let mut db_batch = sled::Batch::default();
+            for item in order.range(..cutoff.to_be_bytes()) {
+                let (key, _) = item?;
+                let id = message_id_from_order_key(&key)
+                    .with_context(|| format!("invalid order key: {key:?}"))?;
                 order_batch.remove(&key);
                 db_batch.remove(id.as_bytes());
                 deleted += 1;
             }
-        }
-        self.order.apply_batch(order_batch)?;
-        self.db.apply_batch(db_batch)?;
-        Ok(deleted)
+            order.apply_batch(order_batch)?;
+            db.apply_batch(db_batch)?;
+            Ok(deleted)
+        })
+        .await?
     }
 
     pub async fn stats(&self) -> StoreStats {
@@ -125,10 +120,22 @@ impl MessageStore for SledMessageStore {
     async fn persist(&self, message: &DirectMessage) -> anyhow::Result<()> {
         let key = message.envelope.id.0.clone();
         let encoded = bincode::serialize(message)?;
-        let ts = self.next_order_ts(now_ms())?;
-        self.db.insert(key.as_bytes(), encoded)?;
-        self.order.insert(order_key(ts, &key), b"")?;
-        Ok(())
+        let db = self.db.clone();
+        let order = self.order.clone();
+        tokio::task::spawn_blocking(move || {
+            let ts = {
+                let last_ts = match order.last() {
+                    Ok(Some((k, _))) => timestamp_from_order_key(&k),
+                    Ok(None) => 0,
+                    Err(e) => return Err(e.into()),
+                };
+                now_ms().max(last_ts.saturating_add(1))
+            };
+            db.insert(key.as_bytes(), encoded)?;
+            order.insert(order_key(ts, &key), b"")?;
+            Ok(())
+        })
+        .await?
     }
 
     async fn recent(&self, limit: usize) -> anyhow::Result<Vec<DirectMessage>> {

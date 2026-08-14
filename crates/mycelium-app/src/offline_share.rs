@@ -99,6 +99,7 @@ pub fn build_install_landing_html(apk_path: &str, bootstrap_path: &str, subtitle
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
 

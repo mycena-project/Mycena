@@ -1,7 +1,7 @@
 # Mini-App Sandbox — Status & Sicherheitsgewinn
 
-**Stand:** Juli 2026  
-**Scope:** WebView-Kompatibilität, wasmtime-WASM-Sandbox, Ressourcen-Limits, Migration  
+**Stand:** Juli 2026
+**Scope:** WebView-Kompatibilität, wasmtime-WASM-Sandbox, Ressourcen-Limits, Migration
 **Verwandt:** [MINIAPP_SECURITY_ARCHITECTURE.md](./MINIAPP_SECURITY_ARCHITECTURE.md), [MINIAPP_WASM_RUNTIME.md](./MINIAPP_WASM_RUNTIME.md), SD-050
 
 ---
@@ -91,14 +91,15 @@ runtime: "wasm"     →  wasmtime (guest.wasm)  →  mycelium.bridge_call  →  
 
 | Limit | Wert | Konstante |
 |-------|------|-----------|
-| Fuel / Invocation | 10⁹ | `DEFAULT_WASM_FUEL_PER_INVOCATION` |
+| Fuel / Invocation | 10⁷ | `DEFAULT_WASM_FUEL_PER_INVOCATION` |
 | Linear Memory | 16 MiB | `DEFAULT_WASM_MAX_MEMORY_BYTES` |
-| Wall-Clock Timeout | 5 s | `DEFAULT_WASM_EXECUTION_TIMEOUT_MS` |
+| Table elements | 4096 | `DEFAULT_WASM_MAX_TABLE_ELEMENTS` |
+| Wall-Clock Timeout | 5 s (deadline, not minimum runtime) | `DEFAULT_WASM_EXECUTION_TIMEOUT_MS` |
 | Bridge Rate | 120/min | `bridge_limits.rs` |
 | Bridge Chain Budget | 30 s / 30 s Fenster | `bridge_limits.rs` |
 | Bundle Size | 10 MiB | `store.rs` |
 
-Fuel und Epoch-Timeout sind **komplementär**: Fuel = deterministisches CPU-Budget; Epoch = Wall-Clock-Fallback (wichtig bei epoch-instrumentiertem Code).
+Fuel und Epoch-Timeout sind **komplementär**: Fuel = deterministisches CPU-Budget; Epoch = Wall-Clock-**Deadline** (der Invoke-Thread wird nicht für die vollen 5 s gehalten).
 
 ---
 
@@ -195,5 +196,6 @@ cargo test -p mycelium-miniapp
 
 | Datum | Änderung |
 |-------|----------|
+| Aug 2026 | Fuel default 10⁷, table cap 4096, invoke timeout is a deadline (no sleeper-join) |
 | Jul 2026 (früh) | Ist-Analyse WebView-only; WASM als Plan |
 | Jul 2026 | **Implementiert:** wasmtime-Sandbox, Hybrid-Runtime, Migration, Host-Dispatch, Sicherheitsmatrix |

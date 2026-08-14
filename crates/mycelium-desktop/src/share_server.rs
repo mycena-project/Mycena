@@ -289,6 +289,7 @@ pub fn local_ipv4() -> Option<Ipv4Addr> {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
 

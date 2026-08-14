@@ -34,6 +34,9 @@ pub struct MeshBehaviour {
     pub mdns: mdns::tokio::Behaviour,
     pub gossip: gossipsub::Behaviour,
     pub direct: request_response::cbor::Behaviour<DirectMessageRequest, DirectMessageResponse>,
+    /// Kademlia records are in-memory for beta: rendezvous HTTP + mDNS refill
+    /// the table after restart. Persisting the DHT is a follow-up; do not treat
+    /// kad as durable bootstrap.
     pub kad: kad::Behaviour<MemoryStore>,
 }
 

@@ -19,7 +19,6 @@ pub mod data;
 pub mod e2e_direct_wrap;
 pub mod energy;
 pub mod fact_claim;
-pub mod identity;
 pub mod identity_rotation;
 pub mod information_trust;
 pub mod invite;

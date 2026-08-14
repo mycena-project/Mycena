@@ -159,6 +159,22 @@ fn invariant_default_listen_addr() -> libp2p::Multiaddr {
     }
 }
 
+/// Shared host-stack options (CLI / desktop / UniFFI) so boot literals cannot drift.
+pub struct HostNodeOptions {
+    pub listen_addr: Multiaddr,
+    pub db_path: String,
+    pub display_name: Option<String>,
+    pub bootstrap_peers: Vec<String>,
+    pub storage_key: Option<[u8; 32]>,
+    pub rendezvous_enabled: bool,
+    pub internet_enabled: Arc<AtomicBool>,
+    pub connectivity_rx: Option<tokio::sync::watch::Receiver<ConnectivityMode>>,
+    pub connectivity_mode_tx: Option<tokio::sync::watch::Sender<ConnectivityMode>>,
+    pub bulletin_subscriptions: Vec<String>,
+    pub crowd_mode: bool,
+    pub keypair_path: Option<String>,
+}
+
 impl Default for NodeConfig {
     fn default() -> Self {
         Self {
@@ -210,6 +226,37 @@ impl NodeConfig {
             bulletin_subscriptions: Vec::new(),
             max_peers: default_max_peers(),
             crowd_mode: false,
+            local_geohash_prefix: local_geohash_from_env(),
+            crowd_density_enter: default_crowd_density_enter(),
+            crowd_density_clear: default_crowd_density_clear(),
+            custody_enabled: default_custody_enabled(),
+            max_custody_spray: default_max_custody_spray(),
+            privacy_shaping: PrivacyShapingConfig::disabled(),
+            protocol_capabilities_override: None,
+        }
+    }
+
+    pub fn for_host(opts: HostNodeOptions) -> Self {
+        let keypair_path = opts
+            .keypair_path
+            .or_else(|| Some(format!("{}/identity", opts.db_path)));
+        Self {
+            listen_addr: opts.listen_addr,
+            db_path: opts.db_path,
+            keypair_path,
+            forwarding_interval_ms: 500,
+            sync_interval_secs: 30,
+            bootstrap_peers: opts.bootstrap_peers,
+            connectivity_rx: opts.connectivity_rx,
+            display_name: opts.display_name,
+            storage_key: opts.storage_key,
+            max_relay_fanout: default_max_relay_fanout(),
+            rendezvous_enabled: opts.rendezvous_enabled,
+            internet_enabled: opts.internet_enabled,
+            connectivity_mode_tx: opts.connectivity_mode_tx,
+            bulletin_subscriptions: opts.bulletin_subscriptions,
+            max_peers: default_max_peers(),
+            crowd_mode: opts.crowd_mode,
             local_geohash_prefix: local_geohash_from_env(),
             crowd_density_enter: default_crowd_density_enter(),
             crowd_density_clear: default_crowd_density_clear(),
@@ -313,6 +360,9 @@ pub enum NodeCommand {
     SeedPeerRatchetBundle {
         peer_id: String,
         bundle: mycelium_core::crypto::ratchet::PrekeyBundle,
+    },
+    ForgetPeerEncKey {
+        peer_id: String,
     },
     /// Query negotiated protocol levels for a peer (tests / coin gating).
     QueryPeerProtocol {
@@ -631,7 +681,7 @@ impl NodeHandle {
     pub async fn peer_reputation(&self, peer_id: &str) -> Option<PeerReputationSnapshot> {
         let now = now_ms();
         self.reputations
-            .get(peer_id)
+            .get_cached(peer_id)
             .map(|t| PeerReputationSnapshot::from_trust(&t, now))
     }
 
@@ -896,6 +946,13 @@ impl NodeHandle {
             enc_pubkey_hex.to_string(),
             mycelium_core::consistency::OP_INVITE_PARSE,
         )
+        .await
+    }
+
+    pub async fn forget_peer_enc_key(&self, peer: &str) -> anyhow::Result<()> {
+        self.send(NodeCommand::ForgetPeerEncKey {
+            peer_id: peer.to_string(),
+        })
         .await
     }
 
@@ -1854,7 +1911,10 @@ impl NodeRunner {
                 mut message,
             } => {
                 if !self.transport.is_peer_connected(&to_peer) {
-                    anyhow::bail!("not connected to peer {to_peer}");
+                    return Err(crate::SendPathError::NotConnected {
+                        to_peer: to_peer.clone(),
+                    }
+                    .into());
                 }
                 if let WireMessage::EncryptedDirect { .. } = &mut message {
                     match &self.keypair {
@@ -1881,9 +1941,10 @@ impl NodeRunner {
                 if self.transport.is_peer_connected(&to_peer) {
                     self.transport.send_direct(to_peer, message).await?;
                 } else {
-                    anyhow::bail!(
-                        "peer_not_connected: no delivery path to {to_peer} (connect via Wi‑Fi, relay, or BLE first)"
-                    );
+                    return Err(crate::SendPathError::NoDeliveryPath {
+                        to_peer: to_peer.clone(),
+                    }
+                    .into());
                 }
             }
             NodeCommand::EncryptE2ePayload {
@@ -2022,6 +2083,12 @@ impl NodeRunner {
                     Err(e) => {
                         warn!("invalid enc_pubkey_hex in invite for {peer_id}: {e}");
                     }
+                }
+            }
+            NodeCommand::ForgetPeerEncKey { peer_id } => {
+                self.peer_x25519.write().await.remove(&peer_id);
+                if let Err(e) = self.peer_enc_store.remove(&peer_id) {
+                    warn!("forget enc key for {peer_id}: {e}");
                 }
             }
             NodeCommand::SeedPeerRatchetBundle { peer_id, bundle } => {
@@ -2307,12 +2374,7 @@ impl NodeRunner {
                 content,
                 observed_at_ms,
             } => {
-                let trust = self
-                    .peer_trust
-                    .load_all()
-                    .get(&relay_peer)
-                    .cloned()
-                    .unwrap_or_else(|| PeerTrust::cold_unknown(observed_at_ms));
+                let trust = self.peer_trust.get(&relay_peer, observed_at_ms);
                 match kind {
                     mycelium_core::information_trust::FactKind::Resource => {
                         if let Some(category) = category {
@@ -2518,6 +2580,13 @@ impl NodeRunner {
         }
     }
 
+    fn sign_envelope(&self, envelope: &mut mycelium_core::data::Envelope) -> anyhow::Result<()> {
+        let Some(keypair) = &self.keypair else {
+            anyhow::bail!("cannot sign envelope without local keypair");
+        };
+        envelope.sign(keypair)
+    }
+
     async fn send_direct_internal(
         &mut self,
         to_peer: String,
@@ -2532,9 +2601,7 @@ impl NodeRunner {
             payload,
         );
         envelope.priority = priority;
-        if let Some(keypair) = &self.keypair {
-            let _ = envelope.sign(keypair);
-        }
+        self.sign_envelope(&mut envelope)?;
         let msg = DirectMessage {
             envelope,
             body: body.clone(),
@@ -2705,9 +2772,7 @@ impl NodeRunner {
         envelope.custody = true;
         envelope.max_hops = mycelium_core::data::CUSTODY_DEFAULT_MAX_HOPS;
         envelope.ttl_secs = 48 * 60 * 60;
-        if let Some(keypair) = &self.keypair {
-            let _ = envelope.sign(keypair);
-        }
+        self.sign_envelope(&mut envelope)?;
         let custody_msg = DirectMessage {
             envelope,
             body: body.to_string(),
@@ -2768,9 +2833,7 @@ impl NodeRunner {
         envelope.max_hops = mycelium_core::data::CUSTODY_DEFAULT_MAX_HOPS;
         envelope.ttl_secs = 48 * 60 * 60;
         envelope.priority = priority;
-        if let Some(keypair) = &self.keypair {
-            let _ = envelope.sign(keypair);
-        }
+        self.sign_envelope(&mut envelope)?;
         let custody_msg = DirectMessage {
             envelope,
             body: display_body.to_string(),
@@ -2980,7 +3043,10 @@ impl NodeRunner {
                 },
             );
             if relay_candidates.is_empty() {
-                anyhow::bail!("no path to {to_peer}");
+                return Err(crate::SendPathError::NoDeliveryPath {
+                    to_peer: to_peer.to_string(),
+                }
+                .into());
             }
             for relay in &relay_candidates {
                 self.transport
@@ -3015,7 +3081,7 @@ impl NodeRunner {
                 .insert(new_peer_id.to_string(), caps);
         }
         let now = now_ms();
-        if let Some(trust) = self.peer_trust.load_all().get(old_peer_id).cloned() {
+        if let Some(trust) = self.peer_trust.get_cached(old_peer_id) {
             let _ = self.peer_trust.with_peer(new_peer_id, now, |t| {
                 *t = trust.clone();
             });
@@ -3035,12 +3101,7 @@ impl NodeRunner {
         else {
             return;
         };
-        let trust = self
-            .peer_trust
-            .load_all()
-            .get(from_peer)
-            .cloned()
-            .unwrap_or_else(|| PeerTrust::cold_unknown(now_ms));
+        let trust = self.peer_trust.get(from_peer, now_ms);
         match claim {
             mycelium_core::fact_claim::ExtractedFactClaim::Sos(payload) => {
                 self.information_trust_tracker
@@ -3068,9 +3129,7 @@ impl NodeRunner {
                 let now = now_ms();
                 let trust = self
                     .peer_trust
-                    .load_all()
-                    .get(&local_peer_id)
-                    .cloned()
+                    .get_cached(&local_peer_id)
                     .unwrap_or_else(|| PeerTrust::new_peer(now));
                 self.sos_crisis_tracker
                     .record_observation(&local_peer_id, &gh, &trust, now);
@@ -3116,7 +3175,9 @@ impl NodeRunner {
                 }
             }
             if let Some(keypair) = &self.keypair {
-                let _ = envelope.sign(keypair);
+                envelope.sign(keypair)?;
+            } else {
+                anyhow::bail!("cannot sign broadcast envelope without local keypair");
             }
             let msg = DirectMessage {
                 envelope,
@@ -3312,12 +3373,7 @@ impl NodeRunner {
                         mycelium_core::resource_map::geohash_from_resource_payload_bytes(&payload)
                     };
                     if crate::ingest_guard::is_sos_scope(&scope) {
-                        let trust = self
-                            .peer_trust
-                            .load_all()
-                            .get(&from_peer)
-                            .cloned()
-                            .unwrap_or_else(|| PeerTrust::cold_unknown(now));
+                        let trust = self.peer_trust.get(&from_peer, now);
                         let security = self.sos_crisis_tracker.security_config();
                         if let Err(reason) = crate::sos_crisis_gate::check_sos_ingest(
                             &mut self.ingest_guard,
@@ -3359,152 +3415,93 @@ impl NodeRunner {
                         .map(|wm| matches!(wm, WireMessage::EncryptedGroup { .. }))
                         .unwrap_or(false)
                 {
-                    let envelope = mycelium_core::data::Envelope::new_unsigned(
-                        from_peer.clone(),
-                        None,
+                    self.ingest_unsigned_gossip(
+                        from_peer,
                         payload,
-                    );
-                    if let Err(reason) = self.ingest_guard.check_gossip_message(
-                        &from_peer,
-                        &envelope.id.0,
-                        envelope.created_at_ms,
+                        &scope,
+                        "[mycelium:group]".into(),
                         now,
-                    ) {
-                        self.record_ingest_reject(reason);
-                        return Ok(());
-                    }
-                    let stored = DirectMessage {
-                        envelope,
-                        body: "[mycelium:group]".into(),
-                    };
-                    let should_process = self
-                        .ingest
-                        .ingest(&mut self.seen_cache, &stored, false)
-                        .await?;
-                    if should_process {
-                        let _ = self.incoming_tx.send(stored);
-                    }
+                    )
+                    .await?;
                     return Ok(());
                 }
                 // App store listings are bincode payloads; they may decode as UTF-8 by chance.
                 // Always route this scope through the app pipeline with a stable body tag.
                 if scope == "mycelium/appstore/v1" {
-                    let envelope = mycelium_core::data::Envelope::new_unsigned(
-                        from_peer.clone(),
-                        None,
+                    self.ingest_unsigned_gossip(
+                        from_peer,
                         payload,
-                    );
-                    if let Err(reason) = self.ingest_guard.check_gossip_message(
-                        &from_peer,
-                        &envelope.id.0,
-                        envelope.created_at_ms,
+                        &scope,
+                        "[appstore]".into(),
                         now,
-                    ) {
-                        self.record_ingest_reject(reason);
-                        return Ok(());
-                    }
-                    let stored = DirectMessage {
-                        envelope,
-                        body: "[appstore]".into(),
-                    };
-                    let should_process = self
-                        .ingest
-                        .ingest(&mut self.seen_cache, &stored, false)
-                        .await?;
-                    if should_process {
-                        let _ = self.incoming_tx.send(stored);
-                    }
+                    )
+                    .await?;
                     return Ok(());
                 }
                 if scope == "mycelium/proximity/v1" {
-                    let envelope = mycelium_core::data::Envelope::new_unsigned(
-                        from_peer.clone(),
-                        None,
+                    self.ingest_unsigned_gossip(
+                        from_peer,
                         payload,
-                    );
-                    if let Err(reason) = self.ingest_guard.check_gossip_message(
-                        &from_peer,
-                        &envelope.id.0,
-                        envelope.created_at_ms,
+                        &scope,
+                        "[proximity]".into(),
                         now,
-                    ) {
-                        self.record_ingest_reject(reason);
-                        return Ok(());
-                    }
-                    let stored = DirectMessage {
-                        envelope,
-                        body: "[proximity]".into(),
-                    };
-                    let should_process = self
-                        .ingest
-                        .ingest(&mut self.seen_cache, &stored, false)
-                        .await?;
-                    if should_process {
-                        let _ = self.incoming_tx.send(stored);
-                    }
+                    )
+                    .await?;
                     return Ok(());
                 }
                 if subscribed
                     && (payload.starts_with(b"enc1:") || std::str::from_utf8(&payload).is_err())
                 {
-                    let envelope = mycelium_core::data::Envelope::new_unsigned(
-                        from_peer.clone(),
-                        None,
-                        payload,
-                    );
-                    if let Err(reason) = self.ingest_guard.check_gossip_message(
-                        &from_peer,
-                        &envelope.id.0,
-                        envelope.created_at_ms,
-                        now,
-                    ) {
-                        self.record_ingest_reject(reason);
-                        return Ok(());
-                    }
-                    let stored = DirectMessage {
-                        envelope,
-                        body: format!("[bulletin:{scope}]"),
-                    };
-                    let should_process = self
-                        .ingest
-                        .ingest(&mut self.seen_cache, &stored, false)
+                    let body = format!("[bulletin:{scope}]");
+                    self.ingest_unsigned_gossip(from_peer, payload, &scope, body, now)
                         .await?;
-                    if should_process {
-                        let _ = self.incoming_tx.send(stored);
-                    }
                     return Ok(());
                 }
                 if let Ok(body) = String::from_utf8(payload.clone()) {
-                    let envelope = mycelium_core::data::Envelope::new_unsigned(
-                        from_peer.clone(),
-                        None,
-                        payload,
-                    );
-                    if let Err(reason) = self.ingest_guard.check_gossip_message(
-                        &from_peer,
-                        &envelope.id.0,
-                        envelope.created_at_ms,
-                        now,
-                    ) {
-                        self.record_ingest_reject(reason);
-                        return Ok(());
-                    }
-                    let stored = DirectMessage {
-                        envelope,
-                        body: body.clone(),
-                    };
-                    let should_process = self
-                        .ingest
-                        .ingest(&mut self.seen_cache, &stored, false)
+                    let processed = self
+                        .ingest_unsigned_gossip(from_peer.clone(), payload, &scope, body, now)
                         .await?;
-                    if should_process {
-                        info!("gossip recv from {} [{}]: {}", from_peer, scope, body);
-                        let _ = self.incoming_tx.send(stored);
+                    if processed {
+                        info!("gossip recv from {from_peer} [{scope}]");
                     }
                 }
             }
         }
         Ok(())
+    }
+
+    async fn ingest_unsigned_gossip(
+        &mut self,
+        from_peer: String,
+        payload: Vec<u8>,
+        scope: &str,
+        body: String,
+        now: u64,
+    ) -> anyhow::Result<bool> {
+        let envelope = mycelium_core::data::Envelope::new_unsigned_gossip(
+            from_peer.clone(),
+            None,
+            payload,
+            scope,
+        );
+        if let Err(reason) = self.ingest_guard.check_gossip_message(
+            &from_peer,
+            &envelope.id.0,
+            envelope.created_at_ms,
+            now,
+        ) {
+            self.record_ingest_reject(reason);
+            return Ok(false);
+        }
+        let stored = DirectMessage { envelope, body };
+        let should_process = self
+            .ingest
+            .ingest(&mut self.seen_cache, &stored, false)
+            .await?;
+        if should_process {
+            let _ = self.incoming_tx.send(stored);
+        }
+        Ok(should_process)
     }
 
     async fn handle_incoming_direct(
@@ -4143,9 +4140,7 @@ impl NodeRunner {
         };
         let mut envelope = privacy_shaping::build_cover_envelope(&self.local_peer_id, &to_peer);
         envelope.priority = Priority::Low;
-        if let Some(keypair) = &self.keypair {
-            let _ = envelope.sign(keypair);
-        }
+        self.sign_envelope(&mut envelope)?;
         let msg = DirectMessage {
             envelope,
             body: privacy_shaping::COVER_BODY.to_string(),

@@ -11,6 +11,12 @@ use uuid::Uuid;
 #[derive(Debug, Clone)]
 pub struct AppStorage {
     db: sled::Db,
+    contacts: sled::Tree,
+    contact_accounts: sled::Tree,
+    groups: sled::Tree,
+    mail_inbox: sled::Tree,
+    mail_sent: sled::Tree,
+    mail_read: sled::Tree,
     /// When set, mini-app KV values are encrypted at rest (Cell C2).
     at_rest_key: Option<[u8; 32]>,
 }
@@ -25,7 +31,16 @@ impl AppStorage {
             .path(path)
             .flush_every_ms(Some(5000))
             .open()?;
-        Ok(Self { db, at_rest_key })
+        Ok(Self {
+            contacts: db.open_tree("contacts:data")?,
+            contact_accounts: db.open_tree("contacts:accounts")?,
+            groups: db.open_tree("groups:data")?,
+            mail_inbox: db.open_tree("mail:inbox")?,
+            mail_sent: db.open_tree("mail:sent")?,
+            mail_read: db.open_tree("mail:read")?,
+            db,
+            at_rest_key,
+        })
     }
 
     pub fn save_chat(&self, peer_id: &str, msg: &ChatMessage) -> anyhow::Result<()> {
@@ -46,13 +61,13 @@ impl AppStorage {
     }
 
     pub fn save_contact(&self, contact: &Contact) -> anyhow::Result<()> {
-        let tree = self.db.open_tree("contacts:data")?;
+        let tree = self.contacts.clone();
         tree.insert(contact.peer_id.as_bytes(), bincode::serialize(contact)?)?;
         Ok(())
     }
 
     pub fn contact_by_id(&self, peer_id: &str) -> anyhow::Result<Option<Contact>> {
-        let tree = self.db.open_tree("contacts:data")?;
+        let tree = self.contacts.clone();
         Ok(match tree.get(peer_id.as_bytes())? {
             Some(v) => Some(bincode::deserialize(&v)?),
             None => None,
@@ -60,7 +75,7 @@ impl AppStorage {
     }
 
     pub fn contact_by_account_id(&self, account_id: &str) -> anyhow::Result<Option<Contact>> {
-        let idx = self.db.open_tree("contacts:accounts")?;
+        let idx = self.contact_accounts.clone();
         let Some(peer_bytes) = idx.get(account_id.as_bytes())? else {
             return Ok(None);
         };
@@ -69,7 +84,7 @@ impl AppStorage {
     }
 
     pub fn all_contacts(&self) -> anyhow::Result<Vec<Contact>> {
-        let tree = self.db.open_tree("contacts:data")?;
+        let tree = self.contacts.clone();
         let mut out: Vec<Contact> = Vec::new();
         for item in tree.iter() {
             let (_k, v) = item?;
@@ -91,7 +106,7 @@ impl AppStorage {
     }
 
     pub fn delete_contact(&self, peer_id: &str) -> anyhow::Result<()> {
-        let tree = self.db.open_tree("contacts:data")?;
+        let tree = self.contacts.clone();
         tree.remove(peer_id.as_bytes())?;
         Ok(())
     }
@@ -140,7 +155,7 @@ impl AppStorage {
         if let Some(aid) = account_id.filter(|s| !s.is_empty()) {
             contact.account_id = Some(aid.to_string());
             self.save_contact(&contact)?;
-            let idx = self.db.open_tree("contacts:accounts")?;
+            let idx = self.contact_accounts.clone();
             idx.insert(aid.as_bytes(), peer_id.as_bytes())?;
         }
         Ok(contact)
@@ -176,7 +191,7 @@ impl AppStorage {
         account_id: &str,
         new_peer_id: &str,
     ) -> anyhow::Result<Option<Contact>> {
-        let idx = self.db.open_tree("contacts:accounts")?;
+        let idx = self.contact_accounts.clone();
         let old_peer_id = match idx.get(account_id.as_bytes())? {
             Some(v) => String::from_utf8_lossy(&v).to_string(),
             None => return Ok(None),
@@ -199,7 +214,7 @@ impl AppStorage {
             doc.note_previous_peer(old_peer_id.clone());
         }
         contact.sync_from_crdt();
-        let tree = self.db.open_tree("contacts:data")?;
+        let tree = self.contacts.clone();
         tree.remove(old_peer_id.as_bytes())?;
         contact.peer_id = new_peer_id.to_string();
         contact.account_id = Some(account_id.to_string());
@@ -241,11 +256,12 @@ impl AppStorage {
         if old_peer_id == new_peer_id {
             return Ok(0);
         }
-        let tree = self.db.open_tree("groups:data")?;
-        let keys: Vec<Vec<u8>> = tree
-            .iter()
-            .filter_map(|r| r.ok().map(|(k, _)| k.to_vec()))
-            .collect();
+        let tree = self.groups.clone();
+        let mut keys = Vec::new();
+        for item in tree.iter() {
+            let (k, _) = item?;
+            keys.push(k.to_vec());
+        }
         let mut updated = 0usize;
         for key in keys {
             let Some(v) = tree.get(&key)? else {
@@ -300,18 +316,12 @@ impl AppStorage {
                 continue;
             }
             let tree = self.db.open_tree(name)?;
-            let keys: Vec<Vec<u8>> = tree
-                .iter()
-                .filter_map(|res| {
-                    let (k, v) = res.ok()?;
-                    let post: BulletinPost = bincode::deserialize(&v).ok()?;
-                    if post.expires_at_ms < now {
-                        Some(k.to_vec())
-                    } else {
-                        None
-                    }
-                })
-                .collect();
+            let cutoff = format!("{:020}:", now);
+            let mut keys = Vec::new();
+            for item in tree.range(..cutoff.as_bytes()) {
+                let (k, _) = item?;
+                keys.push(k.to_vec());
+            }
             for k in keys {
                 tree.remove(k)?;
                 removed += 1;
@@ -321,7 +331,7 @@ impl AppStorage {
     }
 
     pub fn save_mail_inbox(&self, mail: &MailMessage) -> anyhow::Result<()> {
-        let tree = self.db.open_tree("mail:inbox")?;
+        let tree = self.mail_inbox.clone();
         tree.insert(
             ts_uuid_key(mail.timestamp_ms, mail.id),
             bincode::serialize(mail)?,
@@ -330,7 +340,7 @@ impl AppStorage {
     }
 
     pub fn save_mail_sent(&self, mail: &MailMessage) -> anyhow::Result<()> {
-        let tree = self.db.open_tree("mail:sent")?;
+        let tree = self.mail_sent.clone();
         tree.insert(
             ts_uuid_key(mail.timestamp_ms, mail.id),
             bincode::serialize(mail)?,
@@ -339,40 +349,40 @@ impl AppStorage {
     }
 
     pub fn inbox(&self, limit: usize) -> anyhow::Result<Vec<MailMessage>> {
-        let tree = self.db.open_tree("mail:inbox")?;
+        let tree = self.mail_inbox.clone();
         newest_mails(&tree, limit)
     }
 
     pub fn sent(&self, limit: usize) -> anyhow::Result<Vec<MailMessage>> {
-        let tree = self.db.open_tree("mail:sent")?;
+        let tree = self.mail_sent.clone();
         newest_mails(&tree, limit)
     }
 
     pub fn mark_read(&self, mail_id: &Uuid) -> anyhow::Result<()> {
-        let tree = self.db.open_tree("mail:read")?;
+        let tree = self.mail_read.clone();
         tree.insert(mail_id.to_string().as_bytes(), &[1])?;
         Ok(())
     }
 
     pub fn is_read(&self, mail_id: &Uuid) -> anyhow::Result<bool> {
-        let tree = self.db.open_tree("mail:read")?;
+        let tree = self.mail_read.clone();
         Ok(tree.get(mail_id.to_string().as_bytes())?.is_some())
     }
 
     pub fn save_group(&self, group: &Group) -> anyhow::Result<()> {
-        let tree = self.db.open_tree("groups:data")?;
+        let tree = self.groups.clone();
         tree.insert(group.id.as_bytes(), bincode::serialize(group)?)?;
         Ok(())
     }
 
     pub fn delete_group(&self, id: &str) -> anyhow::Result<()> {
-        let tree = self.db.open_tree("groups:data")?;
+        let tree = self.groups.clone();
         tree.remove(id.as_bytes())?;
         Ok(())
     }
 
     pub fn group_by_id(&self, id: &str) -> anyhow::Result<Option<Group>> {
-        let tree = self.db.open_tree("groups:data")?;
+        let tree = self.groups.clone();
         Ok(match tree.get(id.as_bytes())? {
             Some(v) => Some(bincode::deserialize(&v)?),
             None => None,
@@ -380,7 +390,7 @@ impl AppStorage {
     }
 
     pub fn all_groups(&self) -> anyhow::Result<Vec<Group>> {
-        let tree = self.db.open_tree("groups:data")?;
+        let tree = self.groups.clone();
         let mut out = Vec::new();
         for item in tree.iter() {
             let (_k, v) = item?;
@@ -569,9 +579,7 @@ impl AppStorage {
 
     fn encode_miniapp_value(&self, scoped_key: &str, value: &str) -> anyhow::Result<Vec<u8>> {
         match &self.at_rest_key {
-            Some(master) => Ok(crate::miniapp_storage_enc::encrypt_value(
-                master, scoped_key, value,
-            )),
+            Some(master) => crate::miniapp_storage_enc::encrypt_value(master, scoped_key, value),
             None => Ok(value.as_bytes().to_vec()),
         }
     }
@@ -666,6 +674,7 @@ fn ts_uuid_key(ts: u64, id: Uuid) -> Vec<u8> {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
 

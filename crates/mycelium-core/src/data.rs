@@ -3,11 +3,6 @@
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-/// Signature scheme v1 (ID in signed bytes) launch time (UTC 2026-05-22).
-const SIG_V1_LAUNCH_MS: u64 = 1_779_430_651_000;
-/// Legacy envelopes with invalid v1 signatures are accepted with a warning for this window.
-const SIG_TRANSITION_MS: u64 = 7 * 24 * 60 * 60 * 1000;
-
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, Hash)]
 pub struct ContentId(pub String);
 
@@ -111,11 +106,47 @@ impl Envelope {
     }
 
     /// Envelope without a mesh signature (gossip relay; author auth lives in payload).
+    ///
+    /// `ContentId` is `blake3(scope || 0xFF || from_peer || payload)` — no wall clock —
+    /// so redelivery after restart dedups. `created_at_ms` prefers a JSON `created_at_ms`
+    /// field when present so ingest freshness is not vacuous.
     pub fn new_unsigned(from_peer: String, to_peer: Option<String>, payload: Vec<u8>) -> Self {
-        let mut e = Self::new(from_peer, to_peer, payload);
-        e.signature = None;
-        e.sig_version = 0;
-        e
+        Self::new_unsigned_gossip(from_peer, to_peer, payload, "")
+    }
+
+    /// Like [`Self::new_unsigned`] with a gossip scope mixed into the content id.
+    pub fn new_unsigned_gossip(
+        from_peer: String,
+        to_peer: Option<String>,
+        payload: Vec<u8>,
+        scope: &str,
+    ) -> Self {
+        let created_at_ms = created_at_from_payload(&payload).unwrap_or_else(now_ms);
+        let mut digest_input =
+            Vec::with_capacity(scope.len() + from_peer.len() + payload.len() + 1);
+        digest_input.extend_from_slice(scope.as_bytes());
+        digest_input.push(0xFF);
+        digest_input.extend_from_slice(from_peer.as_bytes());
+        digest_input.extend_from_slice(&payload);
+        Self {
+            id: ContentId::from_bytes(&digest_input),
+            from_peer,
+            to_peer,
+            payload,
+            created_at_ms,
+            ttl_secs: 7 * 24 * 60 * 60,
+            priority: Priority::Normal,
+            signature: None,
+            sig_version: 0,
+            hop_count: 0,
+            max_hops: default_max_hops(),
+            author_peer: None,
+            e2e_version: 0,
+            custody: false,
+            custody_spray_sent: 0,
+            max_custody_spray: default_max_custody_spray(),
+            last_custody_from: None,
+        }
     }
 
     pub fn sign(&mut self, keypair: &libp2p::identity::Keypair) -> anyhow::Result<()> {
@@ -147,24 +178,14 @@ impl Envelope {
         pk.verify(&bytes, sig)
     }
 
-    /// Verify signature; during the 7-day transition after v1 launch, accept failures with a warning.
     /// Peer ID whose key signed this envelope (author, not relay hop).
     pub fn signature_author_peer(&self) -> &str {
         self.author_peer.as_deref().unwrap_or(&self.from_peer)
     }
 
+    /// Verify mesh signature. The v1 transition window (May 2026) has expired.
     pub fn verify_or_transition(&self, from_peer_id: &libp2p::PeerId) -> bool {
-        if self.verify(from_peer_id) {
-            return true;
-        }
-        if signature_transition_active() {
-            tracing::warn!(
-                "envelope signature verification failed (sig_version={}); accepting during transition window",
-                self.sig_version
-            );
-            return true;
-        }
-        false
+        self.verify(from_peer_id)
     }
 
     fn bytes_for_signing(&self) -> Vec<u8> {
@@ -214,8 +235,9 @@ fn default_custody_max_hops() -> u8 {
 /// Default hop budget for DTN custody messages (disaster profile).
 pub const CUSTODY_DEFAULT_MAX_HOPS: u8 = 64;
 
-fn signature_transition_active() -> bool {
-    now_ms() < SIG_V1_LAUNCH_MS.saturating_add(SIG_TRANSITION_MS)
+fn created_at_from_payload(payload: &[u8]) -> Option<u64> {
+    let v: serde_json::Value = serde_json::from_slice(payload).ok()?;
+    v.get("created_at_ms").and_then(|x| x.as_u64())
 }
 
 fn default_max_hops() -> u8 {
@@ -252,5 +274,28 @@ mod tests {
             !replayed.verify(&peer_id),
             "replay with changed timestamp must fail verification"
         );
+    }
+
+    #[test]
+    fn unsigned_gossip_id_is_stable_across_time() {
+        let payload = br#"{"created_at_ms":1700000000000,"message":"hi"}"#;
+        let a = Envelope::new_unsigned_gossip(
+            "peer-a".into(),
+            None,
+            payload.to_vec(),
+            "mycelium/sos/v1",
+        );
+        std::thread::sleep(std::time::Duration::from_millis(2));
+        let b = Envelope::new_unsigned_gossip(
+            "peer-a".into(),
+            None,
+            payload.to_vec(),
+            "mycelium/sos/v1",
+        );
+        assert_eq!(a.id, b.id);
+        assert_eq!(a.created_at_ms, 1_700_000_000_000);
+        let other_scope =
+            Envelope::new_unsigned_gossip("peer-a".into(), None, payload.to_vec(), "mycelium/chat");
+        assert_ne!(a.id, other_scope.id);
     }
 }

@@ -49,7 +49,7 @@ pub use encounter_log::{
 };
 pub use error::{
     decode_peer_bearer_frame, decode_peer_ble_stream_frame, decode_peer_ble_wire_frame,
-    decode_peer_wire_message, NodeError, NodeResult,
+    decode_peer_wire_message, NodeError, NodeResult, SendPathError,
 };
 pub use information_trust_tracker::InformationTrustTracker;
 pub use ingest_guard::{IngestGuard, IngestReject};
@@ -63,8 +63,8 @@ pub use mycelium_core::transport_score::{
 pub use mycelium_core::webrtc_signaling::WebRtcSignalInbound;
 pub use mycelium_l0_facade::EncKey;
 pub use node::{
-    BroadcastPeerFilter, NodeCommand, NodeConfig, NodeHandle, NodeMetrics, NodeRunner,
-    SYSTEM_SCOPES,
+    BroadcastPeerFilter, HostNodeOptions, NodeCommand, NodeConfig, NodeHandle, NodeMetrics,
+    NodeRunner, SYSTEM_SCOPES,
 };
 pub use peer_trust::PeerReputationSnapshot;
 pub use secrets::{

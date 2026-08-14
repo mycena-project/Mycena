@@ -5,6 +5,7 @@ use crate::node::AppNode;
 use crate::storage::AppStorage;
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
+use axum::http::{HeaderValue, Method};
 use axum::routing::{delete, get, post, put};
 use axum::{Json, Router};
 use mycelium_l0_facade::data::now_ms;
@@ -12,7 +13,7 @@ use mycelium_l0_facade::energy::NodeState;
 use mycelium_l1_facade::NodeCommand;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tower_http::cors::CorsLayer;
+use tower_http::cors::{AllowOrigin, CorsLayer};
 
 #[derive(Clone)]
 struct ApiState {
@@ -124,7 +125,7 @@ pub async fn start_api_server(
             post(post_volunteer_claim),
         )
         .route("/api/v1/panic/wipe", post(post_panic_wipe))
-        .layer(CorsLayer::permissive())
+        .layer(loopback_cors())
         .with_state(state);
 
     let listener = tokio::net::TcpListener::bind(("127.0.0.1", port)).await?;
@@ -132,6 +133,21 @@ pub async fn start_api_server(
         let _ = axum::serve(listener, app).await;
     });
     Ok(())
+}
+
+fn loopback_origin(origin: &HeaderValue) -> bool {
+    origin.to_str().ok().is_some_and(|o| {
+        o.starts_with("http://127.0.0.1")
+            || o.starts_with("http://localhost")
+            || o.starts_with("http://[::1]")
+    })
+}
+
+fn loopback_cors() -> CorsLayer {
+    CorsLayer::new()
+        .allow_origin(AllowOrigin::predicate(|origin, _| loopback_origin(origin)))
+        .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
+        .allow_headers(tower_http::cors::Any)
 }
 
 async fn get_status(State(state): State<ApiState>) -> Json<StatusResponse> {

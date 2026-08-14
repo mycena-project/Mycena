@@ -21,10 +21,7 @@ pub fn traffic_class_for_direct(msg: &DirectMessage) -> TrafficClass {
     {
         return TrafficClass::Essential;
     }
-    if msg.body.starts_with("[bulletin:")
-        || msg.body.starts_with("[bulletin:mycelium/coin/v1")
-        || msg.body.contains("mycelium/appstore")
-    {
+    if msg.body.starts_with("[bulletin:") || msg.body.contains("mycelium/appstore") {
         return TrafficClass::Background;
     }
     if msg.envelope.custody {

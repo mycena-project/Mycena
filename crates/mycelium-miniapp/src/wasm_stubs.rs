@@ -2,8 +2,9 @@
 // Copyright (C) 2026 Mycelium Project
 //! Type stubs when `wasm-runtime` feature is disabled.
 
-pub const DEFAULT_WASM_FUEL_PER_INVOCATION: u64 = 1_000_000_000;
+pub const DEFAULT_WASM_FUEL_PER_INVOCATION: u64 = 10_000_000;
 pub const DEFAULT_WASM_MAX_MEMORY_BYTES: usize = 16 * 1024 * 1024;
+pub const DEFAULT_WASM_MAX_TABLE_ELEMENTS: usize = 4096;
 pub const DEFAULT_WASM_EXECUTION_TIMEOUT_MS: u64 = 5_000;
 pub const DEFAULT_WASM_ENTRY: &str = "guest.wasm";
 
@@ -12,6 +13,7 @@ pub struct WasmSandboxLimits {
     pub fuel_per_invocation: u64,
     pub max_memory_bytes: usize,
     pub execution_timeout_ms: u64,
+    pub max_table_elements: usize,
 }
 
 impl Default for WasmSandboxLimits {
@@ -20,6 +22,7 @@ impl Default for WasmSandboxLimits {
             fuel_per_invocation: DEFAULT_WASM_FUEL_PER_INVOCATION,
             max_memory_bytes: DEFAULT_WASM_MAX_MEMORY_BYTES,
             execution_timeout_ms: DEFAULT_WASM_EXECUTION_TIMEOUT_MS,
+            max_table_elements: DEFAULT_WASM_MAX_TABLE_ELEMENTS,
         }
     }
 }

@@ -8,6 +8,7 @@ use mycelium_miniapp::{
     invoke_wasm_run, issue_session, BridgeInvokeCallback, GuestRuntime, MiniAppBundle,
     WasmSandboxConfig, WasmSandboxError, WasmSandboxLimits, DEFAULT_WASM_EXECUTION_TIMEOUT_MS,
     DEFAULT_WASM_FUEL_PER_INVOCATION, DEFAULT_WASM_MAX_MEMORY_BYTES,
+    DEFAULT_WASM_MAX_TABLE_ELEMENTS,
 };
 use serde_json::{json, Value};
 
@@ -26,6 +27,7 @@ pub fn default_wasm_limits() -> WasmSandboxLimits {
         fuel_per_invocation: DEFAULT_WASM_FUEL_PER_INVOCATION,
         max_memory_bytes: DEFAULT_WASM_MAX_MEMORY_BYTES,
         execution_timeout_ms: DEFAULT_WASM_EXECUTION_TIMEOUT_MS,
+        max_table_elements: DEFAULT_WASM_MAX_TABLE_ELEMENTS,
     }
 }
 

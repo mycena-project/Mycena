@@ -220,19 +220,6 @@ impl IngestGuard {
         }
         Ok(())
     }
-
-    #[allow(dead_code)]
-    pub fn allow_gossip(
-        &mut self,
-        from_peer: &str,
-        payload_len: usize,
-        message_id: &str,
-        created_at_ms: u64,
-        now_ms: u64,
-    ) -> Result<(), IngestReject> {
-        self.check_gossip_payload(from_peer, payload_len, now_ms)?;
-        self.check_gossip_message(from_peer, message_id, created_at_ms, now_ms)
-    }
 }
 
 impl Default for IngestGuard {
@@ -291,7 +278,7 @@ mod tests {
         let mut guard = IngestGuard::new();
         let now = 5_000_000u64;
         assert_eq!(
-            guard.allow_gossip("peer", MAX_GOSSIP_PAYLOAD_BYTES + 1, "id1", now, now),
+            guard.check_gossip_payload("peer", MAX_GOSSIP_PAYLOAD_BYTES + 1, now),
             Err(IngestReject::Oversize)
         );
     }

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Mycelium Project
 //! BLE libp2p overlay — direct protocol over GATT streams (ADR 002 F3).
+//! Frames use serde_cbor for compatibility with existing mobiles; do not swap
+//! the codec without a wire version (crate is unmaintained).
 
 #![allow(dead_code)] // F3 stream path wired on mobile hosts.
 

@@ -1,3 +1,4 @@
+#![deny(clippy::unwrap_used, clippy::expect_used)]
 #![allow(clippy::empty_line_after_doc_comments)]
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Mycelium Project
@@ -33,7 +34,8 @@ use mycelium_core::privacy_shaping::{
 use mycelium_core::transport::ConnectivityMode as NetConnectivityMode;
 use mycelium_l1_facade::consistency::{OP_DIRECT_MESSAGE_SEND, OP_GOSSIP_BULLETIN_PUBLISH};
 use mycelium_node::{
-    ConnectivityMonitor, NodeCommand, NodeConfig as RustNodeConfig, NodeHandle, NodeRunner,
+    ConnectivityMonitor, HostNodeOptions, NodeCommand, NodeConfig as RustNodeConfig, NodeHandle,
+    NodeRunner,
 };
 use once_cell::sync::OnceCell;
 use std::collections::HashSet;
@@ -47,6 +49,7 @@ use tokio::sync::RwLock;
 pub enum MyceliumException {
     InstallError { detail: String },
     ChatError { detail: String },
+    HostError { detail: String },
 }
 
 impl std::fmt::Display for MyceliumException {
@@ -54,11 +57,18 @@ impl std::fmt::Display for MyceliumException {
         match self {
             MyceliumException::InstallError { detail } => write!(f, "{detail}"),
             MyceliumException::ChatError { detail } => write!(f, "{detail}"),
+            MyceliumException::HostError { detail } => write!(f, "{detail}"),
         }
     }
 }
 
 impl std::error::Error for MyceliumException {}
+
+fn host_err(e: impl ToString) -> MyceliumException {
+    MyceliumException::HostError {
+        detail: e.to_string(),
+    }
+}
 
 uniffi::include_scaffolding!("mycelium");
 
@@ -854,8 +864,10 @@ struct NodeState {
     user_trust_task: tokio::task::JoinHandle<()>,
 }
 
-pub fn init_node(config: NodeConfig) {
-    let runtime = RUNTIME.get_or_init(|| Runtime::new().expect("tokio runtime init failed"));
+pub fn init_node(config: NodeConfig) -> Result<(), MyceliumException> {
+    let runtime = RUNTIME.get_or_try_init(|| {
+        Runtime::new().map_err(|e| host_err(format!("tokio runtime init failed: {e}")))
+    })?;
     runtime.block_on(async move {
         #[cfg(target_os = "android")]
         {
@@ -881,62 +893,52 @@ pub fn init_node(config: NodeConfig) {
             .as_deref()
             .map(mycelium_node::parse_storage_key_hex)
             .transpose()
-            .expect("invalid storage_key_hex");
+            .map_err(host_err)?;
 
-        let rust_config = RustNodeConfig {
-            listen_addr: config
-                .listen_addr
-                .parse()
-                .expect("invalid listen address for node"),
+        let listen_addr = config
+            .listen_addr
+            .parse()
+            .map_err(|e| host_err(format!("invalid listen address for node: {e}")))?;
+        let rust_config = RustNodeConfig::for_host(HostNodeOptions {
+            listen_addr,
             db_path: config.db_path.clone(),
             keypair_path: Some(format!("{}/identity", config.db_path)),
-            forwarding_interval_ms: 500,
-            sync_interval_secs: 30,
             bootstrap_peers: config.bootstrap_peers.clone(),
             connectivity_rx: Some(connectivity_rx_node),
             display_name: Some(config.display_name.clone()),
             storage_key,
-            max_relay_fanout: 3,
             rendezvous_enabled: config.rendezvous_enabled,
             internet_enabled: internet_enabled.clone(),
             connectivity_mode_tx: Some(connectivity.mode_tx.clone()),
             bulletin_subscriptions: config.bulletin_subscriptions.clone(),
-            max_peers: 50,
             crowd_mode: config.crowd_mode,
-            local_geohash_prefix: None,
-            crowd_density_enter: 25,
-            crowd_density_clear: 20,
-            custody_enabled: true,
-            max_custody_spray: 3,
-            privacy_shaping: RustPrivacyShapingConfig::disabled(),
-            protocol_capabilities_override: None,
-        };
+        });
 
         let (runner, handle) =
-            NodeRunner::new(rust_config).expect("failed to initialize node runner");
+            NodeRunner::new(rust_config).map_err(|e| host_err(format!("failed to initialize node runner: {e}")))?;
         let local_peer_id = runner.local_peer_id().to_string();
         let runner_task = tokio::spawn(async move { runner.run().await });
 
         let app_storage = Arc::new(
             AppStorage::open_with_key(&format!("{}/app", config.db_path), storage_key)
-                .expect("failed to open app storage"),
+                .map_err(|e| host_err(format!("failed to open app storage: {e}")))?,
         );
         let app_store = Arc::new(
             mycelium_app::miniapp::AppStore::open(&format!("{}/miniapp", config.db_path))
-                .expect("failed to open miniapp store"),
+                .map_err(|e| host_err(format!("failed to open miniapp store: {e}")))?,
         );
         let coin_identity_path = format!("{}/identity", config.db_path);
         let coin_addr = address_from_keypair(
             &mycelium_node::secrets::load_or_create_keypair(&coin_identity_path, storage_key)
-                .expect("failed to load node identity for coin"),
+                .map_err(|e| host_err(format!("failed to load node identity for coin: {e}")))?,
         );
         let coin_ledger = Arc::new(
             LocalLedger::open(&format!("{}/coin", config.db_path))
-                .expect("failed to open coin ledger"),
+                .map_err(|e| host_err(format!("failed to open coin ledger: {e}")))?,
         );
         let voucher_registry = Arc::new(
             VoucherSettlementRegistry::open(&format!("{}/coin_vouchers", config.db_path))
-                .expect("failed to open voucher registry"),
+                .map_err(|e| host_err(format!("failed to open voucher registry: {e}")))?,
         );
         let coin_transport = Arc::new(FfiCoinTransport {
             handle: handle.clone(),
@@ -957,7 +959,8 @@ pub fn init_node(config: NodeConfig) {
             coin_identity_path.clone(),
         ));
         let user_trust = Arc::new(
-            UserTrustStore::open(&config.db_path).expect("failed to open user trust store"),
+            UserTrustStore::open(&config.db_path)
+                .map_err(|e| host_err(format!("failed to open user trust store: {e}")))?,
         );
         let ut_handle = handle.clone();
         let ut_store = user_trust.clone();
@@ -1017,7 +1020,7 @@ pub fn init_node(config: NodeConfig) {
 
         let enc_keypair =
             mycelium_node::secrets::load_or_create_enc_keypair(&config.db_path, storage_key)
-                .expect("failed to load enc keypair");
+                .map_err(|e| host_err(format!("failed to load enc keypair: {e}")))?;
 
         let (app_node, mut inbox) = AppNode::new(
             handle.clone(),
@@ -1116,7 +1119,8 @@ pub fn init_node(config: NodeConfig) {
         }));
         // POISON-RECOVER: assigns whole Option<Arc>; init is atomic from None to Some.
         *lock_or_recover!(NODE, "node lock") = Some(state);
-    });
+        Ok(())
+    })
 }
 
 pub fn stop_node() {
@@ -1371,53 +1375,51 @@ pub fn list_pending_contacts() -> Vec<ContactInfo> {
     })
 }
 
-pub fn add_contact(peer_id: String, display_name: String, accepted: bool) -> ContactInfo {
+pub fn add_contact(
+    peer_id: String,
+    display_name: String,
+    accepted: bool,
+) -> Result<ContactInfo, MyceliumException> {
     with_state(|state| {
-        contact_to_info(
-            state
-                .app_node
-                .add_contact(&peer_id, &display_name, accepted)
-                .expect("add contact"),
-        )
+        state
+            .app_node
+            .add_contact(&peer_id, &display_name, accepted)
+            .map(contact_to_info)
+            .map_err(host_err)
     })
 }
 
-pub fn accept_contact(peer_id: String) -> ContactInfo {
+pub fn accept_contact(peer_id: String) -> Result<ContactInfo, MyceliumException> {
     with_state(|state| {
-        contact_to_info(
-            state
-                .app_node
-                .accept_contact(&peer_id)
-                .expect("accept contact"),
-        )
+        state
+            .app_node
+            .accept_contact(&peer_id)
+            .map(contact_to_info)
+            .map_err(host_err)
     })
 }
 
-pub fn reject_contact(peer_id: String) {
+pub fn reject_contact(peer_id: String) -> Result<(), MyceliumException> {
+    with_state(|state| state.app_node.reject_contact(&peer_id).map_err(host_err))
+}
+
+pub fn block_contact(peer_id: String) -> Result<ContactInfo, MyceliumException> {
     with_state(|state| {
-        let _ = state.app_node.reject_contact(&peer_id);
+        state
+            .app_node
+            .block_contact(&peer_id)
+            .map(contact_to_info)
+            .map_err(host_err)
     })
 }
 
-pub fn block_contact(peer_id: String) -> ContactInfo {
+pub fn unblock_contact(peer_id: String) -> Result<ContactInfo, MyceliumException> {
     with_state(|state| {
-        contact_to_info(
-            state
-                .app_node
-                .block_contact(&peer_id)
-                .expect("block contact"),
-        )
-    })
-}
-
-pub fn unblock_contact(peer_id: String) -> ContactInfo {
-    with_state(|state| {
-        contact_to_info(
-            state
-                .app_node
-                .unblock_contact(&peer_id)
-                .expect("unblock contact"),
-        )
+        state
+            .app_node
+            .unblock_contact(&peer_id)
+            .map(contact_to_info)
+            .map_err(host_err)
     })
 }
 
@@ -1443,10 +1445,8 @@ pub fn peer_reputation(peer_id: String) -> Option<PeerReputationData> {
     })
 }
 
-pub fn remove_contact(peer_id: String) {
-    with_state(|state| {
-        let _ = state.app_node.remove_contact(&peer_id);
-    })
+pub fn remove_contact(peer_id: String) -> Result<(), MyceliumException> {
+    with_state(|state| state.app_node.remove_contact(&peer_id).map_err(host_err))
 }
 
 pub fn list_groups() -> Vec<GroupInfo> {
@@ -1467,18 +1467,18 @@ pub fn list_groups() -> Vec<GroupInfo> {
     })
 }
 
-pub fn create_group(name: String) -> GroupInfo {
+pub fn create_group(name: String) -> Result<GroupInfo, MyceliumException> {
     let state = state_arc();
     runtime().block_on(async {
         let state = state.read().await;
         let g = Group::new(name);
-        state.app_node.storage().save_group(&g).expect("save group");
-        GroupInfo {
+        state.app_node.storage().save_group(&g).map_err(host_err)?;
+        Ok(GroupInfo {
             id: g.id.clone(),
             name: g.name.clone(),
             member_count: g.members.len() as u32,
             created_at_ms: g.created_at_ms,
-        }
+        })
     })
 }
 
@@ -2758,45 +2758,42 @@ pub fn miniapp_issue_capability(
     app_id: String,
     permission: String,
     session_token: String,
-) -> String {
+) -> Result<String, MyceliumException> {
     with_state(|s| {
         let perm = mycelium_app::miniapp::parse_permission_name(&permission)
-            .unwrap_or_else(|| panic!("unknown permission: {permission}"));
-        mycelium_app::miniapp::issue_capability(
+            .ok_or_else(|| host_err(format!("unknown permission: {permission}")))?;
+        Ok(mycelium_app::miniapp::issue_capability(
             &s.cap_mac_key,
             &app_id,
             &perm,
             &session_token,
             mycelium_app::miniapp::DEFAULT_CAP_TTL_MS,
-        )
+        ))
     })
 }
 
-pub fn miniapp_publish_revocation(app_id: String, reason: String) {
+pub fn miniapp_publish_revocation(app_id: String, reason: String) -> Result<(), MyceliumException> {
     runtime().block_on(async {
         let st = state_arc();
         let guard = st.read().await;
-        let keypair = mycelium_node::load_or_create_keypair(&guard.coin_identity_path)
-            .expect("load identity keypair for revocation");
+        let keypair =
+            mycelium_node::load_or_create_keypair(&guard.coin_identity_path).map_err(host_err)?;
         let entry = guard
             .app_store
             .build_revocation_gossip(&app_id, &reason, &guard.local_peer_id, &keypair)
-            .expect("build revocation gossip");
+            .map_err(host_err)?;
         guard
             .app_node
             .publish_app_revocation(&entry)
             .await
-            .expect("publish revocation gossip");
-    });
+            .map_err(host_err)
+    })
 }
 
-pub fn miniapp_get_policy(app_id: String) -> MiniAppPolicyData {
+pub fn miniapp_get_policy(app_id: String) -> Result<MiniAppPolicyData, MyceliumException> {
     with_state(|s| {
-        let p = s
-            .app_store
-            .policy_snapshot(&app_id)
-            .expect("miniapp policy");
-        MiniAppPolicyData {
+        let p = s.app_store.policy_snapshot(&app_id).map_err(host_err)?;
+        Ok(MiniAppPolicyData {
             app_id: p.app_id,
             reputation_score: p.reputation_score,
             safe_mode_active: p.safe_mode_active,
@@ -2805,22 +2802,20 @@ pub fn miniapp_get_policy(app_id: String) -> MiniAppPolicyData {
             user_safe_mode: p.user_safe_mode,
             revoked: p.revoked,
             strict_csp_eligible: p.strict_csp_eligible,
-        }
+        })
     })
 }
 
-pub fn miniapp_set_safe_mode(app_id: String, enabled: bool) {
+pub fn miniapp_set_safe_mode(app_id: String, enabled: bool) -> Result<(), MyceliumException> {
     with_state(|s| {
         s.app_store
             .set_user_safe_mode(&app_id, enabled)
-            .expect("set safe mode");
-    });
+            .map_err(host_err)
+    })
 }
 
-pub fn miniapp_report_app(app_id: String) {
-    with_state(|s| {
-        s.app_store.record_user_report(&app_id).expect("report app");
-    });
+pub fn miniapp_report_app(app_id: String) -> Result<(), MyceliumException> {
+    with_state(|s| s.app_store.record_user_report(&app_id).map_err(host_err))
 }
 
 fn mini_app_manifest_to_info(m: mycelium_app::miniapp::MiniAppManifest) -> MiniAppInfo {
@@ -2931,12 +2926,13 @@ pub fn install_official_bundle(app_id: String) -> Result<MiniAppInfo, MyceliumEx
     })
 }
 
-pub fn uninstall_app(app_id: String) {
+pub fn uninstall_app(app_id: String) -> Result<(), MyceliumException> {
     mycelium_app::miniapp::revoke_session(&app_id);
     with_state(|s| {
-        s.app_store.uninstall(&app_id).expect("uninstall mini-app");
+        s.app_store.uninstall(&app_id).map_err(host_err)?;
         let _ = s.app_node.storage().miniapp_clear_all_for_app(&app_id);
-    });
+        Ok(())
+    })
 }
 
 pub fn get_app_file(app_id: String, path: String) -> Option<Vec<u8>> {
@@ -2969,31 +2965,28 @@ pub fn miniapp_storage_get(app_id: String, key: String) -> Option<String> {
     })
 }
 
-pub fn miniapp_storage_set(app_id: String, key: String, value: String) {
+pub fn miniapp_storage_set(
+    app_id: String,
+    key: String,
+    value: String,
+) -> Result<(), MyceliumException> {
     use mycelium_app::miniapp::storage_quota::{validate_key, validate_value};
     with_state(|s| {
-        if let Err(e) = validate_key(&key) {
-            panic!("miniapp storage set: {e}");
-        }
-        if let Err(e) = validate_value(&value) {
-            panic!("miniapp storage set: {e}");
-        }
+        validate_key(&key).map_err(host_err)?;
+        validate_value(&value).map_err(host_err)?;
         let sk = format!("app:{app_id}:{key}");
         s.app_node
             .storage()
             .miniapp_set(&sk, &value)
-            .expect("miniapp storage set");
-    });
+            .map_err(host_err)
+    })
 }
 
-pub fn miniapp_storage_delete(app_id: String, key: String) {
+pub fn miniapp_storage_delete(app_id: String, key: String) -> Result<(), MyceliumException> {
     with_state(|s| {
         let sk = format!("app:{app_id}:{key}");
-        s.app_node
-            .storage()
-            .miniapp_delete(&sk)
-            .expect("miniapp storage delete");
-    });
+        s.app_node.storage().miniapp_delete(&sk).map_err(host_err)
+    })
 }
 
 pub fn miniapp_get_runtime(app_id: String) -> String {
@@ -3101,10 +3094,12 @@ fn with_state<T>(f: impl FnOnce(&NodeState) -> T) -> T {
     })
 }
 
+#[allow(clippy::expect_used)]
 fn runtime() -> &'static Runtime {
     RUNTIME.get().expect("runtime not initialized")
 }
 
+#[allow(clippy::expect_used)]
 fn state_arc() -> Arc<RwLock<NodeState>> {
     // POISON-RECOVER: clones existing Arc handle; poison before init still fails expect below.
     lock_or_recover!(NODE, "node lock")
@@ -3242,6 +3237,7 @@ fn to_mail_message(m: AppMailMessage, is_read: bool) -> MailMessage {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod poison_tests {
     use super::{CALLBACK, NODE};
     use mycelium_core::lock_or_recover;

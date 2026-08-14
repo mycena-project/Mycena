@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Mycelium Project
+#![deny(clippy::unwrap_used, clippy::expect_used)]
 mod node_boot;
 mod release;
 
@@ -12,7 +13,8 @@ use mycelium_app::node::AppNode;
 use mycelium_app::notify::NoopNotifier;
 use mycelium_app::storage::AppStorage;
 use mycelium_l1_facade::{
-    load_or_create_keypair, ConnectivityMonitor, NodeCommand, NodeConfig, NodeRunner,
+    load_or_create_keypair, ConnectivityMonitor, HostNodeOptions, NodeCommand, NodeConfig,
+    NodeRunner,
 };
 use node_boot::{boot_node, panic_wipe_db, RunArgs};
 use release::ReleaseCommands;
@@ -314,31 +316,20 @@ async fn cmd_app_publish_live(
     let listen_addr = listen.parse().context("invalid --listen multiaddr")?;
     let (connectivity, internet_enabled) = ConnectivityMonitor::new(true);
     ConnectivityMonitor::spawn_monitor(connectivity.mode_tx.clone(), internet_enabled.clone());
-    let config = NodeConfig {
+    let config = NodeConfig::for_host(HostNodeOptions {
         listen_addr,
         db_path: db.to_string(),
         keypair_path: None,
-        forwarding_interval_ms: 500,
-        sync_interval_secs: 30,
         bootstrap_peers: bootstrap.to_vec(),
         connectivity_rx: Some(connectivity.mode_rx),
         connectivity_mode_tx: Some(connectivity.mode_tx),
         display_name: Some("publisher".into()),
         storage_key: None,
-        max_relay_fanout: 3,
         rendezvous_enabled: true,
         internet_enabled,
         bulletin_subscriptions: Vec::new(),
-        max_peers: 50,
         crowd_mode: false,
-        local_geohash_prefix: None,
-        crowd_density_enter: 25,
-        crowd_density_clear: 20,
-        custody_enabled: true,
-        max_custody_spray: 3,
-        privacy_shaping: mycelium_l0_facade::privacy_shaping::PrivacyShapingConfig::disabled(),
-        protocol_capabilities_override: None,
-    };
+    });
     let (runner, handle) = NodeRunner::new(config)?;
     let publisher_peer = runner.local_peer_id().to_string();
     tokio::spawn(async move {

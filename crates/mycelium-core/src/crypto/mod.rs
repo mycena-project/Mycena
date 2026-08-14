@@ -2,8 +2,8 @@
 // Copyright (C) 2026 Mycelium Project
 //! Ende-zu-Ende-Verschlüsselung für Mycelium-Nachrichten.
 //!
-//! Direkt: X25519 ECDH → HKDF-SHA256 → ChaCha20-Poly1305 (legacy v0)  
-//! Ratchet: X3DH session setup + Double Ratchet (v1, [`ratchet`])  
+//! Direkt: X25519 ECDH → HKDF-SHA256 → ChaCha20-Poly1305 (legacy v0)
+//! Ratchet: X3DH session setup + Double Ratchet (v1, [`ratchet`])
 //! Gruppe: symmetrischer Pre-Shared Key → ChaCha20-Poly1305
 
 pub mod ratchet;
@@ -13,7 +13,6 @@ use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce};
 use hkdf::Hkdf;
 use sha2::Sha256;
 use x25519_dalek::{EphemeralSecret, PublicKey, SharedSecret, StaticSecret};
-use zeroize::Zeroize;
 
 pub use x25519_dalek::PublicKey as X25519PublicKey;
 
@@ -21,33 +20,23 @@ pub use x25519_dalek::PublicKey as X25519PublicKey;
 pub struct EncryptionKeypair {
     pub public: PublicKey,
     secret: StaticSecret,
-    secret_raw: [u8; 32],
 }
 
 impl EncryptionKeypair {
     pub fn generate() -> Self {
         let secret = StaticSecret::random();
-        let secret_raw = secret.to_bytes();
         let public = PublicKey::from(&secret);
-        Self {
-            secret,
-            public,
-            secret_raw,
-        }
+        Self { secret, public }
     }
 
     pub fn secret_bytes(&self) -> [u8; 32] {
-        self.secret_raw
+        self.secret.to_bytes()
     }
 
     pub fn from_secret_bytes(bytes: [u8; 32]) -> Self {
         let secret = StaticSecret::from(bytes);
         let public = PublicKey::from(&secret);
-        Self {
-            secret,
-            public,
-            secret_raw: bytes,
-        }
+        Self { secret, public }
     }
 
     pub fn public_hex(&self) -> String {
@@ -59,15 +48,9 @@ impl EncryptionKeypair {
     }
 }
 
-impl Drop for EncryptionKeypair {
-    fn drop(&mut self) {
-        self.secret_raw.zeroize();
-    }
-}
-
 impl Clone for EncryptionKeypair {
     fn clone(&self) -> Self {
-        Self::from_secret_bytes(self.secret_raw)
+        Self::from_secret_bytes(self.secret.to_bytes())
     }
 }
 

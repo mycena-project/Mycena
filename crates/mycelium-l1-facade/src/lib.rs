@@ -16,6 +16,6 @@ pub use mycelium_node::secrets::{
 };
 pub use mycelium_node::ConnectivityMode;
 pub use mycelium_node::{
-    load_or_create_keypair, load_or_create_keypair_from_env, DirectMessage, NodeCommand,
-    NodeConfig, NodeHandle, NodeMetrics, NodeRunner, WireMessage,
+    load_or_create_keypair, load_or_create_keypair_from_env, DirectMessage, HostNodeOptions,
+    NodeCommand, NodeConfig, NodeHandle, NodeMetrics, NodeRunner, SendPathError, WireMessage,
 };

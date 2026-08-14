@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Mycelium Project
+#![deny(clippy::unwrap_used, clippy::expect_used)]
 mod ble;
 mod discovery;
 mod share_server;
@@ -16,7 +17,7 @@ use mycelium_l0_facade::bootstrap::{load_custom_bootstrap_peers, save_custom_boo
 use mycelium_l0_facade::energy::NodeState;
 use mycelium_l1_facade::consistency::{OP_DIRECT_MESSAGE_SEND, OP_GOSSIP_BULLETIN_PUBLISH};
 use mycelium_l1_facade::ConnectivityMode;
-use mycelium_l1_facade::{NodeCommand, NodeConfig, NodeHandle, NodeRunner};
+use mycelium_l1_facade::{HostNodeOptions, NodeCommand, NodeConfig, NodeHandle, NodeRunner};
 use serde_json::json;
 use share_server::ShareServer;
 use std::path::PathBuf;
@@ -488,31 +489,23 @@ async fn start_node(
         connectivity.mode_tx.clone(),
         internet_enabled.clone(),
     );
-    let config = NodeConfig {
-        listen_addr: "/ip4/0.0.0.0/tcp/0".parse().expect("valid listen addr"),
+    let listen_addr = "/ip4/0.0.0.0/tcp/0"
+        .parse()
+        .map_err(|e| format!("invalid listen addr: {e}"))?;
+    let config = NodeConfig::for_host(HostNodeOptions {
+        listen_addr,
         db_path: db_path.clone(),
         keypair_path: Some(format!("{db_path}/identity")),
-        forwarding_interval_ms: 500,
-        sync_interval_secs: 30,
         bootstrap_peers,
         connectivity_rx: Some(connectivity.mode_rx.clone()),
         connectivity_mode_tx: Some(connectivity.mode_tx.clone()),
         display_name: Some(display_name.clone()),
         storage_key: None,
-        max_relay_fanout: 3,
         rendezvous_enabled: ui_settings.rendezvous_enabled && ui_settings.internet_enabled,
         internet_enabled: internet_enabled.clone(),
         bulletin_subscriptions: Vec::new(),
-        max_peers: 50,
         crowd_mode: ui_settings.crowd_mode,
-        local_geohash_prefix: None,
-        crowd_density_enter: 25,
-        crowd_density_clear: 20,
-        custody_enabled: true,
-        max_custody_spray: 3,
-        privacy_shaping: mycelium_l0_facade::privacy_shaping::PrivacyShapingConfig::disabled(),
-        protocol_capabilities_override: None,
-    };
+    });
     let (runner, handle) = NodeRunner::new(config).map_err(|e| e.to_string())?;
     let local_peer_id = runner.local_peer_id().to_string();
     let runner_task = tauri::async_runtime::spawn(async move {
@@ -639,8 +632,11 @@ async fn get_peers(state: State<'_, SharedState>) -> Result<Vec<String>, String>
 }
 
 #[tauri::command]
-fn get_relay_status() -> Result<serde_json::Value, String> {
-    let status = mycelium_l0_facade::relay_status::fetch_relay_status(None);
+async fn get_relay_status() -> Result<serde_json::Value, String> {
+    let status =
+        tokio::task::spawn_blocking(|| mycelium_l0_facade::relay_status::fetch_relay_status(None))
+            .await
+            .map_err(|e| e.to_string())?;
     serde_json::to_value(status).map_err(|e| e.to_string())
 }
 
@@ -2746,5 +2742,6 @@ pub fn run() {
             panic_wipe,
         ])
         .run(tauri::generate_context!())
-        .expect("error running tauri application");
+        // INVARIANT: process-fatal if the native window cannot start.
+        .unwrap_or_else(|e| panic!("error running tauri application: {e}"));
 }

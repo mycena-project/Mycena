@@ -42,7 +42,6 @@ impl PeerEncKeyStore {
         Ok(())
     }
 
-    #[allow(dead_code)]
     pub(crate) fn remove(&self, peer_id: &str) -> anyhow::Result<()> {
         self.tree.remove(peer_id.as_bytes())?;
         Ok(())

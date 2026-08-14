@@ -189,6 +189,7 @@ pub fn try_install_epidemic_bundle(
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
 

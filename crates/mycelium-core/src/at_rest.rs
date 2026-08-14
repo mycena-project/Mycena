@@ -98,6 +98,7 @@ impl SecretVault {
                             "recovered at-rest secret {name} with alternate master key; re-encrypting"
                         );
                         self.write_secret(name, &plaintext)?;
+                        delete_file_fallback_key(&self.db_path);
                         return Ok(Some(plaintext));
                     }
                 }
@@ -204,7 +205,7 @@ fn load_master_from_keyring(db_path: &str) -> anyhow::Result<[u8; KEY_LEN]> {
             let hex = hex::encode(key);
             match entry.set_password(&hex) {
                 Ok(()) => {
-                    let _ = persist_file_fallback_key(db_path, &key);
+                    delete_file_fallback_key(db_path);
                     Ok(key)
                 }
                 Err(_) => match entry.get_password() {
@@ -224,25 +225,15 @@ fn parse_master_key_hex(hex: &str) -> anyhow::Result<[u8; KEY_LEN]> {
         .map_err(|_| anyhow::anyhow!("invalid keyring master key length"))
 }
 
-fn persist_file_fallback_key(db_path: &str, key: &[u8; KEY_LEN]) -> anyhow::Result<()> {
+fn delete_file_fallback_key(db_path: &str) {
     let key_path = Path::new(db_path)
         .join(".secrets")
         .join("fallback_master.key");
     if key_path.exists() {
-        return Ok(());
+        if let Err(e) = std::fs::remove_file(&key_path) {
+            tracing::warn!("could not remove leftover fallback_master.key at {key_path:?}: {e}");
+        }
     }
-    if let Some(parent) = key_path.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-    let tmp_path = key_path.with_extension("tmp");
-    std::fs::write(&tmp_path, key)?;
-    std::fs::rename(&tmp_path, &key_path)?;
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(&key_path, std::fs::Permissions::from_mode(0o600))?;
-    }
-    Ok(())
 }
 
 /// Loads a persisted random key or creates one (per device, survives restarts).

@@ -2,9 +2,7 @@
 // Copyright (C) 2026 Mycelium Project
 use crate::bearer_mesh::BearerMeshRouter;
 use crate::bearer_webrtc::BearerWebRtcRouter;
-use crate::behaviour::{
-    make_direct_response, DirectMessageRequest, DirectMessageResponse, MeshBehaviour,
-};
+use crate::behaviour::{make_direct_response, DirectMessageRequest, MeshBehaviour};
 use crate::connectivity::{kad_action_for_mode, KadConnectivityAction};
 use futures::StreamExt;
 use libp2p::multiaddr::Protocol;
@@ -78,12 +76,10 @@ impl DirectPeerCap {
         }
     }
 
-    #[allow(dead_code)]
     pub fn len(&self) -> usize {
         self.peers.len()
     }
 
-    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.peers.is_empty()
     }
@@ -94,7 +90,7 @@ impl DirectPeerCap {
 
     pub fn set_max_peers(&mut self, max_peers: usize) {
         self.max_peers = max_peers;
-        while self.peers.len() > self.max_peers {
+        while !self.is_empty() && self.len() > self.max_peers {
             if let Some(oldest) = self.find_least_recently_used_peer() {
                 self.remove(&oldest);
             } else {
@@ -134,6 +130,11 @@ impl DirectPeerCap {
                 PeerAdmitAction::Evict(oldest)
             } else {
                 self.rejections = self.rejections.saturating_add(1);
+                tracing::debug!(
+                    "peer cap full ({}/{}), rejecting",
+                    self.len(),
+                    self.max_peers
+                );
                 PeerAdmitAction::Reject
             }
         } else {
@@ -1468,8 +1469,15 @@ impl Libp2pTransport {
     }
 }
 
-#[allow(dead_code)]
-fn _assert_response_type(_: DirectMessageResponse) {}
+fn hash_joined(prefix: &str, parts: impl IntoIterator<Item = impl AsRef<[u8]>>) -> String {
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(prefix.as_bytes());
+    for part in parts {
+        hasher.update(part.as_ref());
+        hasher.update(&[0]);
+    }
+    format!("{prefix}:{}", hasher.finalize().to_hex())
+}
 
 fn message_id_for_wire(message: &WireMessage) -> String {
     match message {
@@ -1477,30 +1485,13 @@ fn message_id_for_wire(message: &WireMessage) -> String {
         WireMessage::SyncBloom { bloom, count } => {
             format!("sync_bloom:{}:{}", count, blake3::hash(bloom).to_hex())
         }
-        WireMessage::SyncIds { ids } => format!(
-            "sync_ids:{}",
-            blake3::hash(ids.join(",").as_bytes()).to_hex()
+        WireMessage::SyncIds { ids } => hash_joined("sync_ids", ids),
+        WireMessage::SyncRequest { ids } => hash_joined("sync_req", ids),
+        WireMessage::SyncData { messages } => hash_joined(
+            "sync_data",
+            messages.iter().map(|m| m.envelope.id.0.as_str()),
         ),
-        WireMessage::SyncRequest { ids } => {
-            format!(
-                "sync_req:{}",
-                blake3::hash(ids.join(",").as_bytes()).to_hex()
-            )
-        }
-        WireMessage::SyncData { messages } => {
-            let joined = messages
-                .iter()
-                .map(|m| m.envelope.id.0.as_str())
-                .collect::<Vec<_>>()
-                .join(",");
-            format!("sync_data:{}", blake3::hash(joined.as_bytes()).to_hex())
-        }
-        WireMessage::ScopeAnnounce { scopes } => {
-            format!(
-                "scope_announce:{}",
-                blake3::hash(scopes.join(",").as_bytes()).to_hex()
-            )
-        }
+        WireMessage::ScopeAnnounce { scopes } => hash_joined("scope_announce", scopes),
         WireMessage::EncryptedDirect {
             encrypted_payload, ..
         } => {

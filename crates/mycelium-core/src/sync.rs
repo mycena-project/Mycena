@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Mycelium Project
 use serde::{Deserialize, Serialize};
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SyncDigest {
@@ -58,10 +56,13 @@ impl BloomFilter {
     }
 
     fn hash(&self, id: &str, seed: u64) -> u64 {
-        let mut h = DefaultHasher::new();
-        seed.hash(&mut h);
-        id.hash(&mut h);
-        h.finish()
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(&seed.to_le_bytes());
+        hasher.update(id.as_bytes());
+        let digest = hasher.finalize();
+        let mut buf = [0u8; 8];
+        buf.copy_from_slice(&digest.as_bytes()[..8]);
+        u64::from_le_bytes(buf)
     }
 }
 
