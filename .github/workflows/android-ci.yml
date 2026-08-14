@@ -54,6 +54,12 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Free runner disk
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost \
+            /opt/hostedtoolcache/CodeQL /usr/share/swift || true
+          df -h
+
       - uses: ./.github/actions/setup-rust-cache
         with:
           toolchain: "1.88.0"
