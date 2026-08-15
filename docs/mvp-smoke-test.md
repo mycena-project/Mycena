@@ -67,10 +67,10 @@ Send a mail from A to B:
 /mail <PEER_ID_OF_B> Hallo | Das ist eine Test-Mail ueber Mycelium.
 ```
 
-Check B inbox via REST:
+REST calls need the bearer token from node B's log (`TOKEN_B`):
 
 ```bash
-curl -s http://127.0.0.1:7761/api/v1/mail/inbox | jq
+curl -s -H "Authorization: Bearer $TOKEN_B" http://127.0.0.1:7761/api/v1/mail/inbox | jq
 ```
 
 Expected: at least one mail entry with `subject = "Hallo"`.
@@ -78,7 +78,7 @@ Expected: at least one mail entry with `subject = "Hallo"`.
 Mark the message as read (replace `<MAIL_ID>`):
 
 ```bash
-curl -s -X PUT http://127.0.0.1:7761/api/v1/mail/<MAIL_ID>/read | jq
+curl -s -H "Authorization: Bearer $TOKEN_B" -X PUT http://127.0.0.1:7761/api/v1/mail/<MAIL_ID>/read | jq
 ```
 
 ## 4) Chat Test
@@ -98,7 +98,7 @@ In B terminal:
 REST check:
 
 ```bash
-curl -s http://127.0.0.1:7761/api/v1/chat/<PEER_ID_OF_A> | jq
+curl -s -H "Authorization: Bearer $TOKEN_B" http://127.0.0.1:7761/api/v1/chat/<PEER_ID_OF_A> | jq
 ```
 
 Expected: latest chat contains `"Hi Bob!"`.
@@ -120,30 +120,37 @@ In B terminal:
 REST check:
 
 ```bash
-curl -s http://127.0.0.1:7761/api/v1/bulletin/berlin%2Fmitte | jq
+curl -s -H "Authorization: Bearer $TOKEN_B" http://127.0.0.1:7761/api/v1/bulletin/berlin%2Fmitte | jq
 ```
 
 Expected: one bulletin with title `Markt`.
 
 ## 6) API Status and Settings
 
+The loopback API requires a bearer token (printed at node start, or set `MYCELIUM_API_TOKEN` before launch). `GET /api/v1/health` is unauthenticated.
+
+```bash
+export TOKEN='<token from node A log>'
+AUTH=(-H "Authorization: Bearer $TOKEN")
+```
+
 Check status:
 
 ```bash
-curl -s http://127.0.0.1:7760/api/v1/status | jq
-curl -s http://127.0.0.1:7761/api/v1/status | jq
+curl -s "${AUTH[@]}" http://127.0.0.1:7760/api/v1/status | jq
+curl -s -H "Authorization: Bearer $TOKEN_B" http://127.0.0.1:7761/api/v1/status | jq
 ```
 
 Check settings:
 
 ```bash
-curl -s http://127.0.0.1:7760/api/v1/settings | jq
+curl -s "${AUTH[@]}" http://127.0.0.1:7760/api/v1/settings | jq
 ```
 
 Update display name:
 
 ```bash
-curl -s -X PUT http://127.0.0.1:7760/api/v1/settings/name \
+curl -s "${AUTH[@]}" -X PUT http://127.0.0.1:7760/api/v1/settings/name \
   -H 'content-type: application/json' \
   -d '{"display_name":"AliceMesh"}' | jq
 ```
@@ -151,7 +158,7 @@ curl -s -X PUT http://127.0.0.1:7760/api/v1/settings/name \
 Update energy state:
 
 ```bash
-curl -s -X PUT http://127.0.0.1:7760/api/v1/settings/energy \
+curl -s "${AUTH[@]}" -X PUT http://127.0.0.1:7760/api/v1/settings/energy \
   -H 'content-type: application/json' \
   -d '{"state":"intermittent"}' | jq
 ```
@@ -171,7 +178,7 @@ curl -s -X PUT http://127.0.0.1:7760/api/v1/settings/energy \
   - ensure both terminals run on same host/LAN
 - If REST fails:
   - verify API port in startup command
-  - check `http://127.0.0.1:7760/api/v1/status`
+  - check `GET /api/v1/health` then `GET /api/v1/status` with `Authorization: Bearer`
 - If message not delivered:
   - verify peer ID copied correctly
   - run `/peers` before `/chat` or `/mail`
@@ -304,4 +311,3 @@ Automated: `cargo test --workspace` including `mycelium-core::relay_pool` and `m
 | 6 | Not 911 | UI disclaimer visible on SOS screens |
 
 Automated: `cargo test -p mycelium-node ingest_guard::tests::sos_*` and `cargo test -p mycelium-core sos`.
-

@@ -68,9 +68,11 @@
 
 <section class="share-view">
   <h2>Share Mycelium</h2>
-  <p class="lead">
+    <p class="lead">
     When the internet is down, phones on the same Wi‑Fi can install Mycelium from this computer —
-    no Play Store or App Store required for Android.
+    no Play Store or App Store required for Android. Sharing uses plain HTTP on the LAN with a
+    one-time URL token; anyone on this network who has the link can download. Prefer verifying
+    the APK checksum with the person sharing.
   </p>
 
   {#if error}

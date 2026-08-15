@@ -116,7 +116,7 @@ private fun RelayStatusBadge() {
             withContext(Dispatchers.IO) {
                 relayStatus =
                     try {
-                        val statusUrl = java.net.URL("https://mycelium-relay.fly.dev/")
+                        val statusUrl = java.net.URL("https://mycelium-relay.fly.dev/health")
                         val statusConn = statusUrl.openConnection() as java.net.HttpURLConnection
                         statusConn.connectTimeout = 3000
                         statusConn.readTimeout = 3000
@@ -125,31 +125,30 @@ private fun RelayStatusBadge() {
                                 org.json.JSONObject(
                                     statusConn.inputStream.bufferedReader().readText(),
                                 )
-                            var reachable = 0L
-                            try {
-                                val rendezvousUrl =
-                                    java.net.URL("https://mycelium-relay.fly.dev/rendezvous")
-                                val rendezvousConn =
-                                    rendezvousUrl.openConnection() as java.net.HttpURLConnection
-                                rendezvousConn.connectTimeout = 3000
-                                rendezvousConn.readTimeout = 3000
-                                if (rendezvousConn.responseCode == 200) {
-                                    val rendezvousJson =
-                                        org.json.JSONObject(
-                                            rendezvousConn.inputStream.bufferedReader().readText(),
-                                        )
-                                    reachable =
-                                        rendezvousJson.optJSONArray("peers")?.length()?.toLong()
-                                            ?: 0L
+                            if (!statusJson.optBoolean("ok", false)) {
+                                RelayStatus(online = false, reachable = 0)
+                            } else {
+                                var reachable = 0L
+                                try {
+                                    val rendezvousUrl =
+                                        java.net.URL("https://mycelium-relay.fly.dev/rendezvous")
+                                    val rendezvousConn =
+                                        rendezvousUrl.openConnection() as java.net.HttpURLConnection
+                                    rendezvousConn.connectTimeout = 3000
+                                    rendezvousConn.readTimeout = 3000
+                                    if (rendezvousConn.responseCode == 200) {
+                                        val rendezvousJson =
+                                            org.json.JSONObject(
+                                                rendezvousConn.inputStream.bufferedReader().readText(),
+                                            )
+                                        reachable =
+                                            rendezvousJson.optJSONArray("peers")?.length()?.toLong()
+                                                ?: 0L
+                                    }
+                                } catch (_: Exception) {
                                 }
-                            } catch (_: Exception) {
+                                RelayStatus(online = true, reachable = reachable)
                             }
-                            if (reachable == 0L) {
-                                reachable =
-                                    statusJson.optLong("reachable_peers", 0).takeIf { it > 0 }
-                                        ?: statusJson.optLong("unique_peers", 0)
-                            }
-                            RelayStatus(online = true, reachable = reachable)
                         } else {
                             RelayStatus(online = false, reachable = 0)
                         }

@@ -19,10 +19,11 @@ pub struct RelayStatus {
     pub peer_id: Option<String>,
 }
 
-/// Fetch relay status JSON from `https://<host>/` (blocking).
+/// Fetch relay liveness from `https://<host>/health` (blocking).
+/// Full telemetry on `/status` is operator-token-gated and is not queried here.
 pub fn fetch_relay_status(host: Option<&str>) -> RelayStatus {
     let host = host.unwrap_or(DEFAULT_RELAY_HOST);
-    let url = format!("https://{host}/");
+    let url = format!("https://{host}/health");
     let reachable_peers = fetch_relay_rendezvous_count(host);
     let resp = match ureq::get(&url)
         .timeout(std::time::Duration::from_secs(8))
@@ -53,46 +54,18 @@ pub fn fetch_relay_status(host: Option<&str>) -> RelayStatus {
             };
         }
     };
-    let status = body
-        .get("status")
-        .and_then(|v| v.as_str())
-        .unwrap_or("unknown")
-        .to_string();
-    let online = status == "ok";
-    let connections = body
-        .get("connections")
-        .and_then(|v| v.as_u64())
-        .unwrap_or(0);
-    let unique_peers = body
-        .get("unique_peers")
-        .and_then(|v| v.as_u64())
-        .unwrap_or_else(|| {
-            body.get("connected_peers")
-                .and_then(|v| v.as_u64())
-                .unwrap_or(0)
-        });
-    let reachable_from_status = body
-        .get("reachable_peers")
-        .and_then(|v| v.as_u64())
-        .unwrap_or(0);
-    let reachable_peers = if reachable_from_status > 0 {
-        reachable_from_status
-    } else if reachable_peers > 0 {
-        reachable_peers
-    } else {
-        unique_peers
-    };
-    let peer_id = body
-        .get("peer_id")
-        .and_then(|v| v.as_str())
-        .map(str::to_string);
+    let online = body.get("ok").and_then(|v| v.as_bool()).unwrap_or(false);
     RelayStatus {
         online,
-        status,
-        connections,
-        unique_peers,
+        status: if online {
+            "ok".into()
+        } else {
+            "offline".into()
+        },
+        connections: 0,
+        unique_peers: 0,
         reachable_peers,
-        peer_id,
+        peer_id: None,
     }
 }
 

@@ -159,9 +159,5 @@ pub async fn boot_node(args: &RunArgs) -> anyhow::Result<BootedNode> {
 }
 
 pub fn panic_wipe_db(db: &str) -> anyhow::Result<()> {
-    let path = PathBuf::from(db);
-    if path.exists() {
-        std::fs::remove_dir_all(&path).with_context(|| format!("remove {db}"))?;
-    }
-    Ok(())
+    mycelium_l0_facade::wipe_node_directory(PathBuf::from(db).as_path())
 }

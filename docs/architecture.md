@@ -1,52 +1,47 @@
-# Mycelium Architecture (MVP-Oriented)
+# Mycelium Architecture
 
-## Workspace Layout
+Current layout (2026-08). The stack is **Android-first** with a shared Rust mesh core. This is not a CLI-only MVP.
 
-- `crates/mycelium-core`: shared data model + traits (no transport runtime dependencies).
-- `crates/mycelium-node`: libp2p-backed node engine (discovery, direct messaging, persistence).
-- `crates/mycelium-cli`: operator-facing test CLI for local mesh experiments.
-- `docs/research-notes.md`: design inputs from Briar, Serval, BATMAN, Freifunk, IPFS, DTN.
+## Workspace crates
 
-## Module Boundaries
+| Crate | Role |
+|-------|------|
+| `mycelium-core` | Crypto, wire formats, at-rest vault, protocol IDs (L0) |
+| `mycelium-l0-facade` | Stable app-facing re-exports of L0 (`EncKey`, invites, wipe helpers) |
+| `mycelium-node` | libp2p node, gossip, custody DTN, ingest (L1) |
+| `mycelium-l1-facade` | Stable node API (`NodeHandle`, `WireMessage`) |
+| `mycelium-app` | Chat, contacts, loopback HTTP API, mini-app bridge host (L3) |
+| `mycelium-miniapp` | Manifests, bundles, wasmtime sandbox (L2) |
+| `mycelium-coin` | Experimental local MeshCoin ledger (preview only) |
+| `mycelium-ffi` | UniFFI for Android (and future iOS) |
+| `mycelium-cli` | Operator CLI + loopback API |
+| `mycelium-desktop` | Tauri desktop host |
+| `mycelium-relay` | Public libp2p relay + token-gated `/status` |
+| `mycelium-sim` | MyceliumLab simulations / CI gates |
 
-- `connectivity/` (inside node behavior): interface transport adapters, currently TCP/LAN + mDNS discovery.
-- `transport/` (core + node): direct request/response + gossip dissemination.
-- `data/` (core): content-addressed envelope IDs, TTL, priority.
-- `identity/` (core): peer identity model (ed25519 peer IDs from libp2p keypairs).
-- `sync/` (core placeholder): Bloom-filter digest model for delta exchange.
-- `energy/` (core): node energy state (`Active`, `Intermittent`, `Passive`) and scheduling hints.
+Layer rules: [adr/005-layer-cargo-boundaries.md](./adr/005-layer-cargo-boundaries.md). Enforced by `scripts/check-layer-boundaries.sh` (includes CLI and relay).
 
 ## Mobile hosts
 
-Android (Kotlin/Compose + UniFFI) is the primary mobile beta. A future iOS app will use the **same** `mycelium.udl` contract with Swift bindings; desktop uses direct Rust in Tauri instead.
+Android (Kotlin/Compose + UniFFI) is the **shipping** beta host. iOS is a SwiftUI shell over the same UniFFI contract — Simulator/device scaffolding exists; it is **not** App Store ready. Desktop uses native Rust in Tauri (not UniFFI).
 
-- Strategy and phased plan: [MOBILE_PLATFORMS.md](./MOBILE_PLATFORMS.md)
-- Architecture decision: [adr/001-mobile-host-architecture.md](./adr/001-mobile-host-architecture.md)
-- iOS scaffold: [../ios/README.md](../ios/README.md)
+- [MOBILE_PLATFORMS.md](./MOBILE_PLATFORMS.md)
+- [adr/001-mobile-host-architecture.md](./adr/001-mobile-host-architecture.md)
+- [../ios/README.md](../ios/README.md)
 
-## Core Traits and Data Types
+## Runtime flow
 
-- `MessageStore`: persistence boundary for local-first durability (currently sled implementation in node crate).
-- `Envelope`: transport-neutral metadata (`id`, source/destination, payload, TTL, priority).
-- `DirectMessage`: typed user payload bound to an envelope.
+1. Host boots an ed25519 identity (at-rest vault; Android Keystore/StrongBox-backed master when available).
+2. libp2p listens (TCP/QUIC); mDNS discovers LAN peers; optional BLE / Wi-Fi Direct / relay circuit.
+3. Direct chat is fail-closed until an encryption public key is known; gossip is signed at the envelope layer.
+4. Store-and-forward uses sled with TTL; custody DTN is experimental.
+5. Loopback HTTP API (CLI) requires a bearer token; panic wipe only deletes the configured node directory.
 
-## MVP Execution Flow
+## Tradeoffs
 
-1. Node boots with ed25519 identity and starts listening on a multiaddr.
-2. mDNS discovers peers on LAN and updates explicit gossip peers.
-3. CLI can send:
-   - direct one-hop message: `/send <peer_id> <text>`
-   - gossip broadcast: `<text>`
-4. inbound/outbound messages are persisted locally (sled) before/after exchange.
-5. direct requests return lightweight acknowledgements for delivery feedback.
+- **libp2p** — composable discovery; large dependency surface (see [DEPENDENCY_RISK.md](./DEPENDENCY_RISK.md)).
+- **sled 0.34** — embedded KV; effectively unmaintained; migration planned.
+- **mDNS** — LAN-only; Internet path needs relay or QR.
+- **MeshCoin / WASM / WebRTC** — preview or experimental; not beta security claims.
 
-## Tradeoffs (Current MVP)
-
-- Chosen: `libp2p` for composable discovery + transport protocols.
-  - Tradeoff: larger dependency surface than bespoke UDP/TCP stack.
-- Chosen: sled for embeddable local durability.
-  - Tradeoff: eventually may need SQLite for richer query/index migration paths.
-- Chosen: mDNS discovery for LAN-first environments.
-  - Tradeoff: not useful across routed/network-partition boundaries without relay rendezvous (opt-in) or manual multiaddr/QR.
-- Relay rendezvous: HTTP opt-in peer list on the public relay; nodes dial every ~45s when enabled in settings.
-- Contacts (app layer): chat gated on accepted contacts; transport peers shown separately on Peers tab.
+Deeper: [CONNECT.md](./CONNECT.md) · [THREAT_MODEL.md](./THREAT_MODEL.md) · [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md)

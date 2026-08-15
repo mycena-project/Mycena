@@ -1,7 +1,7 @@
 # Mycelium — Architecture Risk Ledger
 
-**Status:** Pre-public beta · living document  
-**Last updated:** May 2026  
+**Status:** Pre-public beta · living document
+**Last updated:** May 2026
 **Companion:** [SECURITY_DEBT_REGISTER.md](./SECURITY_DEBT_REGISTER.md)
 
 This ledger describes **systemic** risks arising from architectural choices—not individual bugs. It assumes:
@@ -39,7 +39,7 @@ This ledger describes **systemic** risks arising from architectural choices—no
 
 **What we do NOT trust:** arbitrary peers, bulletin content, mini-app HTML, gossip author strings without signature, witness peer IDs, custom bootstrap pasted by user.
 
-**What we incorrectly trust today:** first `PeerInfo` enc key per peer; unsigned `Data` frames; local re-signatures on gossip ingest; relay reachability probe as “Internet OK.”
+**What we incorrectly trust today:** first `PeerInfo` enc key per peer; relay `/health` as “Internet OK.” Unsigned `Data` and local gossip re-sign are mitigated (SD-030, SD-080) — do not regress.
 
 ---
 

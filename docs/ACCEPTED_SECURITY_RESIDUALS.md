@@ -2,7 +2,7 @@
 
 **Purpose:** Written record of risks we **accept** for Play public beta, pending Phase C/D work or external review sign-off.
 
-**Authority:** Engineering + product; legal review recommended before wide marketing.
+**These residuals are not signed.** Empty names below mean **no** engineering/product/external sign-off has occurred. Do not treat this table as a release certificate.
 
 **Cross-ref:** [THREAT_MODEL.md](./THREAT_MODEL.md) §5 · [BETA_SECURITY_ASSESSMENT.md](./BETA_SECURITY_ASSESSMENT.md)
 
@@ -53,4 +53,5 @@
 
 | Date | Change |
 |------|--------|
+| Aug 2026 | Documented that this table is unsigned; no names filled |
 | Jul 2026 | Initial residual register for Play beta |

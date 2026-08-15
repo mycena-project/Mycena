@@ -3,7 +3,7 @@
 
 use anyhow::Context;
 use clap::Subcommand;
-use mycelium_core::release_integrity::{
+use mycelium_l0_facade::release_integrity::{
     artifact_blake3_hex, build_release_signature, compute_build_recipe_digest, merge_signatures,
     release_signer_keypair, ReleaseIntegrityManifest, ReleaseThreshold, RELEASE_INTEGRITY_FORMAT,
     RELEASE_SIGNER_IDS,

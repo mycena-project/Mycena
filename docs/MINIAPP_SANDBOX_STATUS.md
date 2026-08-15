@@ -17,7 +17,7 @@ Mycelium unterstützt jetzt ein **Hybrid-Runtime-Modell**:
 
 **Neu implementiert (Jul 2026):**
 
-- `wasmtime` v28 als Feature `wasm-runtime` (Default) in `mycelium-miniapp`
+- `wasmtime` v36 as Feature `wasm-runtime` (Default) in `mycelium-miniapp`
 - **Fuel-Metering** — deterministisches CPU-Budget pro Invocation
 - **Memory-Limit** — `ResourceLimiter` auf `Store` (Default 16 MiB linear memory)
 - **Execution-Timeout** — Epoch-Interruption + Wall-Clock-Watcher (Default 5 s)
@@ -171,7 +171,7 @@ cargo test -p mycelium-miniapp
 
 | Anforderung | Status | Anmerkung |
 |-------------|--------|-----------|
-| wasmtime-Dependency | ✅ | Workspace `wasmtime = 28`, Feature `wasm-runtime` (default) |
+| wasmtime-Dependency | ✅ | Workspace `wasmtime = 36`, Feature `wasm-runtime` (default) |
 | Fuel-Metering | ✅ | `consume_fuel(true)` + `Store::set_fuel` |
 | Memory-Limits | ✅ | `ResourceLimiter` 16 MiB default |
 | Execution-Timeout | ✅ | Epoch + Background-Thread |

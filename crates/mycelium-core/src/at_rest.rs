@@ -4,14 +4,15 @@
 //!
 //! Master key resolution (first match):
 //! 1. Explicit `storage_key` (32 bytes) — Android host passes key from EncryptedSharedPreferences
-//!    (Keystore-backed MasterKey for prefs only; see docs/SECURE_HARDWARE_STATUS.md).
+//!    (Keystore-backed MasterKey for prefs only; StrongBox requested when available).
 //! 2. OS keyring entry scoped per `db_path`.
-//! 3. Random per-device file-based key (fallback; weaker than keyring, not path-derived).
+//! 3. Existing file-fallback key (legacy installs only). New installs refuse a weak file master
+//!    if the OS keyring is unavailable (SD-131).
 
 use chacha20poly1305::aead::{Aead, KeyInit};
 use chacha20poly1305::{ChaCha20Poly1305, Nonce};
 use rand::RngCore;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use zeroize::Zeroizing;
 
 const SERVICE: &str = "network.mycelium";
@@ -143,6 +144,58 @@ impl SecretVault {
     pub fn secrets_dir(&self) -> &Path {
         &self.secrets_dir
     }
+}
+
+/// True when `db_path` looks like a Mycelium node data directory (not `/`, `$HOME`, etc.).
+pub fn looks_like_mycelium_db(db_path: &Path) -> bool {
+    if db_path.join(".secrets").is_dir()
+        || db_path.join("identity").exists()
+        || db_path.join("app").exists()
+        || db_path.join("coin").exists()
+        || db_path.join("miniapp").exists()
+    {
+        return true;
+    }
+    db_path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .is_some_and(|n| n.contains("mycelium"))
+}
+
+/// Reject path traversal, filesystem roots, and directories that are not Mycelium DBs.
+pub fn validate_wipe_target(db_path: &Path) -> anyhow::Result<()> {
+    if db_path.as_os_str().is_empty() {
+        anyhow::bail!("empty db path");
+    }
+    if db_path
+        .components()
+        .any(|c| matches!(c, Component::ParentDir))
+    {
+        anyhow::bail!("refusing wipe path containing '..'");
+    }
+    if db_path == Path::new("/") || db_path == Path::new("\\") {
+        anyhow::bail!("refusing to wipe filesystem root");
+    }
+    if let Ok(home) = std::env::var("HOME") {
+        let home_path = Path::new(&home);
+        if db_path == home_path {
+            anyhow::bail!("refusing to wipe home directory");
+        }
+    }
+    if db_path.exists() && db_path.is_dir() && !looks_like_mycelium_db(db_path) {
+        anyhow::bail!("refusing to wipe directory that is not a Mycelium node database");
+    }
+    Ok(())
+}
+
+/// Secure-delete a Mycelium node directory after [`validate_wipe_target`].
+pub fn wipe_node_directory(db_path: &Path) -> anyhow::Result<()> {
+    validate_wipe_target(db_path)?;
+    if db_path.exists() {
+        std::fs::remove_dir_all(db_path)?;
+    }
+    clear_keyring_master(&db_path.to_string_lossy());
+    Ok(())
 }
 
 /// Remove the macOS Keychain / platform keyring master key for this data directory.
@@ -440,7 +493,18 @@ mod tests {
             SecretVault::open_with_migration(db_path.to_str().unwrap(), Some(master)).unwrap();
         vault.write_secret("identity", b"x").unwrap();
         assert!(vault.secrets_dir().exists());
-        std::fs::remove_dir_all(db_path).unwrap();
+        wipe_node_directory(db_path).unwrap();
         assert!(!db_path.exists());
+    }
+
+    #[test]
+    fn wipe_rejects_parent_dir_and_non_db() {
+        assert!(validate_wipe_target(Path::new("../etc")).is_err());
+        assert!(validate_wipe_target(Path::new("/")).is_err());
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("unrelated.txt"), b"no").unwrap();
+        assert!(validate_wipe_target(dir.path()).is_err());
+        let missing = dir.path().join("never-created-mycelium-node");
+        assert!(validate_wipe_target(&missing).is_ok());
     }
 }

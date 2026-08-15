@@ -48,8 +48,8 @@ Behavior:
 Compatibility details:
 
 - old stored messages deserialize cleanly due to `serde(default)`
-- signature verification is enforced only when a signature exists
-- unsigned legacy messages remain accepted for backward compatibility
+- signature verification is required on direct `Data` frames (SD-030); unsigned `Data` is dropped
+- gossip relay bodies stay unsigned at the envelope; inner payload carries its own auth
 
 ## 4) Anti-Entropy (Bloom)
 

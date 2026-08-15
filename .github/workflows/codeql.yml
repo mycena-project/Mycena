@@ -1,7 +1,12 @@
 name: CodeQL
 
-# Private-repo frugal: no weekly schedule (minutes). Run manually when needed.
 on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  schedule:
+    - cron: "17 5 * * 1"
   workflow_dispatch:
 
 concurrency:
@@ -46,6 +51,5 @@ jobs:
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
         with:
-          # Private repos: SARIF upload to the Code Security tab is not available;
-          # keep analysis in CI only (same as the maintainer's other projects).
-          upload: never
+          # Public repos can upload SARIF; private repos without GHAS cannot.
+          upload: ${{ github.event.repository.private && 'never' || 'always' }}

@@ -1,11 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Mycelium Project
-use axum::{
-    extract::State,
-    http::StatusCode,
-    routing::{get, post},
-    Json, Router,
-};
+mod status_http;
+
 use clap::Parser;
 use libp2p::kad::store::MemoryStore;
 use libp2p::{
@@ -14,8 +10,10 @@ use libp2p::{
     swarm::{NetworkBehaviour, SwarmEvent},
     tcp, yamux, Multiaddr, SwarmBuilder,
 };
-use mycelium_core::lock_recover::{read_rwlock_or_recover, write_rwlock_or_recover};
-use serde::Deserialize;
+use mycelium_l0_facade::lock_recover::write_rwlock_or_recover;
+use mycelium_l0_facade::protocol::IDENTIFY_PROTOCOL;
+use mycelium_l1_facade::load_or_create_keypair_from_env;
+use status_http::{status_router, StatusState};
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, RwLock};
@@ -33,6 +31,12 @@ struct Args {
     keypair_path: Option<String>,
     #[arg(long, default_value_t = 8080)]
     status_port: u16,
+    /// Bind address for the HTTP status port (health is public; /status needs a token).
+    #[arg(long, default_value = "0.0.0.0")]
+    status_bind: String,
+    /// Bearer token for GET /status. Env: MYCELIUM_RELAY_STATUS_TOKEN.
+    #[arg(long)]
+    status_token: Option<String>,
 }
 
 #[derive(NetworkBehaviour)]
@@ -41,74 +45,6 @@ struct RelayBehaviour {
     identify: identify::Behaviour,
     ping: ping::Behaviour,
     kad: kad::Behaviour<MemoryStore>,
-}
-
-#[derive(Clone)]
-struct StatusState {
-    peer_id: String,
-    connections: Arc<AtomicU64>,
-    reservations: Arc<AtomicU64>,
-    connected_peers: Arc<RwLock<HashSet<String>>>,
-    rendezvous_opt_in: Arc<RwLock<HashSet<String>>>,
-    started: Instant,
-    version: &'static str,
-}
-
-#[derive(Debug, Deserialize)]
-struct RendezvousPeerBody {
-    peer_id: String,
-}
-
-async fn rendezvous(State(s): State<StatusState>) -> Json<serde_json::Value> {
-    let connected = read_rwlock_or_recover(&s.connected_peers, "relay connected_peers");
-    let opt_in = read_rwlock_or_recover(&s.rendezvous_opt_in, "relay rendezvous_opt_in");
-    let peers: Vec<String> = connected
-        .iter()
-        .filter(|p| opt_in.contains(*p))
-        .cloned()
-        .collect();
-    Json(serde_json::json!({ "peers": peers }))
-}
-
-async fn rendezvous_register(
-    State(s): State<StatusState>,
-    Json(body): Json<RendezvousPeerBody>,
-) -> StatusCode {
-    if body.peer_id.is_empty() {
-        return StatusCode::BAD_REQUEST;
-    }
-    write_rwlock_or_recover(&s.rendezvous_opt_in, "relay rendezvous_opt_in").insert(body.peer_id);
-    StatusCode::NO_CONTENT
-}
-
-async fn rendezvous_unregister(
-    State(s): State<StatusState>,
-    Json(body): Json<RendezvousPeerBody>,
-) -> StatusCode {
-    write_rwlock_or_recover(&s.rendezvous_opt_in, "relay rendezvous_opt_in").remove(&body.peer_id);
-    StatusCode::NO_CONTENT
-}
-
-async fn status(
-    axum::extract::State(s): axum::extract::State<StatusState>,
-) -> Json<serde_json::Value> {
-    Json(serde_json::json!({
-        "status": "ok",
-        "peer_id": s.peer_id,
-        "connections": s.connections.load(Ordering::Relaxed),
-        "reservations": s.reservations.load(Ordering::Relaxed),
-        "uptime_secs": s.started.elapsed().as_secs(),
-        "version": s.version,
-        "wire_protocol": mycelium_core::protocol::IDENTIFY_PROTOCOL,
-    }))
-}
-
-async fn health(State(s): State<StatusState>) -> Json<serde_json::Value> {
-    // Public surface: ok + version only (SD-003). Full telemetry stays on `/status`.
-    Json(serde_json::json!({
-        "ok": true,
-        "version": s.version,
-    }))
 }
 
 fn atomic_saturating_sub(a: &AtomicU64) {
@@ -131,7 +67,7 @@ async fn main() -> anyhow::Result<()> {
     let keypair_path = args
         .keypair_path
         .unwrap_or_else(|| ".mycelium-relay/identity".to_string());
-    let key = mycelium_node::load_or_create_keypair_from_env(&keypair_path)?;
+    let key = load_or_create_keypair_from_env(&keypair_path)?;
     let local_peer_id = key.public().to_peer_id();
 
     info!("Relay Peer ID: {local_peer_id}");
@@ -142,6 +78,15 @@ async fn main() -> anyhow::Result<()> {
 
     let connected_peers = Arc::new(RwLock::new(HashSet::new()));
     let rendezvous_opt_in = Arc::new(RwLock::new(HashSet::new()));
+    let status_token = args
+        .status_token
+        .or_else(|| std::env::var("MYCELIUM_RELAY_STATUS_TOKEN").ok())
+        .filter(|t| t.len() >= 16);
+    if status_token.is_none() {
+        tracing::warn!(
+            "MYCELIUM_RELAY_STATUS_TOKEN unset — GET /status is disabled; /health stays public"
+        );
+    }
     let state = StatusState {
         peer_id: local_peer_id.to_string(),
         connections: connections.clone(),
@@ -150,21 +95,19 @@ async fn main() -> anyhow::Result<()> {
         rendezvous_opt_in: rendezvous_opt_in.clone(),
         started: Instant::now(),
         version: env!("CARGO_PKG_VERSION"),
+        status_token,
     };
-    let app = Router::new()
-        .route("/", get(status))
-        .route("/health", get(health))
-        .route("/rendezvous", get(rendezvous))
-        .route("/rendezvous/register", post(rendezvous_register))
-        .route("/rendezvous/unregister", post(rendezvous_unregister))
-        .with_state(state);
+    let app = status_router(state);
     let status_port = args.status_port;
+    let status_bind = args.status_bind.clone();
     tokio::spawn(async move {
-        let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{status_port}"))
+        let listener = tokio::net::TcpListener::bind(format!("{status_bind}:{status_port}"))
             .await
             .expect("bind status port");
-        info!("Status server on http://0.0.0.0:{status_port}");
-        let _ = axum::serve(listener, app).await;
+        info!("Status server on http://{status_bind}:{status_port} (/health public, /status token-gated)");
+        if let Err(e) = axum::serve(listener, app).await {
+            tracing::warn!("status server exited: {e}");
+        }
     });
 
     let mut swarm = SwarmBuilder::with_existing_identity(key)
@@ -177,7 +120,7 @@ async fn main() -> anyhow::Result<()> {
         .with_quic()
         .with_behaviour(|key| {
             let identify = identify::Behaviour::new(identify::Config::new(
-                mycelium_core::protocol::IDENTIFY_PROTOCOL.into(),
+                IDENTIFY_PROTOCOL.into(),
                 key.public(),
             ));
             Ok(RelayBehaviour {
@@ -200,7 +143,7 @@ async fn main() -> anyhow::Result<()> {
                 kad: {
                     let local_peer_id = key.public().to_peer_id();
                     let mut config = kad::Config::new(libp2p::StreamProtocol::new(
-                        mycelium_core::protocol::KAD_PROTOCOL,
+                        mycelium_l0_facade::protocol::KAD_PROTOCOL,
                     ));
                     config.set_query_timeout(Duration::from_secs(60));
                     let mut behaviour = kad::Behaviour::with_config(

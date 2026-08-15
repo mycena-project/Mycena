@@ -61,7 +61,7 @@ mod tests {
     use super::{address_from_keypair, validate_address, CoinNode, CoinTransport};
     use async_trait::async_trait;
     use libp2p::identity::Keypair;
-    use mycelium_core::lock_or_recover;
+    use mycelium_l0_facade::lock_recover::lock_or_recover;
     use std::path::Path;
     use std::sync::{Arc, Mutex};
     use tempfile::tempdir;
@@ -323,7 +323,7 @@ mod tests {
         impl CoinTransport for Capture {
             async fn broadcast_coin_inner(&self, inner: Vec<u8>) -> anyhow::Result<()> {
                 // POISON-RECOVER: test capture vec; push is atomic.
-                lock_or_recover!(self.0, "coin test capture").push(inner);
+                lock_or_recover(&self.0, "coin test capture").push(inner);
                 Ok(())
             }
 
@@ -354,7 +354,7 @@ mod tests {
         cold_node.handle_incoming(payload, "p99").await.unwrap();
 
         // POISON-RECOVER: test broadcast capture; len check is test-only assertion.
-        assert_eq!(lock_or_recover!(outs, "coin test outs").len(), 1);
+        assert_eq!(lock_or_recover(&outs, "coin test outs").len(), 1);
         let hot_acc = cold_ledger.account_state(&hot_addr).unwrap();
         assert_eq!(hot_acc.pending_received, 10 * MUON_PER_MXC);
         let spent = 10 * MUON_PER_MXC + 1000;
@@ -493,7 +493,7 @@ mod tests {
             async fn broadcast_coin_inner(&self, inner: Vec<u8>) -> anyhow::Result<()> {
                 let p: CoinPayload = bincode::deserialize(&inner)?;
                 // POISON-RECOVER: test capture vec; push is atomic per payload.
-                lock_or_recover!(self.0, "coin test capture").push(p);
+                lock_or_recover(&self.0, "coin test capture").push(p);
                 Ok(())
             }
             async fn send_direct_coin_inner(
@@ -520,7 +520,7 @@ mod tests {
             .await
             .expect("issue voucher");
         // POISON-RECOVER: test outs scan; missed payload only fails test expectation.
-        assert!(lock_or_recover!(outs, "coin test outs")
+        assert!(lock_or_recover(&outs, "coin test outs")
             .iter()
             .any(|p| matches!(p, CoinPayload::PaymentVoucher(_))));
 
@@ -558,7 +558,7 @@ mod tests {
         assert_eq!(outcome.risk, VoucherRiskLevel::DoubleSpendDetected);
         assert_eq!(outcome.canonical_recipient.as_deref(), Some(bob.as_str()));
         // POISON-RECOVER: test settlement sync capture; false fails test only.
-        assert!(lock_or_recover!(outs, "coin test outs")
+        assert!(lock_or_recover(&outs, "coin test outs")
             .iter()
             .any(|p| matches!(p, CoinPayload::VoucherSettlementSync { .. })));
     }

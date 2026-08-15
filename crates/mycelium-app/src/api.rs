@@ -3,15 +3,21 @@
 use crate::envelope::Attachment;
 use crate::node::AppNode;
 use crate::storage::AppStorage;
-use axum::extract::{Path, State};
+use axum::extract::{Path, Request, State};
+use axum::http::header::{HeaderName, AUTHORIZATION, CONTENT_TYPE};
 use axum::http::StatusCode;
 use axum::http::{HeaderValue, Method};
+use axum::middleware::{self, Next};
+use axum::response::Response;
 use axum::routing::{delete, get, post, put};
 use axum::{Json, Router};
 use mycelium_l0_facade::data::now_ms;
 use mycelium_l0_facade::energy::NodeState;
+use mycelium_l0_facade::wipe_node_directory;
 use mycelium_l1_facade::NodeCommand;
+use rand::RngCore;
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 use std::sync::Arc;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 
@@ -19,6 +25,8 @@ use tower_http::cors::{AllowOrigin, CorsLayer};
 struct ApiState {
     app: Arc<AppNode>,
     storage: Arc<AppStorage>,
+    db_path: PathBuf,
+    token: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -75,14 +83,19 @@ struct StoreStatsResponse {
     size_estimate_kb: u64,
 }
 
+/// Starts the loopback HTTP API. Returns the bearer token (from `MYCELIUM_API_TOKEN` or random).
 pub async fn start_api_server(
     app_node: Arc<AppNode>,
     app_storage: Arc<AppStorage>,
     port: u16,
-) -> anyhow::Result<()> {
+    db_path: PathBuf,
+) -> anyhow::Result<String> {
+    let token = load_or_generate_api_token();
     let state = ApiState {
         app: app_node,
         storage: app_storage,
+        db_path,
+        token: token.clone(),
     };
     let app = Router::new()
         .route("/api/v1/status", get(get_status))
@@ -125,14 +138,76 @@ pub async fn start_api_server(
             post(post_volunteer_claim),
         )
         .route("/api/v1/panic/wipe", post(post_panic_wipe))
+        .route_layer(middleware::from_fn_with_state(
+            state.clone(),
+            require_api_token,
+        ))
+        .route("/api/v1/health", get(api_health))
         .layer(loopback_cors())
         .with_state(state);
 
     let listener = tokio::net::TcpListener::bind(("127.0.0.1", port)).await?;
     tokio::spawn(async move {
-        let _ = axum::serve(listener, app).await;
+        if let Err(e) = axum::serve(listener, app).await {
+            tracing::warn!("api server exited: {e}");
+        }
     });
-    Ok(())
+    Ok(token)
+}
+
+fn load_or_generate_api_token() -> String {
+    match std::env::var("MYCELIUM_API_TOKEN") {
+        Ok(t) if t.len() >= 16 => t,
+        _ => {
+            let mut bytes = [0u8; 32];
+            rand::thread_rng().fill_bytes(&mut bytes);
+            hex::encode(bytes)
+        }
+    }
+}
+
+fn token_matches(provided: &str, expected: &str) -> bool {
+    let a = provided.as_bytes();
+    let b = expected.as_bytes();
+    if a.len() != b.len() {
+        return false;
+    }
+    a.iter()
+        .zip(b.iter())
+        .fold(0u8, |acc, (x, y)| acc | (x ^ y))
+        == 0
+}
+
+fn extract_bearer(req: &Request) -> String {
+    req.headers()
+        .get(AUTHORIZATION)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("Bearer "))
+        .map(str::trim)
+        .map(str::to_string)
+        .or_else(|| {
+            req.headers()
+                .get("x-mycelium-token")
+                .and_then(|v| v.to_str().ok())
+                .map(|s| s.trim().to_string())
+        })
+        .unwrap_or_default()
+}
+
+async fn require_api_token(
+    State(state): State<ApiState>,
+    req: Request,
+    next: Next,
+) -> Result<Response, StatusCode> {
+    let provided = extract_bearer(&req);
+    if !token_matches(&provided, &state.token) {
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+    Ok(next.run(req).await)
+}
+
+async fn api_health() -> Json<serde_json::Value> {
+    Json(serde_json::json!({ "ok": true }))
 }
 
 fn loopback_origin(origin: &HeaderValue) -> bool {
@@ -147,7 +222,11 @@ fn loopback_cors() -> CorsLayer {
     CorsLayer::new()
         .allow_origin(AllowOrigin::predicate(|origin, _| loopback_origin(origin)))
         .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
-        .allow_headers(tower_http::cors::Any)
+        .allow_headers([
+            AUTHORIZATION,
+            CONTENT_TYPE,
+            HeaderName::from_static("x-mycelium-token"),
+        ])
 }
 
 async fn get_status(State(state): State<ApiState>) -> Json<StatusResponse> {
@@ -441,8 +520,18 @@ struct WalletSendBody {
 
 #[derive(Debug, Deserialize)]
 struct PanicWipeBody {
-    db_path: Option<String>,
     confirm: bool,
+}
+
+async fn post_panic_wipe(
+    State(state): State<ApiState>,
+    Json(body): Json<PanicWipeBody>,
+) -> Result<StatusCode, (StatusCode, String)> {
+    if !body.confirm {
+        return Err((StatusCode::BAD_REQUEST, "confirm=true required".into()));
+    }
+    wipe_node_directory(&state.db_path).map_err(internal_err)?;
+    Ok(StatusCode::OK)
 }
 
 async fn get_groups(
@@ -514,7 +603,11 @@ async fn get_wallet_address(
         .app
         .coin_node()
         .ok_or_else(|| (StatusCode::SERVICE_UNAVAILABLE, "coin disabled".into()))?;
-    Ok(Json(serde_json::json!({ "address": coin.local_address() })))
+    Ok(Json(serde_json::json!({
+        "address": coin.local_address(),
+        "experimental": true,
+        "legal_tender": false,
+    })))
 }
 
 async fn get_wallet_balance(
@@ -528,6 +621,8 @@ async fn get_wallet_balance(
     Ok(Json(serde_json::json!({
         "confirmed_muon": confirmed,
         "pending_muon": pending,
+        "experimental": true,
+        "legal_tender": false,
     })))
 }
 
@@ -609,20 +704,25 @@ async fn post_volunteer_claim(
     })))
 }
 
-async fn post_panic_wipe(
-    Json(body): Json<PanicWipeBody>,
-) -> Result<StatusCode, (StatusCode, String)> {
-    if !body.confirm {
-        return Err((StatusCode::BAD_REQUEST, "confirm=true required".into()));
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn token_eq_rejects_mismatch_and_length() {
+        assert!(token_matches("abc", "abc"));
+        assert!(!token_matches("abc", "abd"));
+        assert!(!token_matches("abc", "ab"));
+        assert!(!token_matches("", "secret"));
     }
-    let path = body.db_path.ok_or_else(|| {
-        (
-            StatusCode::BAD_REQUEST,
-            "db_path required for panic wipe".into(),
-        )
-    })?;
-    if std::path::Path::new(&path).exists() {
-        std::fs::remove_dir_all(&path).map_err(internal_err)?;
+
+    #[test]
+    fn generated_token_is_long_enough() {
+        let mut bytes = [0u8; 32];
+        rand::thread_rng().fill_bytes(&mut bytes);
+        let t = hex::encode(bytes);
+        assert_eq!(t.len(), 64);
+        assert!(t.len() >= 16);
     }
-    Ok(StatusCode::OK)
 }

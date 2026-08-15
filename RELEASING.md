@@ -69,7 +69,7 @@ Artifacts land under `crates/mycelium-desktop/target/release/bundle/` (`.dmg`, `
 
 1. Fresh install bundle on each target OS.
 2. Start node → Settings → verify connectivity banner + crisis toggle.
-3. Headless regression: `mycelium --headless --api-port 7760` then `curl localhost:7760/api/v1/status`.
+3. Headless regression: `mycelium --headless --api-port 7760` then `curl -H "Authorization: Bearer $TOKEN" localhost:7760/api/v1/status` (token is printed at start).
 4. Panic wipe from Settings (desktop) or `mycelium panic --yes --db .mycelium-node` (CLI) on a throwaway profile.
 
 See also [RELEASE_INTEGRITY.md](docs/RELEASE_INTEGRITY.md) for artifact co-signing.

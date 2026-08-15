@@ -1,6 +1,6 @@
 # iOS host (planned)
 
-**Status:** Tier 0–1 complete — builds in Simulator; real mesh on physical iPhone (BLE + LAN).
+**Status:** Scaffold — SwiftUI + BLE host compile for Simulator; physical-device BLE is best-effort and **not** feature-complete vs Android. Not TestFlight/App Store ready.
 
 Mycelium’s iPhone app will be a **native Swift/SwiftUI shell** over the same Rust core as Android, via **UniFFI** and `crates/mycelium-ffi/src/mycelium.udl`.
 
@@ -91,7 +91,7 @@ Regenerate Swift bindings only: `./scripts/regenerate-uniffi-bindings.sh swift`
 - Rust: `rustup target add aarch64-apple-ios aarch64-apple-ios-sim`
 - XcodeGen: `brew install xcodegen` **or** bundled via `scripts/ios-xcodegen.sh` (downloads to `scripts/tools/`)
 
-Generate Xcode project: `./scripts/ios-xcodegen.sh`  
+Generate Xcode project: `./scripts/ios-xcodegen.sh`
 Build Rust FFI: `./scripts/build-ios-xcframework.sh`
 
 ---
@@ -123,6 +123,6 @@ Build Rust FFI: `./scripts/build-ios-xcframework.sh`
 
 ## Distribution note
 
-Personal sideload: free Apple ID + Xcode (7-day signing).  
-Wider beta: Apple Developer Program + TestFlight.  
+Personal sideload: free Apple ID + Xcode (7-day signing).
+Wider beta: Apple Developer Program + TestFlight.
 See [MOBILE_PLATFORMS.md § iOS distribution](../docs/MOBILE_PLATFORMS.md#ios-distribution-planning-note).

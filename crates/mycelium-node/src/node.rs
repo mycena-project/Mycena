@@ -1715,7 +1715,7 @@ impl NodeRunner {
         let mut gc_tick = interval(Duration::from_secs(6 * 60 * 60));
         gc_tick.set_missed_tick_behavior(MissedTickBehavior::Skip);
         let (rendezvous_tx, mut rendezvous_rx) = mpsc::channel::<Vec<String>>(8);
-        let rendezvous_local = self.local_peer_id.clone();
+        let rendezvous_kp = self.keypair.clone();
         let rendezvous_flag = self.rendezvous_enabled.clone();
         let internet_flag = self.internet_enabled.clone();
         tokio::spawn(async move {
@@ -1728,11 +1728,13 @@ impl NodeRunner {
                 {
                     continue;
                 }
-                let local = rendezvous_local.clone();
+                let kp = rendezvous_kp.clone();
                 let remote_ids = tokio::task::spawn_blocking(move || {
-                    mycelium_core::rendezvous::set_relay_rendezvous_registration(
-                        &local, true, None,
-                    );
+                    if let Some(ref key) = kp {
+                        mycelium_core::rendezvous::set_relay_rendezvous_registration(
+                            key, true, None,
+                        );
+                    }
                     mycelium_core::rendezvous::fetch_relay_rendezvous(None)
                 })
                 .await
@@ -2258,11 +2260,13 @@ impl NodeRunner {
             }
             NodeCommand::SetRendezvousEnabled(enabled) => {
                 self.rendezvous_enabled.store(enabled, Ordering::Relaxed);
-                let local = self.local_peer_id.clone();
+                let kp = self.keypair.clone();
                 tokio::task::spawn_blocking(move || {
-                    mycelium_core::rendezvous::set_relay_rendezvous_registration(
-                        &local, enabled, None,
-                    );
+                    if let Some(ref key) = kp {
+                        mycelium_core::rendezvous::set_relay_rendezvous_registration(
+                            key, enabled, None,
+                        );
+                    }
                 });
                 info!(
                     "rendezvous discovery {}",
@@ -2273,11 +2277,13 @@ impl NodeRunner {
                 self.internet_enabled.store(enabled, Ordering::Relaxed);
                 if !enabled {
                     self.rendezvous_enabled.store(false, Ordering::Relaxed);
-                    let local = self.local_peer_id.clone();
+                    let kp = self.keypair.clone();
                     tokio::task::spawn_blocking(move || {
-                        mycelium_core::rendezvous::set_relay_rendezvous_registration(
-                            &local, false, None,
-                        );
+                        if let Some(ref key) = kp {
+                            mycelium_core::rendezvous::set_relay_rendezvous_registration(
+                                key, false, None,
+                            );
+                        }
                     });
                 }
                 if let Some(tx) = &self.connectivity_mode_tx {

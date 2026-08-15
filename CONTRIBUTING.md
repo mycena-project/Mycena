@@ -1,6 +1,8 @@
 # Contributing to Mycelium
 
-Thank you for helping improve Mycelium. This project is in **early public beta** — expect rough edges, incomplete docs, and fast-moving APIs.
+This project is an **early technical beta**, maintained by a **small team** (today: one primary maintainer). Expect rough edges, incomplete docs, and fast-moving APIs. It is **not** a Signal replacement and is **not** suitable as primary comms against nation-state adversaries — read [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) and [docs/BETA_SECURITY_ASSESSMENT.md](docs/BETA_SECURITY_ASSESSMENT.md) first.
+
+**Development:** direct pushes to `main` are allowed while the project is a small-team beta. Force-push and deleting `main` stay blocked. Prefer a pull request for larger or security-sensitive changes; CI (`pr-gate`, `fuzz-gate`) still runs on push/PR.
 
 ## Before You Start
 
@@ -27,6 +29,7 @@ Include: platform (Android version / desktop OS), commit or release, steps to re
 ```bash
 cargo fmt --all
 cargo clippy --workspace --all-targets -- -D warnings
+./scripts/check-layer-boundaries.sh
 cargo test --workspace
 ```
 
@@ -53,15 +56,16 @@ docs: clarify relay bootstrap in README
 chore(ci): bump gitleaks action
 ```
 
-Reference issues in the body when applicable (`Fixes #123`).
+Keep commits reviewable (prefer one logical change per PR). Reference issues in the body when applicable (`Fixes #123`).
 
 ## Pull Requests
 
-1. Fork and branch from `main`
+1. Branch from `main` (fork if you are an external contributor)
 2. Keep PRs focused — one logical change per PR when possible
-3. Ensure CI is green (fmt, clippy, tests; Android CI if you touched FFI or Android)
+3. Ensure CI is green (fmt, clippy, tests, fuzz PR smoke; Android CI if you touched FFI or Android)
 4. Describe **what** and **why**; note user-visible risk (low / medium / high)
 5. AGPL-3.0-or-later applies to contributions — you grant rights needed to distribute under the project license
+6. Do not merge your own PR if a second reviewer is available
 
 Reviewers may ask for tests or documentation updates. We appreciate patience during beta.
 

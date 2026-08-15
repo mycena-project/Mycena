@@ -4,9 +4,17 @@
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE)
 
-**Mycelium** is a decentralized, delay-tolerant mesh messenger for people who need to stay connected when the internet is slow, censored, or gone — community responders, travelers in remote areas, and neighbors coordinating during outages.
+**Mycelium** is a decentralized, delay-tolerant mesh messenger for **LAN and nearby-device** coordination when the internet is slow or down — neighbors, field crews, and technical early adopters.
 
-**This is not a replacement for emergency services.** Call your local emergency number when life or property is at risk.
+**This is an early beta, not a replacement for Signal, emergency services, or operational security training.** Call your local emergency number when life or property is at risk. Do **not** use Mycelium as primary comms in a hostile country or against targeted surveillance. Read [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) and [docs/BETA_SECURITY_ASSESSMENT.md](docs/BETA_SECURITY_ASSESSMENT.md) before relying on it.
+
+| Scenario | Honest fit ([assessment](docs/BETA_SECURITY_ASSESSMENT.md)) |
+|----------|-------------------------------------------------------------|
+| LAN / internet outage among trained neighbors | **Limited** |
+| Disaster or censorship via the default Internet relay | **Limited** / **No** |
+| Hostile country or targeted surveillance | **No** |
+
+MeshCoin (MXC) in the CLI/API is an **experimental preview**, not money. WASM mini-apps use wasmtime 36 when `runtime: "wasm"`; many bundles still run in a WebView. The loopback HTTP API requires a bearer token printed at startup (`MYCELIUM_API_TOKEN` to pin it).
 
 - Beta website: [mycelium-beta.vercel.app](https://mycelium-beta.vercel.app)
 - Public relay source: [mycelium-relay](https://github.com/mycena-project/mycelium-relay)
@@ -47,15 +55,14 @@ adb install -r android/app/build/outputs/apk/debug/app-debug.apk
 **CLI (developers):**
 
 ```bash
-# Interactive node + HTTP API on :7760
+# Interactive node + HTTP API on :7760 (loopback, bearer token printed at start)
 cargo run -p mycelium-cli -- --api-port 7760
 
 # Headless server (API only, no stdin)
 cargo run -p mycelium-cli -- --headless --api-port 7760
 
-# Groups, wallet, panic wipe (offline or while node runs elsewhere)
+# Groups / panic wipe (offline). Wallet is experimental preview — not money.
 cargo run -p mycelium-cli -- group create "Neighborhood"
-cargo run -p mycelium-cli -- wallet balance
 cargo run -p mycelium-cli -- panic --yes --db .mycelium-node
 ```
 

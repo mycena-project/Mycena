@@ -11,6 +11,8 @@ APP_LAYER_CRATES=(
   mycelium-coin
   miniapp-sdk
   mycelium-desktop
+  mycelium-cli
+  mycelium-relay
 )
 
 violations=0

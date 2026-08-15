@@ -349,7 +349,7 @@ This register records **known** security, privacy, abuse, and legal debt. It is 
 | **Exploitation scenario** | ISP / relay correlates packet sizes and timing to message types (chat vs coin vs sync) |
 | **Likelihood** | High |
 | **Impact** | Deanonymization of users and actions |
-| **Current mitigations** | None substantive |
+| **Current mitigations** | **Partial / experimental:** SD-070 padding + batching exists in `privacy_shaping.rs`, **off by default**. Production traffic is still size- and timing-distinct. |
 | **Missing mitigations** | Constant-rate cells, cover traffic, obfuscated lengths |
 | **Proposed architecture changes** | Optional cover traffic mode; batch-and-flush scheduler |
 | **Implementation complexity** | L |

@@ -76,6 +76,8 @@ jobs:
           IS_PR=false
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             IS_PR=true
+            # PRs still skip the expensive desktop/Windows/macOS matrix.
+            # rust-budget (below) now runs integration tests, not lib-only.
             FULL=false
           fi
           echo "full_ci=${FULL}" >> "$GITHUB_OUTPUT"
@@ -155,8 +157,11 @@ jobs:
       - name: Clippy (exclude desktop — saves UI/npm build on PR)
         run: cargo clippy --workspace --exclude mycelium-desktop --all-targets -- -D warnings
 
-      - name: Unit tests (nextest, lib only)
-        run: cargo nextest run --workspace --exclude mycelium-desktop --lib --profile ci-budget
+      - name: Layer cargo boundaries
+        run: ./scripts/check-layer-boundaries.sh
+
+      - name: Unit + integration tests (nextest, exclude desktop)
+        run: cargo nextest run --workspace --exclude mycelium-desktop --profile ci-budget
 
       - name: Security regression gates
         run: |
@@ -222,6 +227,9 @@ jobs:
           ./scripts/sync-privacy-policy.sh
           git diff --exit-code android/app/src/main/assets/privacy_policy.html
 
+      - name: Layer cargo boundaries
+        run: ./scripts/check-layer-boundaries.sh
+
       - name: Clippy (full workspace)
         run: cargo clippy --workspace --all-targets -- -D warnings
 
@@ -264,3 +272,32 @@ jobs:
 
       - name: Unit tests (nextest, lib only)
         run: cargo nextest run --workspace --exclude mycelium-desktop --lib --profile ci-full
+
+  # Always-green name for branch protection. Conditional jobs above may skip
+  # (docs-only PRs, full vs budget tier); GitHub treats skipped required checks as failing.
+  pr-gate:
+    name: pr-gate
+    needs: [changes, meta, rust-budget, rust-full-linux]
+    if: always() && github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Require the active Rust CI job
+        run: |
+          set -euo pipefail
+          rust="${{ needs.changes.outputs.rust }}"
+          workflows="${{ needs.changes.outputs.workflows }}"
+          full_ci="${{ needs.meta.outputs.full_ci }}"
+          budget="${{ needs.rust-budget.result }}"
+          full="${{ needs.rust-full-linux.result }}"
+          if [[ "$rust" != "true" && "$workflows" != "true" ]]; then
+            echo "No Rust/workflow paths changed; rust CI skipped."
+            exit 0
+          fi
+          if [[ "$full_ci" == "true" ]]; then
+            [[ "$full" == "success" ]] || { echo "rust-full-linux: $full"; exit 1; }
+          else
+            [[ "$budget" == "success" ]] || { echo "rust-budget: $budget"; exit 1; }
+          fi
+          echo "pr-gate ok"

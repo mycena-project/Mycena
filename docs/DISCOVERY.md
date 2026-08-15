@@ -20,7 +20,7 @@ Three complementary ways to find **other devices** on the network (not the same 
 - Nodes listen on `/p2p-circuit` at the relay for inbound NAT traversal.
 - **Rendezvous (opt-in):** Settings → *Relay discovery*
   - **Off (default):** you are not listed on `GET /rendezvous`; you do not auto-dial rendezvous peers.
-  - **On:** `POST /rendezvous/register` publishes your peer ID; every ~45s the node fetches the list and dials other opted-in peers.
+  - **On:** the node POSTs a **signed** `RendezvousProof` (libp2p key, 5-minute timestamp window) to `/rendezvous/register`; every ~45s it fetches `GET /rendezvous` and dials other opted-in peers. Unsigned `{peer_id}` bodies are rejected.
 
 ## Manual linking
 

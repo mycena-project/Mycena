@@ -365,13 +365,18 @@ async fn run_interactive_server(args: RunArgs) -> anyhow::Result<()> {
     info!("local peer id: {}", boot.local_peer_id);
 
     if args.api_port > 0 {
-        start_api_server(
+        let token = start_api_server(
             boot.app_node.clone(),
             boot.app_storage.clone(),
             args.api_port,
+            PathBuf::from(&args.db),
         )
         .await?;
-        info!("api server listening on 127.0.0.1:{}", args.api_port);
+        info!(
+            "api server listening on 127.0.0.1:{} (Authorization: Bearer <token>)",
+            args.api_port
+        );
+        eprintln!("Mycelium API token: {token}");
     }
 
     if args.headless {

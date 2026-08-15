@@ -1,6 +1,6 @@
 # External security review — engagement package
 
-**Status:** Ready to send to reviewer  
+**Status:** Not commissioned. This file is a briefing pack, not evidence of a completed audit.
 **Threat model version:** [THREAT_MODEL.md](./THREAT_MODEL.md) v1.0 (July 2026)
 
 ---
@@ -85,7 +85,7 @@ cargo test -p mycelium-sim voucher_double_spend
 
 ## Contact
 
-Engineering: GitHub Issues on [the maintainer/Mycelium](https://github.com/mycena-project/Mycelium)  
+Engineering: GitHub Issues on [the maintainer/Mycelium](https://github.com/mycena-project/Mycelium)
 Privacy: privacy@example.invalid
 
 ---

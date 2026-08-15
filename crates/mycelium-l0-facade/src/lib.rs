@@ -15,7 +15,9 @@ pub mod crypto;
 pub mod secrets;
 
 pub use mycelium_core::account_identity;
-pub use mycelium_core::at_rest::{clear_keyring_master, parse_storage_key_hex};
+pub use mycelium_core::at_rest::{
+    clear_keyring_master, parse_storage_key_hex, validate_wipe_target, wipe_node_directory,
+};
 pub use mycelium_core::bearer_transport;
 pub use mycelium_core::ble_mesh;
 pub use mycelium_core::bootstrap;
@@ -30,10 +32,14 @@ pub use mycelium_core::identity_rotation;
 pub use mycelium_core::information_trust;
 pub use mycelium_core::invite;
 pub use mycelium_core::lock_or_recover;
+pub use mycelium_core::lock_recover;
 pub use mycelium_core::privacy_shaping;
+pub use mycelium_core::protocol;
 pub use mycelium_core::relay_pool;
 pub use mycelium_core::relay_registry;
 pub use mycelium_core::relay_status;
+pub use mycelium_core::release_integrity;
+pub use mycelium_core::rendezvous;
 pub use mycelium_core::resource_map;
 pub use mycelium_core::sos;
 pub use mycelium_core::volunteer;

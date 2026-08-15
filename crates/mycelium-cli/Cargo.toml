@@ -13,7 +13,6 @@ mycelium-l0-facade = { path = "../mycelium-l0-facade" }
 mycelium-l1-facade = { path = "../mycelium-l1-facade" }
 mycelium-app = { path = "../mycelium-app" }
 mycelium-coin = { path = "../mycelium-coin" }
-mycelium-core = { path = "../mycelium-core" }
 serde_json.workspace = true
 tokio.workspace = true
 tracing.workspace = true

@@ -34,10 +34,21 @@ object StorageKeyHelper {
         EncryptedSharedPreferences.create(
             context,
             PREFS,
-            MasterKey.Builder(context)
-                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-                .build(),
+            masterKey(context),
             EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
             EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
         )
+
+    private fun masterKey(context: Context): MasterKey =
+        try {
+            MasterKey.Builder(context)
+                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                .setRequestStrongBoxBacked(true)
+                .build()
+        } catch (e: Exception) {
+            Log.w("Mycelium", "StrongBox unavailable, using software Keystore: ${e.message}")
+            MasterKey.Builder(context)
+                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                .build()
+        }
 }

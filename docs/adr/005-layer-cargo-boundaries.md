@@ -1,7 +1,7 @@
 # ADR 005: Layer cargo boundaries (L0–L3)
 
-**Status:** Accepted  
-**Date:** 2026-07-03  
+**Status:** Accepted
+**Date:** 2026-07-03
 **Context:** Mycelium grew as a flat workspace where `mycelium-app` depended directly on `mycelium-core` and embedded the entire mini-app platform. That made it hard to enforce which crates may touch raw key material, ratchet internals, or mesh transport details.
 
 ---
@@ -44,8 +44,8 @@ Introduce explicit **layer boundary crates** with dependency rules:
 3. **`EncKey`** does not expose raw key material or core keypair accessors; app/miniapp cannot reach ratchet setup APIs through the facade.
 4. **`PeerEncKeyStore`** is `pub(crate)` inside `mycelium-node` only.
 5. **`DirectMessage` / `WireMessage`** are exported from `mycelium-l1-facade` for app dispatch code.
-6. Host binaries (`mycelium-desktop`, `mycelium-cli`) use `mycelium-l0-facade` and `mycelium-l1-facade` only — no direct `mycelium-core` / `mycelium-node` dependency.
-7. **`scripts/check-layer-boundaries.sh`** runs in `make ci` and fails if app/host-layer crates depend on or import `mycelium-core` / `mycelium-node` directly, or reference removed `as_core_keypair` / `node-internal`.
+6. Host binaries (`mycelium-desktop`, `mycelium-cli`, `mycelium-relay`) use `mycelium-l0-facade` and `mycelium-l1-facade` only — no direct `mycelium-core` / `mycelium-node` dependency.
+7. **`scripts/check-layer-boundaries.sh`** runs in `make ci` and fails if app/host-layer crates (including CLI and relay) depend on or import `mycelium-core` / `mycelium-node` directly, or reference removed `as_core_keypair` / `node-internal`.
 8. **`make check-app-layer`** runs `cargo check` on app/host crates without `mycelium-node`, verifying the L0 facade stays free of node-only APIs.
 
 ---

@@ -1,7 +1,6 @@
 name: Fuzz (PR smoke)
 
-# Security-critical targets only; 90s each. Skipped while MYCELIUM_CI_TIER=budget
-# (default) to save Actions minutes; re-enabled at public pilot via MYCELIUM_CI_TIER=full.
+# Security-critical targets. Runs on every PR/push that touches Rust (not gated on CI_TIER).
 # Long runs: fuzz-nightly.yml (see docs/CI_PUBLIC_TRANSITION.md).
 
 on:
@@ -17,7 +16,7 @@ concurrency:
 
 env:
   CI_TIER: ${{ vars.MYCELIUM_CI_TIER || 'budget' }}
-  FUZZ_SECONDS: "90"
+  FUZZ_SECONDS: "45"
 
 jobs:
   changes:
@@ -44,8 +43,7 @@ jobs:
     needs: changes
     if: |
       github.actor != 'dependabot[bot]' &&
-      needs.changes.outputs.fuzz == 'true' &&
-      vars.MYCELIUM_CI_TIER == 'full'
+      needs.changes.outputs.fuzz == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
@@ -84,3 +82,23 @@ jobs:
             -max_total_time=${{ env.FUZZ_SECONDS }} \
             -rss_limit_mb=4096 \
             -timeout=30
+
+  fuzz-gate:
+    name: fuzz-gate
+    needs: [changes, fuzz]
+    if: always() && github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Require fuzz smoke when Rust changed
+        run: |
+          set -euo pipefail
+          needed="${{ needs.changes.outputs.fuzz }}"
+          result="${{ needs.fuzz.result }}"
+          if [[ "$needed" != "true" ]]; then
+            echo "No Rust/fuzz paths changed; fuzz smoke skipped."
+            exit 0
+          fi
+          [[ "$result" == "success" ]] || { echo "fuzz: $result"; exit 1; }
+          echo "fuzz-gate ok"

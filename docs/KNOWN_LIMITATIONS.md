@@ -1,6 +1,6 @@
 # Mycelium — Known Limitations
 
-**Honest user-facing limitations** for public beta.  
+**Honest user-facing limitations** for public beta.
 Not a marketing document.
 
 ---
@@ -79,7 +79,7 @@ Treat as **preview only**:
 | **Bulletin boards** | Public scopes; content unmoderated |
 | **BLE / WiFi Direct mesh** | Platform-specific leaks; experimental paths |
 | **Shade / privacy experiments** | SD-070 padding+batching shipped **experimental, off by default** — see [PRIVACY_SHAPING_BENCHMARK.md](./PRIVACY_SHAPING_BENCHMARK.md) |
-| **WASM mini-apps** | Rejected at install; executor not built |
+| **WASM mini-apps** | wasmtime sandbox exists for `runtime: "wasm"`; many bundles still use WebView. Chromium TCB remains for UI. |
 | **Curator revocation publish** | Any node key can publish; no allowlist yet |
 
 ---

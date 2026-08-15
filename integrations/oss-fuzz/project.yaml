@@ -1,9 +1,9 @@
-homepage: "https://github.com/YOUR_GITHUB_ORG/Mycelium"
+homepage: "https://github.com/mycena-project/Mycelium"
 language: rust
-primary_contact: "security@example.com"
-main_repo: "https://github.com/YOUR_GITHUB_ORG/Mycelium.git"
+primary_contact: "security@example.invalid"
+main_repo: "https://github.com/mycena-project/Mycelium.git"
 auto_ccs:
-  - "security@example.com"
+  - "security@example.invalid"
 sanitizers:
   - address
 fuzzing_engines:

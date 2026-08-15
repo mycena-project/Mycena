@@ -1,7 +1,7 @@
 # Secure hardware & user key storage — status
 
-**Status:** Audit (2026-07-05)  
-**Audience:** Security reviewers, mobile engineers, release managers  
+**Status:** Audit (2026-07-05)
+**Audience:** Security reviewers, mobile engineers, release managers
 **Related:** [THREAT_MODEL.md](./THREAT_MODEL.md) · [SECURITY.md](./SECURITY.md) · [MOBILE_PLATFORMS.md](./MOBILE_PLATFORMS.md) · [SECURITY_DEBT_REGISTER.md](./SECURITY_DEBT_REGISTER.md) (SD-120, SD-131)
 
 ---
@@ -12,7 +12,7 @@
 |----------|--------|
 | **Is there a separate repository for the native Android/iOS app?** | **No.** The mobile hosts live in this monorepo: [`android/`](../android/) (shipping Kotlin/Compose shell) and [`ios/`](../ios/) (SwiftUI shell in progress). Other Mycelium repos ([mycelium-relay](https://github.com/mycena-project/mycelium-relay), [mycelium-web](https://github.com/mycena-project/mycelium-web)) are relay and marketing only — see [ECOSYSTEM.md](./ECOSYSTEM.md). |
 | **Does `release_integrity.rs` / `reproducible_build.rs` protect user keys on device?** | **No.** Those modules attest **official build artifacts** (APK, desktop bundles, mini-app bundles) via M-of-N release signing and reproducible-build digests. They do **not** touch end-user identity keys. |
-| **Is hardware-bound user key storage done?** | **No — critical gap before Play Store / App Store launch.** Android stores a software-generated master key in `EncryptedSharedPreferences`; iOS has no Keychain wrapper yet. Identity material is encrypted at rest in Rust ([`at_rest.rs`](../crates/mycelium-core/src/at_rest.rs)), but the master key is **not** bound to StrongBox / Secure Enclave / user authentication in the way production messengers typically require. |
+| **Is hardware-bound user key storage done?** | **Partial.** Android: EncryptedSharedPreferences with **StrongBox requested** (software Keystore fallback). iOS: Keychain (`AfterFirstUnlockThisDeviceOnly`) for the 32-byte master key. Identity keys are **not** non-exportable Secure Enclave / StrongBox objects. Root/jailbreak still wins. |
 
 **Do not read [THREAT_MODEL.md](./THREAT_MODEL.md) as implying full hardware keystore integration.** Use this document as the source of truth for what is actually implemented on device.
 
@@ -42,7 +42,7 @@ There is **no** hidden mobile-only GitHub repository for keystore integration.
 | [`SecretVault` / `at_rest.rs`](../crates/mycelium-core/src/at_rest.rs) | Identity & enc key **files** (`.secrets/*.enc`) given a 32-byte master key | Where that master key lives — **host responsibility** |
 | Android `StorageKeyHelper.kt` | Master key **confidentiality at rest** via EncryptedSharedPreferences | Hardware non-exportability of identity keys; root resistance |
 | Desktop OS keyring (`keyring` crate) | Master key in platform credential store | Mobile parity; theft with unlocked session |
-| iOS Keychain (planned) | — | **Not implemented** ([ios/README.md](../ios/README.md) checklist) |
+| iOS Keychain (shipping in shell) | Master key in Keychain, this-device-only | Not Secure Enclave-bound identity keys; app not store-ready |
 
 ---
 
@@ -75,13 +75,7 @@ There is **no** hidden mobile-only GitHub repository for keystore integration.
 
 ## iOS (in monorepo — not ready)
 
-**Implementation status:** BLE host scaffolding exists under [`ios/Mycelium/`](../ios/Mycelium/); **Keychain wrapper for the 32-byte master key is unchecked** in [ios/README.md](../ios/README.md):
-
-```text
-[ ] Keychain wrapper → 32-byte master key hex; initNode + NodeEventCallback
-```
-
-Until this ships, iOS cannot meet the same (already partial) bar as Android for `at_rest.rs` integration.
+**Implementation status:** BLE host scaffolding exists under [`ios/Mycelium/`](../ios/Mycelium/). A Keychain helper (`StorageKeyHelper.swift`) stores the 32-byte master key with `AfterFirstUnlockThisDeviceOnly`. The iOS app is still a scaffold — not TestFlight/App Store ready — and identity keys are not Secure Enclave–bound.
 
 **Secure Enclave:** No plan yet for storing Ed25519/X25519 material in Secure Enclave–backed Keychain items (`kSecAttrTokenIDSecureEnclave` / CryptoKit `SecureEnclave.P256.Signing`). Required work for App Store–grade posture.
 
@@ -101,9 +95,9 @@ Before **Google Play** or **Apple App Store** production launch (not sideload be
 
 | Requirement | Android today | iOS today | Target |
 |---------------|---------------|-----------|--------|
-| Master key not plain SharedPreferences | ✅ EncryptedSharedPreferences | ❌ Missing | Keychain / Encrypted prefs |
+| Master key not plain SharedPreferences | ✅ EncryptedSharedPreferences | ✅ Keychain (this-device-only) | Keep + SE wrap later |
 | Identity keys non-exportable from app sandbox | ❌ File vault + sw key | ❌ N/A | Keystore / Secure Enclave key handles |
-| Hardware backing (TEE / StrongBox / SE) | ❌ | ❌ | Where device supports it |
+| Hardware backing (TEE / StrongBox / SE) | Partial (StrongBox requested for prefs MasterKey) | ❌ master in Keychain, not SE | Where device supports it |
 | User auth to unlock keys | ❌ | ❌ | Biometric or PIN gate |
 | Root/jailbreak degraded mode | ❌ Documented only (SD-120) | ❌ | Detect + warn or refuse |
 | Supply-chain integrity | ✅ `release_integrity` | ✅ Same | Keep separate from user keys |
@@ -116,7 +110,7 @@ Before **Google Play** or **Apple App Store** production launch (not sideload be
 
 1. **Android:** Replace software-only master key with Android Keystore–generated AES key (or wrap master key in Keystore); prefer StrongBox when available; optional `setUserAuthenticationRequired` for unlock.
 2. **Android (stretch):** Store long-term identity keys as Keystore key pairs where API allows, or use [Android Keystore AES-GCM](https://developer.android.com/privacy-and-security/keystore) to wrap `SecretVault` master only — still better than prefs hex.
-3. **iOS:** Implement Keychain wrapper (kSecAttrAccessibleWhenUnlockedThisDeviceOnly); migrate to Secure Enclave–backed keys for signing where feasible.
+3. **iOS:** Keychain wrapper exists; next is Secure Enclave–backed keys for signing where feasible.
 4. **Rust:** Keep `SecretVault` API (`storage_key: Option<[u8; 32]>`); hosts supply key material from secure hardware APIs — no change to protocol crates required for v1.
 5. **Docs:** Update [ROADMAP.md](./ROADMAP.md) “Keys at rest — Done” to “Partial (beta)” after review; align [THREAT_MODEL.md](./THREAT_MODEL.md) §4.1 and §5.3 with this file.
 

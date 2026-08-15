@@ -60,7 +60,7 @@ Relays see **transport metadata** (IP addresses, connection timing). They do **n
 | **Ed25519 operator key** (offline-capable) | Signs your registration; distinct from the libp2p relay peer key. |
 | **Curator endorsement** | At least one signature from a known curator (see §5). |
 
-Recommended: 1 vCPU, 512 MiB RAM, 20 Mbit/s, monitoring on `:8080/status` (built into `mycelium-relay`).
+Recommended: 1 vCPU, 512 MiB RAM, 20 Mbit/s. Public health is `GET /health`. Full telemetry is `GET /status` with `Authorization: Bearer` (`MYCELIUM_RELAY_STATUS_TOKEN`, ≥16 chars). Without a token, `/status` returns 401.
 
 ---
 
@@ -70,11 +70,13 @@ Build and start the reference server:
 
 ```bash
 cargo build -p mycelium-relay --release
+export MYCELIUM_RELAY_STATUS_TOKEN='replace-with-a-long-random-token'
 ./target/release/mycelium-relay \
   --listen /ip4/0.0.0.0/tcp/4001 \
   --listen-quic /ip4/0.0.0.0/udp/4001/quic-v1 \
   --keypair-path /var/lib/mycelium-relay/identity \
-  --status-port 8080
+  --status-port 8080 \
+  --status-token "$MYCELIUM_RELAY_STATUS_TOKEN"
 ```
 
 Note the **PeerId** printed at startup. Your bootstrap multiaddr looks like:
@@ -86,7 +88,11 @@ Note the **PeerId** printed at startup. Your bootstrap multiaddr looks like:
 Verify locally:
 
 ```bash
-curl -s http://127.0.0.1:8080/status | jq .
+curl -s http://127.0.0.1:8080/health | jq .
+# {"ok":true,"version":"…"} — Fly/load-balancer health checks should use this path.
+
+curl -s -H "Authorization: Bearer $MYCELIUM_RELAY_STATUS_TOKEN" \
+  http://127.0.0.1:8080/status | jq .
 # Includes "wire_protocol": "mycelium/0.1" — must match mesh nodes (`mycelium_core::protocol::IDENTIFY_PROTOCOL`).
 ```
 
@@ -204,7 +210,7 @@ New community curators require a **client release** adding their ID to `FEDERATE
 
 ### How to get endorsed (third party)
 
-1. Operate a stable relay for ≥2 weeks with public `/status` and contact info in `operator_label`.
+1. Operate a stable relay for ≥2 weeks with public `/health`, operator-only `/status`, and contact info in `operator_label`.
 2. Open a PR or ticket to a community curator (`community-mesh-eu` / `community-mesh-na`) with:
    - Your signed registration JSON (operator sig only, endorsements empty).
    - Proof of independent hosting (ASN, billing entity ≠ existing operators).
@@ -250,7 +256,7 @@ For private testing, place a verified manifest at:
 
 ## 8. Checklist before asking for production listing
 
-- [ ] Dedicated IPv4, ports open, `/status` reachable
+- [ ] Dedicated IPv4, ports open, `/health` reachable; `/status` token-gated
 - [ ] Operator key backed up offline
 - [ ] Registration signed, multiaddr `/p2p/` matches relay PeerId
 - [ ] `operator_label` is a unique, accountable slug

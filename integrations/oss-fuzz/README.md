@@ -6,10 +6,10 @@ OSS-Fuzz requires a **public** upstream repository. Until the Mycelium pilot goe
 
 ## Before submitting
 
-1. Replace `YOUR_GITHUB_ORG` in `project.yaml` and `Dockerfile` with the real org/user.
-2. Set `primary_contact` and `auto_ccs` to reachable security contacts.
-3. Copy `project.yaml`, `Dockerfile`, and `build.sh` into `projects/mycelium/` in a fork of google/oss-fuzz.
-4. Follow [OSS-Fuzz new project guide](https://google.github.io/oss-fuzz/getting-started/new-project-guide/rust-lang/).
+1. Confirm `project.yaml` / `Dockerfile` still point at `the maintainer/Mycelium` and `security@example.invalid`.
+2. Copy `project.yaml`, `Dockerfile`, and `build.sh` into `projects/mycelium/` in a fork of google/oss-fuzz.
+3. Follow [OSS-Fuzz new project guide](https://google.github.io/oss-fuzz/getting-started/new-project-guide/rust-lang/).
+4. Do **not** open the google/oss-fuzz PR until this repository is public.
 
 ## Local dry-run (optional)
 

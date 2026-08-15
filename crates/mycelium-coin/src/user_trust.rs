@@ -90,12 +90,12 @@ const SELF_KEY: &[u8] = b"self";
 
 fn lock_user_trust<'a>(m: &'a Mutex<UserTrust>) -> MutexGuard<'a, UserTrust> {
     // POISON-RECOVER: in-memory metrics; sled persist runs after guard drop with full snapshot.
-    mycelium_core::lock_recover::lock_or_recover(m, "user trust cache")
+    mycelium_l0_facade::lock_recover::lock_or_recover(m, "user trust cache")
 }
 
 fn lock_endorse<'a>(m: &'a Mutex<HashMap<String, u8>>) -> MutexGuard<'a, HashMap<String, u8>> {
     // POISON-RECOVER: endorsement map; worst case stale boost until next write.
-    mycelium_core::lock_recover::lock_or_recover(m, "endorse cache")
+    mycelium_l0_facade::lock_recover::lock_or_recover(m, "endorse cache")
 }
 
 impl UserTrustStore {
