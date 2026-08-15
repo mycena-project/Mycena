@@ -651,7 +651,7 @@ This register records **known** security, privacy, abuse, and legal debt. It is 
 | **Exploitation scenario** | Compromised crate or npm package in build pipeline |
 | **Likelihood** | Low |
 | **Impact** | RCE at build or runtime |
-| **Current mitigations** | Dependabot config present |
+| **Current mitigations** | Dependabot version updates **disabled** (private CI minute budget). Re-enable with `.github/dependabot.yml` at public launch. |
 | **Missing mitigations** | `cargo vet`, SBOM, reproducible builds, signed releases |
 | **Proposed architecture changes** | Supply-chain policy in CI |
 | **Implementation complexity** | M |

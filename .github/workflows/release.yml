@@ -82,7 +82,7 @@ jobs:
             target/
           key: release-desktop-${{ matrix.os }}-${{ hashFiles('**/Cargo.lock') }}
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: '20'
 
@@ -137,7 +137,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           path: artifacts
 
