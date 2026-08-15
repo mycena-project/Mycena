@@ -124,8 +124,23 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    env:
+      # Debuginfo bloated test binaries until ld failed with ENOSPC on hosted runners.
+      CARGO_PROFILE_DEV_DEBUG: "0"
+      CARGO_PROFILE_TEST_DEBUG: "0"
     steps:
       - uses: actions/checkout@v7
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf \
+            /usr/share/dotnet \
+            /usr/local/lib/android \
+            /opt/ghc \
+            /usr/local/share/powershell \
+            /opt/hostedtoolcache/CodeQL \
+            /usr/share/swift
+          df -hT
 
       - uses: ./.github/actions/setup-rust-cache
         with:
@@ -181,8 +196,22 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    env:
+      CARGO_PROFILE_DEV_DEBUG: "0"
+      CARGO_PROFILE_TEST_DEBUG: "0"
     steps:
       - uses: actions/checkout@v7
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf \
+            /usr/share/dotnet \
+            /usr/local/lib/android \
+            /opt/ghc \
+            /usr/local/share/powershell \
+            /opt/hostedtoolcache/CodeQL \
+            /usr/share/swift
+          df -hT
 
       - name: Install Linux libraries (Tauri / desktop)
         run: |
