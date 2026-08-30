@@ -6,7 +6,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.os.Build
+import androidx.core.content.ContextCompat
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -65,11 +65,13 @@ fun Context.meshEvents(): Flow<MeshEvent> =
                 addAction(MeshEvents.SOS)
                 addAction(MeshEvents.CONNECTIVITY)
             }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            @Suppress("UnspecifiedRegisterReceiverFlag")
-            registerReceiver(receiver, filter)
+        ContextCompat.registerReceiver(
+            this@meshEvents,
+            receiver,
+            filter,
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
+        awaitClose {
+            runCatching { this@meshEvents.unregisterReceiver(receiver) }
         }
-        awaitClose { unregisterReceiver(receiver) }
     }

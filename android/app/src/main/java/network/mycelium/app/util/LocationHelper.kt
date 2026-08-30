@@ -13,6 +13,7 @@ import android.os.Looper
 import androidx.core.app.ActivityCompat
 import kotlin.coroutines.resume
 import kotlinx.coroutines.suspendCancellableCoroutine
+import network.mycelium.app.stability.StabilityDiagnostics
 
 object LocationHelper {
     private val locationRegex =
@@ -34,7 +35,11 @@ object LocationHelper {
 
         return suspendCancellableCoroutine { cont ->
             val locationManager =
-                context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+                context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
+                    ?: run {
+                        cont.resume(null)
+                        return@suspendCancellableCoroutine
+                    }
             val provider =
                 when {
                     locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) ->
@@ -47,7 +52,13 @@ object LocationHelper {
                     }
                 }
 
-            val lastKnown = locationManager.getLastKnownLocation(provider)
+            val lastKnown =
+                try {
+                    locationManager.getLastKnownLocation(provider)
+                } catch (e: SecurityException) {
+                    StabilityDiagnostics.record("LocationHelper.lastKnown", e)
+                    null
+                }
             if (lastKnown != null && lastKnown.time > System.currentTimeMillis() - 60_000) {
                 cont.resume(formatLocation(lastKnown))
                 return@suspendCancellableCoroutine
@@ -71,13 +82,23 @@ object LocationHelper {
                     }
                 }
 
-            locationManager.requestLocationUpdates(
-                provider,
-                0L,
-                0f,
-                listener,
-                Looper.getMainLooper(),
-            )
+            try {
+                locationManager.requestLocationUpdates(
+                    provider,
+                    0L,
+                    0f,
+                    listener,
+                    Looper.getMainLooper(),
+                )
+            } catch (e: SecurityException) {
+                StabilityDiagnostics.record("LocationHelper.requestUpdates", e)
+                cont.resume(null)
+                return@suspendCancellableCoroutine
+            } catch (e: IllegalArgumentException) {
+                StabilityDiagnostics.record("LocationHelper.requestUpdates", e)
+                cont.resume(null)
+                return@suspendCancellableCoroutine
+            }
             cont.invokeOnCancellation { locationManager.removeUpdates(listener) }
         }
     }

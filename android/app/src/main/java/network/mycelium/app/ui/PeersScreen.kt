@@ -669,6 +669,9 @@ private fun PeerRow(
 }
 
 internal fun generateQrCode(payload: String, size: Int): Bitmap {
+    if (payload.isEmpty() || size <= 0) {
+        return createBitmap(1, 1)
+    }
     val matrix = QRCodeWriter().encode(payload, BarcodeFormat.QR_CODE, size, size)
     val bitmap = createBitmap(size, size)
     for (x in 0 until size) {

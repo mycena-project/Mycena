@@ -109,7 +109,8 @@ Treat as **preview only**:
 
 **If you are in disaster zone / internet outage:**
 
-- **Good fit (with caveats):** LAN mesh, bulletin, offline-first *after* peers joined; **Android BLE pocket mesh** (F1–F3) when Wi‑Fi/cell absent.
+- **Good fit (with caveats):** LAN mesh, bulletin, offline-first *after* peers joined.
+- **Android BLE pocket mesh (F1–F3):** implemented nearby-device path ([ADR 002](./adr/002-ble-mesh-transport.md)). **Not hardware-verified** — matrix row HV-06 / BLE-air is empty. Do not treat airplane-mode BLE as proven “works today” behavior. Future validation: [HARDWARE_TEST_MATRIX.md](./HARDWARE_TEST_MATRIX.md).
 - **Caveats:** Still need initial peer discovery; relay not required on LAN; battery cost; **Mac/laptop BLE not active yet** ([DISASTER_MESH_ROADMAP.md](./DISASTER_MESH_ROADMAP.md)); city-wide hundreds of hops **not supported**.
 
 ---
@@ -132,6 +133,12 @@ Treat as **preview only**:
 - **Cannot recover** forgotten keys / wiped data.
 - **Relay outage** degrades Internet path; LAN may continue.
 - **Mini-app direct messaging** requires the recipient to have **accepted** the sender as a contact; there is no anonymous DM bridge bypass.
+- **Phone-to-phone APK share is foreground-only.** Leaving the Share screen or killing the process stops the HTTP server. There is no share foreground service in this freeze.
+- **Downloads auto-join is not reliable** on Android 10+ (scoped storage). Recipients scan the sharer’s invite QR or pick the `.myc` file. Listing another app’s Downloads is best-effort only.
+- **Samsung Auto Blocker, unknown-source install, and Play Protect** can block sideload. Mycelium does not bypass them; the landing page explains the settings the user must change.
+- **Play Store split installs cannot be shared** as a complete APK. Use the GitHub universal APK.
+- **LocalOnlyHotspot / Wi‑Fi Direct** need Nearby Wi‑Fi (API 33+) or fine location (API 26–32). Location toggle is still required on older APIs. Wi‑Fi Direct `registerReceiver` uses AndroidX so API 26–32 does not crash; that path still needs a device/emulator log (see freeze backlog RFB-P2P-01).
+- **Samsung Galaxy / One UI is not hardware-verified** for this freeze. Static mitigations (receivers, P2P null-safety, BLE SecurityException, FGS type, start-failure UI) are listed in [SAMSUNG_STABILITY_AUDIT.md](./SAMSUNG_STABILITY_AUDIT.md). **VERIFIED ON REAL SAMSUNG HARDWARE: none.** Auto Blocker / unknown apps / Play Protect can block sideload; Mycelium does not bypass them.
 
 ---
 

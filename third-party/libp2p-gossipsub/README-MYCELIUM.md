@@ -9,3 +9,5 @@ Vendored from crates.io with runtime mesh hot-swap APIs for AR-06 density backof
 - Re-export `TopicMeshConfig`
 
 Wired via `[patch.crates-io]` in the workspace `Cargo.toml`. Upstream PR candidate for rust-libp2p.
+
+**License:** MIT (upstream `libp2p-gossipsub`); see [LICENSE](./LICENSE). Mycelium’s workspace is AGPL-3.0-or-later; this vendored crate remains MIT.

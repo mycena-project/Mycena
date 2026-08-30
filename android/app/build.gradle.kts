@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Mycelium Project
 import java.util.Properties
+import org.gradle.api.GradleException
 
 plugins {
     id("com.android.application")
@@ -72,8 +73,14 @@ android {
     }
 
     buildTypes {
+        getByName("debug") {
+            // Development APK. Not for phone-to-phone / freeze hardware.
+            buildConfigField("boolean", "TECHNICAL_BETA", "false")
+        }
         release {
             isMinifyEnabled = true
+            // Technical Beta APK (offline / phone-to-phone). Not the Play Store artifact.
+            buildConfigField("boolean", "TECHNICAL_BETA", "true")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
@@ -129,6 +136,29 @@ tasks.named("preBuild").configure {
     dependsOn(copyMiniappBridge)
     dependsOn(copyOnboardingCopy)
     dependsOn(copyDataHandlingCopy)
+}
+
+// Fail closed: do not emit an unsigned or implicitly signed release APK.
+// Play Store uses bundleRelease + injected signing (unchanged). Phone-to-phone uses
+// assembleRelease via scripts/build-technical-beta-apk.sh.
+tasks.register("assertTechnicalBetaSigning") {
+    doLast {
+        val injected = findProperty("android.injected.signing.store.file")?.toString()
+        if (injected.isNullOrBlank()) {
+            throw GradleException(
+                "assembleRelease (Technical Beta APK) requires an explicit keystore. " +
+                    "Do not produce an unsigned release APK. " +
+                    "Run: ./scripts/build-technical-beta-apk.sh",
+            )
+        }
+        val store = file(injected)
+        if (!store.isFile) {
+            throw GradleException("Technical Beta keystore not found: $store")
+        }
+    }
+}
+afterEvaluate {
+    tasks.findByName("packageRelease")?.dependsOn("assertTechnicalBetaSigning")
 }
 
 dependencies {

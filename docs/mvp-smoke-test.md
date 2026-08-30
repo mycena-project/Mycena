@@ -189,6 +189,8 @@ curl -s "${AUTH[@]}" -X PUT http://127.0.0.1:7760/api/v1/settings/energy \
 
 Run after Phase A code changes land. Check off each case on a **Mac desktop build** and **Android debug APK**.
 
+Android freeze DoD (HV-01–20, Pixel + Samsung slots): [HARDWARE_TEST_RUNBOOK.md](./HARDWARE_TEST_RUNBOOK.md). This Phase A checklist remains the Level 0 A2 script.
+
 ### Prerequisites
 
 ```bash

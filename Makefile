@@ -1,6 +1,6 @@
 SHELL := /bin/zsh
 
-.PHONY: help desktop-dev desktop-stop desktop-nuke desktop-check-relay android-apk android-apk-ci android-apk-local android-install android-deploy android-nuke clean test test-fast test-integration test-unit test-sim check check-app-layer check-layer-boundaries check-unwrap-audit check-invariant-whitelist check-no-unwrap-prod check-dependencies clippy ci fmt fuzz-smoke docker-android-ci docker-compose-android gradle-wrapper sync-privacy-policy sync-onboarding-copy reproducible-build release-verify generate-sbom
+.PHONY: help desktop-dev desktop-stop desktop-nuke desktop-check-relay android-apk android-apk-ci android-apk-local android-technical-beta android-test android-install android-deploy android-nuke android-hw-info android-hw-inspect clean test test-fast test-integration test-unit test-sim check check-app-layer check-layer-boundaries check-unwrap-audit check-invariant-whitelist check-no-unwrap-prod check-dependencies clippy ci fmt fuzz-smoke docker-android-ci docker-compose-android gradle-wrapper sync-privacy-policy sync-onboarding-copy reproducible-build release-verify generate-sbom
 
 help:
 	@echo "Mycelium — the maintainer mesh client (no server stack)"
@@ -8,16 +8,19 @@ help:
 	@echo "  make desktop-dev      Run desktop UI (Tauri) — local dev"
 	@echo "  make desktop-stop     Stop desktop dev (Tauri / Vite / local relay)"
 	@echo "  make desktop-nuke     Stop desktop + delete ALL local Mac data (scorched earth)"
-	@echo "  make android-apk      Build Android debug APK (Docker, full rebuild)"
+	@echo "  make android-test     Generate UniFFI (if needed) + Android JVM unit tests"
+	@echo "  make android-technical-beta  Build Technical Beta APK (release-signed, not Play)"
 	@echo "  make android-install  Install debug APK on USB device (adb)"
 	@echo "  make android-deploy   Stop desktop, rebuild APK, install on device"
 	@echo "  make android-nuke     Clear ALL app data on USB device (scorched earth)"
+	@echo "  make android-hw-info     Print USB device identity for the freeze matrix"
+	@echo "  make android-hw-inspect  Observational ADB inspect (no HV PASS, no wipe)"
 	@echo "  make clean            Clean build artifacts (not a running mesh)"
 	@echo "  make sync-onboarding-copy  Copy ui-copy/onboarding → Android assets"
 	@echo ""
 	@echo "See docs/ECOSYSTEM.md · Android: ./android/build.sh"
 
-.PHONY: test test-fast test-integration test-unit test-sim check check-app-layer check-layer-boundaries check-unwrap-audit check-invariant-whitelist check-no-unwrap-prod clippy ci fmt docker-android-ci docker-compose-android gradle-wrapper desktop-dev desktop-stop desktop-check-relay android-apk android-apk-ci android-apk-local android-install android-deploy android-nuke clean
+.PHONY: test test-fast test-integration test-unit test-sim check check-app-layer check-layer-boundaries check-unwrap-audit check-invariant-whitelist check-no-unwrap-prod clippy ci fmt docker-android-ci docker-compose-android gradle-wrapper desktop-dev desktop-stop desktop-check-relay android-apk android-apk-ci android-apk-local android-technical-beta android-test android-install android-deploy android-nuke android-hw-info android-hw-inspect clean
 
 # One-shot: add Gradle wrapper under android/ using Docker (no local Gradle needed).
 gradle-wrapper:
@@ -113,6 +116,14 @@ android-apk-ci:
 android-apk-local:
 	./scripts/build-android-apk.sh --local
 
+# Technical Beta APK (assembleRelease, local tester key, not Play, not official).
+android-technical-beta:
+	./scripts/build-technical-beta-apk.sh
+
+# UniFFI generate (gitignored Kotlin) + JVM unit tests. No NDK.
+android-test:
+	./scripts/android-test.sh
+
 android-install:
 	./scripts/install-android-apk.sh
 
@@ -124,6 +135,13 @@ android-deploy: desktop-stop android-apk android-install
 
 android-nuke:
 	./scripts/nuke-android-data.sh
+
+android-hw-info:
+	./scripts/android/capture-freeze-evidence.sh info artifacts/technical-beta/mycelium-0.1.75-technical-beta-android.apk
+
+# Observational hardware inspect (no install/wipe). Does not mark HV PASS.
+android-hw-inspect:
+	./scripts/android/run-hardware-tests.sh inspect
 
 sync-privacy-policy:
 	./scripts/sync-privacy-policy.sh

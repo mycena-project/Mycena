@@ -71,7 +71,15 @@ class SosViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     override fun onCleared() {
-        getApplication<Application>().unregisterReceiver(receiver)
+        runCatching { getApplication<Application>().unregisterReceiver(receiver) }
+            .onFailure { e ->
+                if (e !is IllegalArgumentException) {
+                    network.mycelium.app.stability.StabilityDiagnostics.record(
+                        "SosViewModel.unregisterReceiver",
+                        e,
+                    )
+                }
+            }
         super.onCleared()
     }
 

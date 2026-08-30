@@ -27,6 +27,7 @@ import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -205,15 +206,41 @@ private fun MiniAppProcessContent(
                     )
                 }
             }
-        ctx.registerReceiver(bulletinReceiver, IntentFilter(MeshEvents.BULLETIN), Context.RECEIVER_NOT_EXPORTED)
-        ctx.registerReceiver(chatReceiver, IntentFilter(MeshEvents.CHAT), Context.RECEIVER_NOT_EXPORTED)
+        ContextCompat.registerReceiver(
+            ctx,
+            bulletinReceiver,
+            IntentFilter(MeshEvents.BULLETIN),
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
+        ContextCompat.registerReceiver(
+            ctx,
+            chatReceiver,
+            IntentFilter(MeshEvents.CHAT),
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
         onDispose {
             MiniAppBridgeCoordinator.requestQrScan = null
             MiniAppBridgeCoordinator.pendingScanCallback = null
             MiniAppBridgeCoordinator.onBulletinRefresh = null
             MiniAppBridgeCoordinator.onAppMessage = null
-            ctx.unregisterReceiver(bulletinReceiver)
-            ctx.unregisterReceiver(chatReceiver)
+            runCatching { ctx.unregisterReceiver(bulletinReceiver) }
+                .onFailure { e ->
+                    if (e !is IllegalArgumentException) {
+                        network.mycelium.app.stability.StabilityDiagnostics.record(
+                            "MiniApp.unregisterBulletin",
+                            e,
+                        )
+                    }
+                }
+            runCatching { ctx.unregisterReceiver(chatReceiver) }
+                .onFailure { e ->
+                    if (e !is IllegalArgumentException) {
+                        network.mycelium.app.stability.StabilityDiagnostics.record(
+                            "MiniApp.unregisterChat",
+                            e,
+                        )
+                    }
+                }
         }
     }
 

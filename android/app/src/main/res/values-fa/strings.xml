@@ -319,11 +319,14 @@
     <string name="settings_open_mail">Offline messages</string>
     <string name="settings_open_wallet">باز کردن اعتبار اضطراری</string>
     <string name="settings_panic_button">Panic wipe — حذف همه داده‌ها</string>
-    <string name="settings_panic_confirm_body">این کار همه پیام‌ها، کلید هویت و داده‌های کیف پول را برای همیشه حذف می‌کند. قابل بازگشت نیست.</string>
+    <string name="settings_panic_confirm_body">این کار همه پیام‌ها، کلید هویت و داده‌های کیف پول را برای همیشه از این دستگاه حذف می‌کند. قابل بازگشت نیست. رونوشت‌های موجود روی دستگاه‌های دیگر مش با این عملیات پاک نمی‌شوند.</string>
     <string name="settings_panic_confirm_no">لغو</string>
     <string name="settings_panic_confirm_title">مطمئن هستید؟</string>
     <string name="settings_panic_confirm_yes">حذف همه</string>
     <string name="settings_panic_description">Panic wipe بلافاصله همه پیام‌ها، کلیدها و داده‌های کیف پول محلی را حذف می‌کند. در صورت نیاز به پاک‌سازی سریع داده‌های حساس از این دستگاه استفاده کنید.</string>
+    <string name="settings_panic_wipe_failed_body">داده‌های محلی این دستگاه به‌طور کامل حذف نشد. برنامه راه‌اندازی مجدد نشد. رونوشت‌های روی دستگاه‌های دیگر مش حذف نشدند.</string>
+    <string name="settings_panic_wipe_failed_ok">باشه</string>
+    <string name="settings_panic_wipe_failed_title">پاک‌سازی ناتمام</string>
     <string name="settings_privacy_policy">Privacy policy</string>
     <string name="settings_privacy_shaping_cover_sub">Sends dummy padded packets at a fixed rate when there is no real traffic. Disabled on Passive battery mode. Uses extra battery and data.</string>
     <string name="settings_privacy_shaping_cover_title">Cover traffic when idle</string>

@@ -16,49 +16,72 @@ object LocalDataWiper {
     private const val PREFS_APP = "app"
 
     /**
+     * Delete [dir] with retries. Returns true if [dir] does not exist afterwards
+     * (including if it never existed). Does not claim remote mesh copies were deleted.
+     */
+    internal fun deleteDirectoryWithRetry(
+        dir: File,
+        attempts: Int = 5,
+        sleepMs: Long = 400L,
+        sleeper: (Long) -> Unit = { Thread.sleep(it) },
+        deleteOp: (File) -> Unit = { it.deleteRecursively() },
+    ): Boolean {
+        if (!dir.exists()) return true
+        repeat(attempts) { index ->
+            try {
+                deleteOp(dir)
+                if (!dir.exists()) return true
+            } catch (_: Exception) {
+            }
+            if (index < attempts - 1) {
+                sleeper(sleepMs)
+            }
+        }
+        return !dir.exists()
+    }
+
+    /**
      * Stop mesh node + service, delete DB/keys/contacts/chats/wallet, clear prefs and at-rest key.
      * Safe to call before first node start (onboarding) or after [mycelium.stopNode].
+     *
+     * @return true if the database directory does not exist after the delete procedure.
      */
-    fun wipeAllLocalData(context: Context) {
+    fun wipeAllLocalData(context: Context): Boolean {
         runCatching { mycelium.stopNode() }
             .onFailure { Log.w(TAG, "stopNode during wipe: ${it.message}") }
         context.stopService(Intent(context, MeshService::class.java))
 
         val dbDir = File(IdentityHelper.dbPath(context))
-        if (dbDir.exists()) {
-            var lastError: Exception? = null
-            repeat(5) {
-                try {
-                    dbDir.deleteRecursively()
-                    if (!dbDir.exists()) {
-                        lastError = null
-                        return@repeat
-                    }
-                } catch (e: Exception) {
-                    lastError = e
-                }
-                Thread.sleep(400)
-            }
-            if (dbDir.exists()) {
-                Log.e(TAG, "failed to delete ${dbDir.absolutePath}", lastError)
-            } else {
-                Log.i(TAG, "destroyed local data at ${dbDir.absolutePath}")
-            }
+        val dbGone = deleteDirectoryWithRetry(dbDir)
+        if (dbGone) {
+            Log.i(TAG, "destroyed local data at ${dbDir.absolutePath}")
+        } else {
+            Log.e(TAG, "failed to delete ${dbDir.absolutePath}")
         }
 
         context.getSharedPreferences(PREFS_SETTINGS, Context.MODE_PRIVATE).edit().clear().apply()
         context.getSharedPreferences(PREFS_APP, Context.MODE_PRIVATE).edit().clear().apply()
         StorageKeyHelper.clear(context)
+        return dbGone
     }
 }
 
-fun performPanicWipe(context: Context) {
-    LocalDataWiper.wipeAllLocalData(context)
+/**
+ * Panic wipe this device only. Returns false if the database directory still exists;
+ * in that case the app is **not** relaunched.
+ */
+fun performPanicWipe(context: Context): Boolean {
+    val wiped = LocalDataWiper.wipeAllLocalData(context)
+    if (!wiped) {
+        Log.e("LocalDataWiper", "panic wipe incomplete: database directory still exists")
+        return false
+    }
     val activity = context as? AppCompatActivity
     val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)
     intent?.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
     activity?.finishAffinity()
     context.startActivity(intent)
+    return true
 }
 
 fun performFreshIdentity(context: Context) {

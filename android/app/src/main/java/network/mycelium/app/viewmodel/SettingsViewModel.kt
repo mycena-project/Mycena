@@ -92,9 +92,16 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         prefs.edit().putBoolean(KEY_BLE_BOOTSTRAP, enabled).apply()
         _bleBootstrapEnabled.value = enabled
         val ctx = getApplication<Application>()
-        ctx.startForegroundService(
-            Intent(ctx, MeshService::class.java).setAction(MeshService.ACTION_UPDATE_BLE),
-        )
+        try {
+            ctx.startForegroundService(
+                Intent(ctx, MeshService::class.java).setAction(MeshService.ACTION_UPDATE_BLE),
+            )
+        } catch (e: IllegalStateException) {
+            network.mycelium.app.stability.StabilityDiagnostics.record(
+                "SettingsViewModel.startForegroundService",
+                e,
+            )
+        }
     }
 
     fun subscribeBulletin(scope: String) {

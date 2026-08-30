@@ -319,11 +319,14 @@
     <string name="settings_open_mail">Offline-Nachrichten</string>
     <string name="settings_open_wallet">Öffnen Sie die Brieftasche</string>
     <string name="settings_panic_button">Panic-Wipe – alle Daten löschen</string>
-    <string name="settings_panic_confirm_body">Dies löscht dauerhaft alle Nachrichten, Ihren Identitätsschlüssel und Wallet-Daten. Das kann nicht rückgängig gemacht werden.</string>
+    <string name="settings_panic_confirm_body">Dies löscht dauerhaft alle Nachrichten, Ihren Identitätsschlüssel und Wallet-Daten auf diesem Gerät. Das kann nicht rückgängig gemacht werden. Kopien auf anderen Mesh-Geräten werden durch diesen Vorgang nicht gelöscht.</string>
     <string name="settings_panic_confirm_no">Abbrechen</string>
     <string name="settings_panic_confirm_title">Sind Sie sicher?</string>
     <string name="settings_panic_confirm_yes">Alles löschen</string>
     <string name="settings_panic_description">Panic-Wipe löscht sofort alle lokalen Nachrichten, Schlüssel und Wallet-Daten. Nutzen, wenn Sie schnell sensible Daten vom Gerät entfernen müssen.</string>
+    <string name="settings_panic_wipe_failed_body">Lokale Daten auf diesem Gerät konnten nicht vollständig gelöscht werden. Die App wurde nicht neu gestartet. Kopien auf anderen Mesh-Geräten wurden nicht gelöscht.</string>
+    <string name="settings_panic_wipe_failed_ok">OK</string>
+    <string name="settings_panic_wipe_failed_title">Löschen unvollständig</string>
     <string name="settings_privacy_policy">Datenschutzerklärung</string>
     <string name="settings_privacy_shaping_cover_sub">Sendet gepolsterte Dummy-Pakete in fester Rate ohne echten Traffic. In Passive-Akkumodus deaktiviert. Verbraucht extra Akku und Daten.</string>
     <string name="settings_privacy_shaping_cover_title">Cover-Traffic im Leerlauf</string>

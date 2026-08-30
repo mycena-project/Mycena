@@ -48,5 +48,11 @@ mkdir -p android/rust-build
 
 "$ROOT/scripts/regenerate-uniffi-kotlin.sh"
 
+if [[ "${MYCELIUM_SKIP_GRADLE:-0}" == "1" ]]; then
+  echo "Skipped Gradle (MYCELIUM_SKIP_GRADLE=1). Native libs + UniFFI are ready."
+  exit 0
+fi
+
 cd android
+# Default: Development APK (debug-signed). Technical Beta: scripts/build-technical-beta-apk.sh
 ./gradlew assembleDebug

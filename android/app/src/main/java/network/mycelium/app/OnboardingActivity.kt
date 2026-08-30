@@ -5,7 +5,9 @@ package network.mycelium.app
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
@@ -23,6 +25,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import network.mycelium.app.bootstrap.OfflineBootstrap
 import network.mycelium.app.onboarding.OnboardingCopy
 import network.mycelium.app.onboarding.OnboardingCopyLoader
 import network.mycelium.app.onboarding.PositioningVariant
@@ -37,13 +40,17 @@ class OnboardingActivity : ComponentActivity() {
             MyceliumTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     OnboardingFlow(
-                        onComplete = { displayName ->
+                        onComplete = { displayName, importedJoin ->
                             LocalDataWiper.wipeAllLocalData(this)
 
-                            getSharedPreferences("settings", MODE_PRIVATE)
-                                .edit()
-                                .putString("display_name", displayName.trim())
-                                .apply()
+                            if (importedJoin != null) {
+                                OfflineBootstrap.applyAfterWipe(this, importedJoin, displayName)
+                            } else {
+                                getSharedPreferences("settings", MODE_PRIVATE)
+                                    .edit()
+                                    .putString("display_name", displayName.trim())
+                                    .apply()
+                            }
 
                             getSharedPreferences("app", MODE_PRIVATE)
                                 .edit()
@@ -61,12 +68,14 @@ class OnboardingActivity : ComponentActivity() {
 }
 
 @Composable
-fun OnboardingFlow(onComplete: (String) -> Unit) {
+fun OnboardingFlow(onComplete: (String, OfflineBootstrap.ImportResult?) -> Unit) {
     val context = LocalContext.current
     val copy = remember { OnboardingCopyLoader.load(context) }
     val positioningVariant = remember { OnboardingCopyLoader.resolvePositioningVariant(context, copy) }
     var page by remember { mutableIntStateOf(0) }
     var displayName by remember { mutableStateOf("") }
+    var importedJoin by remember { mutableStateOf<OfflineBootstrap.ImportResult?>(null) }
+    var importError by remember { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxSize()) {
         LinearProgressIndicator(
@@ -97,10 +106,24 @@ fun OnboardingFlow(onComplete: (String) -> Unit) {
                     copy = copy,
                     displayName = displayName,
                     onNameChange = { displayName = it },
+                    importedJoin = importedJoin,
+                    importError = importError,
+                    onImportJoin = { uri ->
+                        importError = false
+                        val parsed = OfflineBootstrap.tryImportFromUri(context, uri)
+                        if (parsed == null) {
+                            importError = true
+                        } else {
+                            importedJoin = parsed
+                            if (displayName.isBlank()) {
+                                displayName = parsed.displayName
+                            }
+                        }
+                    },
                     onBack = { page = 2 },
                     onComplete = {
                         if (displayName.isNotBlank()) {
-                            onComplete(displayName)
+                            onComplete(displayName, importedJoin)
                         }
                     },
                 )
@@ -289,9 +312,16 @@ fun OnboardingCompletionScreen(
     copy: OnboardingCopy,
     displayName: String,
     onNameChange: (String) -> Unit,
+    importedJoin: OfflineBootstrap.ImportResult?,
+    importError: Boolean,
+    onImportJoin: (android.net.Uri) -> Unit,
     onBack: () -> Unit,
     onComplete: () -> Unit,
 ) {
+    val openJoinFile =
+        rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri != null) onImportJoin(uri)
+        }
     OnboardingScaffold(
         copy = copy,
         showBack = true,
@@ -332,6 +362,37 @@ fun OnboardingCompletionScreen(
             copy.completionNamePrivacyNote,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+        )
+        Spacer(Modifier.height(16.dp))
+        OutlinedButton(
+            onClick = {
+                openJoinFile.launch(arrayOf("application/json", "application/octet-stream", "*/*"))
+            },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(stringResource(R.string.onboarding_import_join_file))
+        }
+        if (importedJoin != null) {
+            Text(
+                stringResource(R.string.onboarding_import_join_ok),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary,
+                textAlign = TextAlign.Center,
+            )
+        }
+        if (importError) {
+            Text(
+                stringResource(R.string.onboarding_import_join_failed),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+                textAlign = TextAlign.Center,
+            )
+        }
+        Text(
+            stringResource(R.string.onboarding_import_join_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+            textAlign = TextAlign.Center,
         )
     }
 }

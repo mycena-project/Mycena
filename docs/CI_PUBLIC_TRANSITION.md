@@ -100,6 +100,7 @@ To return to budget mode (e.g. fork stays private):
 
 ## Related docs
 
+- [PUBLIC_REPOSITORY_AUDIT.md](./PUBLIC_REPOSITORY_AUDIT.md) — secrets / license / publication verdict
 - [FUZZING.md](./FUZZING.md) — local fuzz commands and target list
 - [integrations/oss-fuzz/README.md](../integrations/oss-fuzz/README.md) — OSS-Fuzz PR prep
 - [MYCELIUMLAB.md](./MYCELIUMLAB.md) — simulation CI gates

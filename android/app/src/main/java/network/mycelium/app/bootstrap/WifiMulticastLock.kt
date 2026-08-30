@@ -11,10 +11,11 @@ import android.util.Log
  */
 class WifiMulticastLock(context: Context) {
     private val wifiManager =
-        context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+        context.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
     private var lock: WifiManager.MulticastLock? = null
 
     fun acquire() {
+        val wifiManager = wifiManager ?: return
         if (lock?.isHeld == true) return
         try {
             val multicastLock =

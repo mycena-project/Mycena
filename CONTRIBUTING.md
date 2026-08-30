@@ -1,8 +1,10 @@
 # Contributing to Mycelium
 
-This project is an **early technical beta**, maintained by a **small team** (today: one primary maintainer). Expect rough edges, incomplete docs, and fast-moving APIs. It is **not** a Signal replacement and is **not** suitable as primary comms against nation-state adversaries — read [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) and [docs/BETA_SECURITY_ASSESSMENT.md](docs/BETA_SECURITY_ASSESSMENT.md) first.
+This project is in **Public Technical Beta — Feature Development Frozen, Release Validation Ongoing** ([docs/DEVELOPMENT_FREEZE.md](docs/DEVELOPMENT_FREEZE.md)). Feature development is paused; P0 stabilization continues. Hardware validation is incomplete. G9 is **FAIL**. The public release gate (G10) is **not approved**. It is an **early** beta, maintained by a **small team**. Expect bugs. It is **not** a Signal replacement, **not** a security certification, and is **not** suitable as primary comms against nation-state adversaries — read [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) and [docs/BETA_SECURITY_ASSESSMENT.md](docs/BETA_SECURITY_ASSESSMENT.md) first.
 
-**Development:** direct pushes to `main` are allowed while the project is a small-team beta. Force-push and deleting `main` stay blocked. Prefer a pull request for larger or security-sensitive changes; CI (`pr-gate`, `fuzz-gate`) still runs on push/PR.
+**Feature freeze:** new features, new transports, major architecture, and experimental product work are **deferred**. Allowed: security fixes, P0 crashes, release-breaking and build defects, documentation corrections, hardware-validation evidence. Dependency upgrades, refactors, and API changes need **written justification**. Direct pushes to `main` remain allowed for a small team; freeze exceptions should be described in the commit/PR body.
+
+Force-push and deleting `main` stay blocked. Prefer a pull request for larger or security-sensitive changes; CI (`pr-gate`, `fuzz-gate`) still runs on push/PR.
 
 ## Before You Start
 
@@ -17,7 +19,7 @@ Use GitHub Issues with the right category:
 | Type | Use when |
 |------|----------|
 | **Bug** | Reproducible defect in app, node, or build |
-| **Feature** | New capability or UX improvement |
+| **Feature** | **Deferred during freeze** — do not expect merge unless it is a freeze exception |
 | **Security** | **Never public** — use [SECURITY.md](SECURITY.md) |
 
 Include: platform (Android version / desktop OS), commit or release, steps to reproduce, expected vs actual behavior, and logs if safe to share.

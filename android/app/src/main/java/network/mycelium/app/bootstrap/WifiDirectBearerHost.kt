@@ -12,7 +12,9 @@ import android.net.wifi.p2p.WifiP2pInfo
 import android.net.wifi.p2p.WifiP2pManager
 import android.os.Build
 import android.util.Log
+import androidx.core.content.ContextCompat
 import network.mycelium.app.settings.ActivityProfileRuntime
+import network.mycelium.app.stability.StabilityDiagnostics
 import network.mycelium.app.thermal.ThermalEnforcement
 import network.mycelium.bindings.mycelium
 import kotlinx.coroutines.CompletableDeferred
@@ -38,10 +40,9 @@ class WifiDirectBearerHost(
     private val context: Context,
 ) {
     private val logTag = "WifiDirectBearer"
-    private val manager =
-        context.applicationContext.getSystemService(Context.WIFI_P2P_SERVICE) as WifiP2pManager
-    private val channel: WifiP2pManager.Channel =
-        manager.initialize(context.applicationContext, context.mainLooper, null)
+    private val p2p = WifiP2pSupport.open(context)
+    private val manager: WifiP2pManager? = p2p?.manager
+    private val channel: WifiP2pManager.Channel? = p2p?.channel
 
     private val sessions = ConcurrentHashMap<String, PeerSession>()
     private val connectMutex = Mutex()
@@ -76,6 +77,8 @@ class WifiDirectBearerHost(
                                 intent.getParcelableExtra(WifiP2pManager.EXTRA_NETWORK_INFO)
                             }
                         if (networkInfo?.isConnected == true) {
+                            val manager = manager ?: return
+                            val channel = channel ?: return
                             manager.requestConnectionInfo(channel) { info ->
                                 onConnectionInfo(info)
                             }
@@ -90,13 +93,34 @@ class WifiDirectBearerHost(
 
     fun register() {
         if (receiverRegistered) return
-        context.registerReceiver(receiver, intentFilter, Context.RECEIVER_NOT_EXPORTED)
-        receiverRegistered = true
+        if (manager == null || channel == null) {
+            StabilityDiagnostics.info("WifiDirectBearer.register", "p2p_unavailable")
+            return
+        }
+        try {
+            ContextCompat.registerReceiver(
+                context.applicationContext,
+                receiver,
+                intentFilter,
+                ContextCompat.RECEIVER_NOT_EXPORTED,
+            )
+            receiverRegistered = true
+        } catch (t: Throwable) {
+            if (t is VirtualMachineError) throw t
+            StabilityDiagnostics.record("WifiDirectBearer.registerReceiver", t)
+        }
     }
 
     fun unregister() {
         if (!receiverRegistered) return
-        runCatching { context.unregisterReceiver(receiver) }
+        runCatching { context.applicationContext.unregisterReceiver(receiver) }
+            .onFailure { e ->
+                if (e is IllegalArgumentException) {
+                    Log.d(logTag, "unregister ignored: ${e.javaClass.simpleName}")
+                } else {
+                    StabilityDiagnostics.record("WifiDirectBearer.unregisterReceiver", e)
+                }
+            }
         receiverRegistered = false
     }
 
@@ -104,6 +128,7 @@ class WifiDirectBearerHost(
     suspend fun sendFrames(peerId: String, deviceAddress: String, frames: List<ByteArray>): Boolean =
         withContext(Dispatchers.IO) {
             if (frames.isEmpty()) return@withContext true
+            if (manager == null || channel == null) return@withContext false
             connectMutex.withLock {
                 val session = sessions[peerId]
                 if (session?.isAlive() != true) {
@@ -144,10 +169,20 @@ class WifiDirectBearerHost(
     fun teardownAll() {
         sessions.values.forEach { it.closeQuietly() }
         sessions.clear()
-        manager.removeGroup(channel, null)
+        val manager = manager
+        val channel = channel
+        if (manager != null && channel != null) {
+            try {
+                manager.removeGroup(channel, null)
+            } catch (e: SecurityException) {
+                StabilityDiagnostics.record("WifiDirectBearer.removeGroup", e)
+            }
+        }
     }
 
     private suspend fun ensureConnected(deviceAddress: String): Boolean {
+        val manager = manager ?: return false
+        val channel = channel ?: return false
         targetDeviceAddress = deviceAddress
         val deferred = CompletableDeferred<Boolean>()
         pendingConnect = deferred
@@ -168,6 +203,8 @@ class WifiDirectBearerHost(
     }
 
     private fun onPeersChanged() {
+        val manager = manager ?: return
+        val channel = channel ?: return
         val target = targetDeviceAddress ?: return
         manager.requestPeers(channel) { peers ->
             val device =
@@ -179,6 +216,8 @@ class WifiDirectBearerHost(
     }
 
     private fun connectTo(device: WifiP2pDevice) {
+        val manager = manager ?: return
+        val channel = channel ?: return
         val config =
             WifiP2pConfig().apply {
                 deviceAddress = device.deviceAddress

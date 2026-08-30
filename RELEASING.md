@@ -5,7 +5,7 @@ Semantic Versioning (`MAJOR.MINOR.PATCH`).
 ## Release process
 
 1. Ensure CI is green on `main` (Rust + Android).
-2. Update `CHANGELOG.md` if user-visible changes shipped.
+2. Record user-visible changes on the **GitHub Release** for the tag. This repository has no root `CHANGELOG.md`.
 3. Annotated tag: `git tag -a vX.Y.Z -m "vX.Y.Z"` && `git push origin vX.Y.Z`
 4. GitHub Actions **Release** (`.github/workflows/release.yml`) builds:
    - Android APK via **reproducible container** (`scripts/reproducible-build.sh`)

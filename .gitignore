@@ -73,3 +73,6 @@ crates/mycelium-desktop/ui/.svelte-kit/
 # Generated UniFFI Kotlin (regenerate via scripts/regenerate-uniffi-kotlin.sh)
 /android/uniffi-bindings/src/main/kotlin/uniffi/mycelium/mycelium.kt
 artifacts/
+
+# cargo-cyclonedx staging files (real SBOM goes to target/sbom/)
+crates/*/mycelium-sbom-*.json

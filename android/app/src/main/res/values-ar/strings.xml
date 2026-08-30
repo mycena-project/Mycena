@@ -320,11 +320,14 @@
     <string name="settings_open_mail">Offline messages</string>
     <string name="settings_open_wallet">فتح رصيد الطوارئ</string>
     <string name="settings_panic_button">Panic wipe — حذف كل البيانات</string>
-    <string name="settings_panic_confirm_body">سيحذف هذا جميع الرسائل ومفتاح الهوية وبيانات المحفظة نهائيًا. لا يمكن التراجع.</string>
+    <string name="settings_panic_confirm_body">سيحذف هذا جميع الرسائل ومفتاح الهوية وبيانات المحفظة نهائيًا من هذا الجهاز. لا يمكن التراجع. النسخ الموجودة على أجهزة الشبكة الأخرى لا تُحذف بهذه العملية.</string>
     <string name="settings_panic_confirm_no">إلغاء</string>
     <string name="settings_panic_confirm_title">هل أنت متأكد؟</string>
     <string name="settings_panic_confirm_yes">حذف كل شيء</string>
     <string name="settings_panic_description">يحذف Panic wipe فورًا جميع الرسائل والمفاتيح وبيانات المحفظة المحلية. استخدمه إذا احتجت إلى مسح البيانات الحساسة بسرعة من هذا الجهاز.</string>
+    <string name="settings_panic_wipe_failed_body">تعذر حذف البيانات المحلية على هذا الجهاز بالكامل. لم يُعاد تشغيل التطبيق. لم تُحذف النسخ على أجهزة الشبكة الأخرى.</string>
+    <string name="settings_panic_wipe_failed_ok">حسنًا</string>
+    <string name="settings_panic_wipe_failed_title">المسح غير مكتمل</string>
     <string name="settings_privacy_policy">Privacy policy</string>
     <string name="settings_privacy_shaping_cover_sub">Sends dummy padded packets at a fixed rate when there is no real traffic. Disabled on Passive battery mode. Uses extra battery and data.</string>
     <string name="settings_privacy_shaping_cover_title">Cover traffic when idle</string>

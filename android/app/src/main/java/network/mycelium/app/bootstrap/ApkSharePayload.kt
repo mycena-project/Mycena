@@ -10,8 +10,15 @@ object ApkSharePayload {
         val password: String,
     )
 
+    /** Standard Wi‑Fi join QR (scannable from the Android camera app). Null if SSID is blank. */
+    fun buildWifiQrOrNull(credentials: HotspotCredentials): String? {
+        if (credentials.ssid.isBlank()) return null
+        return buildWifiQr(credentials)
+    }
+
     /** Standard Wi‑Fi join QR (scannable from the Android camera app). */
     fun buildWifiQr(credentials: HotspotCredentials): String {
+        require(credentials.ssid.isNotBlank()) { "blank SSID" }
         val ssid = escapeWifiField(credentials.ssid)
         val password = escapeWifiField(credentials.password)
         return "WIFI:T:WPA;S:$ssid;P:$password;;"

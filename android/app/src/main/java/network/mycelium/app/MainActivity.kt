@@ -11,9 +11,15 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -21,12 +27,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.delay
 import network.mycelium.app.bootstrap.OfflineBootstrap
-import network.mycelium.app.IdentityHelper
-import network.mycelium.app.OnboardingActivity
-import network.mycelium.app.WelcomeBackActivity
+import network.mycelium.app.stability.StabilityDiagnostics
 import network.mycelium.app.ui.MainShell
 import network.mycelium.app.ui.MyceliumTheme
 
@@ -55,27 +62,58 @@ class MainActivity : AppCompatActivity() {
             finish()
             return
         }
-        // Start the mesh node before UI — ViewModels call Rust FFI immediately.
         startMeshServiceIfNeeded()
         requestNotificationPermissionIfNeeded()
         setContent {
             MyceliumTheme {
                 var nodeReady by remember { mutableStateOf(MeshService.isNodeReady()) }
-                LaunchedEffect(Unit) {
-                    while (!nodeReady) {
-                        if (MeshService.isNodeReady()) {
-                            nodeReady = true
-                        } else {
-                            delay(50)
-                        }
+                var nodeFailed by remember { mutableStateOf(MeshService.isNodeFailed()) }
+                var timedOut by remember { mutableStateOf(false) }
+                var waitGeneration by remember { mutableStateOf(0) }
+                LaunchedEffect(waitGeneration) {
+                    nodeReady = MeshService.isNodeReady()
+                    nodeFailed = MeshService.isNodeFailed()
+                    timedOut = false
+                    val deadline = System.currentTimeMillis() + NODE_READY_TIMEOUT_MS
+                    while (!nodeReady && !nodeFailed && System.currentTimeMillis() < deadline) {
+                        delay(50)
+                        nodeReady = MeshService.isNodeReady()
+                        nodeFailed = MeshService.isNodeFailed()
+                    }
+                    if (!nodeReady && !nodeFailed) {
+                        timedOut = true
+                        StabilityDiagnostics.info("MainActivity.nodeWait", "timeout")
                     }
                 }
-                if (nodeReady) {
-                    MainShell()
-                } else {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
-                    }
+                when {
+                    nodeReady -> MainShell()
+                    nodeFailed || timedOut ->
+                        Column(
+                            modifier = Modifier.fillMaxSize().padding(24.dp),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            Text(
+                                stringResource(R.string.mesh_start_failed),
+                                style = MaterialTheme.typography.bodyLarge,
+                                textAlign = TextAlign.Center,
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                            Button(
+                                onClick = {
+                                    meshServiceStarted = false
+                                    startMeshServiceIfNeeded()
+                                    waitGeneration++
+                                },
+                                modifier = Modifier.padding(top = 16.dp),
+                            ) {
+                                Text(stringResource(R.string.mesh_start_retry))
+                            }
+                        }
+                    else ->
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator()
+                        }
                 }
             }
         }
@@ -96,7 +134,15 @@ class MainActivity : AppCompatActivity() {
         if (meshServiceStarted) {
             return
         }
-        startForegroundService(Intent(this, MeshService::class.java))
-        meshServiceStarted = true
+        try {
+            startForegroundService(Intent(this, MeshService::class.java))
+            meshServiceStarted = true
+        } catch (e: IllegalStateException) {
+            StabilityDiagnostics.record("MainActivity.startForegroundService", e)
+        }
+    }
+
+    companion object {
+        private const val NODE_READY_TIMEOUT_MS = 15_000L
     }
 }

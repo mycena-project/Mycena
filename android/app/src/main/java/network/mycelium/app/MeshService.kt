@@ -8,8 +8,11 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
+import android.content.pm.ServiceInfo
+import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -17,6 +20,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import network.mycelium.app.stability.StabilityDiagnostics
 import network.mycelium.app.discovery.MeshDiscoveryState
 import network.mycelium.app.bootstrap.BleBootstrapAdvertiser
 import network.mycelium.app.bootstrap.BleBootstrapScanner
@@ -52,7 +56,15 @@ import java.io.File
 
 class MeshService : Service() {
     private val serviceJob = SupervisorJob()
-    private val serviceScope = CoroutineScope(serviceJob + Dispatchers.Main)
+    private val serviceScope =
+        CoroutineScope(
+            serviceJob +
+                Dispatchers.Main +
+                CoroutineExceptionHandler { _, throwable ->
+                    if (throwable is kotlinx.coroutines.CancellationException) return@CoroutineExceptionHandler
+                    StabilityDiagnostics.record("MeshService.coroutine", throwable)
+                },
+        )
 
     private var bleAdvertiser: BleBootstrapAdvertiser? = null
     private var bleScanner: BleBootstrapScanner? = null
@@ -79,7 +91,9 @@ class MeshService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        startForeground(NOTIFICATION_ID, buildNotification())
+        if (!enterForeground()) {
+            return START_NOT_STICKY
+        }
 
         if (intent?.action == ACTION_UPDATE_BLE) {
             if (nodeInitialized) {
@@ -217,13 +231,43 @@ class MeshService : Service() {
 
         nodeInitialized = true
         nodeReady = true
+        nodeFailed = false
         MeshUiState.start(this)
         startWebRtcHost()
         updateBleBootstrap()
         return START_STICKY
-        } catch (e: Exception) {
-            android.util.Log.e("MeshService", "node init failed", e)
+        } catch (t: Throwable) {
+            if (t is VirtualMachineError) throw t
+            StabilityDiagnostics.record("MeshService.initNode", t)
+            nodeFailed = true
+            nodeReady = false
             return START_STICKY
+        }
+    }
+
+    private fun enterForeground(): Boolean {
+        val notification = buildNotification()
+        return try {
+            if (Build.VERSION.SDK_INT >= 34) {
+                startForeground(
+                    NOTIFICATION_ID,
+                    notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE,
+                )
+            } else {
+                startForeground(NOTIFICATION_ID, notification)
+            }
+            true
+        } catch (e: IllegalStateException) {
+            StabilityDiagnostics.record("MeshService.startForeground", e)
+            nodeFailed = true
+            stopSelf()
+            false
+        } catch (e: SecurityException) {
+            StabilityDiagnostics.record("MeshService.startForeground", e)
+            nodeFailed = true
+            stopSelf()
+            false
         }
     }
 
@@ -245,6 +289,16 @@ class MeshService : Service() {
     }
 
     private fun updateBleBootstrap() {
+        try {
+            updateBleBootstrapUnchecked()
+        } catch (t: Throwable) {
+            if (t is VirtualMachineError) throw t
+            StabilityDiagnostics.record("MeshService.updateBleBootstrap", t)
+            runCatching { stopBleBootstrap() }
+        }
+    }
+
+    private fun updateBleBootstrapUnchecked() {
         val prefs = getSharedPreferences("settings", MODE_PRIVATE)
         var enabled = prefs.getBoolean(SettingsViewModel.KEY_BLE_BOOTSTRAP, false)
         if (!enabled && prefs.getBoolean(SettingsViewModel.KEY_MAX_CONNECTIVITY, false)) {
@@ -533,6 +587,7 @@ class MeshService : Service() {
         mycelium.stopNode()
         nodeInitialized = false
         nodeReady = false
+        // Keep nodeFailed so MainActivity can show retry after startForeground/init failure.
         super.onDestroy()
     }
 
@@ -548,6 +603,12 @@ class MeshService : Service() {
         var nodeReady: Boolean = false
             private set
 
+        @Volatile
+        var nodeFailed: Boolean = false
+            private set
+
         fun isNodeReady(): Boolean = nodeReady
+
+        fun isNodeFailed(): Boolean = nodeFailed
     }
 }

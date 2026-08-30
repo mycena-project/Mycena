@@ -1165,9 +1165,10 @@ fun FreshIdentitySection(
 @Composable
 fun PanicWipeSection(
     modifier: Modifier = Modifier,
-    onPanicWipe: () -> Unit,
+    onPanicWipe: () -> Boolean,
 ) {
     var showConfirmDialog by remember { mutableStateOf(false) }
+    var showFailedDialog by remember { mutableStateOf(false) }
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -1208,7 +1209,9 @@ fun PanicWipeSection(
                 Button(
                     onClick = {
                         showConfirmDialog = false
-                        onPanicWipe()
+                        if (!onPanicWipe()) {
+                            showFailedDialog = true
+                        }
                     },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.error,
@@ -1220,6 +1223,19 @@ fun PanicWipeSection(
             dismissButton = {
                 TextButton(onClick = { showConfirmDialog = false }) {
                     Text(stringResource(R.string.settings_panic_confirm_no))
+                }
+            },
+        )
+    }
+
+    if (showFailedDialog) {
+        AlertDialog(
+            onDismissRequest = { showFailedDialog = false },
+            title = { Text(stringResource(R.string.settings_panic_wipe_failed_title)) },
+            text = { Text(stringResource(R.string.settings_panic_wipe_failed_body)) },
+            confirmButton = {
+                TextButton(onClick = { showFailedDialog = false }) {
+                    Text(stringResource(R.string.settings_panic_wipe_failed_ok))
                 }
             },
         )

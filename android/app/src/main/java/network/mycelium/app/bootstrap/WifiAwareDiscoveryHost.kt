@@ -16,6 +16,7 @@ import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import network.mycelium.app.stability.StabilityDiagnostics
 import network.mycelium.bindings.mycelium
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.atomic.AtomicBoolean
@@ -182,7 +183,11 @@ class WifiAwareDiscoveryHost(
     }
 
     private fun startNsdFallback(inviteProvider: () -> String) {
-        nsdManager = context.getSystemService(Context.NSD_SERVICE) as NsdManager
+        nsdManager = context.getSystemService(Context.NSD_SERVICE) as? NsdManager
+        if (nsdManager == null) {
+            StabilityDiagnostics.info("WifiAware.startNsdFallback", "nsd_null")
+            return
+        }
         publishNsd(inviteProvider().trim())
         val listener =
             object : NsdManager.DiscoveryListener {

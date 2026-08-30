@@ -58,7 +58,6 @@ jobs:
             android:
               - 'android/**'
               - 'crates/mycelium-ffi/**'
-              - 'crates/mycelium-android/**'
 
   meta:
     if: github.actor != 'dependabot[bot]'

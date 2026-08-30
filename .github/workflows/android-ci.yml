@@ -34,7 +34,6 @@ jobs:
             android:
               - 'android/**'
               - 'crates/mycelium-ffi/**'
-              - 'crates/mycelium-android/**'
               - 'crates/mycelium-app/**'
               - 'crates/mycelium-node/**'
               - 'crates/mycelium-core/**'

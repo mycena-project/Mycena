@@ -3,6 +3,7 @@
 package network.mycelium.app.bootstrap
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.UUID
@@ -45,12 +46,27 @@ class BootstrapTests {
         val header = WifiDirectSharer.buildApkHttpHeader(contentLength = 1024)
         assertTrue(header.contains("Content-Type: application/vnd.android.package-archive"))
         assertTrue(header.contains("Content-Length: 1024"))
+        assertTrue(header.contains("\r\n"))
+        assertFalse(Regex("(?<!\r)\n").containsMatchIn(header))
     }
 
     @Test
     fun install_landing_includes_bootstrap_sidecar_path() {
         val html = WifiDirectSharer.buildInstallLandingHtml()
         assertTrue(html.contains("/mesh/bootstrap.myc"))
+        assertTrue(html.contains("unknown apps") || html.contains("Install unknown"))
+        assertTrue(html.contains("Samsung"))
+    }
+
+    @Test
+    fun install_landing_includes_sha256_when_provided() {
+        val html =
+            WifiDirectSharer.buildInstallLandingHtml(
+                sha256 = "abc123",
+                sidecarAvailable = true,
+            )
+        assertTrue(html.contains("abc123"))
+        assertTrue(html.contains("technical-beta") || html.contains("not</strong> the Play Store"))
     }
 
     @Test
@@ -71,5 +87,15 @@ class BootstrapTests {
                 ApkSharePayload.HotspotCredentials("Net", "a;b"),
             )
         assertTrue(payload.contains("P:a\\;b"))
+    }
+
+    @Test
+    fun wifi_qr_null_when_ssid_blank() {
+        assertEquals(
+            null,
+            ApkSharePayload.buildWifiQrOrNull(
+                ApkSharePayload.HotspotCredentials("", "x"),
+            ),
+        )
     }
 }

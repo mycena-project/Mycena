@@ -1,7 +1,9 @@
 # Mycelium — work remaining (audit 2026-07-05)
 
-Master tracker from a full-repo scan.  
+Master tracker from a full-repo scan.
 **Legend:** ✅ done · ⏳ outstanding
+
+**2026-08-29:** [DEVELOPMENT_FREEZE.md](./DEVELOPMENT_FREEZE.md) — **Public Technical Beta — Feature Development Frozen, Release Validation Ongoing.** Feature development paused (exceptions). G10 **not approved**. Freeze P0 device/CI work: [RELEASE_FREEZE_BACKLOG.md](./RELEASE_FREEZE_BACKLOG.md). P2: [POST_FREEZE_BACKLOG.md](./POST_FREEZE_BACKLOG.md). This file is **not** replaced.
 
 ---
 
@@ -68,7 +70,7 @@ Master tracker from a full-repo scan.
 
 ### ⏳ Priority backlog (remaining)
 
-_All Category 3 software backlog items through Iteration E are complete. Remaining work is Category 1 (sign-offs, review, legal) and Category 2 (field hardware drills)._
+_All Category 3 software backlog items through Iteration E were historically complete as of the 2026-07-05 audit. That does **not** mean release-freeze / P0 validation work is complete. Freeze P0 work: [RELEASE_FREEZE_BACKLOG.md](./RELEASE_FREEZE_BACKLOG.md), [P0_IMPLEMENTATION_QUEUE.md](./P0_IMPLEMENTATION_QUEUE.md). Hardware validation has **not** been performed. G9 is FAIL. G10 is NOT APPROVED._
 
 | P | Item | Notes |
 |---|------|-------|
@@ -78,13 +80,13 @@ _All Category 3 software backlog items through Iteration E are complete. Remaini
 
 ## Iteration plan (updated)
 
-1. ~~**A** — Gossip hot-swap (P0)~~ ✅  
-2. ~~**B** — Multi-shard SOS + bulletin geohash + crisis metrics + offline mesh (P1)~~ ✅  
-3. ~~**C** — SD-051 origin lock (P2 partial)~~ ✅  
-4. ~~**D** — Bearer metrics (P2) + MyceliumLab sims (P2)~~ ✅  
-5. ~~**E** — P3 CLI/desktop/relay backlog~~ ✅  
+1. ~~**A** — Gossip hot-swap (P0)~~ ✅
+2. ~~**B** — Multi-shard SOS + bulletin geohash + crisis metrics + offline mesh (P1)~~ ✅
+3. ~~**C** — SD-051 origin lock (P2 partial)~~ ✅
+4. ~~**D** — Bearer metrics (P2) + MyceliumLab sims (P2)~~ ✅
+5. ~~**E** — P3 CLI/desktop/relay backlog~~ ✅
 
-After **E**, remaining work is **Category 1** (sign-offs, review, legal) and **Category 2** (field hardware drills).
+After **E**, the 2026-07-05 Category 3 software list was empty. Remaining **release-freeze / P0** work is **not** empty — see [RELEASE_FREEZE_BACKLOG.md](./RELEASE_FREEZE_BACKLOG.md). Category 1 (sign-offs, review, legal) and Category 2 (field hardware drills) also remain.
 
 ---
 

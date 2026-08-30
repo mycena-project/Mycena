@@ -2,33 +2,103 @@
 
 This guide explains how to build and test the Android app with embedded Rust (`mycelium-ffi`) and UniFFI bindings.
 
+**Clean checkout:** generated UniFFI Kotlin is **not** in git. `./gradlew assembleDebug` or `./gradlew testDebugUnitTest` **alone will fail**. That is intentional. Follow [Clean checkout](#clean-checkout) below — do not treat a Gradle-only command as a complete workflow.
+
+---
+
 ## Prerequisites
 
-- Android Studio (latest stable)
-- Android SDK + NDK installed
-- Rust toolchain
-- Java 17
-- `cargo-ndk` (the script installs it automatically if missing)
-- **Gradle wrapper** (`android/gradlew`, …) is checked in so you do not need a global Gradle install. To regenerate the wrapper with Docker only:
+| For | Need |
+|-----|------|
+| UniFFI Kotlin + JVM unit tests | Rust (`cargo` / rustup), JDK **17**, Android SDK, checked-in `android/gradlew` |
+| Development or Technical Beta **APK** | All of the above **plus** Android NDK and `cargo-ndk` (`android/build.sh` installs `cargo-ndk` if missing) |
+
+Optional: Android Studio (latest stable).
+
+Regenerate the Gradle wrapper with Docker only if `android/gradlew` is missing:
 
 ```bash
 make gradle-wrapper
 ```
 
-## 1) Generate Rust libs + Kotlin bindings + APK
+SDK path: Gradle reads `android/local.properties` (`sdk.dir=…`). `./android/build.sh` writes that file from `ANDROID_HOME` / `ANDROID_SDK_ROOT` when set.
 
-From workspace root:
+---
+
+## Clean checkout
+
+Order matters. Bindings stay **untracked** (`.gitignore`: `android/uniffi-bindings/src/main/kotlin/uniffi/mycelium/mycelium.kt`). Do not commit them unless the project later decides to track generated code.
+
+Generation uses the **existing** binder only: `scripts/regenerate-uniffi-kotlin.sh` → `cargo run -p mycelium-ffi --bin uniffi-bindgen` on `crates/mycelium-ffi/src/mycelium.udl`. Output is deterministic for a given `Cargo.lock` / UniFFI version. It **requires host Rust**; it does **not** require the NDK.
+
+### 1. Prepare
+
+Install the prerequisite row above for the work you need (tests vs APK).
+
+### 2. Generate UniFFI bindings
+
+From the **repository root** (not `android/`):
+
+```bash
+./scripts/regenerate-uniffi-kotlin.sh
+```
+
+Expect exactly one `android/uniffi-bindings/src/main/kotlin/uniffi/mycelium/mycelium.kt`. If Gradle is run first, `:uniffi-bindings:requireUniffiKotlin` fails with these same commands.
+
+### 3. Build the Android app (Development APK)
+
+Needs NDK + `cargo-ndk`. This also regenerates UniFFI and builds native `.so` files:
 
 ```bash
 ./android/build.sh
 ```
 
-This does:
+Output: `android/app/build/outputs/apk/debug/app-debug.apk` (debug-signed **Development** APK).
 
-1. Adds Android Rust targets
-2. Builds `mycelium-ffi` `.so` libraries with `cargo ndk`
-3. Generates Kotlin bindings from `crates/mycelium-ffi/src/mycelium.udl`
-4. Runs Android Gradle build (`./android/gradlew assembleDebug`)
+**Technical Beta APK** (release-signed, not Play): `./scripts/build-technical-beta-apk.sh` — [docs/TECHNICAL_BETA_ARTIFACT.md](../docs/TECHNICAL_BETA_ARTIFACT.md).
+
+### 4. Run deterministic Android tests (JVM)
+
+Does **not** need NDK. Regenerates UniFFI if you use the wrapper:
+
+```bash
+./scripts/android-test.sh
+```
+
+Equivalent after step 2:
+
+```bash
+cd android
+./gradlew testDebugUnitTest
+```
+
+Instrumentation (device/emulator; not required for the freeze JVM suite):
+
+```bash
+cd android
+./gradlew connectedDebugAndroidTest
+```
+
+CI (`.github/workflows/android-ci.yml`) already runs `android/build.sh` then `testDebugUnitTest` on a clean runner checkout. Do not skip generation in CI.
+
+---
+
+## 1d) Technical Beta APK (offline / phone-to-phone)
+
+This artifact is for **technical-beta / offline testing** and is **not** the Play Store artifact. It is not official, not tagged, and not published.
+
+```bash
+./scripts/build-technical-beta-apk.sh
+# output: artifacts/technical-beta/mycelium-<versionName>-technical-beta-android.apk
+```
+
+That is Gradle **`assembleRelease`** (minify on) with an explicit local Technical Beta keystore (`artifacts/technical-beta/*.jks`, gitignored). `assembleRelease` without that keystore **fails closed** (unsigned release APKs are not produced).
+
+Phone-to-phone share **refuses** debug APKs, Play split installs, and incomplete packages. Install this Technical Beta APK on the sharing phone first.
+
+See [docs/OFFLINE_DISTRIBUTION.md](../docs/OFFLINE_DISTRIBUTION.md) and [docs/TECHNICAL_BETA_ARTIFACT.md](../docs/TECHNICAL_BETA_ARTIFACT.md).
+
+**Play Store AAB** remains `.github/workflows/android-release-play.yml` (unchanged; out of this freeze path).
 
 ## 1b) Build inside Docker (no local Rust / Android SDK)
 
@@ -53,35 +123,35 @@ Workflow file: `.github/workflows/android-release-play.yml` (workflow dispatch o
 
 Configure the repository secrets listed in the header of that workflow, then run **Actions → Android Release → Google Play → Run workflow**. The job cross-compiles **arm64-v8a**, **armeabi-v7a**, and **x86_64**, builds a signed **AAB**, and uploads to the chosen Play track together with R8 **mapping.txt** and **whatsnew** (en-US).
 
-## 2) Manual commands (optional)
+## Manual Gradle (only after UniFFI exists)
 
-Generate Kotlin bindings only:
+These **fail** on a clean tree until step 2 (or `android/build.sh`) has run.
+
+Generate Kotlin only (same as `./scripts/regenerate-uniffi-kotlin.sh`):
 
 ```bash
-cargo run -p mycelium-ffi --bin uniffi-bindgen -- generate \
-  crates/mycelium-ffi/src/mycelium.udl \
-  --language kotlin \
-  --out-dir android/uniffi-bindings/src/main/kotlin/
+./scripts/regenerate-uniffi-kotlin.sh
 ```
 
-Build Rust Android libs only:
+Native `.so` files only (needs NDK):
 
 ```bash
 cargo ndk \
   -t aarch64-linux-android \
+  -t armv7-linux-androideabi \
   -t x86_64-linux-android \
   -o android/rust-build \
   build --release -p mycelium-ffi
 ```
 
-Build debug APK only:
+Then:
 
 ```bash
 cd android
 ./gradlew assembleDebug
 ```
 
-## 3) Run on emulator/device
+## Run on emulator/device
 
 1. Start an emulator (API 26+), or connect a device.
 2. Install app:
@@ -91,9 +161,11 @@ cd android
 ./gradlew installDebug
 ```
 
-3. Launch app. `MeshService` starts as foreground service and initializes the Rust node.
+3. Launch app. `MeshService` starts as a foreground service and initializes the Rust node.
 
-## 4) Basic E2E smoke test (2 emulators)
+**Release freeze hardware validation** (Definition of Done, not this README’s 2-emulator smoke): [HARDWARE_TEST_RUNBOOK.md](../docs/HARDWARE_TEST_RUNBOOK.md). Record results in [HARDWARE_TEST_MATRIX.md](../docs/HARDWARE_TEST_MATRIX.md). Device identity / filtered logcat: `make android-hw-info` and `./scripts/android/capture-freeze-evidence.sh` ([CRASH_REPORTING.md](../docs/CRASH_REPORTING.md)). Do not commit `artifacts/hardware-runs/`.
+
+## Basic E2E smoke test (2 emulators)
 
 1. Start AVD A and AVD B.
 2. Launch app on both.
@@ -104,26 +176,11 @@ cd android
 5. Verify peer appears in list.
 6. Send chat message from A to B and verify receipt notification.
 
-## 5) Android tests
-
-Unit tests (local JVM):
-
-```bash
-cd android
-./gradlew testDebugUnitTest
-```
-
-Instrumentation tests (device/emulator):
-
-```bash
-cd android
-./gradlew connectedDebugAndroidTest
-```
-
 ## Troubleshooting
 
-- **`gradlew` missing**: generate wrapper in Android Studio or run `gradle wrapper` in `android/`.
-- **No `.so` loaded**: ensure `android/rust-build` contains target ABI folders and `libmycelium_ffi.so`.
+- **`Generated UniFFI Kotlin is missing` / `requireUniffiKotlin`**: run `./scripts/regenerate-uniffi-kotlin.sh` from the repo root, or `./scripts/android-test.sh` / `./android/build.sh`.
+- **`gradlew` missing**: generate wrapper in Android Studio or run `make gradle-wrapper`.
+- **No `.so` loaded at runtime**: `android/rust-build` must contain ABI folders and `libuniffi_mycelium.so` — use `./android/build.sh`, not Gradle-only.
 - **Binding mismatch**: re-run UniFFI generation after UDL changes.
 - **Camera/QR issues**: ensure camera permission granted on device.
 - **Peer discovery on hotspot**: use QR/manual bootstrap multiaddr flow (`addBootstrapPeer`).

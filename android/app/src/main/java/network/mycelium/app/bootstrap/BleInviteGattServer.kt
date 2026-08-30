@@ -29,7 +29,7 @@ class BleInviteGattServer(
     }
 
     private val bluetoothManager =
-        context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+        context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
     private var gattServer: android.bluetooth.BluetoothGattServer? = null
     private var inviteCharacteristic: BluetoothGattCharacteristic? = null
     private var cachedInvite: String = ""
@@ -98,12 +98,23 @@ class BleInviteGattServer(
 
     fun start(): Boolean {
         if (gattServer != null) return true
+        val bluetoothManager = bluetoothManager
+        if (bluetoothManager == null) {
+            Log.w(TAG, "BluetoothManager missing")
+            return false
+        }
         val adapter = bluetoothManager.adapter
         if (adapter == null || !adapter.isEnabled) {
             Log.w(TAG, "Bluetooth unavailable")
             return false
         }
-        val server = bluetoothManager.openGattServer(context, serverCallback)
+        val server =
+            try {
+                bluetoothManager.openGattServer(context, serverCallback)
+            } catch (e: SecurityException) {
+                network.mycelium.app.stability.StabilityDiagnostics.record("BleGatt.open", e)
+                null
+            }
         if (server == null) {
             Log.e(TAG, "openGattServer failed")
             return false

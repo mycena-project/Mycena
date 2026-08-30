@@ -7,6 +7,7 @@ import android.content.Context
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import network.mycelium.app.stability.StabilityDiagnostics
 import network.mycelium.bindings.mycelium
 
 /**
@@ -19,8 +20,8 @@ object BleMeshRelay {
     suspend fun flushOutbound(context: Context) {
         withContext(Dispatchers.IO) {
             val adapter =
-                (context.getSystemService(Context.BLUETOOTH_SERVICE) as android.bluetooth.BluetoothManager)
-                    .adapter
+                (context.getSystemService(Context.BLUETOOTH_SERVICE) as? android.bluetooth.BluetoothManager)
+                    ?.adapter
                     ?: return@withContext
             val connected = mycelium.connectedPeers().toSet()
             val bleAddrs = mycelium.blePeerAddrs()
@@ -55,8 +56,9 @@ object BleMeshRelay {
     ): BleMeshDataSession? {
         return try {
             BleMeshDataSession.open(context, device, peerId)
-        } catch (e: Exception) {
-            Log.w(TAG, "session open $peerId: ${e.message}")
+        } catch (t: Throwable) {
+            if (t is VirtualMachineError) throw t
+            StabilityDiagnostics.record("BleMeshRelay.openSession", t)
             null
         }
     }

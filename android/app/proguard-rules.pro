@@ -6,3 +6,9 @@
 -keepclassmembers class network.mycelium.app.ui.MiniappJsBridge {
     @android.webkit.JavascriptInterface <methods>;
 }
+
+# Tink (EncryptedSharedPreferences) — annotation classes not on the runtime classpath
+-dontwarn com.google.errorprone.annotations.CanIgnoreReturnValue
+-dontwarn com.google.errorprone.annotations.CheckReturnValue
+-dontwarn com.google.errorprone.annotations.Immutable
+-dontwarn com.google.errorprone.annotations.RestrictedApi

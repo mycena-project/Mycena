@@ -15,20 +15,37 @@ Rust helpers live in `crates/mycelium-app/src/offline_share.rs`. Desktop uses `c
 
 ## Phone-to-phone APK flow (Android)
 
-1. **Device A** opens **Share app** → local-only hotspot (or Wi‑Fi Direct fallback) + HTTP server on `:8765`.
-2. If hotspot fails while connected to home Wi‑Fi, the app briefly disconnects and retries, then falls back to Wi‑Fi Direct. Home Wi‑Fi reconnects when sharing stops.
-2. QR codes show:
-   - Wi‑Fi join (`WIFI:…`) for device B’s camera app
-   - Install URL (`http://192.168.43.x:8765/`) for browser download
-3. Landing page serves APK and auto-downloads **`mycelium-bootstrap.myc`** (signed invite + sharer peer id).
-4. **Device B** installs APK (no Mycelium required beforehand).
-5. On first launch, `OfflineBootstrap` imports the sidecar from Downloads:
-   - Auto display name (`guest-…`)
-   - Bootstrap peers / invite URI
-   - Skips manual onboarding
-6. `MeshService` starts and dials the sharer’s mesh.
+1. **Device A** opens **Share Mycelium**. The app requests **Nearby Wi‑Fi devices** (API 33+) or **fine location** (API 26–32) before starting a local hotspot. Denial is explained; Quick Share still works. Location must be ON on API 26–32 for LocalOnlyHotspot on most phones.
+2. **Transport order:** LocalOnlyHotspot → (API 28 and older only) brief STA Wi‑Fi disconnect + retry → Wi‑Fi Direct group owner. API 29+ skips the disconnect: `WifiManager.disconnect` / `enableNetwork` are no-ops for third-party apps.
+3. The HTTP server binds **after** a non-loopback IPv4 is observed on the share link (Direct group-owner address from the P2P API when available; otherwise a newly appeared SoftAP/wlan/p2p interface). The advertised URL is never `localhost`.
+4. QR codes on Device A:
+   - Wi‑Fi join (`WIFI:…`) only when SSID is non-blank
+   - Install URL (`http://<share-ipv4>:8765/`)
+   - Mesh invite (when the node produced a sidecar) — Device B scans this in **Contacts** after install
+5. Landing page (`/`): APK download, SHA-256, unknown-apps / Samsung Auto Blocker / Play Protect instructions (no bypass), optional bootstrap file. `GET /mycelium.apk.sha256` returns the same hash. Empty sidecar is **404**, not an empty 200.
+6. **Device B** installs via the system installer (no Mycelium yet). Allow the browser to install unknown apps if asked. If Samsung or Play Protect blocks, change those settings and retry — the app cannot override them.
+7. **Join mesh (do not rely on Downloads):** Chrome’s download is not listable under scoped storage (API 29+ / target 34). Device B should scan Device A’s **Step 3 invite QR**, or on first launch pick `mycelium-bootstrap.myc` via the file picker. Downloads auto-import remains best-effort only.
+8. Sharing **stops** when Device A leaves the Share screen (ViewModel cleared), taps Stop, or the process dies. There is **no** foreground service for APK share. Keep the screen open (the UI holds a keep-screen-on flag while serving).
 
-**No desktop required.** Same LAN mode works when both phones already share Wi‑Fi.
+**Artifact:** Phone-to-phone share serves a cache copy of the **Technical Beta APK** currently installed on the sharing phone. That APK is a complete universal `assembleRelease` package (armeabi-v7a, arm64-v8a, x86_64), signed with the local Technical Beta key — **not** the Play Store artifact, **not** a debug APK, **not** official.
+
+Share **fails closed** (actionable UI, no silent fallback) if:
+
+- the install is a **development/debug** APK (`FLAG_DEBUGGABLE` / `BuildConfig.TECHNICAL_BETA=false`);
+- the install is a **Play split** (base APK only);
+- the package file is **missing or empty**.
+
+The advertised HTTP URL is never `localhost`. Quick Share uses `<cache-path>`, not filesystem `root-path`.
+
+Build the Technical Beta APK with `./scripts/build-technical-beta-apk.sh` (see [TECHNICAL_BETA_ARTIFACT.md](./TECHNICAL_BETA_ARTIFACT.md)). `./android/build.sh` remains the **Development APK** (`assembleDebug`). GitHub `reproducible-build.sh` still copies debug until that pipeline is changed separately. Play AAB is out of this freeze path.
+
+The landing page states that the file is for technical-beta/offline testing and is not the Play Store artifact.
+
+**No desktop required.** Same LAN mode uses ConnectivityManager Wi‑Fi IPv4 when both phones already share a network.
+
+**Permissions:** Bluetooth is **not** requested for hotspot/Direct. Quick Share (system sheet) may need Bluetooth on the device; that is a system flow.
+
+See [PHONE_TO_PHONE_MANUAL_TEST.md](./PHONE_TO_PHONE_MANUAL_TEST.md) for hardware steps (P2P-MT-*).
 
 ## Miniapp epidemic propagation (mesh)
 
@@ -64,7 +81,7 @@ Offline distribution means **the install source must not be trusted by default**
 
 ### Threat model notes
 
-- **Malicious sharer** could serve a **modified APK** (different signing key). Recipients must verify out-of-band that the APK is an official build (hash check, known signer).
+- **Malicious sharer** could serve a **modified APK** (different signing key). Recipients should compare SHA-256 with the sharing phone / [TECHNICAL_BETA_ARTIFACT.md](./TECHNICAL_BETA_ARTIFACT.md). This path is **not** a Play-reviewed or official M-of-N build.
 - **Gossip poisoner** can spam fake chunks; reassembly + hash + listing signature prevent install unless the attacker holds the **developer key** or fools the user into sideload ack.
 - **Downgrade attacks** blocked unless explicitly allowed in manual install policy.
 - **HTTP on hotspot is unencrypted** — acceptable for APK bytes in physical proximity; do not reuse for secrets.
@@ -76,6 +93,14 @@ Offline distribution means **the install source must not be trusted by default**
 3. Prefer **VerifiedListing** epidemic path; never bypass `install_verified` for gossip-delivered bytes.
 4. Document local APK hash for your community if you run repeated offline installs.
 
+## Reinstall and signing keys (HV-16 / HV-17)
+
+| From \ To | Result |
+|-----------|--------|
+| Same Technical Beta key + `adb install -r` | App data **kept** |
+| Uninstall, then install | App data **lost** (`allowBackup=false`) |
+| Debug ↔ Technical Beta ↔ Play | **Cannot** update in place (different trust roots); uninstall first |
+
 ## Related docs
 
 - [ADR 007 — Wi‑Fi Direct bulk bearer](adr/007-wifi-direct-bulk-bearer.md)
@@ -86,7 +111,7 @@ Offline distribution means **the install source must not be trusted by default**
 ## Remaining gaps
 
 - iOS: no offline IPA sideload; Network framework bearer planned for miniapp bulk between iOS peers.
-- Foreground service for long-running hotspot share on Android.
+- **No foreground service for APK share** (intentional for this freeze). Leaving Share or process death stops `:8765`. Documented in [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md).
 - Unified HTTP router shared as a crate (desktop + Android HTML currently parallel).
 - UI: explicit “Share miniapp to cluster” + progress for bearer bulk transfers.
-- Hotspot share before mesh node ready: bootstrap sidecar requires running node for signed v3 invite.
+- Two-phone hardware matrix still required ([HARDWARE_TEST_MATRIX.md](./HARDWARE_TEST_MATRIX.md) HV-10/HV-11; [PHONE_TO_PHONE_MANUAL_TEST.md](./PHONE_TO_PHONE_MANUAL_TEST.md)); this document describes code, not a completed G3 drill.

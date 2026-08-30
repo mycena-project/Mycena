@@ -1,7 +1,10 @@
 # External security review — engagement package
 
-**Status:** Not commissioned. This file is a briefing pack, not evidence of a completed audit.
-**Threat model version:** [THREAT_MODEL.md](./THREAT_MODEL.md) v1.0 (July 2026)
+**Status:** **Not commissioned.** This file is a briefing pack, not evidence of a completed audit. **No external security review has occurred.**
+
+**GitHub-only technical beta (2026-08-29):** external review is **explicitly deferred** (owner: Mycelium maintainers). It is **not** scheduled. Play Store / wide public beta still requires scheduling per [PRE_RELEASE_GAPS.md](./PRE_RELEASE_GAPS.md). Internal freeze review: [SECURITY_RELEASE_REVIEW.md](./SECURITY_RELEASE_REVIEW.md) (not a substitute for this pack’s signed deliverable).
+
+**Threat model version:** [THREAT_MODEL.md](./THREAT_MODEL.md) **v1.1** (July 2026). Reviewer checklist is **§9** (the freeze plan’s “§8 checklist” is the mapping table in TM §8).
 
 ---
 
@@ -31,8 +34,8 @@ See [ACCEPTED_SECURITY_RESIDUALS.md](./ACCEPTED_SECURITY_RESIDUALS.md).
 
 | # | Artifact | Path |
 |---|----------|------|
-| 1 | Threat model + review checklist | [THREAT_MODEL.md](./THREAT_MODEL.md) §8 |
-| 2 | Security debt register (snapshot date: **July 2026**) | [SECURITY_DEBT_REGISTER.md](./SECURITY_DEBT_REGISTER.md) |
+| 1 | Threat model + review checklist | [THREAT_MODEL.md](./THREAT_MODEL.md) **§9** (scope/residuals/debt/privacy/asset tests; §8 is ID mapping only) |
+| 2 | Security debt register (snapshot date: **2026-08-29**) | [SECURITY_DEBT_REGISTER.md](./SECURITY_DEBT_REGISTER.md) |
 | 3 | Scenario assessment | [BETA_SECURITY_ASSESSMENT.md](./BETA_SECURITY_ASSESSMENT.md) |
 | 4 | Known limitations | [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md) |
 | 5 | Privacy policy | [docs/legal/privacy-policy.html](./legal/privacy-policy.html) |
@@ -94,4 +97,5 @@ Privacy: privacy@example.invalid
 
 | Date | Change |
 |------|--------|
+| 2026-08-29 | Status: still not commissioned; explicitly deferred for GitHub-only beta; TM v1.1; checklist §9 |
 | Jul 2026 | Initial engagement package |

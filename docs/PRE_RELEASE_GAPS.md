@@ -1,6 +1,6 @@
 # Pre–public release — open gaps
 
-**Last updated:** July 2026 (audit pass + AR-06 software gaps)  
+**Last updated:** July 2026 (audit pass + AR-06 software gaps)
 **Context:** [THREAT_MODEL.md](./THREAT_MODEL.md) · [BETA_SECURITY_ASSESSMENT.md](./BETA_SECURITY_ASSESSMENT.md) · [WORK_REMAINING.md](./WORK_REMAINING.md)
 
 Legend: **DO NOW** · **DOCUMENT** · **EXTERNAL** · **BLOCKS PLAY** · **DONE**
@@ -24,7 +24,7 @@ Legend: **DO NOW** · **DOCUMENT** · **EXTERNAL** · **BLOCKS PLAY** · **DONE*
 
 | Gap | Status | Notes |
 |-----|--------|-------|
-| External security review | **EXTERNAL** | Package: [EXTERNAL_SECURITY_REVIEW.md](./EXTERNAL_SECURITY_REVIEW.md) |
+| External security review | **EXTERNAL** | Package: [EXTERNAL_SECURITY_REVIEW.md](./EXTERNAL_SECURITY_REVIEW.md). **Not commissioned.** GitHub-only technical beta: **explicitly deferred** 2026-08-29 (Mycelium maintainers). Play still needs this **scheduled**. Internal note: [SECURITY_RELEASE_REVIEW.md](./SECURITY_RELEASE_REVIEW.md) (not a signed external review). |
 | Red-team mini-apps | **EXTERNAL** | — |
 | Metadata / Sybil residuals | **DOCUMENT** | [ACCEPTED_SECURITY_RESIDUALS.md](./ACCEPTED_SECURITY_RESIDUALS.md) |
 
@@ -46,9 +46,9 @@ Legend: **DO NOW** · **DOCUMENT** · **EXTERNAL** · **BLOCKS PLAY** · **DONE*
 
 **Conditional OK** per [BETA_SECURITY_ASSESSMENT.md](./BETA_SECURITY_ASSESSMENT.md) when:
 
-1. Pages URL live  
-2. Data Safety submitted  
-3. Residuals signed in [ACCEPTED_SECURITY_RESIDUALS.md](./ACCEPTED_SECURITY_RESIDUALS.md)  
+1. Pages URL live
+2. Data Safety submitted
+3. Residuals signed in [ACCEPTED_SECURITY_RESIDUALS.md](./ACCEPTED_SECURITY_RESIDUALS.md)
 4. External review scheduled (not necessarily complete for closed beta)
 
 **Do not** run activist/journalist outreach until Phase C/D or review sign-off.
@@ -57,8 +57,8 @@ Legend: **DO NOW** · **DOCUMENT** · **EXTERNAL** · **BLOCKS PLAY** · **DONE*
 
 ## Suggested next actions (human)
 
-1. GitHub **Settings → Pages → GitHub Actions** (one-time)  
-2. Confirm Pages deploy workflow green after push to `main`  
-3. Paste privacy URL + complete Data Safety in Play Console  
-4. Email reviewer with [EXTERNAL_SECURITY_REVIEW.md](./EXTERNAL_SECURITY_REVIEW.md)  
+1. GitHub **Settings → Pages → GitHub Actions** (one-time)
+2. Confirm Pages deploy workflow green after push to `main`
+3. Paste privacy URL + complete Data Safety in Play Console
+4. Email reviewer with [EXTERNAL_SECURITY_REVIEW.md](./EXTERNAL_SECURITY_REVIEW.md)
 5. Sign [ACCEPTED_SECURITY_RESIDUALS.md](./ACCEPTED_SECURITY_RESIDUALS.md)

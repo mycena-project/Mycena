@@ -1,7 +1,7 @@
 # Mycelium — Security Debt Register
 
 **Status:** Pre-public beta · living document
-**Last updated:** 2026-08-01
+**Last updated:** 2026-08-29
 **Audience:** Engineering, security review, release management
 **Tone:** Assume hostile networks, malicious users, compromised devices, and eventual nation-state interest.
 
@@ -9,7 +9,7 @@
 
 This register records **known** security, privacy, abuse, and legal debt. It is not a certification, audit, or guarantee. Items marked **beta-blocker: yes** must be resolved or explicitly accepted with written risk sign-off before a public Play Store / wide beta.
 
-**Related:** [THREAT_MODEL.md](./THREAT_MODEL.md) · [ARCHITECTURE_RISKS.md](./ARCHITECTURE_RISKS.md) · [SECURITY_ROADMAP.md](./SECURITY_ROADMAP.md) · [PRIVACY_ROADMAP.md](./PRIVACY_ROADMAP.md) · [ABUSE_RESPONSE_PLAYBOOK.md](./ABUSE_RESPONSE_PLAYBOOK.md) · [BETA_SECURITY_ASSESSMENT.md](./BETA_SECURITY_ASSESSMENT.md)
+**Related:** [THREAT_MODEL.md](./THREAT_MODEL.md) · [ARCHITECTURE_RISKS.md](./ARCHITECTURE_RISKS.md) · [SECURITY_ROADMAP.md](./SECURITY_ROADMAP.md) · [PRIVACY_ROADMAP.md](./PRIVACY_ROADMAP.md) · [ABUSE_RESPONSE_PLAYBOOK.md](./ABUSE_RESPONSE_PLAYBOOK.md) · [BETA_SECURITY_ASSESSMENT.md](./BETA_SECURITY_ASSESSMENT.md) · [SECURITY_RELEASE_REVIEW.md](./SECURITY_RELEASE_REVIEW.md) (G7 internal; not an external audit)
 
 ---
 
@@ -213,8 +213,8 @@ This register records **known** security, privacy, abuse, and legal debt. It is 
 | **Exploitation scenario** | Sybil floods city-scope bulletin with megabyte posts |
 | **Likelihood** | Medium |
 | **Impact** | Storage exhaustion, UI DoS |
-| **Current mitigations** | Scope subscription filter; ingest dedup |
-| **Missing mitigations** | Per-scope rate limit; size cap on gossip payload |
+| **Current mitigations** | **Mitigated** — `IngestGuard` in `mycelium-node`: per-author direct rate (`DIRECT_RATE_PER_MINUTE`), per-peer gossip rate (`GOSSIP_RATE_PER_MINUTE`), gossip payload cap (`MAX_GOSSIP_PAYLOAD_BYTES`), SOS author/geohash rates |
+| **Missing mitigations** | Sybil using many author keys; global/distributed rate limits |
 | **Proposed architecture changes** | Signed scope moderator keys; PoW per post (optional) |
 | **Implementation complexity** | S–M |
 | **Beta-blocker** | **no** |
@@ -315,8 +315,8 @@ This register records **known** security, privacy, abuse, and legal debt. It is 
 | **Exploitation scenario** | Captured signed `Data` or `EncryptedDirect` re-injected hours later; dedup only by message id |
 | **Likelihood** | Medium |
 | **Impact** | Duplicate deliveries, bulletin reposts, witness replay |
-| **Current mitigations** | `ContentId` dedup; TTL expiry |
-| **Missing mitigations** | Short replay window; sliding window of seen ids per author |
+| **Current mitigations** | **Mitigated** — `IngestGuard`: 30 min envelope freshness (`REPLAY_MAX_AGE_MS`), 5 min future skew, per-author seen-id window (`AUTHOR_ID_WINDOW`); plus `ContentId` dedup / TTL |
+| **Missing mitigations** | Envelope nonce + monotonic author counter (hardening beyond the sliding window) |
 | **Proposed architecture changes** | Envelope `nonce` + monotonic author counter |
 | **Implementation complexity** | S |
 | **Beta-blocker** | **no** |
@@ -651,8 +651,8 @@ This register records **known** security, privacy, abuse, and legal debt. It is 
 | **Exploitation scenario** | Compromised crate or npm package in build pipeline |
 | **Likelihood** | Low |
 | **Impact** | RCE at build or runtime |
-| **Current mitigations** | Dependabot version updates **disabled** (private CI minute budget). Re-enable with `.github/dependabot.yml` at public launch. |
-| **Missing mitigations** | `cargo vet`, SBOM, reproducible builds, signed releases |
+| **Current mitigations** | `./scripts/check-dependencies.sh` (cargo-deny licenses + cargo-audit); SBOM via `scripts/generate-sbom.sh` / [RELEASING.md](../RELEASING.md); reproducible Android container (`scripts/reproducible-build.sh`); M-of-N integrity ([RELEASE_INTEGRITY.md](./RELEASE_INTEGRITY.md)). Dependabot config: [`.github/dependabot.yml`](../.github/dependabot.yml) — **enable in GitHub settings when the repo is public**; keep disabled while `MYCELIUM_CI_TIER=budget` if minutes matter. |
+| **Missing mitigations** | `cargo vet`; Dependabot actually turned on in GitHub (file ≠ enabled). |
 | **Proposed architecture changes** | Supply-chain policy in CI |
 | **Implementation complexity** | M |
 | **Beta-blocker** | **no** |

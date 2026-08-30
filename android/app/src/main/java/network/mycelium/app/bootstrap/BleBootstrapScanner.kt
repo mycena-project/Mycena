@@ -14,6 +14,7 @@ import android.util.Log
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import network.mycelium.app.stability.StabilityDiagnostics
 import network.mycelium.bindings.mycelium
 
 /**
@@ -42,6 +43,7 @@ class BleBootstrapScanner(private val context: Context) {
     private var scanCallback: ScanCallback? = null
     private var isScanning = false
     private var lowPowerScan = false
+    private var useAllMatchesFallback = false
     private val seenAddresses = linkedMapOf<String, NearbyNode>()
 
     var onScanRestarted: (() -> Unit)? = null
@@ -62,14 +64,19 @@ class BleBootstrapScanner(private val context: Context) {
     fun startScanning() {
         if (isScanning) return
 
-        val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE)
-            as BluetoothManager
-        val scanner = bluetoothManager.adapter?.bluetoothLeScanner ?: return
+        val scanner = bluetoothManagerOrNull()?.adapter?.bluetoothLeScanner ?: return
 
         val filter =
             ScanFilter.Builder()
                 .setServiceUuid(ParcelUuid(BleMeshGatt.SERVICE_UUID))
                 .build()
+
+        val callbackType =
+            if (useAllMatchesFallback) {
+                BleScanPolicy.portableCallbackType()
+            } else {
+                BleScanPolicy.firstMatchCallbackType()
+            }
 
         val settings =
             ScanSettings.Builder()
@@ -80,7 +87,7 @@ class BleBootstrapScanner(private val context: Context) {
                         ScanSettings.SCAN_MODE_BALANCED
                     },
                 )
-                .setCallbackType(ScanSettings.CALLBACK_TYPE_FIRST_MATCH)
+                .setCallbackType(callbackType)
                 .build()
 
         scanCallback =
@@ -113,22 +120,39 @@ class BleBootstrapScanner(private val context: Context) {
                 }
 
                 override fun onScanFailed(errorCode: Int) {
-                    Log.w("BleScanner", "BLE scan failed ($errorCode) — restarting silently")
+                    Log.w("BleScanner", "BLE scan failed ($errorCode)")
+                    StabilityDiagnostics.info(
+                        "BleScanner.onScanFailed",
+                        "errorCode=$errorCode fallback=$useAllMatchesFallback",
+                    )
+                    if (BleScanPolicy.shouldFallbackToAllMatches(errorCode)) {
+                        if (!useAllMatchesFallback) {
+                            useAllMatchesFallback = true
+                            restartScanSilently()
+                        } else {
+                            isScanning = false
+                        }
+                        return
+                    }
                     restartScanSilently()
                 }
             }
 
-        scanner.startScan(listOf(filter), settings, scanCallback!!)
-        isScanning = true
+        try {
+            scanner.startScan(listOf(filter), settings, scanCallback!!)
+            isScanning = true
+        } catch (e: SecurityException) {
+            StabilityDiagnostics.record("BleScanner.startScan", e)
+            isScanning = false
+        } catch (e: IllegalStateException) {
+            StabilityDiagnostics.record("BleScanner.startScan", e)
+            isScanning = false
+        }
     }
 
     /** Stop LE scan only — keeps nearby cache (duty-cycle pause). */
     fun stopScanOnly() {
-        scanCallback?.let {
-            val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE)
-                as BluetoothManager
-            runCatching { bluetoothManager.adapter?.bluetoothLeScanner?.stopScan(it) }
-        }
+        scanCallback?.let { stopScanQuietly(it) }
         isScanning = false
     }
 
@@ -140,13 +164,23 @@ class BleBootstrapScanner(private val context: Context) {
     }
 
     fun stopScanning() {
-        scanCallback?.let {
-            val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE)
-                as BluetoothManager
-            bluetoothManager.adapter?.bluetoothLeScanner?.stopScan(it)
-        }
+        scanCallback?.let { stopScanQuietly(it) }
         isScanning = false
         seenAddresses.clear()
         _nearbyNodes.tryEmit(emptyList())
+    }
+
+    private fun bluetoothManagerOrNull(): BluetoothManager? =
+        context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+
+    private fun stopScanQuietly(callback: ScanCallback) {
+        val scanner = bluetoothManagerOrNull()?.adapter?.bluetoothLeScanner ?: return
+        try {
+            scanner.stopScan(callback)
+        } catch (e: SecurityException) {
+            StabilityDiagnostics.record("BleScanner.stopScan", e)
+        } catch (e: IllegalStateException) {
+            StabilityDiagnostics.record("BleScanner.stopScan", e)
+        }
     }
 }

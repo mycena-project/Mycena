@@ -10,6 +10,7 @@ import android.bluetooth.le.BluetoothLeAdvertiser
 import android.content.Context
 import android.os.ParcelUuid
 import android.util.Log
+import network.mycelium.app.stability.StabilityDiagnostics
 
 /**
  * Connectable BLE advertisement + GATT invite server for mesh handoff (ADR 002 F1).
@@ -42,9 +43,9 @@ class BleBootstrapAdvertiser(
             Log.w(TAG, "no signed invite yet — retry after node ready")
         }
 
-        val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE)
-            as BluetoothManager
-        val bluetoothAdapter = bluetoothManager.adapter
+        val bluetoothManager =
+            context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+        val bluetoothAdapter = bluetoothManager?.adapter
 
         if (bluetoothAdapter == null || !bluetoothAdapter.isEnabled) {
             Log.w(TAG, "Bluetooth not available or disabled")
@@ -101,11 +102,27 @@ class BleBootstrapAdvertiser(
                 }
 
                 override fun onStartFailure(errorCode: Int) {
+                    isAdvertising = false
                     Log.e(TAG, "BLE advertising failed: errorCode=$errorCode")
+                    StabilityDiagnostics.info("BleAdvertise.onStartFailure", "errorCode=$errorCode")
                 }
             }
 
-        advertiser?.startAdvertising(settings, data, scanResponse, callback)
+        advertiser?.let { adv ->
+            val cb = callback ?: return@let
+            try {
+                adv.startAdvertising(settings, data, scanResponse, cb)
+            } catch (e: SecurityException) {
+                StabilityDiagnostics.record("BleAdvertise.start", e)
+                return false
+            } catch (e: IllegalArgumentException) {
+                StabilityDiagnostics.record("BleAdvertise.start", e)
+                return false
+            } catch (e: IllegalStateException) {
+                StabilityDiagnostics.record("BleAdvertise.start", e)
+                return false
+            }
+        }
         return true
     }
 
@@ -114,7 +131,15 @@ class BleBootstrapAdvertiser(
     }
 
     fun stopAdvertising() {
-        callback?.let { advertiser?.stopAdvertising(it) }
+        callback?.let { cb ->
+            try {
+                advertiser?.stopAdvertising(cb)
+            } catch (e: SecurityException) {
+                StabilityDiagnostics.record("BleAdvertise.stop", e)
+            } catch (e: IllegalStateException) {
+                StabilityDiagnostics.record("BleAdvertise.stop", e)
+            }
+        }
         isAdvertising = false
         callback = null
         savedAdapterName?.let { previous ->
