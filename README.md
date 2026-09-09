@@ -1,6 +1,6 @@
 # Mycelium
 
-> **Public Technical Beta — Feature Development Frozen, Release Validation Ongoing** (2026-08-29). Feature development is intentionally paused. P0 stabilization continues. Hardware validation is **pending**. This is **not** a security audit or certification. The public release gate has **not** been approved. Policy: [docs/DEVELOPMENT_FREEZE.md](docs/DEVELOPMENT_FREEZE.md). Limitations: [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md).
+> **Public Technical Beta — Feature Development Frozen, Release Validation Ongoing** (2026-08-29). Feature development is intentionally paused. P0 stabilization continues. Hardware validation is **partial** (Pixel 6 only). This is **not** a security audit or certification. The public release gate has **not** been approved. Policy: [docs/DEVELOPMENT_FREEZE.md](docs/DEVELOPMENT_FREEZE.md). Limitations: [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md).
 
 > **Expect bugs.** APIs and wire formats should not change without a documented freeze exception. Security posture is **preview-grade**.
 
@@ -10,13 +10,7 @@
 
 **This is an early public technical beta, not a replacement for Signal, emergency services, or operational security training.** Call your local emergency number when life or property is at risk. Do **not** use Mycelium as primary comms in a hostile country or against targeted surveillance. Read [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) and [docs/BETA_SECURITY_ASSESSMENT.md](docs/BETA_SECURITY_ASSESSMENT.md) before relying on it.
 
-**Hardware validation matrix:** **no devices recorded** ([docs/HARDWARE_TEST_MATRIX.md](docs/HARDWARE_TEST_MATRIX.md)). Do not treat “Android 8+” as a tested support list.
-
-[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE)
-
-**Mycelium** is a decentralized, delay-tolerant mesh messenger for **LAN and nearby-device** coordination when the internet is slow or down — neighbors, field crews, and technical early adopters.
-
-**This is an early beta, not a replacement for Signal, emergency services, or operational security training.** Call your local emergency number when life or property is at risk. Do **not** use Mycelium as primary comms in a hostile country or against targeted surveillance. Read [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) and [docs/BETA_SECURITY_ASSESSMENT.md](docs/BETA_SECURITY_ASSESSMENT.md) before relying on it.
+**Hardware validation matrix:** **Pixel 6 partial** (HV-01–05, HV-12 short, HV-13, HV-16). All other rows remain unrun. Do not treat “Android 8+” as a tested support list. Details: [docs/HARDWARE_TEST_MATRIX.md](docs/HARDWARE_TEST_MATRIX.md).
 
 | Scenario | Honest fit ([assessment](docs/BETA_SECURITY_ASSESSMENT.md)) |
 |----------|-------------------------------------------------------------|

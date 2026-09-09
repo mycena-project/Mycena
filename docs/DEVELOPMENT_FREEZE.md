@@ -36,7 +36,7 @@ This is a **feature-development policy freeze**: stop feature expansion so the t
 | Desktop Tauri | Experimental; not a freeze hardware target |
 | iOS | Not shipping |
 
-**Verified devices for this freeze:** **none.** [HARDWARE_TEST_MATRIX.md](./HARDWARE_TEST_MATRIX.md) is empty. Do not list Pixel, Samsung, or “API 26+” as tested.
+**Verified devices for this freeze:** **Pixel 6 partial** (see [HARDWARE_TEST_MATRIX.md](./HARDWARE_TEST_MATRIX.md)). All other rows remain `unrun`. Do not list “API 26+” or other models as freeze-tested.
 
 ---
 
