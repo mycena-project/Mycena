@@ -651,8 +651,8 @@ This register records **known** security, privacy, abuse, and legal debt. It is 
 | **Exploitation scenario** | Compromised crate or npm package in build pipeline |
 | **Likelihood** | Low |
 | **Impact** | RCE at build or runtime |
-| **Current mitigations** | `./scripts/check-dependencies.sh` (cargo-deny licenses + cargo-audit); SBOM via `scripts/generate-sbom.sh` / [RELEASING.md](../RELEASING.md); reproducible Android container (`scripts/reproducible-build.sh`); M-of-N integrity ([RELEASE_INTEGRITY.md](./RELEASE_INTEGRITY.md)). Dependabot config: [`.github/dependabot.yml`](../.github/dependabot.yml) — **enable in GitHub settings when the repo is public**; keep disabled while `MYCELIUM_CI_TIER=budget` if minutes matter. |
-| **Missing mitigations** | `cargo vet`; Dependabot actually turned on in GitHub (file ≠ enabled). |
+| **Current mitigations** | `./scripts/check-dependencies.sh` (cargo-deny licenses + cargo-audit); SBOM via `scripts/generate-sbom.sh` / [RELEASING.md](../RELEASING.md); reproducible Android container (`scripts/reproducible-build.sh`); M-of-N integrity ([RELEASE_INTEGRITY.md](./RELEASE_INTEGRITY.md)). Dependabot **version updates disabled** (no `.github/dependabot.yml`): leftover YAML still schedules PRs and burns private CI minutes (reintroduced in freeze, opened 12 PRs 2026-09-09). GitHub **vulnerability alerts stay on**. Bump crates/actions/Gradle in reviewed PRs; do not restore Dependabot YAML. |
+| **Missing mitigations** | `cargo vet`. Transitive libp2p still pulls `yamux 0.12.1` (GHSA-vxx9-2994-q338; `0.13.10` also in tree) and `hickory-proto 0.25.2` (fuzz + lockfile; 0.26 is a breaking bump). |
 | **Proposed architecture changes** | Supply-chain policy in CI |
 | **Implementation complexity** | M |
 | **Beta-blocker** | **no** |
