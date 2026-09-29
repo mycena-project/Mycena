@@ -63,7 +63,7 @@ tempfile = "3"
 urlencoding = "2"
 zip = "0.6"
 once_cell = "1"
-wasmtime = { version = "36.0.14", default-features = false, features = ["cranelift", "std", "runtime"] }
+wasmtime = { version = "36.0.16", default-features = false, features = ["cranelift", "std", "runtime"] }
 toml = "0.8.23"
 chacha20poly1305 = "0.10"
 hkdf = "0.12"
