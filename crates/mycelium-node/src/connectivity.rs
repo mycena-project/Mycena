@@ -8,7 +8,7 @@ use std::sync::Arc;
 use tokio::sync::watch;
 use tracing::info;
 
-const PROBE_HOST: &str = "mycelium-relay.fly.dev";
+const PROBE_HOST: &str = "relay.example.invalid";
 const PROBE_PORT: u16 = 4001;
 
 pub struct ConnectivityMonitor {

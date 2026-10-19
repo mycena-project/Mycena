@@ -20,7 +20,7 @@
 
 | Layer | Default | Role |
 |-------|---------|------|
-| Bootstrap relay | On | Always dials `mycelium-relay.fly.dev`; NAT traversal via `/p2p-circuit`. |
+| Bootstrap relay | On | Always dials `relay.example.invalid`; NAT traversal via `/p2p-circuit`. |
 | mDNS | On (LAN) | Discovers peers on LAN; **dials** discovered multiaddrs. |
 | Rendezvous | **On** for new installs | Register on relay + **bucketed** selective dial of opted-in peers (~45s tick, ≤3/tick). Turn off in Settings for privacy. |
 | Crowd mode | Off | Festivals / dense LAN: cap mDNS dials, dense gossip, lower peer cap (~20). Enable in Settings (desktop + Android); restart for full transport limits. |
@@ -66,4 +66,4 @@ Connection fixes live in the **Rust node** (`mycelium-ffi`). You must rebuild **
 - **Android:** `make android-deploy` (Docker build) — reinstall; do not reuse an old APK.
 - **Desktop:** `make desktop-dev` and restart the app.
 
-Check relay: `curl -s https://mycelium-relay.fly.dev/` — when your app is running you should eventually see `connections` ≥ 1 on the relay while the app is open.
+Check relay: `curl -s http://relay.example.invalid:8080/health` — `"ok": true` when the process is up. Port 443 on that host is not the relay.

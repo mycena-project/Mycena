@@ -8,7 +8,6 @@
 use libp2p::identity::{Keypair, PublicKey};
 use serde::{Deserialize, Serialize};
 
-const DEFAULT_RELAY_HOST: &str = "mycelium-relay.fly.dev";
 const MAX_SKEW_MS: u64 = 5 * 60 * 1000;
 const BINDING: &str = "mycelium-rendezvous-v1";
 
@@ -26,11 +25,8 @@ pub struct RendezvousProof {
     pub signature_hex: String,
 }
 
-fn relay_host(host: Option<&str>) -> String {
-    let env_host = std::env::var("MYCELIUM_RELAY_HOST").ok();
-    host.or(env_host.as_deref())
-        .unwrap_or(DEFAULT_RELAY_HOST)
-        .to_string()
+fn relay_origin(host: Option<&str>) -> String {
+    crate::standard_bootstrap::relay_http_origin(host)
 }
 
 fn canonical_message(action: &str, peer_id: &str, ts_ms: u64) -> String {
@@ -85,13 +81,13 @@ pub fn verify_rendezvous_proof(
 
 /// Register or unregister this peer for relay rendezvous (opt-in visibility).
 pub fn set_relay_rendezvous_registration(keypair: &Keypair, register: bool, host: Option<&str>) {
-    let host = relay_host(host);
+    let origin = relay_origin(host);
     let path = if register {
         "rendezvous/register"
     } else {
         "rendezvous/unregister"
     };
-    let url = format!("https://{host}/{path}");
+    let url = format!("{origin}/{path}");
     let ts_ms = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_millis() as u64)
@@ -110,8 +106,8 @@ pub fn set_relay_rendezvous_registration(keypair: &Keypair, register: bool, host
 
 /// Returns peer IDs opted in and currently connected to the public relay.
 pub fn fetch_relay_rendezvous(host: Option<&str>) -> Vec<String> {
-    let host = relay_host(host);
-    let url = format!("https://{host}/rendezvous");
+    let origin = relay_origin(host);
+    let url = format!("{origin}/rendezvous");
     let resp = match ureq::get(&url)
         .timeout(std::time::Duration::from_secs(8))
         .call()

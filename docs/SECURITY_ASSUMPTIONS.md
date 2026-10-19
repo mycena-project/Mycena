@@ -1,6 +1,6 @@
 # Mycelium — Security Assumptions
 
-**Audience:** Users, operators, security reviewers  
+**Audience:** Users, operators, security reviewers
 **Status:** Pre–public beta — assumptions may change per release.
 
 This document states what the system **assumes to be true** for its security claims to hold. Violating an assumption may void protections without a visible error.
@@ -44,7 +44,7 @@ We **do not** claim protection against:
 
 ### 2.3 You trust bootstrap on first use
 
-- Default bootstrap includes **baked relay Peer IDs** and `mycelium-relay.fly.dev`.
+- Default bootstrap includes **baked relay Peer IDs** and `relay.example.invalid`.
 - First connection to a malicious bootstrap can eclipse or inject traffic until detected.
 
 ### 2.4 You trust relay operator for Internet path
@@ -90,7 +90,7 @@ We **do not** claim protection against:
 ## 5. Operational assumptions
 
 - Maintainers can ship updated **revocation lists** and **bootstrap** via releases.
-- Fly.io account and DNS remain under project control.
+- VPS host and DNS for `relay.example.invalid` remain under project control.
 - No government mandate to backdoor a build we do not control (sideload ecosystem).
 
 ---

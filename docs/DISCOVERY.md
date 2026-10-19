@@ -16,7 +16,7 @@ Three complementary ways to find **other devices** on the network (not the same 
 
 ## Internet relay
 
-- Default bootstrap: `mycelium-relay.fly.dev`.
+- Default bootstrap: `relay.example.invalid` (libp2p TCP/UDP 4001; health and rendezvous at `http://relay.example.invalid:8080`).
 - Nodes listen on `/p2p-circuit` at the relay for inbound NAT traversal.
 - **Rendezvous (opt-in):** Settings → *Relay discovery*
   - **Off (default):** you are not listed on `GET /rendezvous`; you do not auto-dial rendezvous peers.

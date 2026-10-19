@@ -4,8 +4,6 @@
 
 use serde::Serialize;
 
-const DEFAULT_RELAY_HOST: &str = "mycelium-relay.fly.dev";
-
 #[derive(Debug, Clone, Serialize)]
 pub struct RelayStatus {
     pub online: bool,
@@ -19,12 +17,12 @@ pub struct RelayStatus {
     pub peer_id: Option<String>,
 }
 
-/// Fetch relay liveness from `https://<host>/health` (blocking).
+/// Fetch relay liveness from `{origin}/health` (blocking).
 /// Full telemetry on `/status` is operator-token-gated and is not queried here.
 pub fn fetch_relay_status(host: Option<&str>) -> RelayStatus {
-    let host = host.unwrap_or(DEFAULT_RELAY_HOST);
-    let url = format!("https://{host}/health");
-    let reachable_peers = fetch_relay_rendezvous_count(host);
+    let origin = crate::standard_bootstrap::relay_http_origin(host);
+    let url = format!("{origin}/health");
+    let reachable_peers = fetch_relay_rendezvous_count(&origin);
     let resp = match ureq::get(&url)
         .timeout(std::time::Duration::from_secs(8))
         .call()
@@ -69,8 +67,8 @@ pub fn fetch_relay_status(host: Option<&str>) -> RelayStatus {
     }
 }
 
-fn fetch_relay_rendezvous_count(host: &str) -> u64 {
-    let url = format!("https://{host}/rendezvous");
+fn fetch_relay_rendezvous_count(origin: &str) -> u64 {
+    let url = format!("{origin}/rendezvous");
     let resp = match ureq::get(&url)
         .timeout(std::time::Duration::from_secs(8))
         .call()

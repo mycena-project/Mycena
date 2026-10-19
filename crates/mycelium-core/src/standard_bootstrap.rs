@@ -33,25 +33,68 @@ pub struct StandardBootstrapRelay {
     pub live: bool,
 }
 
-/// Six geographically and legally distributed bootstrap relays (no preferred entry).
+/// Hostname of the operated bootstrap relay (VPS).
+pub const RELAY_HOSTNAME: &str = "relay.example.invalid";
+
+/// Public `/health` and `/rendezvous` origin.
 ///
-/// Slot `sin-fly` is production today; other slots are curator-endorsed bootstrap
+/// Port 443 on this host is the demo Caddy and does not serve the relay.
+/// The relay status server is plain HTTP on 8080.
+pub const RELAY_HTTP_ORIGIN: &str = "http://relay.example.invalid:8080";
+
+/// Resolve the HTTP origin for relay health and rendezvous.
+///
+/// `MYCELIUM_RELAY_HTTP_ORIGIN` wins when set (full origin, or `host` / `host:port`).
+/// `MYCELIUM_RELAY_HOST` is the same shape. A bare hostname uses port 8080.
+pub fn relay_http_origin(override_host: Option<&str>) -> String {
+    if let Some(raw) = override_host.map(str::trim).filter(|s| !s.is_empty()) {
+        return normalize_relay_origin(raw);
+    }
+    if let Ok(raw) = std::env::var("MYCELIUM_RELAY_HTTP_ORIGIN") {
+        let raw = raw.trim();
+        if !raw.is_empty() {
+            return normalize_relay_origin(raw);
+        }
+    }
+    if let Ok(raw) = std::env::var("MYCELIUM_RELAY_HOST") {
+        let raw = raw.trim();
+        if !raw.is_empty() {
+            return normalize_relay_origin(raw);
+        }
+    }
+    RELAY_HTTP_ORIGIN.to_string()
+}
+
+fn normalize_relay_origin(raw: &str) -> String {
+    let raw = raw.trim().trim_end_matches('/');
+    if raw.starts_with("http://") || raw.starts_with("https://") {
+        return raw.to_string();
+    }
+    if raw.contains(':') {
+        return format!("http://{raw}");
+    }
+    format!("http://{raw}:8080")
+}
+
+/// Seven geographically distributed bootstrap relays (no preferred entry).
+///
+/// Slot `eu-vps` is the operated relay. Other slots are curator-endorsed
 /// reservations — operators claim a slot by deploying to the listed DNS + IPv4 and
 /// opening a registry update PR (see `docs/RELAY_OPERATOR_GUIDE.md`).
 pub const STANDARD_BOOTSTRAP_RELAYS: &[StandardBootstrapRelay] = &[
     StandardBootstrapRelay {
-        slot: "sin-fly",
-        fixed_peer_id: Some("12D3KooWSkVL5ThExB7paWskDKc2pUobKrV9yWVabMpUdw8hE2wj"),
+        slot: "eu-vps",
+        fixed_peer_id: Some("12D3KooWCVC3ZgY5T4tvBz6kujKzbifbCGnU3kDbvtPnRPfHTogn"),
         peer_seed: None,
-        ipv4: "149.248.194.198",
-        dns4: "mycelium-relay.fly.dev",
-        operator_label: "mycelium-core-fly",
-        region: "ap-southeast",
-        hosting_provider: "Fly.io (SG)",
-        operator_seed: b"operator:mycelium-fly:v1",
+        ipv4: "192.0.2.57",
+        dns4: RELAY_HOSTNAME,
+        operator_label: "mycelium-core-vps",
+        region: "eu-central",
+        hosting_provider: "VPS (DE)",
+        operator_seed: b"operator:mycelium-vps:v1",
         curator_id: "mycelium-release",
-        asn: 137_409,
-        operator_contact: "https://mycelium.network/relay/sin-fly",
+        asn: 51_167,
+        operator_contact: "security@example.invalid",
         live: true,
     },
     StandardBootstrapRelay {
@@ -146,9 +189,9 @@ pub const STANDARD_BOOTSTRAP_RELAYS: &[StandardBootstrapRelay] = &[
     },
 ];
 
-/// Legacy aliases — first production slot (Fly Singapore).
+/// Legacy alias — operated slot (VPS).
 pub const RELAY_IPV4: &str = STANDARD_BOOTSTRAP_RELAYS[0].ipv4;
-pub const RELAY_PEER_ID: &str = "12D3KooWSkVL5ThExB7paWskDKc2pUobKrV9yWVabMpUdw8hE2wj";
+pub const RELAY_PEER_ID: &str = "12D3KooWCVC3ZgY5T4tvBz6kujKzbifbCGnU3kDbvtPnRPfHTogn";
 
 /// Resolve the libp2p PeerId for a bootstrap slot.
 pub fn relay_peer_id(relay: &StandardBootstrapRelay) -> anyhow::Result<String> {
@@ -271,6 +314,20 @@ mod tests {
             let prefix = ipv4_prefix_from_multiaddr(&addr).expect("prefix");
             assert!(seen.insert(prefix), "duplicate /24 for slot {}", relay.slot);
         }
+    }
+
+    #[test]
+    fn operated_http_origin_uses_slot_hostname() {
+        let host = STANDARD_BOOTSTRAP_RELAYS[0].dns4;
+        assert_eq!(RELAY_HTTP_ORIGIN, format!("http://{host}:8080"));
+        assert_eq!(
+            relay_http_origin(Some("relay.example")),
+            "http://relay.example:8080"
+        );
+        assert_eq!(
+            relay_http_origin(Some("http://relay.example:8080")),
+            "http://relay.example:8080"
+        );
     }
 
     #[test]

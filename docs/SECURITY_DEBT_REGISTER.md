@@ -131,7 +131,7 @@ This register records **known** security, privacy, abuse, and legal debt. It is 
 |-------|-------|
 | **Severity** | High |
 | **Affected systems** | `mycelium-relay`, `bootstrap.rs`, connectivity probe |
-| **Exploitation scenario** | Operator or compromised Fly.io account logs circuit endpoints, drops traffic, targets users by IP at TCP layer |
+| **Exploitation scenario** | Operator or compromised VPS account logs circuit endpoints, drops traffic, targets users by IP at TCP layer |
 | **Likelihood** | Medium |
 | **Impact** | Censorship, correlation, selective delivery failure |
 | **Current mitigations** | libp2p relay v2 limits (circuits, bandwidth); E2E inside payloads |
@@ -160,7 +160,7 @@ This register records **known** security, privacy, abuse, and legal debt. It is 
 | Field | Value |
 |-------|-------|
 | **Severity** | Medium |
-| **Affected systems** | `connectivity.rs`, hardcoded `mycelium-relay.fly.dev:4001` |
+| **Affected systems** | `connectivity.rs`, hardcoded `relay.example.invalid:4001` |
 | **Exploitation scenario** | DNS / hosting takedown forces global “mesh-only” or pushes users to attacker bootstrap |
 | **Likelihood** | Medium |
 | **Impact** | Network partition, downgrade to attacker-controlled bootstrap |
@@ -716,7 +716,7 @@ This register records **known** security, privacy, abuse, and legal debt. It is 
 |-------|-------|
 | **Severity** | Medium |
 | **Affected systems** | `mycelium-relay` |
-| **Exploitation scenario** | Fly.io disk snapshot leaks relay key → impersonate relay |
+| **Exploitation scenario** | Host disk snapshot leaks relay key → impersonate relay |
 | **Likelihood** | Low |
 | **Impact** | Network-wide MITM for users trusting that peer ID |
 | **Current mitigations** | Limited app semantics on relay |
@@ -749,8 +749,8 @@ This register records **known** security, privacy, abuse, and legal debt. It is 
 | Field | Value |
 |-------|-------|
 | **Severity** | Medium |
-| **Affected systems** | `mycelium-relay.fly.dev` |
-| **Exploitation scenario** | State blocks fly.dev or DNS poison → users stuck offline |
+| **Affected systems** | `relay.example.invalid` |
+| **Exploitation scenario** | State blocks that hostname or DNS poison → users stuck offline |
 | **Likelihood** | Medium (jurisdiction-dependent) |
 | **Impact** | Denial of mesh Internet path |
 | **Current mitigations** | Pure mesh mDNS still works locally |
@@ -852,7 +852,7 @@ This register records **known** security, privacy, abuse, and legal debt. It is 
 |-------|-------|
 | **Severity** | High |
 | **Affected systems** | `mycelium-relay`, hosting provider |
-| **Exploitation scenario** | Court order to Fly.io for connection logs |
+| **Exploitation scenario** | Court order to the hosting provider for connection logs |
 | **Likelihood** | Jurisdiction-dependent |
 | **Impact** | User identification |
 | **Current mitigations** | Policy: no IP logging (must be operationalized) |
@@ -886,7 +886,7 @@ This register records **known** security, privacy, abuse, and legal debt. It is 
 |-------|-------|
 | **Severity** | High |
 | **Affected systems** | Deployment |
-| **Exploitation scenario** | Fly.io outage or account ban → global Internet bootstrap degradation |
+| **Exploitation scenario** | VPS outage or account loss → global Internet bootstrap degradation |
 | **Likelihood** | Medium |
 | **Impact** | Service unavailability |
 | **Current mitigations** | LAN mesh continues |

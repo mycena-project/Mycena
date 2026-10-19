@@ -105,7 +105,7 @@
 | Lawful basis | Legitimate interest / contract for app | Privacy policy |
 | Right to erasure | Local panic wipe only; mesh copies not erasable | Disclose clearly |
 | DPIA | Required before EU scale if relay logs IPs | Conduct DPIA |
-| Data residency | Fly.io region choice | Document in policy |
+| Data residency | VPS (DE) for the operated relay | Document in policy |
 
 ---
 

@@ -94,7 +94,7 @@ Start two terminals on the same LAN, exchange peer IDs, then `/chat <peer_id> he
        ▼                                    ▼
 ┌──────────────────────────────────────────────────┐
 │  Mesh layer: mDNS (LAN), optional Internet relay, BLE (opt-in; **not hardware-verified**), QR  │
-│  Bootstrap: mycelium-relay.fly.dev (optional)    │
+│  Bootstrap: relay.example.invalid (optional)    │
 └──────────────────────────────────────────────────┘
        │
        ▼

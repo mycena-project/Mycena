@@ -204,10 +204,10 @@ make android-install   # or android-deploy
 Relay health (optional):
 
 ```bash
-curl -s 'https://mycelium-relay.fly.dev/' | python3 -m json.tool
+curl -s 'http://relay.example.invalid:8080/health' | python3 -m json.tool
 ```
 
-Expect `"status": "ok"` and `"connections"` ≥ 1 when at least one client is online.
+Expect `"ok": true` from `/health`. Connection counts are on `/status` and require the operator token.
 
 ### A1 — Encryption indicators
 

@@ -9,7 +9,7 @@ Three repositories support the **Mycelium** mesh messenger (client, relay, marke
 | Repository | Role | Deploy? |
 |------------|------|---------|
 | **Mycelium** | libp2p mesh client + CLI | Client build only (`./android/build.sh`, `make desktop-dev`) |
-| [mycelium-relay](https://github.com/mycena-project/mycelium-relay) | Public bootstrap relay (Fly.io) | Ops: `scripts/deploy-relay-fly.sh` |
+| [mycelium-relay](https://github.com/mycena-project/mycelium-relay) | Public bootstrap relay (VPS) | Ops: `scripts/deploy-relay-vps.sh` in that repo |
 | [mycelium-web](https://github.com/mycena-project/mycelium-web) | Static beta landing site | Vercel / `npm run build` |
 
 ## Lifecycle (by repo type)
@@ -17,8 +17,8 @@ Three repositories support the **Mycelium** mesh messenger (client, relay, marke
 | Goal | Mycelium (client) | mycelium-relay | mycelium-web |
 |------|-------------------|----------------|--------------|
 | **Develop / run** | `make desktop-dev` or `./android/build.sh` | `cargo run -p mycelium-relay` | `npm run preview` |
-| **Stop** | Quit app / `make clean` (repo cleanup) | Ctrl+C / Fly scale | N/A (static) |
-| **Production deploy** | App store / sideload APK | Fly.io script | Vercel |
+| **Stop** | Quit app / `make clean` (repo cleanup) | Ctrl+C / container stop | N/A (static) |
+| **Production deploy** | App store / sideload APK | VPS script | Vercel |
 
 the maintainer parent brand: [example.invalid](https://example.invalid) · legal baseline aligned with the maintainer-website.
 

@@ -2,31 +2,22 @@
 # Probe mycelium-relay reachability (HTTP status API + TCP dial on :4001).
 set -euo pipefail
 
-RELAY_HOST="${MYCELIUM_RELAY_HOST:-mycelium-relay.fly.dev}"
-RELAY_STATUS_URL="${MYCELIUM_RELAY_STATUS_URL:-https://${RELAY_HOST}/}"
+RELAY_HOST="${MYCELIUM_RELAY_HOST:-relay.example.invalid}"
+RELAY_HTTP_ORIGIN="${MYCELIUM_RELAY_HTTP_ORIGIN:-http://${RELAY_HOST}:8080}"
 RELAY_TCP_PORT="${MYCELIUM_RELAY_TCP_PORT:-4001}"
-RELAY_HEALTH_URL="${MYCELIUM_RELAY_HEALTH_URL:-https://${RELAY_HOST}/health}"
+RELAY_HEALTH_URL="${MYCELIUM_RELAY_HEALTH_URL:-${RELAY_HTTP_ORIGIN}/health}"
 
 http_ok=0
 tcp_ok=0
 
 if command -v curl >/dev/null 2>&1; then
-  if status_json="$(curl -fsS --max-time 8 "$RELAY_STATUS_URL" 2>/dev/null)"; then
-    if echo "$status_json" | grep -q '"status"[[:space:]]*:[[:space:]]*"ok"'; then
-      http_ok=1
-      peer_id="$(echo "$status_json" | sed -n 's/.*"peer_id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"
-      conns="$(echo "$status_json" | sed -n 's/.*"connections"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p' | head -1)"
-      echo "relay: HTTP ok (${RELAY_STATUS_URL}) connections=${conns:-?} peer_id=${peer_id:-?}"
-    else
-      echo "relay: HTTP reachable but status != ok (${RELAY_STATUS_URL})" >&2
-    fi
-  else
-    echo "relay: HTTP unreachable (${RELAY_STATUS_URL})" >&2
-  fi
   if health_json="$(curl -fsS --max-time 5 "$RELAY_HEALTH_URL" 2>/dev/null)"; then
     if echo "$health_json" | grep -qE '"ok"[[:space:]]*:[[:space:]]*true|^ok$'; then
+      http_ok=1
       echo "relay: health ok (${RELAY_HEALTH_URL})"
     fi
+  else
+    echo "relay: HTTP unreachable (${RELAY_HEALTH_URL})" >&2
   fi
 else
   echo "relay: curl not found — skipping HTTP checks" >&2

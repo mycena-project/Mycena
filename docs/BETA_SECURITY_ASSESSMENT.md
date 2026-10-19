@@ -1,7 +1,7 @@
 # Mycelium — Brutal Honest Beta Security Assessment
 
-**Review date:** July 2026  
-**Threat model:** [THREAT_MODEL.md](./THREAT_MODEL.md) (canonical adversary + asset model)  
+**Review date:** July 2026
+**Threat model:** [THREAT_MODEL.md](./THREAT_MODEL.md) (canonical adversary + asset model)
 **Question:** Would we **personally** trust this system in the scenarios below?
 
 **Answer format:** Yes / Limited / No — with reasons. No marketing language.
@@ -72,7 +72,7 @@
 
 **Why:**
 
-- Default **Internet bootstrap** points to Fly.io relay — state can block DNS, subpoena operator (**SD-180, SD-210**), or MITM first connect if bootstrap poisoned (**SD-090**).
+- Default **Internet bootstrap** points to the VPS relay — state can block DNS, subpoena the operator (**SD-180, SD-210**), or MITM first connect if bootstrap poisoned (**SD-090**).
 - **No Tor/pluggable transport** — traffic fingerprintable as libp2p (**SD-180**).
 - **Pseudonymous, not anonymous** — account id + transport PeerId trackable (**SD-190**).
 - **Partial forward secrecy** — v1 ratchet after prekey exchange; v0 / groups remain weaker (**SD-100, SD-101**).

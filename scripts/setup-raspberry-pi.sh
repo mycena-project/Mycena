@@ -9,9 +9,9 @@ sudo chown mycelium:mycelium /var/lib/mycelium
 
 # Optional bootstrap list (comment lines with #). If empty / missing, built-in defaults apply.
 cat << 'EOF' | sudo tee /var/lib/mycelium/bootstrap.txt
-# Mycelium bootstrap peers (update after Fly.io relay deploy — see crates/mycelium-core/src/bootstrap.rs)
-# /dns4/mycelium-relay.fly.dev/tcp/4001/p2p/12D3KooW<DEINE-PEER-ID>
-# /dns4/mycelium-relay.fly.dev/udp/4001/quic-v1/p2p/12D3KooW<DEINE-PEER-ID>
+# Mycelium bootstrap peers (built-in defaults apply when this file is empty).
+# /dns4/relay.example.invalid/tcp/4001/p2p/12D3KooW<DEINE-PEER-ID>
+# /dns4/relay.example.invalid/udp/4001/quic-v1/p2p/12D3KooW<DEINE-PEER-ID>
 EOF
 sudo chown mycelium:mycelium /var/lib/mycelium/bootstrap.txt
 

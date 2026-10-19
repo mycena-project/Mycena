@@ -48,6 +48,9 @@ struct RelayBehaviour {
 }
 
 fn atomic_saturating_sub(a: &AtomicU64) {
+    // fetch_update is deprecated on newer toolchains and try_update is still
+    // unstable on the Rust 1.88 image used to build the relay.
+    #[allow(deprecated)]
     let _ = a.fetch_update(Ordering::Relaxed, Ordering::Relaxed, |n| {
         Some(n.saturating_sub(1))
     });
@@ -71,7 +74,9 @@ async fn main() -> anyhow::Result<()> {
     let local_peer_id = key.public().to_peer_id();
 
     info!("Relay Peer ID: {local_peer_id}");
-    info!("Bootstrap multiaddr: /dns4/mycelium-relay.fly.dev/tcp/4001/p2p/{local_peer_id}");
+    info!(
+        "Bootstrap multiaddr: /dns4/relay.example.invalid/tcp/4001/p2p/{local_peer_id}"
+    );
 
     let connections = Arc::new(AtomicU64::new(0));
     let reservations = Arc::new(AtomicU64::new(0));

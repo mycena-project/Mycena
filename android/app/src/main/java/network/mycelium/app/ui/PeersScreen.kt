@@ -73,6 +73,7 @@ import network.mycelium.app.PortraitQrScanActivity
 import network.mycelium.app.R
 import network.mycelium.app.bootstrap.InviteConnect
 import network.mycelium.app.bootstrap.PeerInvite
+import network.mycelium.app.bootstrap.RelayBootstrap
 import network.mycelium.app.discovery.PeersDiscoveryPhase
 import network.mycelium.app.discovery.PeersDiscoveryPresentation
 import network.mycelium.app.nfc.NfcInviteReader
@@ -116,7 +117,7 @@ private fun RelayStatusBadge() {
             withContext(Dispatchers.IO) {
                 relayStatus =
                     try {
-                        val statusUrl = java.net.URL("https://mycelium-relay.fly.dev/health")
+                        val statusUrl = java.net.URL("${RelayBootstrap.RELAY_HTTP_ORIGIN}/health")
                         val statusConn = statusUrl.openConnection() as java.net.HttpURLConnection
                         statusConn.connectTimeout = 3000
                         statusConn.readTimeout = 3000
@@ -131,7 +132,7 @@ private fun RelayStatusBadge() {
                                 var reachable = 0L
                                 try {
                                     val rendezvousUrl =
-                                        java.net.URL("https://mycelium-relay.fly.dev/rendezvous")
+                                        java.net.URL("${RelayBootstrap.RELAY_HTTP_ORIGIN}/rendezvous")
                                     val rendezvousConn =
                                         rendezvousUrl.openConnection() as java.net.HttpURLConnection
                                     rendezvousConn.connectTimeout = 3000

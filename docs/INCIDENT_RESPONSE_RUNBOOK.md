@@ -1,6 +1,6 @@
 # Mycelium — Incident Response Runbook
 
-**Audience:** Maintainers, relay operators, release managers  
+**Audience:** Maintainers, relay operators, release managers
 **Assumption:** No central user database; incidents are **distributed**, **client-side**, and **infrastructure** events.
 
 **Related:** [ABUSE_RESPONSE_PLAYBOOK.md](./ABUSE_RESPONSE_PLAYBOOK.md) · [SECURITY_DEBT_REGISTER.md](./SECURITY_DEBT_REGISTER.md)
@@ -24,7 +24,7 @@
 |------|----------------|
 | **Incident lead** | Triage, comms, timeline |
 | **Engineering** | Patch, release, metrics |
-| **Relay operator** | Fly.io account, DNS, relay key |
+| **Relay operator** | VPS host, DNS, relay key |
 | **Legal** | CSAM, subpoena, store policy |
 
 There is no 24/7 SOC unless the project establishes one.
@@ -45,31 +45,31 @@ There is no 24/7 SOC unless the project establishes one.
 
 ## 4. Playbooks
 
-### 4.1 Fly.io relay compromise (SEV-1/2)
+### 4.1 Operated relay compromise (SEV-1/2)
 
-**Indicators:** Unexpected Peer ID, config drift, Fly account alert, traffic to wrong host.
+**Indicators:** Unexpected Peer ID, config drift, hosting-account alert, traffic to the wrong host.
 
 **Immediate:**
 
-1. Stop promoting compromised multiaddr in docs/bootstrap.
-2. Rotate relay libp2p keypair; deploy new Fly app with **new** Peer ID.
-3. Ship emergency release with updated baked bootstrap (or signed bootstrap manifest when available).
-4. Post public notice: “Rotate to build X; old relay Peer ID untrusted.”
+1. Stop promoting the compromised multiaddr in docs/bootstrap.
+2. Rotate the relay libp2p keypair on the VPS volume and record the new Peer ID.
+3. Ship an emergency release with the updated baked bootstrap (or a signed bootstrap manifest when available).
+4. Post a public notice: “Rotate to build X; old relay Peer ID untrusted.”
 
 **We cannot:** Revoke circuits already established; wipe user message history on devices.
 
-**Evidence:** Preserve Fly logs, deploy history, image digest.
+**Evidence:** Preserve host logs, the deploy revision, and the image digest.
 
 ---
 
 ### 4.2 DNS / domain takeover (SEV-1/2)
 
-**Indicators:** `mycelium-relay.fly.dev` resolves elsewhere; TLS mismatch.
+**Indicators:** `relay.example.invalid` resolves elsewhere.
 
 **Immediate:**
 
-1. Halt auto-connect to hostname; document manual multiaddrs.
-2. Recover Fly/DNS account; invalidate old TLS certs.
+1. Halt auto-connect to the hostname; document manual multiaddrs.
+2. Recover the DNS account.
 3. Connectivity probe hardening (multi-host) — see SD-022.
 
 ---

@@ -33,7 +33,7 @@ This ledger describes **systemic** risks arising from architectural choices—no
                                 ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
 │         INTERNET BOOTSTRAP (trusted-first-use: baked peer IDs)           │
-│  mycelium-relay.fly.dev · user paste multiaddrs · mDNS LAN               │
+│  relay.example.invalid · user paste multiaddrs · mDNS LAN               │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -85,7 +85,7 @@ This ledger describes **systemic** risks arising from architectural choices—no
 
 | Mode | Trigger | Outcome |
 |------|---------|---------|
-| Relay outage | Fly.io / DNS / all federated relays | Internet path degraded; client rotates pool |
+| Relay outage | VPS / DNS / all federated relays | Internet path degraded; client rotates pool |
 | Queue flood | SD-030/031 | Battery + storage exhaustion |
 | Bloom sync storm | Large id sets | CPU / bandwidth spike |
 | Play Store removal | Policy violation | Distribution collapse |

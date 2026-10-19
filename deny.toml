@@ -23,7 +23,9 @@ ignore = [
     { id = "RUSTSEC-2026-0119", reason = "libp2p-dns → hickory-proto 0.25.2; tracked in docs/DEPENDENCY_RISK.md until libp2p upgrade (review 2026-09-30)" },
     { id = "RUSTSEC-2026-0194", reason = "quick-xml via uniffi/plist; no untrusted XML surface — review 2026-09-30" },
     { id = "RUSTSEC-2026-0195", reason = "quick-xml via uniffi/plist; no untrusted XML surface — review 2026-09-30" },
-    { id = "RUSTSEC-2026-0185", reason = "quinn-proto via libp2p-quic; libp2p-authenticated peers only — review 2026-09-30" },
+    { id = "RUSTSEC-2026-0367", reason = "zip 0.6 reads bundle entries; ZipArchive::extract is not called — review 2026-12-31" },
+    { id = "RUSTSEC-2026-0368", reason = "zip 0.6 reads bundle entries; ZipArchive::extract is not called — review 2026-12-31" },
+    { id = "RUSTSEC-2026-0369", reason = "zip 0.6 reads bundle entries; ZipArchive::extract is not called — review 2026-12-31" },
 ]
 
 [licenses]

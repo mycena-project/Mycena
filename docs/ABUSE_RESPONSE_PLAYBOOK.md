@@ -30,7 +30,7 @@
 | **Scam** | Fake MXC payments, phishing bootstrap | Financial / credential |
 | **Illegal content** | CSAM, terrorism propaganda in bulletin | Legal |
 | **Sybil** | Fake witnesses, fake store listings | Integrity |
-| **Infrastructure** | Relay exhaustion, DDoS Fly.io | Availability |
+| **Infrastructure** | Relay exhaustion, DDoS against the VPS relay | Availability |
 
 ---
 
@@ -134,12 +134,12 @@
 
 | Action | When | Command / location |
 |--------|------|---------------------|
-| Scale relay | Circuit exhaustion | Fly.io scale |
-| Pause relay | Active exploit in libp2p stack | `fly apps stop` (breaks Internet path) |
-| Rotate TLS / certs | Compromise | Fly secrets |
-| Invalidate bootstrap | Peer ID compromise | Edit `bootstrap.rs`, ship app |
+| Scale relay | Circuit exhaustion | VPS container limits |
+| Pause relay | Active exploit in libp2p stack | Stop the `mycelium-relay` container on the VPS (breaks Internet path) |
+| Rotate relay identity | Key compromise | New volume identity, then ship the new Peer ID |
+| Invalidate bootstrap | Peer ID compromise | Edit `standard_bootstrap.rs`, ship app |
 
-**No IP logging policy:** Configure Fly.io / reverse proxy to **not store** client IPs in application logs. Audit quarterly.
+**No IP logging policy:** Do not store client IPs in relay application logs. Audit quarterly.
 
 ---
 

@@ -1,8 +1,8 @@
 # Mycelium — Threat Model
 
-**Status:** Pre–public release · **required input for external security review**  
-**Version:** 1.1 · July 2026  
-**Audience:** Security reviewers, engineering, product, legal  
+**Status:** Pre–public release · **required input for external security review**
+**Version:** 1.1 · July 2026
+**Audience:** Security reviewers, engineering, product, legal
 **Tone:** Hostile networks, malicious peers, compromised devices, selective nation-state interest.
 
 This document is the **adversary and asset model** that unifies existing security work. It does **not** replace detailed debt tracking or privacy planning — it links them.
@@ -132,7 +132,7 @@ flowchart TB
 
 **What:** Ed25519 account identity, libp2p transport keypair, X25519 encryption keys, Double Ratchet session state, mini-app signing keys, hot-wallet spending keys.
 
-**Location:** Host-supplied master key → sled vault (`.secrets/*.enc`), process RAM during use.  
+**Location:** Host-supplied master key → sled vault (`.secrets/*.enc`), process RAM during use.
 **Platform detail:** Android uses EncryptedSharedPreferences ([`StorageKeyHelper.kt`](../android/app/src/main/java/network/mycelium/app/StorageKeyHelper.kt)); desktop uses OS keyring; iOS Keychain **not yet wired**. This is **not** full hardware-bound keystore integration — see [SECURE_HARDWARE_STATUS.md](./SECURE_HARDWARE_STATUS.md).
 
 **Security goals:** Confidentiality, integrity, non-repudiation of signed envelopes (where required).
@@ -249,12 +249,12 @@ flowchart TB
 | | |
 |---|---|
 | **Goals** | Long-term deanonymization, selective censorship, lawful intercept metadata, infrastructure mapping |
-| **Capabilities** | ISP/passive fiber taps, DNS control, national blocking, subpoena to hosting (Fly.io), RF monitoring on LAN, correlation across time |
+| **Capabilities** | ISP/passive fiber taps, DNS control, national blocking, subpoena to hosting (VPS), RF monitoring on LAN, correlation across time |
 | **Limitations** | Cannot break modern E2E without device/key compromise; cannot forge Ed25519 voucher signatures without issuer key |
 | **Primary assets targeted** | Message content (metadata), Identity keys (tracking), Relay reputation (N/A — observational) |
 | **Representative threats** | Traffic analysis; IP ↔ PeerId binding; relay log compulsion; bootstrap censorship |
 
-**Linked debt:** SD-001, SD-002, SD-070, SD-071, SD-180, SD-190, SD-210, SD-220  
+**Linked debt:** SD-001, SD-002, SD-070, SD-071, SD-180, SD-190, SD-210, SD-220
 **Privacy roadmap:** Phase C (padding, multi-relay), Phase D (Tor/Nym, pairwise IDs)
 
 ---
@@ -268,7 +268,7 @@ flowchart TB
 | **Limitations** | No raw network (blocked); no arbitrary file access; requires user install; bridge methods permission-gated |
 | **Primary assets targeted** | Message content (send as user), Payment vouchers (payment APIs), Identity keys (indirect via bridge) |
 
-**Linked debt:** SD-040, SD-041, SD-042, SD-050, SD-051, SD-240  
+**Linked debt:** SD-040, SD-041, SD-042, SD-050, SD-051, SD-240
 **Privacy roadmap:** Phase A (policy); Phase B (install hardening — overlaps SD-041 mitigated)
 
 ---
@@ -282,7 +282,7 @@ flowchart TB
 | **Limitations** | Encrypted prefs / keyring only (not StrongBox/Secure Enclave identity keys); panic wipe if user triggers in time — see [SECURE_HARDWARE_STATUS.md](./SECURE_HARDWARE_STATUS.md) |
 | **Primary assets targeted** | Identity keys, Message content, Payment vouchers / hot wallet, Custody queue |
 
-**Linked debt:** SD-110, SD-111, SD-130, SD-160, SD-171, SD-201, SD-211  
+**Linked debt:** SD-110, SD-111, SD-130, SD-160, SD-171, SD-201, SD-211
 **Privacy roadmap:** Phase A (panic wipe shipped); Phase D (travel mode)
 
 ---
@@ -296,7 +296,7 @@ flowchart TB
 | **Limitations** | Per-device rate limits, hop caps, fanout limits; spray budget on custody; strikes throttle; [`PeerDiversityConfig`](../crates/mycelium-node/src/security.rs) caps transport/age/social **and local geohash-bucket** spread for relay/custody (SOS gossip + co-presence hints; ASN diversity is relay-federation only — see [`relay_diversity.rs`](../crates/mycelium-core/src/relay_diversity.rs)) |
 | **Primary assets targeted** | Relay reputation, Payment vouchers (witnesses), Message content (availability), Custody queue |
 
-**Linked debt:** SD-010, SD-011, SD-030, SD-031, SD-032, SD-061, SD-241  
+**Linked debt:** SD-010, SD-011, SD-030, SD-031, SD-032, SD-061, SD-241
 **Privacy roadmap:** Phase B (rate limits — partial); no Phase removes Sybil cost without future stake/PoP
 
 ---
@@ -310,7 +310,7 @@ flowchart TB
 | **Limitations** | Blind to E2E payload plaintext; cannot mint valid user signatures; libp2p relay v2 circuit caps |
 | **Primary assets targeted** | Message content (metadata only if E2E), Identity keys (correlation), Payment vouchers (gossip timing) |
 
-**Linked debt:** SD-003, SD-020, SD-021, SD-022, SD-071, SD-090, SD-181, SD-210, SD-220, SD-221  
+**Linked debt:** SD-003, SD-020, SD-021, SD-022, SD-071, SD-090, SD-181, SD-210, SD-220, SD-221
 **Privacy roadmap:** Phase B (minimal health, no logs); Phase C (multi-relay rotation)
 
 ---
@@ -324,7 +324,7 @@ flowchart TB
 | **Limitations** | Cannot decrypt E2E inner content without keys; `last_custody_from` limits ping-pong; TTL/hop exhaust |
 | **Primary assets targeted** | Custody queue, Message content (availability), Identity keys (metadata — who contacts whom) |
 
-**Linked debt:** SD-001, SD-004, SD-010, SD-070, SD-241  
+**Linked debt:** SD-001, SD-004, SD-010, SD-070, SD-241
 **Privacy roadmap:** Phase C (metadata resistance); encounter log remains device-local (see [CUSTODY_DTN.md](./CUSTODY_DTN.md))
 
 ---

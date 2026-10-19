@@ -1,10 +1,10 @@
 # Play Console — Data Safety Form Mapping
 
-**Purpose:** Fill-in guide for Google Play Console → **App content → Data safety**  
-**Policy source:** [privacy_policy.html](../android/app/src/main/assets/privacy_policy.html) (July 2026)  
+**Purpose:** Fill-in guide for Google Play Console → **App content → Data safety**
+**Policy source:** [privacy_policy.html](../android/app/src/main/assets/privacy_policy.html) (July 2026)
 **Threat / privacy context:** [THREAT_MODEL.md](./THREAT_MODEL.md) · [PRIVACY_ROADMAP.md](./PRIVACY_ROADMAP.md)
 
-**Audience:** Person submitting the Play listing (product / legal / release manager).  
+**Audience:** Person submitting the Play listing (product / legal / release manager).
 **Not legal advice.** Google’s form labels change; verify against the live Console UI before submit.
 
 ---
@@ -39,7 +39,7 @@ Declare **No** for publisher collection where the open-source client does **not*
 
 ## 2. Data types to declare (collected and/or shared)
 
-Use **Collected** = transmitted off the user’s device (includes P2P to other users and relay).  
+Use **Collected** = transmitted off the user’s device (includes P2P to other users and relay).
 Use **Shared** = transmitted to **third parties** other than the user’s chosen peers.
 
 For Mycelium, peers are **other users**, not the maintainer. Relay operator is a **third party** for IP/circuit metadata only.
@@ -97,7 +97,7 @@ For Mycelium, peers are **other users**, not the maintainer. Relay operator is a
 | Third party | Data exposed | Publisher control |
 |-------------|--------------|-------------------|
 | **Other Mycelium users (P2P)** | Messages, PeerIds, display name, keys, coin gossip | User chooses contacts / installs |
-| **Relay operator** (e.g. community relay on Fly.io) | IP address, circuit peer IDs, timing, volume | User can use mesh-only / LAN; see [THREAT_MODEL.md](./THREAT_MODEL.md) §4.5 |
+| **Relay operator** (operated relay on VPS, or a community relay) | IP address, circuit peer IDs, timing, volume | User can use mesh-only / LAN; see [THREAT_MODEL.md](./THREAT_MODEL.md) §4.5 |
 | **Google Play** | Install/crash per Google policy | Platform |
 | **the maintainer** | **None** from app telemetry in OSS client | — |
 

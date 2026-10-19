@@ -55,7 +55,7 @@ if [[ "$SKIP_RELAY" -eq 0 ]]; then
   if ! "$ROOT/scripts/check-mycelium-relay.sh"; then
     echo "" >&2
     echo "Relay check failed. Desktop may still start but peer discovery via relay can fail." >&2
-    echo "  • Use production relay: ensure network access to mycelium-relay.fly.dev" >&2
+    echo "  • Use production relay: ensure network access to relay.example.invalid:4001 and :8080" >&2
     echo "  • Or local relay: MYCELIUM_START_LOCAL_RELAY=1 $0" >&2
     echo "  • Or skip: $0 --skip-relay-check" >&2
     if [[ "$CHECK_ONLY" -eq 1 ]]; then

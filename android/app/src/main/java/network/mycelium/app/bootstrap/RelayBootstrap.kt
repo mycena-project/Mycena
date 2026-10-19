@@ -9,12 +9,15 @@ import network.mycelium.bindings.mycelium
  * Equal-weight standard bootstrap relays (no primary / fallback ordering).
  */
 object RelayBootstrap {
-    /** Legacy alias — first production slot (Fly Singapore). */
-    const val RELAY_PEER_ID: String = "12D3KooWSkVL5ThExB7paWskDKc2pUobKrV9yWVabMpUdw8hE2wj"
+    /** Operated slot on VPS (`relay.example.invalid`). */
+    const val RELAY_PEER_ID: String = "12D3KooWCVC3ZgY5T4tvBz6kujKzbifbCGnU3kDbvtPnRPfHTogn"
+
+    /** Plain HTTP. Port 443 on this host is the demo Caddy. */
+    const val RELAY_HTTP_ORIGIN: String = "http://relay.example.invalid:8080"
 
     /** TCP `/ip4/` bases (no `/p2p-circuit` suffix) — keep in sync with `standard_bootstrap.rs`. */
     private val RELAY_TCP_BASES: List<String> = listOf(
-        "/ip4/149.248.194.198/tcp/4001/p2p/$RELAY_PEER_ID",
+        "/ip4/192.0.2.57/tcp/4001/p2p/$RELAY_PEER_ID",
         "/ip4/243.185.187.10/tcp/4001/p2p/12D3KooWHkNVYzAAYb37LJJVnkx5n6Z2GkArjT48QXbNx9aFCzi5",
         "/ip4/243.186.187.10/tcp/4001/p2p/12D3KooWCxnh9j2SV9i4sCA4Z7Z8gN8piMTmQ3WsJMLTYYPCnVbb",
         "/ip4/243.187.187.10/tcp/4001/p2p/12D3KooWBzTB6FdEpsoCjJXVrGPZWt2Uqpqo6DY5HfksxWDCdmib",

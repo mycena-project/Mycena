@@ -25,4 +25,4 @@ shopt -u nullglob
 cp "$WORKSPACE_ROOT/Cargo.toml" "$RELAY_REPO/Cargo.toml"
 cp "$WORKSPACE_ROOT/Cargo.lock" "$RELAY_REPO/Cargo.lock"
 
-echo "Done. Review changes in $RELAY_REPO then commit + push to trigger Fly.io deploy."
+echo "Done. Review changes in $RELAY_REPO, then commit. Install on VPS with that repo's scripts/deploy-relay-vps.sh."

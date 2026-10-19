@@ -24,7 +24,7 @@ Release notes include AGPL obligations. Operators who host a **modified relay** 
 
 | Repo | Deploy on tag |
 |------|----------------|
-| [mycelium-relay](https://github.com/mycena-project/mycelium-relay) | Fly.io |
+| [mycelium-relay](https://github.com/mycena-project/mycelium-relay) | VPS (`scripts/deploy-relay-vps.sh` in that repo) |
 | [mycelium-web](https://github.com/mycena-project/mycelium-web) | Vercel |
 
 ## Not in this workflow

@@ -328,7 +328,7 @@ mod tests {
         let addr = addrs
             .iter()
             .find(|a| a.contains(RELAY_PEER_ID))
-            .expect("fly relay in standard bootstrap");
+            .expect("operated relay in standard bootstrap");
         let peer_id = peer_id_from_multiaddr(addr).expect("peer id");
         assert_eq!(peer_id, RELAY_PEER_ID);
     }
@@ -336,8 +336,10 @@ mod tests {
     fn standard_bootstrap_has_seven_equal_relays() {
         let addrs = standard_bootstrap_multiaddrs();
         assert!(addrs.len() >= 28, "7 relays × (ip4+dns4) × (tcp+quic)");
-        assert!(addrs.iter().any(|a| a.contains("mycelium-relay.fly.dev")));
-        assert!(addrs.iter().any(|a| a.contains("149.248.194.198")));
+        assert!(addrs
+            .iter()
+            .any(|a| a.contains("relay.example.invalid")));
+        assert!(addrs.iter().any(|a| a.contains("192.0.2.57")));
     }
 
     #[test]
@@ -374,7 +376,7 @@ mod tests {
         ));
         assert!(!is_mesh_peer_id("12D3KooW"));
         assert!(!is_mesh_peer_id(
-            "/dns4/mycelium-relay.fly.dev/tcp/4001/p2p/12D3KooW"
+            "/dns4/relay.example.invalid/tcp/4001/p2p/12D3KooW"
         ));
     }
 

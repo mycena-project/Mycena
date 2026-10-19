@@ -6,7 +6,7 @@ This document explains how an **independent third party** (not the Mycelium core
 
 Mycelium ships **seven equal default bootstrap relays** in every client (`STANDARD_BOOTSTRAP_RELAYS` in `crates/mycelium-core/src/standard_bootstrap.rs`). This is a deliberate **anti-censorship** measure:
 
-- There is **no primary relay** and no “fallback behind Fly.io”. All slots are listed with the same weight.
+- There is **no primary relay**. All slots are listed with the same weight.
 - Each slot includes **both** `/ip4/…` and `/dns4/…` multiaddrs (plus QUIC). Blocking DNS alone is insufficient; censors must block every IP **and** every hostname embedded in the binary.
 - Slots use **different hosting providers, regions, and legal jurisdictions** — no shared operator company across the default set.
 - Independent operators **claim a reserved slot** by deploying to the slot’s DNS + IPv4 and opening a signed registry update PR.
@@ -24,7 +24,7 @@ Related code:
 
 | Slot | Region | Provider (target) | DNS | IPv4 (slot) | Live |
 |------|--------|-------------------|-----|-------------|------|
-| `sin-fly` | AP-Southeast | Fly.io (SG) | `mycelium-relay.fly.dev` | `149.248.194.198` | yes |
+| `eu-vps` | EU-Central | VPS (DE) | `relay.example.invalid` | `192.0.2.57` | yes |
 | `eu-fra` | EU-Central | Hetzner (DE) | `bootstrap-eu-fra.mycelium.network` | `243.185.187.10` | reserved |
 | `eu-ams` | EU-West | OVH (NL) | `bootstrap-eu-ams.mycelium.network` | `243.186.187.10` | reserved |
 | `na-east` | NA-East | Vultr (US-East) | `bootstrap-na-east.mycelium.network` | `243.187.187.10` | reserved |
@@ -192,7 +192,7 @@ Optional but recommended: append snapshots when your monitor probes `/status`. C
 
 | Curator ID | Role |
 |------------|------|
-| `mycelium-release` | Core release train (production Fly relay) |
+| `mycelium-release` | Core release train (operated VPS relay) |
 | `community-mesh-eu` | Independent EU community operator |
 | `community-mesh-na` | Independent NA community operator |
 
@@ -275,7 +275,7 @@ For private testing, place a verified manifest at:
 |-------------|----------------|
 | Public `/health` | JSON only: `{"ok": true, "version": "…"}` — no peer counts or PeerId |
 | Full telemetry | Restrict `/status` to operator monitoring (firewall / VPN), not public internet |
-| Access logs | Disable Fly.io / nginx / CDN access logs where possible, or aggregate without IP retention |
+| Access logs | Disable host / nginx / CDN access logs where possible, or aggregate without IP retention |
 | Legal requests | Document jurisdiction and contact in operator privacy notice |
 
 **Last engineering audit (reference deploy):** July 2026 — verify on your host after each deploy.
