@@ -66,11 +66,14 @@ Rationale:
 
 | Advisory | Crate | Via | Exposure | Remediation |
 |----------|-------|-----|----------|-------------|
-| RUSTSEC-2026-0118/0119 | hickory-proto 0.25.2 | libp2p-dns, libp2p-mdns | DNS DoS if validating malicious DNSSEC responses | Upgrade when [rust-libp2p](https://github.com/libp2p/rust-libp2p) ships hickory ≥ 0.26.1 (**target 2026-09-30**) |
-| RUSTSEC-2026-0185 | quinn-proto 0.11.14 | libp2p-quic | Memory exhaustion on hostile QUIC streams | libp2p-quic bump; mesh uses authenticated libp2p only |
+| RUSTSEC-2026-0118/0119, GHSA-3v94-mw7p-v465, GHSA-q2qq-hmj6-3wpp, GHSA-5j98-2g5x-46v6, GHSA-6f2x-v7q7-m7m5 | hickory-proto / hickory-resolver 0.25.2 | libp2p-dns 0.44, libp2p-mdns 0.48 | DNS DoS and DNSSEC-status APIs on the 0.25 resolver | libp2p 0.57.1 ships hickory 0.26, and also libp2p-gossipsub 0.50. The vendored mesh hot-swap fork is 0.49.4, so this stack stays on 0.25.2 until that fork is ported. |
+| GHSA-vxx9-2994-q338 | yamux 0.12.1 (0.13.10 is also linked) | libp2p-yamux 0.47 | Remote panic on a malformed yamux 0.12 data frame | 0.12 has no patched release. libp2p-yamux 0.48 drops it, which is the same libp2p 0.57 / gossipsub 0.50 port. |
 | RUSTSEC-2026-0194/0195 | quick-xml 0.37/0.39 | uniffi, plist | XML bomb if parsing untrusted XML | No peer XML ingest; bump uniffi/plist when fixed |
+| GHSA-wrw7-89jp-8q8g | glib 0.18.5 | tauri → gtk 0.18 → webkit2gtk | Unsound `VariantStrIter` | Patched line is glib 0.20. That is a different gtk-rs stack than Tauri 2.11 / wry 0.55 ship. |
 
-Allowlisted until **2026-09-30** — see [`DEPENDENCY_ADVISORY_ALLOWLIST.tsv`](./DEPENDENCY_ADVISORY_ALLOWLIST.tsv).
+`libp2p-quic` 0.13.1 is the in-stack fix for GHSA-5hq8-qhww-jm7q. `quinn-proto` 0.11.19 and `rustls` 0.23.46 clear the earlier QUIC and TLS advisories. Desktop UI overrides pin `devalue` 5.9.3, `source-map-js` 1.2.2, `nanoid` 3.3.18, and `postcss` 8.5.23.
+
+Allowlisted until **2026-12-31** — see [`DEPENDENCY_ADVISORY_ALLOWLIST.tsv`](./DEPENDENCY_ADVISORY_ALLOWLIST.tsv).
 
 ---
 
