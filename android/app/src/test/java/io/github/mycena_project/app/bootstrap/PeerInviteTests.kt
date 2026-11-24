@@ -31,7 +31,7 @@ class PeerInviteTests {
     @Test
     fun parsesIp4CircuitMultiaddr() {
         val addr =
-            "/ip4/192.0.2.57/tcp/4001/p2p/12D3KooWCVC3ZgY5T4tvBz6kujKzbifbCGnU3kDbvtPnRPfHTogn/p2p-circuit/p2p/12D3KooWOtherPeerIdHereXXXXXXXX"
+            "/ip4/168.220.93.128/tcp/4001/p2p/12D3KooWEjWpxescd3inApzVuFEDcMfCFJ5NJy9cYvWLxKxgdJpZ/p2p-circuit/p2p/12D3KooWOtherPeerIdHereXXXXXXXX"
         val target = PeerInvite.parse(addr) as PeerInvite.Target.Multiaddr
         assertEquals(addr, target.addr)
     }

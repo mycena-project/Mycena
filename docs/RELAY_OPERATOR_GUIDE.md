@@ -24,7 +24,7 @@ Related code:
 
 | Slot | Region | Provider (target) | DNS | IPv4 (slot) | Live |
 |------|--------|-------------------|-----|-------------|------|
-| `eu-fly` | EU-Central | Fly.io (FRA) | `mycena-relay.fly.dev` | `192.0.2.57` | yes |
+| `eu-fly` | EU-Central | Fly.io (FRA) | `mycena-relay.fly.dev` | `168.220.93.128` | yes |
 | `eu-fra` | EU-Central | Hetzner (DE) | `bootstrap-eu-fra.mycena.network` | `243.185.187.10` | reserved |
 | `eu-ams` | EU-West | OVH (NL) | `bootstrap-eu-ams.mycena.network` | `243.186.187.10` | reserved |
 | `na-east` | NA-East | Vultr (US-East) | `bootstrap-na-east.mycena.network` | `243.187.187.10` | reserved |

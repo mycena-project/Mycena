@@ -10,14 +10,14 @@ import io.github.mycena_project.bindings.mycena
  */
 object RelayBootstrap {
     /** Operated slot on Fly.io (`mycena-relay.fly.dev`). */
-    const val RELAY_PEER_ID: String = "12D3KooWCVC3ZgY5T4tvBz6kujKzbifbCGnU3kDbvtPnRPfHTogn"
+    const val RELAY_PEER_ID: String = "12D3KooWEjWpxescd3inApzVuFEDcMfCFJ5NJy9cYvWLxKxgdJpZ"
 
     /** HTTPS via the Fly proxy. */
     const val RELAY_HTTP_ORIGIN: String = "https://mycena-relay.fly.dev"
 
     /** TCP `/ip4/` bases (no `/p2p-circuit` suffix) — keep in sync with `standard_bootstrap.rs`. */
     private val RELAY_TCP_BASES: List<String> = listOf(
-        "/ip4/192.0.2.57/tcp/4001/p2p/$RELAY_PEER_ID",
+        "/ip4/168.220.93.128/tcp/4001/p2p/$RELAY_PEER_ID",
         "/ip4/243.185.187.10/tcp/4001/p2p/12D3KooWHkNVYzAAYb37LJJVnkx5n6Z2GkArjT48QXbNx9aFCzi5",
         "/ip4/243.186.187.10/tcp/4001/p2p/12D3KooWCxnh9j2SV9i4sCA4Z7Z8gN8piMTmQ3WsJMLTYYPCnVbb",
         "/ip4/243.187.187.10/tcp/4001/p2p/12D3KooWBzTB6FdEpsoCjJXVrGPZWt2Uqpqo6DY5HfksxWDCdmib",
