@@ -1,6 +1,6 @@
 # Mycena Release Freeze Implementation Backlog
 
-**Reconciled:** 2026-08-29 against current source, tests, and freeze docs. Do **not** treat older Cursor prose as evidence.
+**Reconciled:** 2026-08-29 against current source, tests, and freeze docs. Do **not** treat older planning notes as evidence.
 **Created:** 2026-08-29
 **Based on:** [RELEASE_FREEZE_PLAN.md](./RELEASE_FREEZE_PLAN.md), [RELEASE_FREEZE_AUDIT.md](./RELEASE_FREEZE_AUDIT.md) (SHA `fb32b1e`)
 **Does not replace:** [WORK_REMAINING.md](./WORK_REMAINING.md). Remaining **code before hardware:** [P0_IMPLEMENTATION_QUEUE.md](./P0_IMPLEMENTATION_QUEUE.md).

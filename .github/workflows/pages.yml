@@ -22,6 +22,8 @@ concurrency:
 
 jobs:
   deploy:
+    # GitHub Pages is not available for private repositories on the free plan.
+    if: ${{ !github.event.repository.private }}
     runs-on: ubuntu-latest
     environment:
       name: github-pages

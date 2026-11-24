@@ -174,3 +174,12 @@ These gaps were reviewed and left out of scope because mini-apps or settings alr
 - [security-for-users.md](./security-for-users.md)
 - [CONNECTIVITY_MODES.md](./CONNECTIVITY_MODES.md)
 - [DISASTER_MESH_ROADMAP.md](./DISASTER_MESH_ROADMAP.md)
+
+## Simulation: three-hop delivery to an unknown peer (2026-11)
+
+Since the relay-trust hardening of August 2026, a node does not forward a direct
+message through relays it has no trust record for. In the simulator, A → B → C
+with no prior contact between A and C therefore leaves the message in A's custody
+queue. The test `mycena-sim runner::tests::three_hop_delivery` is marked
+`#[ignore]` until trust bootstrapping for first contact is designed (part of the
+store-and-forward work in the disaster roadmap).

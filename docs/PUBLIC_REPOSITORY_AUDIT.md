@@ -53,7 +53,7 @@ Severity: **Critical** = credential in git; **High** = likely leak or legal bloc
 - Private keys, API keys, `ghp_` / `AKIA` / `AIza` patterns in searched text files
 - Signing keystores or Play passwords in git
 - Tracked APK/`.so`/Gradle caches (other than wrapper JAR)
-- IDE (`.idea`, `.vscode`) or Cursor agent transcripts in `git ls-files`
+- IDE (`.idea`, `.vscode`) or editor agent transcripts in `git ls-files`
 
 ---
 

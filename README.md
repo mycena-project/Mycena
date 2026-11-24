@@ -68,7 +68,7 @@ exchanges. It is not money, not an investment and not a cryptocurrency; see
 - **Website:** [mycena-beta.vercel.app](https://mycena-beta.vercel.app)
 - **Maintainer:** Alex — an independent, non-commercial open-source project
 - **Contributing:** [CONTRIBUTING.md](CONTRIBUTING.md) · **Security:** [SECURITY.md](SECURITY.md)
-- **Architecture and ecosystem:** [docs/ECOSYSTEM.md](docs/ECOSYSTEM.md)
+- **Documentation overview:** [docs/README.md](docs/README.md) · **Governance:** [GOVERNANCE.md](GOVERNANCE.md) · **Contributor agreement:** [CLA.md](CLA.md)
 
 ## Requirements
 

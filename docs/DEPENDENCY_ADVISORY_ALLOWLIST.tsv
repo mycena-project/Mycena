@@ -11,3 +11,21 @@ RUSTSEC-2026-0195	quick-xml	0.39.4	2026-12-31	plist crate transitive; no peer-co
 RUSTSEC-2026-0367	zip	0.6.6	2026-12-31	bundle reader does not call ZipArchive::extract
 RUSTSEC-2026-0368	zip	0.6.6	2026-12-31	bundle reader does not call ZipArchive::extract
 RUSTSEC-2026-0369	zip	0.6.6	2026-12-31	bundle reader does not call ZipArchive::extract
+RUSTSEC-2026-0487	hickory-proto	0.25.2	2027-03-31	SVCB/zone-file text parsing; libp2p-dns resolves bootstrap hostnames from wire responses only — remove with libp2p 0.57
+RUSTSEC-2026-0489	hickory-proto	0.25.2	2027-03-31	SVCB/zone-file text parsing; libp2p-dns resolves bootstrap hostnames from wire responses only — remove with libp2p 0.57
+RUSTSEC-2026-0490	hickory-proto	0.25.2	2027-03-31	SVCB/zone-file text parsing; libp2p-dns resolves bootstrap hostnames from wire responses only — remove with libp2p 0.57
+RUSTSEC-2026-0491	hickory-proto	0.25.2	2027-03-31	memory amplification from a crafted DNS response; only the bootstrap hostname is resolved, LAN/BLE mesh unaffected — remove with libp2p 0.57
+RUSTSEC-2026-0504	hickory-proto	0.25.2	2027-03-31	DNSSEC validation bug; DNSSEC validation is not enabled in the libp2p-dns resolver
+RUSTSEC-2026-0505	hickory-proto	0.25.2	2027-03-31	DNSSEC validation bug; DNSSEC validation is not enabled in the libp2p-dns resolver
+RUSTSEC-2026-0511	hickory-proto	0.25.2	2027-03-31	DNSSEC validation bug; DNSSEC validation is not enabled in the libp2p-dns resolver
+RUSTSEC-2026-0512	hickory-proto	0.25.2	2027-03-31	DNSSEC validation bug; DNSSEC validation is not enabled in the libp2p-dns resolver
+RUSTSEC-2026-0514	hickory-proto	0.25.2	2027-03-31	DNSSEC validation bug; DNSSEC validation is not enabled in the libp2p-dns resolver
+RUSTSEC-2026-0530	hickory-proto	0.25.2	2027-03-31	DNSSEC validation bug; DNSSEC validation is not enabled in the libp2p-dns resolver
+RUSTSEC-2026-0531	hickory-proto	0.25.2	2027-03-31	DNSSEC validation bug; DNSSEC validation is not enabled in the libp2p-dns resolver
+RUSTSEC-2026-0532	hickory-proto	0.25.2	2027-03-31	DNSSEC validation bug; DNSSEC validation is not enabled in the libp2p-dns resolver
+RUSTSEC-2026-0549	hickory-proto	0.25.2	2027-03-31	DNSSEC validation bug; DNSSEC validation is not enabled in the libp2p-dns resolver
+RUSTSEC-2026-0550	hickory-proto	0.25.2	2027-03-31	DNSSEC validation bug; DNSSEC validation is not enabled in the libp2p-dns resolver
+RUSTSEC-2026-0551	hickory-proto	0.25.2	2027-03-31	DNSSEC validation bug; DNSSEC validation is not enabled in the libp2p-dns resolver
+RUSTSEC-2026-0429	zip	0.6.6	2027-03-31	ZipArchive::extract is not called; bundles read via by_name after signature check
+RUSTSEC-2026-0545	zip	0.6.6	2027-03-31	zip built without aes-crypto; AES entries are not supported
+RUSTSEC-2026-0548	zip	0.6.6	2027-03-31	ZipStreamReader is not used; entries are opened via the central directory

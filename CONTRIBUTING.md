@@ -1,6 +1,6 @@
 # Contributing to Mycena
 
-This project is in **Public Technical Beta — Feature Development Frozen, Release Validation Ongoing** ([docs/DEVELOPMENT_FREEZE.md](docs/DEVELOPMENT_FREEZE.md)). Feature development is paused; P0 stabilization continues. Hardware validation is incomplete. G9 is **FAIL**. The public release gate (G10) is **not approved**. It is an **early** beta, maintained by a **small team**. Expect bugs. It is **not** a Signal replacement, **not** a security certification, and is **not** suitable as primary comms against nation-state adversaries — read [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) and [docs/BETA_SECURITY_ASSESSMENT.md](docs/BETA_SECURITY_ASSESSMENT.md) first.
+This project is in **Public Technical Beta — Feature Development Frozen, Release Validation Ongoing** ([docs/DEVELOPMENT_FREEZE.md](docs/DEVELOPMENT_FREEZE.md)). Feature development is paused; P0 stabilization continues. Hardware validation is incomplete. G9 is **FAIL**. The public release gate (G10) is **not approved**. It is an **early** beta, maintained by **one person** (see [GOVERNANCE.md](GOVERNANCE.md)). Expect bugs. It is **not** a Signal replacement, **not** a security certification, and is **not** suitable as primary comms against nation-state adversaries — read [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) and [docs/BETA_SECURITY_ASSESSMENT.md](docs/BETA_SECURITY_ASSESSMENT.md) first.
 
 **Feature freeze:** new features, new transports, major architecture, and experimental product work are **deferred**. Allowed: security fixes, P0 crashes, release-breaking and build defects, documentation corrections, hardware-validation evidence. Dependency upgrades, refactors, and API changes need **written justification**. Direct pushes to `main` remain allowed for a small team; freeze exceptions should be described in the commit/PR body.
 
@@ -66,7 +66,7 @@ Keep commits reviewable (prefer one logical change per PR). Reference issues in 
 2. Keep PRs focused — one logical change per PR when possible
 3. Ensure CI is green (fmt, clippy, tests, fuzz PR smoke; Android CI if you touched FFI or Android)
 4. Describe **what** and **why**; note user-visible risk (low / medium / high)
-5. AGPL-3.0-or-later applies to contributions — you grant rights needed to distribute under the project license
+5. AGPL-3.0-or-later applies to contributions, and you agree to the [Contributor License Agreement](CLA.md) (one line in your first pull request)
 6. Do not merge your own PR if a second reviewer is available
 
 Reviewers may ask for tests or documentation updates. We appreciate patience during beta.

@@ -67,6 +67,7 @@ Rationale:
 | Advisory | Crate | Via | Exposure | Remediation |
 |----------|-------|-----|----------|-------------|
 | RUSTSEC-2026-0118/0119, GHSA-3v94-mw7p-v465, GHSA-q2qq-hmj6-3wpp, GHSA-5j98-2g5x-46v6, GHSA-6f2x-v7q7-m7m5 | hickory-proto / hickory-resolver 0.25.2 | libp2p-dns 0.44, libp2p-mdns 0.48 | DNS DoS and DNSSEC-status APIs on the 0.25 resolver | libp2p 0.57.1 ships hickory 0.26, and also libp2p-gossipsub 0.50. The vendored mesh hot-swap fork is 0.49.4, so this stack stays on 0.25.2 until that fork is ported. |
+| RUSTSEC-2026-0487/0489/0490/0491, 0504/0505/0511/0512/0514/0530/0531/0532/0549/0550/0551 (review 2026-11-24) | hickory-proto / hickory-resolver 0.25.2 | libp2p-dns 0.44, libp2p-mdns 0.48 | Zone-file parsing panics, DNS header memory amplification, DNSSEC validation bugs | No fix on the 0.25 line. Mycena resolves only the bootstrap relay hostname, DNSSEC validation is off and no zone files are parsed. Fixed with the libp2p 0.57 upgrade (needs the gossipsub fork port). Allowlisted until 2027-03-31. |
 | GHSA-vxx9-2994-q338 | yamux 0.12.1 (0.13.10 is also linked) | libp2p-yamux 0.47 | Remote panic on a malformed yamux 0.12 data frame | 0.12 has no patched release. libp2p-yamux 0.48 drops it, which is the same libp2p 0.57 / gossipsub 0.50 port. |
 | RUSTSEC-2026-0194/0195 | quick-xml 0.37/0.39 | uniffi, plist | XML bomb if parsing untrusted XML | No peer XML ingest; bump uniffi/plist when fixed |
 | GHSA-wrw7-89jp-8q8g | glib 0.18.5 | tauri → gtk 0.18 → webkit2gtk | Unsound `VariantStrIter` | Patched line is glib 0.20. That is a different gtk-rs stack than Tauri 2.11 / wry 0.55 ship. |
@@ -106,3 +107,7 @@ Regenerate locally:
 - [RELEASE_INTEGRITY.md](./RELEASE_INTEGRITY.md) — reproducible builds + M-of-N signing
 - [SECURITY_DEBT_REGISTER.md](./SECURITY_DEBT_REGISTER.md) — application-level debt
 - [ARCHITECTURE_RISKS.md](./ARCHITECTURE_RISKS.md) — sled blast radius
+
+## zip 0.6 (review 2026-11-24)
+
+zip is now built with `default-features = false, features = ["deflate"]`, which removes AES, zstd and bzip2 support (and RUSTSEC-2026-0403/0410 via zstd). RUSTSEC-2026-0429/0545/0548 remain allowlisted until 2027-03-31: bundles are opened via the central directory (`ZipArchive::by_name`) after the bundle signature check; `extract`, `ZipStreamReader` and AES entries are not used. Planned fix: move to zip 2.x/9.x together with the mini-app bundle format review.

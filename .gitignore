@@ -76,3 +76,9 @@ artifacts/
 
 # cargo-cyclonedx staging files (real SBOM goes to target/sbom/)
 crates/*/mycena-sbom-*.json
+
+# Lean Android build scratch (scripts/android-build-lean.sh)
+/.build-android/
+
+# Stray packed mini-apps (official bundles live in crates/*/assets/bundles)
+/*.mxa

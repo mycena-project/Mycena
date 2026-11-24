@@ -1,6 +1,6 @@
 SHELL := /bin/zsh
 
-.PHONY: help desktop-dev desktop-stop desktop-nuke desktop-check-relay android-apk android-apk-ci android-apk-local android-technical-beta android-test android-install android-deploy android-nuke android-hw-info android-hw-inspect clean test test-fast test-integration test-unit test-sim check check-app-layer check-layer-boundaries check-unwrap-audit check-invariant-whitelist check-no-unwrap-prod check-dependencies clippy ci fmt fuzz-smoke docker-android-ci docker-compose-android gradle-wrapper sync-privacy-policy sync-onboarding-copy reproducible-build release-verify generate-sbom
+.PHONY: help desktop-dev desktop-stop desktop-nuke desktop-check-relay android-apk android-apk-all android-apk-docker android-apk-ci android-apk-local android-technical-beta android-test android-install android-deploy android-nuke android-hw-info android-hw-inspect clean test test-fast test-integration test-unit test-sim check check-app-layer check-layer-boundaries check-unwrap-audit check-invariant-whitelist check-no-unwrap-prod check-dependencies clippy ci fmt fuzz-smoke docker-android-ci docker-compose-android gradle-wrapper sync-privacy-policy sync-onboarding-copy reproducible-build release-verify generate-sbom
 
 help:
 	@echo "Mycena — offline-first mesh client (no server stack)"
@@ -105,7 +105,16 @@ desktop-nuke:
 	./scripts/nuke-desktop-data.sh
 
 # Default: mingc/android-build-box (no local rustup). See scripts/mingc-android-build.sh
+# Lean host build with disk guard (arm64-v8a, max 10 GB, cleans up). See docs/ANDROID_BUILD.md
 android-apk:
+	./scripts/android-build-lean.sh
+
+# All three ABIs, same guard.
+android-apk-all:
+	./scripts/android-build-lean.sh --abi all
+
+# Old Docker flow (mingc/android-build-box). Needs far more than 10 GB; not for laptops.
+android-apk-docker:
 	./scripts/mingc-android-build.sh
 
 # Slim mycena-android-ci image (scripts/docker-android-build.sh)

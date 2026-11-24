@@ -1,0 +1,10 @@
+# Gitleaks configuration: default rules plus reviewed false positives.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Reviewed false positives (test fixtures and public example keys)"
+paths = [
+  '''(^|/)OemStabilityTests\.kt$''',
+  '''^docs/examples/.*\.example\.json$''',
+]

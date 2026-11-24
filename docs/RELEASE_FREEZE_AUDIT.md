@@ -769,7 +769,7 @@ Honorable mentions: panic UI missing mesh-copies sentence (AUD-S12); empty CHANG
 
 ## Recommended implementation order
 
-Dependency-aware **next Cursor tasks** (do **not** start them in this audit):
+Dependency-aware **next tasks** (do **not** start them in this audit):
 
 1. **Docs honesty pass (G1 remainder)** — Dispose §11: desktop BLE, WORK_REMAINING Cat 3, WIP stash note vs `main`, StrongBox wording, SD-150, CHANGELOG/RELEASING, fuzz 45s. Soften or qualify pocket-mesh until G6.
 2. **P0 Android crash/hang fixes (G2)** — `ContextCompat.registerReceiver`; hotspot `SecurityException` + `cont.isActive`; never `localhost` URL; node-init error UI; FileProvider cache-path APK copy.
