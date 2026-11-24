@@ -1,6 +1,6 @@
 # ADR 002: Bluetooth as a mesh transport layer
 
-**Status:** Accepted (F0–F3 Android shipped; F1–F3 iOS host in `ios/Mycelium/BLE/` — background limits: [IOS_BLE_CONSTRAINTS.md](../IOS_BLE_CONSTRAINTS.md))  
+**Status:** Accepted (F0–F3 Android shipped; F1–F3 iOS host in `ios/Mycena/BLE/` — background limits: [IOS_BLE_CONSTRAINTS.md](../IOS_BLE_CONSTRAINTS.md))  
 **Date:** 2026-07-03  
 **Context:** Users want **maximum connectivity** — all discovery and transport paths active so the mesh works when Wi‑Fi or internet fail. Today BLE is **opt-in discovery only** (Android); libp2p traffic uses TCP/QUIC on LAN and relay circuits. Real-world scenarios (protests, festivals, guest Wi‑Fi blocking mDNS, no shared router) can make **BLE the only link** between two phones meters apart.
 
@@ -36,7 +36,7 @@ We will treat Bluetooth as **three layers**, rolled out in order. Chat/mail/bull
 ┌─────────────────────────────────────────────────────────────┐
 │  App (chat / mail / bulletin) — unchanged                    │
 ├─────────────────────────────────────────────────────────────┤
-│  mycelium-node (libp2p swarm)                                │
+│  mycena-node (libp2p swarm)                                │
 │    TCP / QUIC / mDNS / relay / kad                           │
 │    + optional BleSideChannelIngest (F2)                      │
 ├─────────────────────────────────────────────────────────────┤
@@ -62,7 +62,7 @@ We will treat Bluetooth as **three layers**, rolled out in order. Chat/mail/bull
 
 **Scanner (central):**
 
-- On `FIRST_MATCH`, GATT connect → read invite → `mycelium.connectTransportInvite(uri)`
+- On `FIRST_MATCH`, GATT connect → read invite → `mycena.connectTransportInvite(uri)`
 - Dedupe by account id; skip if already connected (`connectedPeers()`)
 - **Does not add chat contacts** — use QR / `connectInvite` for social layer
 - Fallback: notification-only if GATT fails (current behavior)
@@ -73,7 +73,7 @@ We will treat Bluetooth as **three layers**, rolled out in order. Chat/mail/bull
 
 ## F2 / F3 — unified bearer framing (2026-07)
 
-F2 (`MYBL`) and F3 (`MYLP`) shared GATT chunking (`MYLC`) but duplicated inner framing and node queues. Both now route through [`bearer_transport`](../../crates/mycelium-core/src/bearer_transport.rs):
+F2 (`MYBL`) and F3 (`MYLP`) shared GATT chunking (`MYLC`) but duplicated inner framing and node queues. Both now route through [`bearer_transport`](../../crates/mycena-core/src/bearer_transport.rs):
 
 | Layer | Format |
 |-------|--------|
@@ -82,9 +82,9 @@ F2 (`MYBL`) and F3 (`MYLP`) shared GATT chunking (`MYLC`) but duplicated inner f
 | Legacy F2 | `MYBL \| len \| bincode(WireMessage)` |
 | Legacy F3 | `MYLP \| len \| cbor` |
 
-[`BearerTransport`](../../crates/mycelium-core/src/bearer_transport.rs) trait: `send_frame`, `recv_frame`, `mtu`, `reliability_class`. BLE implementation: [`BearerBleRouter`](../../crates/mycelium-node/src/bearer_ble.rs).
+[`BearerTransport`](../../crates/mycena-core/src/bearer_transport.rs) trait: `send_frame`, `recv_frame`, `mtu`, `reliability_class`. BLE implementation: [`BearerBleRouter`](../../crates/mycena-node/src/bearer_ble.rs).
 
-**Wire compat:** decode accepts MYBR + MYBL + MYLP; encode defaults to legacy magics (`MYCELIUM_BEARER_WIRE_V1=1` for MYBR). Hosts call **`drainBearerOutbound`** (unified F2+F3); legacy `drainBleOutbound` / `drainBleStreamOutbound` remain for older shells.
+**Wire compat:** decode accepts MYBR + MYBL + MYLP; encode defaults to legacy magics (`MYCENA_BEARER_WIRE_V1=1` for MYBR). Hosts call **`drainBearerOutbound`** (unified F2+F3); legacy `drainBleOutbound` / `drainBleStreamOutbound` remain for older shells.
 
 Future bearers (Wi‑Fi Direct, LoRa) implement the same trait with different MTU/chunk drivers.
 

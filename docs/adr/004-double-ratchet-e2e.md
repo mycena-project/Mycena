@@ -2,15 +2,15 @@
 
 **Status:** Accepted (v1 shipped; v0 legacy fallback retained)  
 **Date:** 2026-07-03  
-**Context:** Direct chat used static X25519 ECDH per message (`encrypt_for`). Device compromise exposed all historical ciphertext with that peer. Mycelium is offline-first — messages may arrive days later and out of order; skipped message keys must be bounded, not assuming live connectivity like Signal's online model.
+**Context:** Direct chat used static X25519 ECDH per message (`encrypt_for`). Device compromise exposed all historical ciphertext with that peer. Mycena is offline-first — messages may arrive days later and out of order; skipped message keys must be bounded, not assuming live connectivity like Signal's online model.
 
 ---
 
 ## Decision
 
 1. **Two wire protocols** — `WireMessage::EncryptedDirect::e2e_version` and `Envelope::e2e_version`:
-   - **v0 (legacy):** ephemeral X25519 ECDH → HKDF → ChaCha20-Poly1305 per message ([`encrypt_for`](../../crates/mycelium-core/src/crypto/mod.rs)).
-   - **v1 (ratchet):** X3DH session setup + Double Ratchet ([`crypto/ratchet.rs`](../../crates/mycelium-core/src/crypto/ratchet.rs)).
+   - **v0 (legacy):** ephemeral X25519 ECDH → HKDF → ChaCha20-Poly1305 per message ([`encrypt_for`](../../crates/mycena-core/src/crypto/mod.rs)).
+   - **v1 (ratchet):** X3DH session setup + Double Ratchet ([`crypto/ratchet.rs`](../../crates/mycena-core/src/crypto/ratchet.rs)).
 
 2. **X3DH-style bootstrap** — Prekey bundle advertised in `WireMessage::PeerInfo` (registration id, signed prekey + sig, optional one-time prekey). Verified with identity-keyed BLAKE3 MAC (TOFU model). Local prekeys persisted in `ratchet/` sled tree.
 
@@ -63,6 +63,6 @@ When the scanner receives a **v3 invite with ratchet tail**, the first encrypted
 
 ## References
 
-- [`crates/mycelium-core/src/crypto/ratchet.rs`](../../crates/mycelium-core/src/crypto/ratchet.rs)
-- [`crates/mycelium-node/src/ratchet_store.rs`](../../crates/mycelium-node/src/ratchet_store.rs)
+- [`crates/mycena-core/src/crypto/ratchet.rs`](../../crates/mycena-core/src/crypto/ratchet.rs)
+- [`crates/mycena-node/src/ratchet_store.rs`](../../crates/mycena-node/src/ratchet_store.rs)
 - Signal Double Ratchet (conceptual model, not wire-compatible)

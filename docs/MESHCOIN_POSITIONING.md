@@ -8,7 +8,7 @@
 
 ## What MeshCoin is
 
-MeshCoin (MXC) is a **bounded, offline-first emergency settlement layer** inside Mycelium. It lets nearby devices exchange **small, temporary utility credits** when normal payment rails or connectivity fail.
+MeshCoin (MXC) is a **bounded, offline-first emergency settlement layer** inside Mycena. It lets nearby devices exchange **small, temporary utility credits** when normal payment rails or connectivity fail.
 
 Think of it as:
 
@@ -81,7 +81,7 @@ Internal code may retain `MXC` / `muon` as technical units during migration.
 
 ## Beta-safe defaults (code)
 
-See `crates/mycelium-coin/src/settlement_policy.rs`:
+See `crates/mycena-coin/src/settlement_policy.rs`:
 
 - `DEFAULT_MAX_BALANCE_MXC` = 100  
 - `HARD_MAX_BALANCE_MXC` = 300  

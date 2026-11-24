@@ -1,10 +1,10 @@
-# Copyright 2026 Mycelium Project — OSS-Fuzz builder image (submit with google/oss-fuzz PR).
+# Copyright 2026 Mycena Project — OSS-Fuzz builder image (submit with google/oss-fuzz PR).
 FROM gcr.io/oss-fuzz-base/base-builder-rust
 
-ARG MYCELIUM_REPO=https://github.com/mycena-project/Mycelium.git
-ARG MYCELIUM_REF=main
+ARG MYCENA_REPO=https://github.com/mycena-project/Mycena.git
+ARG MYCENA_REF=main
 
-RUN git clone --depth 1 --branch ${MYCELIUM_REF} ${MYCELIUM_REPO} mycelium
-WORKDIR $SRC/mycelium
+RUN git clone --depth 1 --branch ${MYCENA_REF} ${MYCENA_REPO} mycena
+WORKDIR $SRC/mycena
 
 COPY build.sh $SRC/

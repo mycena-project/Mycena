@@ -1,4 +1,4 @@
-const SCOPE = 'mycelium/meshaid/v1';
+const SCOPE = 'mycena/meshaid/v1';
   const TYPE_ICONS = { help:'🆘', available:'✅', resource:'💧', blocked:'🚫', resolved:'✓', location:'📍' };
   const TYPE_LABELS = { help:'Help needed', available:'Help available', resource:'Resource', blocked:'Blocked', resolved:'Resolved', location:'Location' };
   const STORAGE_KEY = 'meshaid_posts';
@@ -8,12 +8,12 @@ const SCOPE = 'mycelium/meshaid/v1';
 
   async function loadPosts() {
     try {
-      const stored = await window.mycelium?.storage.get(STORAGE_KEY);
+      const stored = await window.mycena?.storage.get(STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
         posts = parsed.filter(p => p.expires_at > Date.now());
       }
-      const bulletins = await window.mycelium?.getBulletins(SCOPE) || [];
+      const bulletins = await window.mycena?.getBulletins(SCOPE) || [];
       bulletins.forEach(b => {
         try {
           const post = JSON.parse(b.body);
@@ -70,8 +70,8 @@ const SCOPE = 'mycelium/meshaid/v1';
       body: document.getElementById('f-body').value.trim(), location,
       created_at: Date.now(), expires_at: Date.now() + ttl * 1000 };
     posts.push({ ...post, from: 'You' });
-    await window.mycelium?.storage.set(STORAGE_KEY, JSON.stringify(posts));
-    await window.mycelium?.postBulletin(SCOPE, post.title, JSON.stringify(post), ttl);
+    await window.mycena?.storage.set(STORAGE_KEY, JSON.stringify(posts));
+    await window.mycena?.postBulletin(SCOPE, post.title, JSON.stringify(post), ttl);
     document.getElementById('modal').style.display = 'none';
     document.getElementById('f-title').value = '';
     document.getElementById('f-body').value = '';
@@ -82,8 +82,8 @@ const SCOPE = 'mycelium/meshaid/v1';
     const post = posts.find(p => p.id === postId);
     if (!post) return;
     post.meshaid_type = 'resolved';
-    await window.mycelium?.storage.set(STORAGE_KEY, JSON.stringify(posts));
-    await window.mycelium?.postBulletin(SCOPE, `RESOLVED: ${post.title}`, JSON.stringify({ ...post, meshaid_type: 'resolved' }), 3600);
+    await window.mycena?.storage.set(STORAGE_KEY, JSON.stringify(posts));
+    await window.mycena?.postBulletin(SCOPE, `RESOLVED: ${post.title}`, JSON.stringify({ ...post, meshaid_type: 'resolved' }), 3600);
     renderPosts();
   }
 
@@ -99,5 +99,5 @@ const SCOPE = 'mycelium/meshaid/v1';
     tab.classList.add('active'); activeFilter = tab.dataset.filter; renderPosts();
   }));
   loadPosts();
-  window.mycelium?.registerBulletinRefresh?.(loadPosts);
+  window.mycena?.registerBulletinRefresh?.(loadPosts);
   setInterval(loadPosts, 15000);

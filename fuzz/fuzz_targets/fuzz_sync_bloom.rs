@@ -1,8 +1,8 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use mycelium_core::sync::{BloomFilter, SyncDigest};
-use mycelium_core::transport::WireMessage;
+use mycena_core::sync::{BloomFilter, SyncDigest};
+use mycena_core::transport::WireMessage;
 
 /// Bloom sync bytes and related wire variants (`SyncBloom`, `SyncIds`, …).
 fuzz_target!(|data: &[u8]| {

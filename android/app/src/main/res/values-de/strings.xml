@@ -6,7 +6,7 @@
     <string name="action_export">Exportieren</string>
     <string name="action_subscribe">Abonnieren</string>
     <string name="action_unsubscribe">Abmelden</string>
-    <string name="app_name">Mycelium</string>
+    <string name="app_name">Mycena</string>
     <string name="app_tagline">Offline-Maschennetz</string>
     <string name="ble_handoff_connected_body">Über Bluetooth verbunden — libp2p-Direktpfad über BLE, wenn Wi‑Fi oder Relay nicht verfügbar sind.</string>
     <string name="ble_handoff_connected_title">Peer über Bluetooth verbunden</string>
@@ -89,7 +89,7 @@
     <string name="discovery_in_range">in Reichweite</string>
     <string name="discovery_nearby">in der Nähe</string>
     <string name="discovery_notification_body">Tippen zum Verbinden (%1$s…)</string>
-    <string name="discovery_notification_title">Mycelium-Knoten %1$s</string>
+    <string name="discovery_notification_title">Mycena-Knoten %1$s</string>
     <string name="discovery_very_close">sehr nah</string>
     <string name="error_invalid_invite">Ungültige Einladung</string>
     <string name="error_invalid_qr">QR-Format ungültig</string>
@@ -148,7 +148,7 @@
     <string name="miniapp_grant_identity_title">Identität teilen?</string>
     <string name="miniapp_grant_payments_message">Diese App kann den Kontostand lesen und Zahlungs-QR-Codes anzeigen.</string>
     <string name="miniapp_grant_payments_title">Wallet-Zugriff?</string>
-    <string name="miniapp_hosted_dialog_notice">Diese Nachricht stammt von einer Mini-App, nicht von Mycelium.</string>
+    <string name="miniapp_hosted_dialog_notice">Diese Nachricht stammt von einer Mini-App, nicht von Mycena.</string>
     <string name="miniapp_inline_script_warning">Diese App nutzt Inline-Skripte (höheres XSS-Risiko).</string>
     <string name="miniapp_install_cancel">Abbrechen</string>
     <string name="miniapp_install_confirm">Installieren</string>
@@ -189,7 +189,7 @@
     <string name="more_mail_sub">Store-and-Forward-Nachrichten, wenn Chat offline ist</string>
     <string name="more_mini_apps_sub">MeshAid und andere Mesh-Mini-Apps</string>
     <string name="more_settings_sub">Identität, Netzwerk, Datenschutz, Bulletin-Bereiche</string>
-    <string name="more_share_app_sub">Mycelium an ein Gerät in der Nähe weitergeben — ohne Internet oder Play Store</string>
+    <string name="more_share_app_sub">Mycena an ein Gerät in der Nähe weitergeben — ohne Internet oder Play Store</string>
     <string name="more_subtitle">Apps, Netzwerkbeitrag, Offline-Nachrichten und Einstellungen.</string>
     <string name="more_title">Mehr</string>
     <string name="more_wallet_sub">Offline-Guthaben für Mesh-Dienste</string>
@@ -224,7 +224,7 @@
     <string name="peers_discovery_connecting_title">Verbinde…</string>
     <string name="peers_discovery_idle_body">Aktiviere Bluetooth-Mesh in den Einstellungen für automatische Verbindungen — oder scanne oben einen QR-Code.</string>
     <string name="peers_discovery_idle_title">Gerätesuche ist aus</string>
-    <string name="peers_discovery_nearby_found_body">Mycelium-Geräte sind in Reichweite. Verbindung wird automatisch aufgebaut…</string>
+    <string name="peers_discovery_nearby_found_body">Mycena-Geräte sind in Reichweite. Verbindung wird automatisch aufgebaut…</string>
     <string name="peers_discovery_nearby_found_title">Geräte in der Nähe</string>
     <string name="peers_discovery_nobody_body">Das ist normal. Öffne Verbinden auf einem anderen Handy in der Nähe — oder scannt einmal gegenseitig den QR-Code.</string>
     <string name="peers_discovery_nobody_title">Gerade niemand in der Nähe</string>
@@ -283,7 +283,7 @@
     <string name="settings_crowd_mode_sub">Begrenzt mDNS-Verbindungen und nutzt Crowd-Gossip-Tuning. Volle Transportlimits gelten nach App-Neustart.</string>
     <string name="settings_crowd_mode_title">Crowd-Modus (Festivals / dichte Events)</string>
     <string name="settings_danger_zone">Gefahrenzone</string>
-    <string name="settings_data_handling">Wie Mycelium mit deinen Daten umgeht</string>
+    <string name="settings_data_handling">Wie Mycena mit deinen Daten umgeht</string>
     <string name="settings_display_name">Anzeigename</string>
     <string name="settings_display_name_hint">Ihr Name im Netzwerk</string>
     <string name="settings_encrypted_channels">Verschlüsselte Kanäle</string>
@@ -344,7 +344,7 @@
     <string name="settings_scan_channel_prompt">Kanal-Einladung scannen</string>
     <string name="settings_scan_scope_key">Kanal-Einladungs-QR scannen</string>
     <string name="settings_scope_key_export_title">Kanal-Einladung</string>
-    <string name="settings_scope_key_placeholder">mycelium/rescue/team-alpha</string>
+    <string name="settings_scope_key_placeholder">mycena/rescue/team-alpha</string>
     <string name="settings_scope_label">Bereich</string>
     <string name="settings_share_app">App teilen…</string>
     <string name="settings_show_technical_ids">Technische IDs anzeigen (Erweitert)</string>
@@ -373,7 +373,7 @@
     <string name="share_app_qr_content_description">QR-Code zur Installation</string>
     <string name="share_app_share_link">Installationslink teilen</string>
     <string name="share_app_start">Teilen starten</string>
-    <string name="share_app_step_install_body">Nach Wi‑Fi-Beitritt (falls nötig) diesen QR scannen oder den Link in Chrome öffnen. Auf der Seite „Mycelium installieren“ tippen.</string>
+    <string name="share_app_step_install_body">Nach Wi‑Fi-Beitritt (falls nötig) diesen QR scannen oder den Link in Chrome öffnen. Auf der Seite „Mycena installieren“ tippen.</string>
     <string name="share_app_step_install_title">Schritt 2 — Installieren</string>
     <string name="share_app_step_wifi_body">Mit der Kamera-App scannen, um dem Wi‑Fi dieses Handys beizutreten. Kein Passwort nötig.</string>
     <string name="share_app_step_wifi_title">Schritt 1 — Wi‑Fi beitreten</string>
@@ -448,7 +448,7 @@ Passwort: %2$s</string>
     <string name="wallet_to_hint">An (Adresse oder Peer-ID)</string>
     <string name="wallet_tx_pending">Transaktion ausstehend (offline)</string>
     <string name="wallet_tx_sent">Transaktionsübertragung</string>
-    <string name="welcome_back_body">Ihre bestehende Mycelium-Identität wurde auf diesem Gerät gefunden. Ihre Kontakte erkennen Sie weiterhin.</string>
+    <string name="welcome_back_body">Ihre bestehende Mycena-Identität wurde auf diesem Gerät gefunden. Ihre Kontakte erkennen Sie weiterhin.</string>
     <string name="welcome_back_body_named">Willkommen zurück, %1$s. Ihre bestehende Identität wurde auf diesem Gerät gefunden.</string>
     <string name="welcome_back_continue">Mit meiner Identität fortfahren</string>
     <string name="welcome_back_fresh">Stattdessen neu beginnen</string>

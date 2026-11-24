@@ -2,7 +2,7 @@
 
 **Status:** Accepted (Android Phase 1 shipped; iOS deferred)  
 **Date:** 2026-07-04  
-**Context:** BLE GATT delivers ~100–300 kbit/s effective at short range — adequate for invites, chat, and DTN custody, but insufficient for images, bulletin attachments, or mini-app bundles during ad-hoc mesh encounters. Prompt 13 introduced [`BearerTransport`](../../crates/mycelium-core/src/bearer_transport.rs) as a unified framing layer; this ADR adds a **second physical bearer** with an automatic **BLE → bulk → BLE idle** upgrade path.
+**Context:** BLE GATT delivers ~100–300 kbit/s effective at short range — adequate for invites, chat, and DTN custody, but insufficient for images, bulletin attachments, or mini-app bundles during ad-hoc mesh encounters. Prompt 13 introduced [`BearerTransport`](../../crates/mycena-core/src/bearer_transport.rs) as a unified framing layer; this ADR adds a **second physical bearer** with an automatic **BLE → bulk → BLE idle** upgrade path.
 
 Related: [ADR 002](./002-ble-mesh-transport.md) · [BEARER_TRANSPORT.md](../BEARER_TRANSPORT.md)
 
@@ -14,7 +14,7 @@ Related: [ADR 002](./002-ble-mesh-transport.md) · [BEARER_TRANSPORT.md](../BEAR
 
 1. **Discovery and idle stay on BLE** (F1 advertising/scan, low duty cycle).
 2. **Payload routing in Rust** (`BearerMeshRouter`):
-   - Frames ≥ **16 KiB** (configurable: `MYCELIUM_BEARER_WIFI_UPGRADE_BYTES`) → `BearerMedium::WifiDirect`.
+   - Frames ≥ **16 KiB** (configurable: `MYCENA_BEARER_WIFI_UPGRADE_BYTES`) → `BearerMedium::WifiDirect`.
    - Mini-app bundles and explicit bulk → `queue_bearer_bulk()` (always Wi‑Fi Direct).
    - Smaller chat/control frames → BLE (`medium=0`).
 3. **Host upgrade:** `WifiDirectBearerHost` (`WifiP2pManager`) opens a P2P group when Rust drains `medium=1` frames; maps peer via existing `BleMeshLinkRegistry` (same device MAC from BLE handoff).
@@ -57,7 +57,7 @@ sequenceDiagram
 | **Reliability** | Regression reports on iOS 18+ / 26 for pairing; peer-ID collisions | More direct connection control; viability handlers |
 | **Background** | Similar to BLE — **not** continuous background mesh | Same — foreground / brief background only |
 | **App Store** | Allowed but declining API surface | Preferred for new P2P |
-| **Mycelium fit** | **Poor** — proprietary session API, deprecation, pairing bugs | **Good** — TCP/QUIC-like streams, aligns with Android TCP bearer |
+| **Mycena fit** | **Poor** — proprietary session API, deprecation, pairing bugs | **Good** — TCP/QUIC-like streams, aligns with Android TCP bearer |
 
 ### Apple restrictions (both paths)
 
@@ -72,7 +72,7 @@ sequenceDiagram
 | Verdict | Detail |
 |---------|--------|
 | **MPC as iOS equivalent?** | **Not recommended** — deprecated, unreliable on recent iOS, poor long-term bet. |
-| **Practical iOS path?** | **Network framework** with `includePeerToPeer`, BLE for discovery/handoff (already in `ios/Mycelium/BLE/`), TCP MYBR on a negotiated port — mirror Android semantics behind `BearerMedium::WifiDirect`. |
+| **Practical iOS path?** | **Network framework** with `includePeerToPeer`, BLE for discovery/handoff (already in `ios/Mycena/BLE/`), TCP MYBR on a negotiated port — mirror Android semantics behind `BearerMedium::WifiDirect`. |
 | **Wi‑Fi Aware** | Emerging cross-platform standard; watch for future alignment, not Phase 1. |
 
 ---

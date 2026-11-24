@@ -1,6 +1,6 @@
 name: Fuzz (nightly)
 
-# Long fuzz runs + corpus growth. Disabled while MYCELIUM_CI_TIER=budget (default).
+# Long fuzz runs + corpus growth. Disabled while MYCENA_CI_TIER=budget (default).
 # Manual workflow_dispatch always available for ad-hoc local-scale runs.
 
 on:
@@ -16,14 +16,14 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  CI_TIER: ${{ vars.MYCELIUM_CI_TIER || 'budget' }}
+  CI_TIER: ${{ vars.MYCENA_CI_TIER || 'budget' }}
   FUZZ_SECONDS: ${{ github.event.inputs.seconds_per_target || '14400' }}
 
 jobs:
   fuzz:
     if: |
       github.event_name == 'workflow_dispatch' ||
-      vars.MYCELIUM_CI_TIER == 'full'
+      vars.MYCENA_CI_TIER == 'full'
     runs-on: ubuntu-latest
     timeout-minutes: 360
     strategy:

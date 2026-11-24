@@ -15,7 +15,7 @@ G9 notes: [RELEASE_CANDIDATE.md](./RELEASE_CANDIDATE.md)
 | Kind | Build | Signing | Share / freeze hardware |
 |------|-------|---------|-------------------------|
 | **Development APK** | `./android/build.sh` → `assembleDebug` | Android debug keystore | **Refused** by phone-to-phone |
-| **Technical Beta APK** | `./scripts/build-technical-beta-apk.sh` → `assembleRelease` | Local Technical Beta JKS (`CN=Mycelium Technical Beta`, gitignored) | **Required** |
+| **Technical Beta APK** | `./scripts/build-technical-beta-apk.sh` → `assembleRelease` | Local Technical Beta JKS (`CN=Mycena Technical Beta`, gitignored) | **Required** |
 | **Play artifact** | `.github/workflows/android-release-play.yml` → `bundleRelease` AAB | Play upload key (repo secrets) | **Out of freeze.** Split installs **refused** |
 
 GitHub `scripts/reproducible-build.sh` still copies `app-debug.apk` (Development). That is **not** this Technical Beta APK.
@@ -40,7 +40,7 @@ Gradle `packageRelease` also fails if `android.injected.signing.store.file` is a
 
 ## Clean checkout
 
-UniFFI Kotlin (`android/uniffi-bindings/src/main/kotlin/uniffi/mycelium/mycelium.kt`) is **gitignored**. A clean checkout must generate it first: `./scripts/regenerate-uniffi-kotlin.sh` or `./scripts/android-test.sh`. Full APK: `./android/build.sh` then this script (or omit `--skip-native`). See [android/README.md](../android/README.md) (clean checkout).
+UniFFI Kotlin (`android/uniffi-bindings/src/main/kotlin/uniffi/mycena/mycena.kt`) is **gitignored**. A clean checkout must generate it first: `./scripts/regenerate-uniffi-kotlin.sh` or `./scripts/android-test.sh`. Full APK: `./android/build.sh` then this script (or omit `--skip-native`). See [android/README.md](../android/README.md) (clean checkout).
 
 Needs: JDK 17, Android SDK + NDK, Rust, `cargo-ndk`, `keytool`.
 
@@ -50,9 +50,9 @@ Needs: JDK 17, Android SDK + NDK, Rust, `cargo-ndk`, `keytool`.
 
 | Field | Value |
 |-------|--------|
-| Keystore | `artifacts/technical-beta/mycelium-technical-beta.jks` (gitignored; generated on first run) |
-| Alias | `mycelium-technical-beta` |
-| DN | `CN=Mycelium Technical Beta, OU=Mycelium, O=the maintainer, L=Unknown, ST=Unknown, C=DE` |
+| Keystore | `artifacts/technical-beta/mycena-technical-beta.jks` (gitignored; generated on first run) |
+| Alias | `mycena-technical-beta` |
+| DN | `CN=Mycena Technical Beta, OU=Mycena, O=Mycena Project, L=Unknown, ST=Unknown, C=DE` |
 | Play / upload key | **Not used** |
 | Android debug key | **Not used** |
 | M-of-N official co-sign | **Not produced** |
@@ -69,7 +69,7 @@ Taken from `android/version.properties` (currently `versionName=0.1.75`, `versio
 
 ## Local verification report
 
-After a successful build the script writes `artifacts/technical-beta/VERIFICATION.txt` (gitignored) with SHA-256, BLAKE3 (`mycelium-cli release hash`), `apksigner` result, and cert fingerprint.
+After a successful build the script writes `artifacts/technical-beta/VERIFICATION.txt` (gitignored) with SHA-256, BLAKE3 (`mycena-cli release hash`), `apksigner` result, and cert fingerprint.
 
 **Hardware install:** not performed by this process. Do not treat hashes as G9/G10 pass.
 

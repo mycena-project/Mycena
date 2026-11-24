@@ -8,8 +8,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-IMAGE="${MYCELIUM_ANDROID_IMAGE:-mingc/android-build-box:latest}"
-PLATFORM="${MYCELIUM_DOCKER_PLATFORM:-linux/amd64}"
+IMAGE="${MYCENA_ANDROID_IMAGE:-mingc/android-build-box:latest}"
+PLATFORM="${MYCENA_DOCKER_PLATFORM:-linux/amd64}"
 BUMP=1
 
 for arg in "$@"; do
@@ -29,14 +29,14 @@ fi
 
 version_name="$(grep -E '^versionName=' "$ROOT/android/version.properties" | cut -d= -f2)"
 version_code="$(grep -E '^versionCode=' "$ROOT/android/version.properties" | cut -d= -f2)"
-echo "Building Mycelium Android ${version_name} (${version_code}) in ${IMAGE}…"
+echo "Building Mycena Android ${version_name} (${version_code}) in ${IMAGE}…"
 
 docker run --rm \
   --platform "$PLATFORM" \
   -v "$ROOT:/project" \
-  -v mycelium-mingc-cargo:/root/.cargo \
-  -v mycelium-mingc-rustup:/root/.rustup \
-  -v mycelium-mingc-target:/project/target \
+  -v mycena-mingc-cargo:/root/.cargo \
+  -v mycena-mingc-rustup:/root/.rustup \
+  -v mycena-mingc-target:/project/target \
   -w /project \
   "$IMAGE" \
   bash -c '
@@ -55,15 +55,15 @@ cargo ndk \
   --target arm64-v8a \
   --target x86_64 \
   --output-dir android/rust-build \
-  build --release -p mycelium-ffi
+  build --release -p mycena-ffi
 echo "--- clearing old bindings ---"
 rm -rf android/uniffi-bindings/src/main/kotlin/uniffi/
-mkdir -p android/uniffi-bindings/src/main/kotlin/uniffi/mycelium/
+mkdir -p android/uniffi-bindings/src/main/kotlin/uniffi/mycena/
 echo "--- regenerating kotlin bindings ---"
-cargo run -p mycelium-ffi --bin uniffi-bindgen -- generate \
-  crates/mycelium-ffi/src/mycelium.udl \
+cargo run -p mycena-ffi --bin uniffi-bindgen -- generate \
+  crates/mycena-ffi/src/mycena.udl \
   --language kotlin \
-  --out-dir android/uniffi-bindings/src/main/kotlin/uniffi/mycelium/
+  --out-dir android/uniffi-bindings/src/main/kotlin/uniffi/mycena/
 echo "--- verifying kotlin bindings ---"
 find android/uniffi-bindings -name "*.kt"
 ./scripts/android-ffi-stamp.sh write

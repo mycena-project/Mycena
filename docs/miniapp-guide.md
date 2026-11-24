@@ -1,18 +1,18 @@
-# Mycelium mini-app platform
+# Mycena mini-app platform
 
-Mini-apps are offline-first HTML bundles shipped as **`.mxa`** (ZIP) archives. The host loads the manifest (`mycelium-app.json`), extracts files into a local **sled** database, injects the **JavaScript bridge** before the entry HTML, and exposes a small native API for identity, mesh messaging, bulletin reads, and per-app storage.
+Mini-apps are offline-first HTML bundles shipped as **`.mxa`** (ZIP) archives. The host loads the manifest (`mycena-app.json`), extracts files into a local **sled** database, injects the **JavaScript bridge** before the entry HTML, and exposes a small native API for identity, mesh messaging, bulletin reads, and per-app storage.
 
 ## Bundle layout
 
-- **`mycelium-app.json`** — manifest (see `mycelium_app::miniapp::MiniAppManifest` in Rust).
+- **`mycena-app.json`** — manifest (see `mycena_app::miniapp::MiniAppManifest` in Rust).
 - **Entry HTML** — path given by `entry` in the manifest (often `index.html`).
 - **Other assets** — any safe relative paths (no `..`, no absolute paths); the Android WebView resolves `https://miniapp.local/…` via `get_app_file`.
 
 Maximum unpacked size on install is **10 MB** (enforced in `AppStore::install`).
 
-## Bridge (`window.mycelium`)
+## Bridge (`window.mycena`)
 
-The bridge script is `crates/mycelium-app/src/miniapp/bridge_api.js`. The host must define **`window.__mycelium_native_call(jsonString)`** and call **`window.__mycelium_resolve(id, result, error)`** when the async native work finishes.
+The bridge script is `crates/mycena-app/src/miniapp/bridge_api.js`. The host must define **`window.__mycena_native_call(jsonString)`** and call **`window.__mycena_resolve(id, result, error)`** when the async native work finishes.
 
 Implemented methods today (subset; others return “unsupported” on some hosts):
 
@@ -23,7 +23,7 @@ Implemented methods today (subset; others return “unsupported” on some hosts
 | `util.now` | Host monotonic wall clock ms. |
 | `messaging.send` | `{ to_peer, payload }` → encrypted chat send (requires **accepted contact**). |
 | `messaging.subscribe` | Registers `onMessage(handler)`; host pushes `[app/{id}]`-prefixed chat to the handler when a message arrives. |
-| `mycelium.registerBulletinRefresh(fn)` | Called when a bulletin post arrives on a subscribed scope (host-triggered refresh). |
+| `mycena.registerBulletinRefresh(fn)` | Called when a bulletin post arrives on a subscribed scope (host-triggered refresh). |
 | `storage.get` / `set` / `delete` / `list` | Per-app key/value in `AppStorage` tree `miniapp_storage` (`app:{app_id}:{key}`). |
 | `bulletin.get` | `{ scope }` → JSON list of posts (snake_case fields). Auto-subscribes the node to the scope. |
 
@@ -53,7 +53,7 @@ Runtime tier 2–3 APIs require **`_cap`** (HMAC capability token from host afte
 
 ## Android
 
-- **Settings → Mini apps** opens the store screen; **Open** loads a `WebView` with the same bridge semantics via `@JavascriptInterface` (`MyceliumMiniapp`).
+- **Settings → Mini apps** opens the store screen; **Open** loads a `WebView` with the same bridge semantics via `@JavascriptInterface` (`MycenaMiniapp`).
 - **`bridge_api.js`** is copied into `app/src/main/assets/miniapp/` on **`preBuild`** from the Rust crate (see `app/build.gradle.kts`).
 - UniFFI: `list_installed_apps`, `install_app`, `uninstall_app`, `get_app_file`, `browse_app_store`, `miniapp_storage_*`.
 
@@ -73,5 +73,5 @@ Runtime tier 2–3 APIs require **`_cap`** (HMAC capability token from host afte
 
 ## Further reading
 
-- Rust: `crates/mycelium-app/src/miniapp/`
-- FFI: `crates/mycelium-ffi/src/mycelium.udl`, `browse_app_store`, `get_app_file`
+- Rust: `crates/mycena-app/src/miniapp/`
+- FFI: `crates/mycena-ffi/src/mycena.udl`, `browse_app_store`, `get_app_file`

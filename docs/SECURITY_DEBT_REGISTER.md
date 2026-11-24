@@ -1,11 +1,11 @@
-# Mycelium — Security Debt Register
+# Mycena — Security Debt Register
 
 **Status:** Pre-public beta · living document
 **Last updated:** 2026-08-29
 **Audience:** Engineering, security review, release management
 **Tone:** Assume hostile networks, malicious users, compromised devices, and eventual nation-state interest.
 
-**Operator note (2026-08):** Abuse / security intake contacts are filled in [ABUSE_RESPONSE_PLAYBOOK.md](./ABUSE_RESPONSE_PLAYBOOK.md) (`security@example.invalid`). Body rows for items marked **Mitigated** in the summary table were aligned on this date (beta-blocker **no** where mitigation shipped). Remaining open beta-blockers still gate public Play Store / wide beta — cross-check `KNOWN_LIMITATIONS.md`.
+**Operator note (2026-08):** Abuse / security intake contacts are filled in [ABUSE_RESPONSE_PLAYBOOK.md](./ABUSE_RESPONSE_PLAYBOOK.md) (`github.com/mycena-project/Mycena/security/advisories/new`). Body rows for items marked **Mitigated** in the summary table were aligned on this date (beta-blocker **no** where mitigation shipped). Remaining open beta-blockers still gate public Play Store / wide beta — cross-check `KNOWN_LIMITATIONS.md`.
 
 This register records **known** security, privacy, abuse, and legal debt. It is not a certification, audit, or guarantee. Items marked **beta-blocker: yes** must be resolved or explicitly accepted with written risk sign-off before a public Play Store / wide beta.
 
@@ -32,7 +32,7 @@ This register records **known** security, privacy, abuse, and legal debt. It is 
 | Field | Value |
 |-------|-------|
 | **Severity** | High |
-| **Affected systems** | `mycelium-node` gossipsub, bloom sync (`SyncBloom`, `SyncIds`), scoped topics |
+| **Affected systems** | `mycena-node` gossipsub, bloom sync (`SyncBloom`, `SyncIds`), scoped topics |
 | **Exploitation scenario** | Passive observer on LAN, ISP path, or relay circuit infers who talks to whom, which scopes are active, and message IDs / timing even when payloads are encrypted |
 | **Likelihood** | High (default mesh + Internet bootstrap) |
 | **Impact** | Relationship mapping, event correlation, targeting for follow-on attacks |
@@ -47,7 +47,7 @@ This register records **known** security, privacy, abuse, and legal debt. It is 
 | Field | Value |
 |-------|-------|
 | **Severity** | Medium |
-| **Affected systems** | `mycelium-coin`, gossip scope `mycelium/coin/v1` |
+| **Affected systems** | `mycena-coin`, gossip scope `mycena/coin/v1` |
 | **Exploitation scenario** | Observer correlates balance probes / witness gossip with peer IDs and timing |
 | **Likelihood** | Medium |
 | **Impact** | Wealth inference, extortion targeting |
@@ -62,7 +62,7 @@ This register records **known** security, privacy, abuse, and legal debt. It is 
 | Field | Value |
 |-------|-------|
 | **Severity** | Low |
-| **Affected systems** | `mycelium-relay` (`:8080` `/health`) |
+| **Affected systems** | `mycena-relay` (`:8080` `/health`) |
 | **Exploitation scenario** | Attacker monitors peer counts, relay load, deploy times for infrastructure mapping |
 | **Likelihood** | High |
 | **Impact** | Aids DDoS timing and infrastructure mapping |
@@ -111,7 +111,7 @@ This register records **known** security, privacy, abuse, and legal debt. It is 
 | Field | Value |
 |-------|-------|
 | **Severity** | Critical (if MXC treated as value) |
-| **Affected systems** | `mycelium-coin` ledger, witness counting |
+| **Affected systems** | `mycena-coin` ledger, witness counting |
 | **Exploitation scenario** | Attacker confirms own txs with Sybil witnesses; victim accepts 3/3 from colluding peers |
 | **Likelihood** | High |
 | **Impact** | Double-spend from victim’s view; fake balances |
@@ -130,8 +130,8 @@ This register records **known** security, privacy, abuse, and legal debt. It is 
 | Field | Value |
 |-------|-------|
 | **Severity** | High |
-| **Affected systems** | `mycelium-relay`, `bootstrap.rs`, connectivity probe |
-| **Exploitation scenario** | Operator or compromised VPS account logs circuit endpoints, drops traffic, targets users by IP at TCP layer |
+| **Affected systems** | `mycena-relay`, `bootstrap.rs`, connectivity probe |
+| **Exploitation scenario** | Operator or compromised Fly.io account logs circuit endpoints, drops traffic, targets users by IP at TCP layer |
 | **Likelihood** | Medium |
 | **Impact** | Censorship, correlation, selective delivery failure |
 | **Current mitigations** | libp2p relay v2 limits (circuits, bandwidth); E2E inside payloads |
@@ -145,12 +145,12 @@ This register records **known** security, privacy, abuse, and legal debt. It is 
 | Field | Value |
 |-------|-------|
 | **Severity** | Medium |
-| **Affected systems** | `mycelium-relay` vs `mycelium-node` |
+| **Affected systems** | `mycena-relay` vs `mycena-node` |
 | **Exploitation scenario** | Abuse relay purely as free bandwidth for arbitrary libp2p protocols if misconfigured |
 | **Likelihood** | Low–Medium |
 | **Impact** | Cost exhaustion, reputation damage to project |
 | **Current mitigations** | Circuit limits in relay `main.rs` |
-| **Missing mitigations** | Allowlist protocols; Mycelium-only relay behaviour |
+| **Missing mitigations** | Allowlist protocols; Mycena-only relay behaviour |
 | **Proposed architecture changes** | “Relay repo parity” — app-aware policy in companion relay repo |
 | **Implementation complexity** | M |
 | **Beta-blocker** | **no** |
@@ -160,7 +160,7 @@ This register records **known** security, privacy, abuse, and legal debt. It is 
 | Field | Value |
 |-------|-------|
 | **Severity** | Medium |
-| **Affected systems** | `connectivity.rs`, hardcoded `relay.example.invalid:4001` |
+| **Affected systems** | `connectivity.rs`, hardcoded `mycena-relay.fly.dev:4001` |
 | **Exploitation scenario** | DNS / hosting takedown forces global “mesh-only” or pushes users to attacker bootstrap |
 | **Likelihood** | Medium |
 | **Impact** | Network partition, downgrade to attacker-controlled bootstrap |
@@ -209,11 +209,11 @@ This register records **known** security, privacy, abuse, and legal debt. It is 
 | Field | Value |
 |-------|-------|
 | **Severity** | Medium |
-| **Affected systems** | `mycelium-app` bulletin, scoped gossip |
+| **Affected systems** | `mycena-app` bulletin, scoped gossip |
 | **Exploitation scenario** | Sybil floods city-scope bulletin with megabyte posts |
 | **Likelihood** | Medium |
 | **Impact** | Storage exhaustion, UI DoS |
-| **Current mitigations** | **Mitigated** — `IngestGuard` in `mycelium-node`: per-author direct rate (`DIRECT_RATE_PER_MINUTE`), per-peer gossip rate (`GOSSIP_RATE_PER_MINUTE`), gossip payload cap (`MAX_GOSSIP_PAYLOAD_BYTES`), SOS author/geohash rates |
+| **Current mitigations** | **Mitigated** — `IngestGuard` in `mycena-node`: per-author direct rate (`DIRECT_RATE_PER_MINUTE`), per-peer gossip rate (`GOSSIP_RATE_PER_MINUTE`), gossip payload cap (`MAX_GOSSIP_PAYLOAD_BYTES`), SOS author/geohash rates |
 | **Missing mitigations** | Sybil using many author keys; global/distributed rate limits |
 | **Proposed architecture changes** | Signed scope moderator keys; PoW per post (optional) |
 | **Implementation complexity** | S–M |
@@ -247,7 +247,7 @@ This register records **known** security, privacy, abuse, and legal debt. It is 
 | **Exploitation scenario** | User installs ZIP from QR / file share → trojan mini-app with full declared permissions |
 | **Likelihood** | Medium |
 | **Impact** | Bridge abuse as above |
-| **Current mitigations** | **Mitigated** — sideload requires valid `mycelium-bundle.sig.json`; path traversal check; size cap |
+| **Current mitigations** | **Mitigated** — sideload requires valid `mycena-bundle.sig.json`; path traversal check; size cap |
 | **Missing mitigations** | Developer key pinning UX (hardening) |
 | **Proposed architecture changes** | Keep signature mandatory; improve trust UX |
 | **Implementation complexity** | S |
@@ -326,7 +326,7 @@ This register records **known** security, privacy, abuse, and legal debt. It is 
 | Field | Value |
 |-------|-------|
 | **Severity** | High (if MXC has value) |
-| **Affected systems** | `mycelium-coin` ledger |
+| **Affected systems** | `mycena-coin` ledger |
 | **Exploitation scenario** | Same signed tx gossiped twice; victim ledger applies twice if nonce not checked globally |
 | **Likelihood** | Medium |
 | **Impact** | Inflation / double credit |
@@ -394,7 +394,7 @@ This register records **known** security, privacy, abuse, and legal debt. It is 
 | Field | Value |
 |-------|-------|
 | **Severity** | High |
-| **Affected systems** | `mycelium-app/node.rs` `send_chat_encrypted` |
+| **Affected systems** | `mycena-app/node.rs` `send_chat_encrypted` |
 | **Exploitation scenario** | MITM or race before PeerInfo → app sends **unencrypted** chat with user believing E2E |
 | **Likelihood** | Medium (pre-mitigation) |
 | **Impact** | Content disclosure |
@@ -462,7 +462,7 @@ This register records **known** security, privacy, abuse, and legal debt. It is 
 | Field | Value |
 |-------|-------|
 | **Severity** | High → **Medium (partial)** |
-| **Affected systems** | v0: `crypto/mod.rs` static ECDH; v1: [`crypto/ratchet.rs`](../crates/mycelium-core/src/crypto/ratchet.rs) |
+| **Affected systems** | v0: `crypto/mod.rs` static ECDH; v1: [`crypto/ratchet.rs`](../crates/mycena-core/src/crypto/ratchet.rs) |
 | **Exploitation scenario** | Long-term key compromise decrypts v0 and pre-bootstrap v1 traffic; v1 session messages after ratchet steps protected |
 | **Likelihood** | Medium |
 | **Impact** | Retroactive disclosure (reduced for v1 peers) |
@@ -515,7 +515,7 @@ This register records **known** security, privacy, abuse, and legal debt. It is 
 | **Exploitation scenario** | Forensic recovery of flash after panic wipe |
 | **Likelihood** | Medium (targeted) |
 | **Impact** | Message / key recovery |
-| **Current mitigations** | Deletes `filesDir/mycelium`, prefs, storage key |
+| **Current mitigations** | Deletes `filesDir/mycena`, prefs, storage key |
 | **Missing mitigations** | Secure delete API; SQLcipher page wipe; RAM zeroization |
 | **Proposed architecture changes** | Platform secure erase hooks where available |
 | **Implementation complexity** | M |
@@ -662,7 +662,7 @@ This register records **known** security, privacy, abuse, and legal debt. It is 
 | Field | Value |
 |-------|-------|
 | **Severity** | Medium |
-| **Affected systems** | `mycelium-ffi`, Android bindings |
+| **Affected systems** | `mycena-ffi`, Android bindings |
 | **Exploitation scenario** | Memory corruption in FFI → RCE in Kotlin process |
 | **Likelihood** | Low |
 | **Impact** | App compromise |
@@ -681,7 +681,7 @@ This register records **known** security, privacy, abuse, and legal debt. It is 
 | Field | Value |
 |-------|-------|
 | **Severity** | Critical (if MXC = value) |
-| **Affected systems** | `mycelium-coin`, hot wallet |
+| **Affected systems** | `mycena-coin`, hot wallet |
 | **Exploitation scenario** | Malware on device drains hot cache via signed txs |
 | **Likelihood** | High |
 | **Impact** | Fund loss |
@@ -715,7 +715,7 @@ This register records **known** security, privacy, abuse, and legal debt. It is 
 | Field | Value |
 |-------|-------|
 | **Severity** | Medium |
-| **Affected systems** | `mycelium-relay` |
+| **Affected systems** | `mycena-relay` |
 | **Exploitation scenario** | Host disk snapshot leaks relay key → impersonate relay |
 | **Likelihood** | Low |
 | **Impact** | Network-wide MITM for users trusting that peer ID |
@@ -725,7 +725,7 @@ This register records **known** security, privacy, abuse, and legal debt. It is 
 | **Implementation complexity** | S |
 | **Beta-blocker** | **no** |
 
-### SD-171 — Backup tools copy `filesDir/mycelium`
+### SD-171 — Backup tools copy `filesDir/mycena`
 
 | Field | Value |
 |-------|-------|
@@ -749,7 +749,7 @@ This register records **known** security, privacy, abuse, and legal debt. It is 
 | Field | Value |
 |-------|-------|
 | **Severity** | Medium |
-| **Affected systems** | `relay.example.invalid` |
+| **Affected systems** | `mycena-relay.fly.dev` |
 | **Exploitation scenario** | State blocks that hostname or DNS poison → users stuck offline |
 | **Likelihood** | Medium (jurisdiction-dependent) |
 | **Impact** | Denial of mesh Internet path |
@@ -851,7 +851,7 @@ This register records **known** security, privacy, abuse, and legal debt. It is 
 | Field | Value |
 |-------|-------|
 | **Severity** | High |
-| **Affected systems** | `mycelium-relay`, hosting provider |
+| **Affected systems** | `mycena-relay`, hosting provider |
 | **Exploitation scenario** | Court order to the hosting provider for connection logs |
 | **Likelihood** | Jurisdiction-dependent |
 | **Impact** | User identification |
@@ -886,7 +886,7 @@ This register records **known** security, privacy, abuse, and legal debt. It is 
 |-------|-------|
 | **Severity** | High |
 | **Affected systems** | Deployment |
-| **Exploitation scenario** | VPS outage or account loss → global Internet bootstrap degradation |
+| **Exploitation scenario** | Fly.io outage or account loss → global Internet bootstrap degradation |
 | **Likelihood** | Medium |
 | **Impact** | Service unavailability |
 | **Current mitigations** | LAN mesh continues |
@@ -957,7 +957,7 @@ This register records **known** security, privacy, abuse, and legal debt. It is 
 | **Exploitation scenario** | Disinformation campaign distributes ZIP via mesh bulletin → sideload malware |
 | **Likelihood** | Medium (pre-mitigation) |
 | **Impact** | Mass bridge abuse among users who install |
-| **Current mitigations** | **Mitigated** — same as SD-041 (`mycelium-bundle.sig.json` required for sideload) |
+| **Current mitigations** | **Mitigated** — same as SD-041 (`mycena-bundle.sig.json` required for sideload) |
 | **Missing mitigations** | None for beta gate |
 | **Proposed architecture changes** | Same as SD-041 |
 | **Implementation complexity** | S |
@@ -1002,7 +1002,7 @@ This register records **known** security, privacy, abuse, and legal debt. It is 
 | SD-030 | Unsigned `WireMessage::Data` accepted | **no** | **Mitigated** — grace period removed |
 | SD-031 | Flood amplification to all peers | **no** | **Mitigated** — max fanout 3 |
 | SD-040 | CSP `unsafe-inline` | **no** | **Mitigated** — nonce-only; inline scripts rejected at install |
-| SD-041 | Sideload install without signature | **no** | **Mitigated** — sideload requires `mycelium-bundle.sig.json` |
+| SD-041 | Sideload install without signature | **no** | **Mitigated** — sideload requires `mycena-bundle.sig.json` |
 | SD-080 | Gossip re-sign with local key | **no** | **Mitigated** — unsigned gossip storage |
 | SD-081 | Plaintext chat fallback | **no** | **Mitigated** — fail-closed send |
 | SD-131 | Desktop weak vault fallback | **no** | **Mitigated** — refuse new weak fallback |
@@ -1010,7 +1010,7 @@ This register records **known** security, privacy, abuse, and legal debt. It is 
 | SD-141 | Unencrypted chat downgrade | **no** | **Mitigated** (same as SD-081) |
 | SD-171 | Android backup exfiltration | **no** | **Mitigated** |
 | SD-240 | Unsigned offline mini-app payloads | **no** | **Mitigated** (same as SD-041) |
-| SD-032 | Per-author gossip/direct rate limits | no | **Mitigated** — `IngestGuard` in `mycelium-node` |
+| SD-032 | Per-author gossip/direct rate limits | no | **Mitigated** — `IngestGuard` in `mycena-node` |
 | SD-060 | Replay window at ingest | no | **Mitigated** — 30 min freshness + author id window |
 | SD-011 | MeshCoin Sybil witnesses | **yes** only if MXC ≠ preview | Open (preview-only OK) |
 

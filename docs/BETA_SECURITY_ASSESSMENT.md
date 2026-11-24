@@ -1,4 +1,4 @@
-# Mycelium — Brutal Honest Beta Security Assessment
+# Mycena — Brutal Honest Beta Security Assessment
 
 **Review date:** July 2026
 **Threat model:** [THREAT_MODEL.md](./THREAT_MODEL.md) (canonical adversary + asset model)
@@ -37,7 +37,7 @@
 - LAN mesh without untrusted Internet bootstrap can work for **coordination bulletin** among pre-joined peers.
 - Mini-app P0 hardening closed (SD-040, SD-041 mitigated) — **we would still not install random protest “apps”** without auditing the developer signature.
 
-**What we would do instead:** Signal with verified safety numbers for core cell; Mycelium as **secondary** bulletin if LAN-only and users trained on metadata limits.
+**What we would do instead:** Signal with verified safety numbers for core cell; Mycena as **secondary** bulletin if LAN-only and users trained on metadata limits.
 
 **Debt / privacy phase:** SD-001, SD-070 · Privacy Phase C–D
 
@@ -72,7 +72,7 @@
 
 **Why:**
 
-- Default **Internet bootstrap** points to the VPS relay — state can block DNS, subpoena the operator (**SD-180, SD-210**), or MITM first connect if bootstrap poisoned (**SD-090**).
+- Default **Internet bootstrap** points to the Fly.io relay — state can block DNS, subpoena the operator (**SD-180, SD-210**), or MITM first connect if bootstrap poisoned (**SD-090**).
 - **No Tor/pluggable transport** — traffic fingerprintable as libp2p (**SD-180**).
 - **Pseudonymous, not anonymous** — account id + transport PeerId trackable (**SD-190**).
 - **Partial forward secrecy** — v1 ratchet after prekey exchange; v0 / groups remain weaker (**SD-100, SD-101**).

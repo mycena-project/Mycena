@@ -16,7 +16,7 @@
 **Ablauf:** Abends USB für Setup → **Kabel ab** → über Nacht in der Tasche → morgens USB wieder an (Collect).
 
 ```bash
-cd Mycelium
+cd Mycena
 
 # Abends (USB angeschlossen ist OK — adb braucht das Kabel):
 ./scripts/android/battery-profile-pocket.sh mesh-only
@@ -67,9 +67,9 @@ Optional danach **Kontrolllauf** (`control`) mit BLE aus → Differenz in 4.6.
 
 | Parameter | Wert |
 |-----------|------|
-| App | `network.mycelium.app` (debug), Branch zum Messzeitpunkt: _TBD_ |
+| App | `io.github.mycena_project.app` (debug), Branch zum Messzeitpunkt: _TBD_ |
 | Dauer | ≥ 4 h (empfohlen 4–8 h) |
-| Peers | Keine Mycelium-Geräte in BLE-Reichweite |
+| Peers | Keine Mycena-Geräte in BLE-Reichweite |
 | Gerätezustand | Bildschirm aus, App im Hintergrund, Gerät in Tasche/Rucksack, nicht force-stopped |
 | BLE bootstrap | In App-Einstellungen **an** (Standard für Mesh-Discovery) |
 | Kontrolllauf (optional) | Gleiche Dauer mit BLE bootstrap **aus** → Differenz isoliert Mesh-Overhead |
@@ -105,7 +105,7 @@ docker run -p 9999:9999 gcr.io/android-battery-historian/stable:3.0
 
 In Historian dokumentieren:
 
-1. **App-Auswahl** → `network.mycelium.app`
+1. **App-Auswahl** → `io.github.mycena_project.app`
 2. **System stats** → CPU / Bluetooth / Wi‑Fi / Mobile radio / Wakelocks über den Messzeitraum
 3. **BLE Scan**-Panel (falls vorhanden) → Scan-Modi und Gesamt-Scanzeit
 4. Screenshot oder exportierte Zahlen in Sektion 4 eintragen
@@ -214,7 +214,7 @@ Quelle: `BleBootstrapAdvertiser.kt`.
 | Bluetooth / BLE | *(nicht in UID-Zeile; global ~4,7 mAh)* | — |
 | **UID gesamt (modelliert)** | **731** | — |
 
-Geräte-Gesamt: 1311 mAh → Mycelium-UID ~**56 %** der modellierten Entladung.
+Geräte-Gesamt: 1311 mAh → Mycena-UID ~**56 %** der modellierten Entladung.
 
 **Interpretation:** Internet/Rendezvous aus spart messbar (~400 mAh App über ~13 h), aber **LTE-Attribution bleibt dominant**. BLE-Mesh allein ist weiterhin ein kleiner Posten.
 
@@ -256,7 +256,7 @@ Referenzwerte (kumulativ, nicht pro Session-Fenster):
 
 | Quelle | Befund |
 |--------|--------|
-| App | `NotificationManagerService:post:network.mycelium.app` (FGS) |
+| App | `NotificationManagerService:post:io.github.mycena_project.app` (FGS) |
 | Wi‑Fi | Häufige `dhdpcie_host_wake` mit Attribution `Wifi [u0a429 FGS]` |
 
 ### 4.5 Logcat / No-Peer
@@ -268,7 +268,7 @@ Referenzwerte (kumulativ, nicht pro Session-Fenster):
 
 ### 4.6 Kontrolllauf (optional)
 
-| Lauf | Mycelium mAh | Δ vs. Mesh-only |
+| Lauf | Mycena mAh | Δ vs. Mesh-only |
 |------|--------------|-----------------|
 | BLE bootstrap aus (`control-overnight`) | _TBD_ | _TBD_ |
 | ~~Mesh-only (ohne Rendezvous)~~ | **731** | *(Referenz `20260712T154530Z`)* |

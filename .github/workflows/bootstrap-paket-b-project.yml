@@ -17,8 +17,8 @@ jobs:
         uses: actions/github-script@v9
         with:
           script: |
-            const owner = 'the maintainer';
-            const repo = 'Mycelium';
+            const owner = 'mycena-project';
+            const repo = 'Mycena';
             const projectTitle = 'Paket B — InformationTrust (6 Monate)';
             const issueNumbers = [38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49];
 

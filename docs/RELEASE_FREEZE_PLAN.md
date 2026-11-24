@@ -1,8 +1,8 @@
-# Mycelium Public Technical Beta / Development Freeze Candidate
+# Mycena Public Technical Beta / Development Freeze Candidate
 
 **Status:** Planning document (G0). No gate below is claimed complete by this file.
 **Created:** 2026-08-29
-**Milestone name:** Mycelium Public Technical Beta / Development Freeze Candidate
+**Milestone name:** Mycena Public Technical Beta / Development Freeze Candidate
 **Public status today:** **Public Technical Beta — Feature Development Frozen, Release Validation Ongoing.** This file names a **candidate** G10 end state. It does **not** mean G10 passed or that public release is approved.
 **Does not replace:** [WORK_REMAINING.md](./WORK_REMAINING.md), [ROADMAP.md](./ROADMAP.md), [LEVEL0_ROADMAP.md](./LEVEL0_ROADMAP.md), [PRE_RELEASE_GAPS.md](./PRE_RELEASE_GAPS.md), [SECURITY_ROADMAP.md](./SECURITY_ROADMAP.md)
 
@@ -12,11 +12,11 @@ This plan is a **stabilization and release-readiness overlay**. It does not inve
 
 ## 1. Objective
 
-Bring Mycelium to a **credible, testable, publicly publishable technical-beta state** and then **pause active feature development**.
+Bring Mycena to a **credible, testable, publicly publishable technical-beta state** and then **pause active feature development**.
 
 The intended end state is:
 
-> **Mycelium Public Technical Beta / Development Freeze Candidate**
+> **Mycena Public Technical Beta / Development Freeze Candidate**
 
 That means:
 
@@ -56,10 +56,10 @@ Derived from existing product docs ([README.md](../README.md), [android/README.m
 | **Wi-Fi transport** | Same-subnet Wi-Fi / mDNS path; hotspot and Wi-Fi Direct fallbacks used by phone-to-phone share ([OFFLINE_DISTRIBUTION.md](./OFFLINE_DISTRIBUTION.md), [ADR 007](./adr/007-wifi-direct-bulk-bearer.md)). Field validation of Wi-Fi Aware / WebRTC is **not** a freeze blocker ([WORK_REMAINING.md](./WORK_REMAINING.md) Category 2). |
 | **Messaging** | Encrypted 1:1 chat when keys are known; send **fail-closed** without peer enc key (SD-081); reconnect after force-quit without re-scan ([mvp-smoke-test.md](./mvp-smoke-test.md) A2). |
 | **Phone-to-phone distribution** | Device A **Share app** → Device B installs APK without Play Store or desktop ([OFFLINE_DISTRIBUTION.md](./OFFLINE_DISTRIBUTION.md)). |
-| **Offline APK acquisition / install flow** | Hotspot or same-LAN HTTP `:8765` / `/mycelium.apk` + bootstrap sidecar; unknown-sources / install-permission handling on supported Android versions; first launch joins the sharer’s mesh. |
+| **Offline APK acquisition / install flow** | Hotspot or same-LAN HTTP `:8765` / `/mycena.apk` + bootstrap sidecar; unknown-sources / install-permission handling on supported Android versions; first launch joins the sharer’s mesh. |
 | **Persistence** | Contacts, enc keys, and chat history survive app restart (sled + vault; [LEVEL0_ROADMAP.md](./LEVEL0_ROADMAP.md) B2). |
 | **Recovery / restart behavior** | Force-quit both apps; reopen; chat still encrypts without re-scan (A2 #5). Process death / OEM kill of `MeshService` must be characterized on the hardware matrix (especially Samsung — G4). |
-| **Panic / wipe behavior** | Settings panic wipe (and CLI `mycelium panic`) deletes local messages, identity key, and credit ledger on **this device**; UI discloses mesh copies elsewhere persist ([PLAY_CONSOLE_SUBMIT_CHECKLIST.md](./PLAY_CONSOLE_SUBMIT_CHECKLIST.md), [THREAT_MODEL.md](./THREAT_MODEL.md) §2.1). |
+| **Panic / wipe behavior** | Settings panic wipe (and CLI `mycena panic`) deletes local messages, identity key, and credit ledger on **this device**; UI discloses mesh copies elsewhere persist ([PLAY_CONSOLE_SUBMIT_CHECKLIST.md](./PLAY_CONSOLE_SUBMIT_CHECKLIST.md), [THREAT_MODEL.md](./THREAT_MODEL.md) §2.1). |
 | **Update / reinstall behavior** | Reinstall over an existing install (`adb install -r` or in-app update path if shipped); identity/data disposition is documented and tested (keep vs wipe). |
 | **Release artifact integrity** | Tag `v*.*.*` produces APK + `SHA256SUMS.txt` + integrity manifest per [RELEASING.md](../RELEASING.md) / [RELEASE_INTEGRITY.md](./RELEASE_INTEGRITY.md); a third party can hash-verify. M-of-N “official” co-sign is required for labeling a build **official**; an unsigned CI artifact may still be a freeze **candidate** if the gap is documented. |
 
@@ -157,9 +157,9 @@ Gates are sequential in **intent** (do not skip evidence), but engineering work 
 | | |
 |--|--|
 | **Objective** | CI and local automated tests cover freeze-critical Rust and Android **without** claiming they replace hardware. |
-| **Required evidence** | Green (or waived-with-reason) GitHub Actions on the freeze candidate SHA: `ci.yml` (Rust), `android-ci.yml` (build + `testDebugUnitTest`), `fuzz-pr.yml` smoke, `secret-scan.yml`. Commands and job URLs recorded. MyceliumLab CI gates as already defined in [MYCELIUMLAB.md](./MYCELIUMLAB.md) when `MYCELIUM_CI_TIER` allows. Do **not** claim `cargo test --workspace` passed unless the log is attached. |
+| **Required evidence** | Green (or waived-with-reason) GitHub Actions on the freeze candidate SHA: `ci.yml` (Rust), `android-ci.yml` (build + `testDebugUnitTest`), `fuzz-pr.yml` smoke, `secret-scan.yml`. Commands and job URLs recorded. MycenaLab CI gates as already defined in [MYCENALAB.md](./MYCENALAB.md) when `MYCENA_CI_TIER` allows. Do **not** claim `cargo test --workspace` passed unless the log is attached. |
 | **Pass criteria** | Freeze-candidate commit has recorded CI. New P0 Android crash from G2/G3 has a regression test **or** a documented reason it is device-only. Unwrap/expect production gate scripts in [EXTERNAL_SECURITY_REVIEW.md](./EXTERNAL_SECURITY_REVIEW.md) still run in CI or are recorded as run. |
-| **Possible blockers** | Android CI skipped on `main` because of path filters while freeze claims Android is tested ([android-ci.yml](../.github/workflows/android-ci.yml) is path-filtered unless `MYCELIUM_CI_TIER=full`); flaky tests masked by retries without a ticket; fuzz PR smoke failing. |
+| **Possible blockers** | Android CI skipped on `main` because of path filters while freeze claims Android is tested ([android-ci.yml](../.github/workflows/android-ci.yml) is path-filtered unless `MYCENA_CI_TIER=full`); flaky tests masked by retries without a ticket; fuzz PR smoke failing. |
 
 ### G6 — Hardware validation
 
@@ -184,7 +184,7 @@ Gates are sequential in **intent** (do not skip evidence), but engineering work 
 | | |
 |--|--|
 | **Objective** | Safe to set GitHub visibility to **Public** and to leave the tree as the public source of truth. |
-| **Required evidence** | [CI_PUBLIC_TRANSITION.md](./CI_PUBLIC_TRANSITION.md) day-of checklist filled (or items waived with reason). Clone URLs and README match visibility. No private credentials, `.env` secrets, or internal-only operator keys. License AGPL-3.0-or-later present. Security contact [SECURITY.md](../SECURITY.md). Privacy policy path documented even if Pages not live (Pages live is P1 for Play; for GitHub-only freeze, in-app policy + `docs/legal/` must exist and match). `MYCELIUM_CI_TIER=full` planned or enabled when public (budget tier is OK only while private — document the choice). |
+| **Required evidence** | [CI_PUBLIC_TRANSITION.md](./CI_PUBLIC_TRANSITION.md) day-of checklist filled (or items waived with reason). Clone URLs and README match visibility. No private credentials, `.env` secrets, or internal-only operator keys. License AGPL-3.0-or-later present. Security contact [SECURITY.md](../SECURITY.md). Privacy policy path documented even if Pages not live (Pages live is P1 for Play; for GitHub-only freeze, in-app policy + `docs/legal/` must exist and match). `MYCENA_CI_TIER=full` planned or enabled when public (budget tier is OK only while private — document the choice). |
 | **Pass criteria** | A stranger can clone, read limitations, report vulns privately, and build from [android/README.md](../android/README.md) / [RELEASING.md](../RELEASING.md) without asking for missing private files. |
 | **Possible blockers** | Secrets in history; CONTRIBUTING still implying a private-only workflow without CI_PUBLIC_TRANSITION; Dependabot still disabled with SD-150 text claiming it will re-enable at public launch — must do it or update the debt row. |
 
@@ -226,7 +226,7 @@ Checkboxes are **not** pre-ticked. Tick only with evidence per [§5](#5-evidence
 - [ ] Encrypted chat fail-closed without peer key (SD-081) — do not regress.
 - [ ] Unsigned wire `Data` still dropped (SD-030) — do not regress.
 - [ ] `android:allowBackup="false"` remains (SD-171) — do not regress.
-- [ ] Security reporting path is `security@example.invalid` / GitHub private advisory ([SECURITY.md](../SECURITY.md)).
+- [ ] Security reporting path is `github.com/mycena-project/Mycena/security/advisories/new` / GitHub private advisory ([SECURITY.md](../SECURITY.md)).
 
 ### 4.2 P1 — Required before release unless explicitly accepted
 
@@ -384,7 +384,7 @@ This is **not abandonment**. Development is **intentionally paused** so that:
 
 During pause: security and P0 fixes still ship under §7. A **un-freeze** is a conscious decision (new roadmap increment), not silent feature creep.
 
-Related family repos ([ECOSYSTEM.md](./ECOSYSTEM.md)) — `mycelium-relay`, `mycelium-web` — have their own deploy cadence. Client freeze does not automatically freeze relay ops; relay changes that **require** a client protocol bump **are** freeze exceptions.
+Related family repos ([ECOSYSTEM.md](./ECOSYSTEM.md)) — `mycena-relay`, `mycena-web` — have their own deploy cadence. Client freeze does not automatically freeze relay ops; relay changes that **require** a client protocol bump **are** freeze exceptions.
 
 ---
 

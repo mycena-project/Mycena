@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Scorched-earth wipe of all Mycelium desktop local data on this Mac.
+# Scorched-earth wipe of all Mycena desktop local data on this Mac.
 # Use when re-onboarding still shows old contacts or identity.
 #
 #   make desktop-nuke
@@ -7,7 +7,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-DATA_DIR="${MYCELIUM_DATA_DIR:-$HOME/Library/Application Support/mycelium}"
+DATA_DIR="${MYCENA_DATA_DIR:-$HOME/Library/Application Support/mycena}"
 
 "$ROOT/scripts/stop-desktop.sh"
 

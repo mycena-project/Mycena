@@ -1,4 +1,4 @@
-# Mycelium — Security Remediation Roadmap (Post-Review)
+# Mycena — Security Remediation Roadmap (Post-Review)
 
 **Derived from:** Pre–public beta closure review (May 2026)  
 **Companion:** [SECURITY_DEBT_REGISTER.md](./SECURITY_DEBT_REGISTER.md) · [SECURITY_ROADMAP.md](./SECURITY_ROADMAP.md)
@@ -28,7 +28,7 @@
 | # | Item |
 |---|------|
 | 9 | Red-team `MINIAPP_ATTACK_SCENARIOS.md` script + written results | **Done** — [MINIAPP_REDTEAM_RESULTS.md](./MINIAPP_REDTEAM_RESULTS.md) |
-| 10 | Regression tests for SD-030, SD-031 | **Done** — `mycelium-node/tests/sd030_unsigned_drop.rs` |
+| 10 | Regression tests for SD-030, SD-031 | **Done** — `mycena-node/tests/sd030_unsigned_drop.rs` |
 
 ---
 

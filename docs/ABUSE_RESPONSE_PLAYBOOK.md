@@ -1,4 +1,4 @@
-# Mycelium — Abuse Response Playbook
+# Mycena — Abuse Response Playbook
 
 **Audience:** Operators, maintainers, on-call
 **Assumption:** There is **no central server** with user accounts—response is **distributed**, **legal**, and **client-side**.
@@ -11,7 +11,7 @@
 
 | We control | We do NOT control |
 |------------|-------------------|
-| Default relay (`mycelium-relay`) | Peer-to-peer message storage on user devices |
+| Default relay (`mycena-relay`) | Peer-to-peer message storage on user devices |
 | App store binaries | Bulletin content after gossip |
 | Bootstrap peer list in releases | Witness gossip for MeshCoin |
 | Mini-app store listings we sign | Sideload: user ack in install UI (partially mitigated — no crypto verify for sideload) |
@@ -30,7 +30,7 @@
 | **Scam** | Fake MXC payments, phishing bootstrap | Financial / credential |
 | **Illegal content** | CSAM, terrorism propaganda in bulletin | Legal |
 | **Sybil** | Fake witnesses, fake store listings | Integrity |
-| **Infrastructure** | Relay exhaustion, DDoS against the VPS relay | Availability |
+| **Infrastructure** | Relay exhaustion, DDoS against the Fly.io relay | Availability |
 
 ---
 
@@ -110,7 +110,7 @@
 
 ### 5.6 Vulnerability report (security)
 
-1. **Intake:** security@example.invalid.
+1. **Intake:** github.com/mycena-project/Mycena/security/advisories/new.
 2. **Triage** within 72h; acknowledge receipt.
 3. **Fix** Critical within 14 days target; coordinate disclosure.
 4. **Credit** reporter if desired.
@@ -122,11 +122,11 @@
 
 ### User-facing (in-app / blog)
 
-> We are aware of increased spam on the Mycelium network. Mycelium is a decentralized mesh—messages are stored on participants’ devices, not on our servers. Update to version X.Y.Z for improved filtering. Do not install mini-apps from untrusted QR codes. MeshCoin (MXC) is experimental and offers no monetary protection.
+> We are aware of increased spam on the Mycena network. Mycena is a decentralized mesh—messages are stored on participants’ devices, not on our servers. Update to version X.Y.Z for improved filtering. Do not install mini-apps from untrusted QR codes. MeshCoin (MXC) is experimental and offers no monetary protection.
 
 ### Law enforcement (template — legal must review)
 
-> Mycelium Network does not operate a centralized messaging service. We operate optional relay infrastructure that forwards encrypted libp2p circuits without access to message content. We do not store user accounts or message databases. We can provide information about our relay systems to the extent available and as required by law.
+> Mycena Network does not operate a centralized messaging service. We operate optional relay infrastructure that forwards encrypted libp2p circuits without access to message content. We do not store user accounts or message databases. We can provide information about our relay systems to the extent available and as required by law.
 
 ---
 
@@ -134,8 +134,8 @@
 
 | Action | When | Command / location |
 |--------|------|---------------------|
-| Scale relay | Circuit exhaustion | VPS container limits |
-| Pause relay | Active exploit in libp2p stack | Stop the `mycelium-relay` container on the VPS (breaks Internet path) |
+| Scale relay | Circuit exhaustion | Fly.io container limits |
+| Pause relay | Active exploit in libp2p stack | Stop the `mycena-relay` container on the VPS (breaks Internet path) |
 | Rotate relay identity | Key compromise | New volume identity, then ship the new Peer ID |
 | Invalidate bootstrap | Peer ID compromise | Edit `standard_bootstrap.rs`, ship app |
 
@@ -169,10 +169,10 @@
 
 | Role | Contact |
 |------|---------|
-| Security lead | security@example.invalid |
-| Legal | contact@example.invalid |
-| Infrastructure | contact@example.invalid |
-| Public communications | contact@example.invalid |
+| Security lead | github.com/mycena-project/Mycena/security/advisories/new |
+| Legal | github.com/mycena-project/Mycena/issues |
+| Infrastructure | github.com/mycena-project/Mycena/issues |
+| Public communications | github.com/mycena-project/Mycena/issues |
 
 ---
 

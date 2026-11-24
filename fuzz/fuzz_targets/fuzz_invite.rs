@@ -1,7 +1,7 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use mycelium_core::invite::parse_invite;
+use mycena_core::invite::parse_invite;
 
 /// QR / deep-link invite strings from cameras and clipboard paste.
 fuzz_target!(|data: &[u8]| {

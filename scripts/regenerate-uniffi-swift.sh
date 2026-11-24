@@ -9,12 +9,12 @@ cd "$ROOT"
 source "$ROOT/scripts/ensure-rust-env.sh"
 require_cargo
 
-OUT="$ROOT/ios/Mycelium/Generated"
+OUT="$ROOT/ios/Mycena/Generated"
 rm -rf "$OUT"
 mkdir -p "$OUT"
 
-cargo run -p mycelium-ffi --bin uniffi-bindgen -- generate \
-  crates/mycelium-ffi/src/mycelium.udl \
+cargo run -p mycena-ffi --bin uniffi-bindgen -- generate \
+  crates/mycena-ffi/src/mycena.udl \
   --language swift \
   --out-dir "$OUT"
 

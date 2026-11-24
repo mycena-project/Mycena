@@ -1,4 +1,4 @@
-# Mycelium — Security Assumptions
+# Mycena — Security Assumptions
 
 **Audience:** Users, operators, security reviewers
 **Status:** Pre–public beta — assumptions may change per release.
@@ -44,7 +44,7 @@ We **do not** claim protection against:
 
 ### 2.3 You trust bootstrap on first use
 
-- Default bootstrap includes **baked relay Peer IDs** and `relay.example.invalid`.
+- Default bootstrap includes **baked relay Peer IDs** and `mycena-relay.fly.dev`.
 - First connection to a malicious bootstrap can eclipse or inject traffic until detected.
 
 ### 2.4 You trust relay operator for Internet path
@@ -61,7 +61,7 @@ We **do not** claim protection against:
 ### 2.6 You trust mini-app install decisions
 
 - Store listings with valid signatures are only as trustworthy as **publisher keys**.
-- Sideload installs require **valid developer bundle signature** (`mycelium-bundle.sig.json`) unless from a signed store listing.
+- Sideload installs require **valid developer bundle signature** (`mycena-bundle.sig.json`) unless from a signed store listing.
 - WebView remains a large attack surface (Chromium).
 
 ---
@@ -90,7 +90,7 @@ We **do not** claim protection against:
 ## 5. Operational assumptions
 
 - Maintainers can ship updated **revocation lists** and **bootstrap** via releases.
-- VPS host and DNS for `relay.example.invalid` remain under project control.
+- Fly.io host and DNS for `mycena-relay.fly.dev` remain under project control.
 - No government mandate to backdoor a build we do not control (sideload ecosystem).
 
 ---

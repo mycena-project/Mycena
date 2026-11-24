@@ -1,5 +1,5 @@
 {
-  "format": "mycelium-relay-registry/v1",
+  "format": "mycena-relay-registry/v1",
   "issued_at_ms": 1700000000000,
   "policy": {
     "min_curator_endorsements": 1,

@@ -1,4 +1,4 @@
-# Mycelium — Privacy Roadmap
+# Mycena — Privacy Roadmap
 
 **Goal:** Minimize data collection, metadata leakage, and identifiability—while staying honest about what mesh + relay architectures cannot hide.
 
@@ -65,7 +65,7 @@
 
 | Action | Debt IDs | Effort | Status |
 |--------|----------|--------|--------|
-| Padding + batching scheduler | SD-070 | L | **Experimental** — [`privacy_shaping.rs`](../crates/mycelium-core/src/privacy_shaping.rs), off by default; [benchmark](./PRIVACY_SHAPING_BENCHMARK.md) |
+| Padding + batching scheduler | SD-070 | L | **Experimental** — [`privacy_shaping.rs`](../crates/mycena-core/src/privacy_shaping.rs), off by default; [benchmark](./PRIVACY_SHAPING_BENCHMARK.md) |
 | Reduce sync fingerprint (bloom size normalization) | SD-001 | M | Planned |
 | Scope bucketing (e.g. `city/*` not exact list announce) | SD-004 | M | **Partial** — `ScopeAnnounce` bucketing when shaping enabled |
 | Short-lived QR introduction tokens | SD-191 | M | Planned |
@@ -99,13 +99,13 @@
 
 ## GDPR / regulatory mapping (high level — not legal advice)
 
-| Topic | Mycelium stance | Action needed |
+| Topic | Mycena stance | Action needed |
 |-------|-----------------|---------------|
 | Data controller | App publisher for store listing; relay may be joint | Legal review |
 | Lawful basis | Legitimate interest / contract for app | Privacy policy |
 | Right to erasure | Local panic wipe only; mesh copies not erasable | Disclose clearly |
 | DPIA | Required before EU scale if relay logs IPs | Conduct DPIA |
-| Data residency | VPS (DE) for the operated relay | Document in policy |
+| Data residency | Fly.io (FRA) for the operated relay | Document in policy |
 
 ---
 

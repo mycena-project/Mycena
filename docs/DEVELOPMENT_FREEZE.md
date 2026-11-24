@@ -117,5 +117,5 @@ Un-freeze is a **conscious** roadmap increment, not silent `feat:` commits.
 ## Related
 
 - [RELEASE_FREEZE_PLAN.md](./RELEASE_FREEZE_PLAN.md) §7
-- [SECURITY.md](../SECURITY.md) — `security@example.invalid`
+- [SECURITY.md](../SECURITY.md) — `github.com/mycena-project/Mycena/security/advisories/new`
 - [CONTRIBUTING.md](../CONTRIBUTING.md)

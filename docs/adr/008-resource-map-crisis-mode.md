@@ -4,7 +4,7 @@
 **Date:** 2026-07-04  
 **Context:** Disaster mesh work needs explicit **Crisis Mode** (pause non-essential sync, prioritize SOS/emergency forwarding) and a first-stage **offline resource map** (water, food, shelter, medicine, power as geohash-tagged entries). Resource pins resemble SOS bulletins but have different freshness, abuse, and UI semantics than chat or coin gossip.
 
-See also: [ADR 006](./006-mesh-consistency-model.md), [DISASTER_MESH_ROADMAP.md](../DISASTER_MESH_ROADMAP.md), [`crisis_mode.rs`](../../crates/mycelium-core/src/crisis_mode.rs), [`resource_map.rs`](../../crates/mycelium-core/src/resource_map.rs).
+See also: [ADR 006](./006-mesh-consistency-model.md), [DISASTER_MESH_ROADMAP.md](../DISASTER_MESH_ROADMAP.md), [`crisis_mode.rs`](../../crates/mycena-core/src/crisis_mode.rs), [`resource_map.rs`](../../crates/mycena-core/src/resource_map.rs).
 
 ---
 
@@ -16,9 +16,9 @@ See also: [ADR 006](./006-mesh-consistency-model.md), [DISASTER_MESH_ROADMAP.md]
 - **When active:**
   - Skip bloom anti-entropy (`SyncBloom`) and periodic peer sync ticks.
   - Drop inbound **background** gossip scopes (coin, app store) at ingest.
-  - Extend [`ForwardingPolicy`](../../crates/mycelium-node/src/forwarding.rs) with [`TrafficClass`](../../crates/mycelium-node/src/forwarding.rs): Background held, Essential gets higher fanout; essential traffic bypasses energy gating in crisis.
+  - Extend [`ForwardingPolicy`](../../crates/mycena-node/src/forwarding.rs) with [`TrafficClass`](../../crates/mycena-node/src/forwarding.rs): Background held, Essential gets higher fanout; essential traffic bypasses energy gating in crisis.
   - Shorter forward tick, larger forward budget, higher emergency `max_hops`, no cover traffic, essential messages skip privacy batching.
-- **Disaster mesh profile** ([`MeshProfile::Disaster`](../../crates/mycelium-core/src/mesh_profile.rs)) pairs with crisis tuning but remains a separate transport preset.
+- **Disaster mesh profile** ([`MeshProfile::Disaster`](../../crates/mycena-core/src/mesh_profile.rs)) pairs with crisis tuning but remains a separate transport preset.
 
 ### 2. Resource map as its own payload class
 
@@ -28,8 +28,8 @@ Resource map entries are **not** normal chat/bulletin gossip:
 |--------|------------------------|--------------|
 | Consistency | EventuallyConsistent | **Local** + MaximumPropagation |
 | State op | `OP_GOSSIP_BULLETIN_PUBLISH` | **`OP_RESOURCE_MAP_BROADCAST`** |
-| Scope | arbitrary subscribed scope | `mycelium/resource-map/v1` |
-| Payload | `AppMessage` / encrypted bulletin | JSON [`ResourceMapEntry`](../../crates/mycelium-core/src/resource_map.rs) |
+| Scope | arbitrary subscribed scope | `mycena/resource-map/v1` |
+| Payload | `AppMessage` / encrypted bulletin | JSON [`ResourceMapEntry`](../../crates/mycena-core/src/resource_map.rs) |
 | Freshness | bulletin `expires_at_ms` | per-entry **`ttl_secs`** + local expiry filter |
 | Semantics | durable thread / forum | ephemeral disaster pin; stale = harmful |
 
@@ -54,7 +54,7 @@ Resource map entries are **not** normal chat/bulletin gossip:
 
 **Out of scope (later):**
 
-- ~~Volunteer task assignment~~ — phase 2 shipped (`mycelium/volunteer/v1`, 2026-07-05)
+- ~~Volunteer task assignment~~ — phase 2 shipped (`mycena/volunteer/v1`, 2026-07-05)
 - Dedup by place+time, moderation queues.
 - Map UI / offline tiles; category-specific trust weights.
 - Automatic resource-map-driven crisis activation (SOS-only for auto today).

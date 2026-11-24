@@ -6,7 +6,7 @@
     <string name="action_export">Export</string>
     <string name="action_subscribe">Subscribe</string>
     <string name="action_unsubscribe">Unsubscribe</string>
-    <string name="app_name">Mycelium</string>
+    <string name="app_name">Mycena</string>
     <string name="app_tagline">شبكة غير متصلة</string>
     <string name="ble_handoff_connected_body">Linked via Bluetooth — libp2p direct path over BLE when Wi‑Fi or relay are unavailable.</string>
     <string name="ble_handoff_connected_title">Peer linked via Bluetooth</string>
@@ -90,7 +90,7 @@
     <string name="discovery_in_range">في النطاق</string>
     <string name="discovery_nearby">قريب</string>
     <string name="discovery_notification_body">اضغط للاتصال (%1$s…)</string>
-    <string name="discovery_notification_title">عقدة Mycelium %1$s</string>
+    <string name="discovery_notification_title">عقدة Mycena %1$s</string>
     <string name="discovery_very_close">قريب جداً</string>
     <string name="error_invalid_invite">Invalid invite</string>
     <string name="error_invalid_qr">تنسيق QR غير صالح</string>
@@ -112,7 +112,7 @@
     <string name="group_new">مجموعة جديدة</string>
     <string name="language_system">لغة النظام</string>
     <string name="location_open_maps">فتح في الخرائط</string>
-    <string name="location_privacy_body">تُرسل إحداثيات GPS الحالية مرة واحدة. لا يتتبع Mycelium موقعك باستمرار. الرسالة مشفرة.</string>
+    <string name="location_privacy_body">تُرسل إحداثيات GPS الحالية مرة واحدة. لا يتتبع Mycena موقعك باستمرار. الرسالة مشفرة.</string>
     <string name="location_privacy_title">مشاركة موقعك؟</string>
     <string name="location_share_once">مشاركة مرة واحدة</string>
     <string name="mail_body_hint">جسم</string>
@@ -149,7 +149,7 @@
     <string name="miniapp_grant_identity_title">مشاركة الهوية؟</string>
     <string name="miniapp_grant_payments_message">يمكن لهذا التطبيق قراءة الرصيد وإظهار رموز QR للدفع.</string>
     <string name="miniapp_grant_payments_title">الوصول إلى المحفظة؟</string>
-    <string name="miniapp_hosted_dialog_notice">تأتي هذه الرسالة من تطبيق صغير، وليس من Mycelium.</string>
+    <string name="miniapp_hosted_dialog_notice">تأتي هذه الرسالة من تطبيق صغير، وليس من Mycena.</string>
     <string name="miniapp_inline_script_warning">يستخدم هذا التطبيق نصوصًا برمجية مضمنة (مخاطر XSS أعلى).</string>
     <string name="miniapp_install_cancel">يلغي</string>
     <string name="miniapp_install_confirm">ثَبَّتَ</string>
@@ -190,7 +190,7 @@
     <string name="more_mail_sub">Store-and-forward messages when chat is offline</string>
     <string name="more_mini_apps_sub">MeshAid and other mesh mini-apps</string>
     <string name="more_settings_sub">Identity, network, privacy, bulletin scopes</string>
-    <string name="more_share_app_sub">Pass Mycelium to a nearby phone — no internet or Play Store</string>
+    <string name="more_share_app_sub">Pass Mycena to a nearby phone — no internet or Play Store</string>
     <string name="more_subtitle">Apps, network contribution, offline messages, and settings.</string>
     <string name="more_title">More</string>
     <string name="more_wallet_sub">Offline utility credits for mesh services</string>
@@ -225,7 +225,7 @@
     <string name="peers_discovery_connecting_title">جارٍ الاتصال…</string>
     <string name="peers_discovery_idle_body">فعّل شبكة Bluetooth في الإعدادات للاتصالات التلقائية القريبة، أو امسح رمز QR أعلاه.</string>
     <string name="peers_discovery_idle_title">اكتشاف الأجهزة القريبة مغلق</string>
-    <string name="peers_discovery_nearby_found_body">أجهزة Mycelium في النطاق. جارٍ الاتصال تلقائيًا…</string>
+    <string name="peers_discovery_nearby_found_body">أجهزة Mycena في النطاق. جارٍ الاتصال تلقائيًا…</string>
     <string name="peers_discovery_nearby_found_title">أجهزة في الجوار</string>
     <string name="peers_discovery_nobody_body">هذا طبيعي. افتح «اتصال» على هاتف آخر قريب، أو امسحا رمز QR لبعضهما مرة واحدة.</string>
     <string name="peers_discovery_nobody_title">لا أحد في الجوار حاليًا</string>
@@ -284,7 +284,7 @@
     <string name="settings_crowd_mode_sub">Caps mDNS dials and uses crowd gossip tuning. Full transport limits apply after app restart.</string>
     <string name="settings_crowd_mode_title">Crowd mode (festivals / dense events)</string>
     <string name="settings_danger_zone">منطقة الخطر</string>
-    <string name="settings_data_handling">كيف يتعامل Mycelium مع بياناتك</string>
+    <string name="settings_data_handling">كيف يتعامل Mycena مع بياناتك</string>
     <string name="settings_display_name">اسم العرض</string>
     <string name="settings_display_name_hint">اسمك في الشبكة</string>
     <string name="settings_encrypted_channels">Encrypted channels</string>
@@ -345,11 +345,11 @@
     <string name="settings_scan_channel_prompt">Scan channel invite</string>
     <string name="settings_scan_scope_key">Scan channel invite QR</string>
     <string name="settings_scope_key_export_title">Channel invite</string>
-    <string name="settings_scope_key_placeholder">mycelium/rescue/team-alpha</string>
+    <string name="settings_scope_key_placeholder">mycena/rescue/team-alpha</string>
     <string name="settings_scope_label">Scope</string>
     <string name="settings_share_app">شارك هذا التطبيق...</string>
     <string name="settings_show_technical_ids">Show technical IDs (advanced)</string>
-    <string name="settings_spread_description">عند تمكينه، يبث جهازك إشارة Bluetooth تتيح للأجهزة القريبة اكتشاف Mycelium وتثبيته. لا تتم مشاركة أي بيانات شخصية.</string>
+    <string name="settings_spread_description">عند تمكينه، يبث جهازك إشارة Bluetooth تتيح للأجهزة القريبة اكتشاف Mycena وتثبيته. لا تتم مشاركة أي بيانات شخصية.</string>
     <string name="settings_spread_title">ساعد في انتشار الفطريات</string>
     <string name="settings_store_size">الرسائل المخزنة</string>
     <string name="settings_title">الإعدادات</string>
@@ -357,7 +357,7 @@
     <string name="settings_transport_id_label">Network ID (changes daily)</string>
     <string name="settings_version">إصدار</string>
     <string name="settings_version_format">الإصدار %1$s (البناء %2$d)</string>
-    <string name="share_app_description">اسمح لشخص قريب منك بتثبيت Mycelium بدون الإنترنت. اتصل بنفس شبكة WiFi أو نقطة الاتصال، ثم امسح رمز الاستجابة السريعة هذا ضوئيًا.</string>
+    <string name="share_app_description">اسمح لشخص قريب منك بتثبيت Mycena بدون الإنترنت. اتصل بنفس شبكة WiFi أو نقطة الاتصال، ثم امسح رمز الاستجابة السريعة هذا ضوئيًا.</string>
     <string name="share_app_error_generic">Could not start sharing. Try again or use same Wi‑Fi mode.</string>
     <string name="share_app_hotspot_failed">Could not open a sharing hotspot on this phone. Try “Same Wi‑Fi” if you already share a network, or turn off your regular hotspot first.</string>
     <string name="share_app_instructions">المستلم: اتصل بنفس شبكة WiFi، ثم امسح رمز الاستجابة السريعة ضوئيًا أو افتح عنوان URL في المتصفح. لا يوجد تطبيق مطلوب لتلقيه.</string>
@@ -365,10 +365,10 @@
     <string name="share_app_local_network">Same Wi‑Fi already</string>
     <string name="share_app_phone_to_phone">Share phone-to-phone (no internet)</string>
     <string name="share_app_phone_to_phone_hint">Creates a temporary Wi‑Fi on this phone. Your friend joins it, then installs from the link — no router or mobile data.</string>
-    <string name="share_app_qr_content_description">رمز الاستجابة السريعة لتثبيت Mycelium</string>
+    <string name="share_app_qr_content_description">رمز الاستجابة السريعة لتثبيت Mycena</string>
     <string name="share_app_share_link">Share install link</string>
     <string name="share_app_start">ابدأ المشاركة</string>
-    <string name="share_app_step_install_body">After joining Wi‑Fi (if needed), scan this QR or open the link in Chrome. Tap Install Mycelium on the page.</string>
+    <string name="share_app_step_install_body">After joining Wi‑Fi (if needed), scan this QR or open the link in Chrome. Tap Install Mycena on the page.</string>
     <string name="share_app_step_install_title">Step 2 — Install</string>
     <string name="share_app_step_wifi_body">Scan with the camera app to join this phone\'s Wi‑Fi. No password typing needed.</string>
     <string name="share_app_step_wifi_title">Step 1 — Join Wi‑Fi</string>
@@ -442,7 +442,7 @@
     <string name="wallet_to_hint">إلى (العنوان أو معرف النظير)</string>
     <string name="wallet_tx_pending">المعاملة معلقة (غير متصل)</string>
     <string name="wallet_tx_sent">بث المعاملات</string>
-    <string name="welcome_back_body">We found your existing Mycelium identity on this device. Your contacts will still recognize you.</string>
+    <string name="welcome_back_body">We found your existing Mycena identity on this device. Your contacts will still recognize you.</string>
     <string name="welcome_back_body_named">Welcome back, %1$s. Your existing identity was found on this device. Your contacts will still recognize you.</string>
     <string name="welcome_back_continue">Continue with my identity</string>
     <string name="welcome_back_fresh">Start fresh instead</string>

@@ -1,4 +1,4 @@
-# Mycelium — Security Roadmap
+# Mycena — Security Roadmap
 
 **Horizon:** 2026 Q2–2027  
 **Principle:** Ship beta only with known, documented, accepted risk—never unknown risk.  
@@ -21,7 +21,7 @@
 | P0 | `android:allowBackup="false"` + full-backup exclusion | SD-171 | S | Android — **done** |
 | P0 | Desktop: refuse weak vault fallback | SD-131 | S | node/secrets — **done** |
 | P0 | MeshCoin UX = preview only (no real-money copy) | SD-011, SD-160 | S | product/legal |
-| P0 | Emergency settlement caps (balance, tx, velocity) | SD-011, SD-160 | S | mycelium-coin |
+| P0 | Emergency settlement caps (balance, tx, velocity) | SD-011, SD-160 | S | mycena-coin |
 
 **MeshCoin repositioning docs:** [MESHCOIN_POSITIONING.md](./MESHCOIN_POSITIONING.md) · [MESHCOIN_ARCHITECTURE_REVIEW.md](./MESHCOIN_ARCHITECTURE_REVIEW.md)
 

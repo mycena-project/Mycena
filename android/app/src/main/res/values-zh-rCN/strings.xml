@@ -6,7 +6,7 @@
     <string name="action_export">Export</string>
     <string name="action_subscribe">Subscribe</string>
     <string name="action_unsubscribe">Unsubscribe</string>
-    <string name="app_name">Mycelium</string>
+    <string name="app_name">Mycena</string>
     <string name="app_tagline">离线网状网络</string>
     <string name="ble_handoff_connected_body">Linked via Bluetooth — libp2p direct path over BLE when Wi‑Fi or relay are unavailable.</string>
     <string name="ble_handoff_connected_title">Peer linked via Bluetooth</string>
@@ -89,7 +89,7 @@
     <string name="discovery_in_range">范围内</string>
     <string name="discovery_nearby">附近</string>
     <string name="discovery_notification_body">点击连接（%1$s…）</string>
-    <string name="discovery_notification_title">Mycelium 节点 %1$s</string>
+    <string name="discovery_notification_title">Mycena 节点 %1$s</string>
     <string name="discovery_very_close">非常近</string>
     <string name="error_invalid_invite">Invalid invite</string>
     <string name="error_invalid_qr">二维码格式无效</string>
@@ -148,7 +148,7 @@
     <string name="miniapp_grant_identity_title">共享身份？</string>
     <string name="miniapp_grant_payments_message">该应用程序可以读取余额并显示付款二维码。</string>
     <string name="miniapp_grant_payments_title">钱包访问？</string>
-    <string name="miniapp_hosted_dialog_notice">此消息来自迷你应用程序，而不是来自 Mycelium。</string>
+    <string name="miniapp_hosted_dialog_notice">此消息来自迷你应用程序，而不是来自 Mycena。</string>
     <string name="miniapp_inline_script_warning">此应用程序使用内联脚本（XSS 风险较高）。</string>
     <string name="miniapp_install_cancel">取消</string>
     <string name="miniapp_install_confirm">安装</string>
@@ -189,7 +189,7 @@
     <string name="more_mail_sub">Store-and-forward messages when chat is offline</string>
     <string name="more_mini_apps_sub">MeshAid and other mesh mini-apps</string>
     <string name="more_settings_sub">Identity, network, privacy, bulletin scopes</string>
-    <string name="more_share_app_sub">Pass Mycelium to a nearby phone — no internet or Play Store</string>
+    <string name="more_share_app_sub">Pass Mycena to a nearby phone — no internet or Play Store</string>
     <string name="more_subtitle">Apps, network contribution, offline messages, and settings.</string>
     <string name="more_title">More</string>
     <string name="more_wallet_sub">Offline utility credits for mesh services</string>
@@ -224,7 +224,7 @@
     <string name="peers_discovery_connecting_title">正在连接…</string>
     <string name="peers_discovery_idle_body">在设置中开启蓝牙网状网络以自动连接附近设备，或扫描上方二维码。</string>
     <string name="peers_discovery_idle_title">附近发现已关闭</string>
-    <string name="peers_discovery_nearby_found_body">Mycelium 设备在范围内，正在自动连接…</string>
+    <string name="peers_discovery_nearby_found_body">Mycena 设备在范围内，正在自动连接…</string>
     <string name="peers_discovery_nearby_found_title">附近设备</string>
     <string name="peers_discovery_nobody_body">这很正常。在附近的另一部手机上打开「连接」，或互相扫描一次二维码。</string>
     <string name="peers_discovery_nobody_title">附近暂时没有人</string>
@@ -283,7 +283,7 @@
     <string name="settings_crowd_mode_sub">Caps mDNS dials and uses crowd gossip tuning. Full transport limits apply after app restart.</string>
     <string name="settings_crowd_mode_title">Crowd mode (festivals / dense events)</string>
     <string name="settings_danger_zone">危险区域</string>
-    <string name="settings_data_handling">Mycelium 如何处理你的数据</string>
+    <string name="settings_data_handling">Mycena 如何处理你的数据</string>
     <string name="settings_display_name">显示名称</string>
     <string name="settings_display_name_hint">你在网络中的名字</string>
     <string name="settings_encrypted_channels">Encrypted channels</string>
@@ -344,11 +344,11 @@
     <string name="settings_scan_channel_prompt">Scan channel invite</string>
     <string name="settings_scan_scope_key">Scan channel invite QR</string>
     <string name="settings_scope_key_export_title">Channel invite</string>
-    <string name="settings_scope_key_placeholder">mycelium/rescue/team-alpha</string>
+    <string name="settings_scope_key_placeholder">mycena/rescue/team-alpha</string>
     <string name="settings_scope_label">Scope</string>
     <string name="settings_share_app">分享此应用…</string>
     <string name="settings_show_technical_ids">Show technical IDs (advanced)</string>
-    <string name="settings_spread_description">启用后，设备会广播蓝牙信号，让附近的设备发现并安装 Mycelium。不共享个人数据。</string>
+    <string name="settings_spread_description">启用后，设备会广播蓝牙信号，让附近的设备发现并安装 Mycena。不共享个人数据。</string>
     <string name="settings_spread_title">帮助推广菌丝网络</string>
     <string name="settings_store_size">已存储的消息</string>
     <string name="settings_title">设置</string>
@@ -356,7 +356,7 @@
     <string name="settings_transport_id_label">Network ID (changes daily)</string>
     <string name="settings_version">版本</string>
     <string name="settings_version_format">版本 %1$s（构建 %2$d）</string>
-    <string name="share_app_description">让附近的人无需互联网即可安装 Mycelium。连接同一 WiFi 或热点后扫描此二维码。</string>
+    <string name="share_app_description">让附近的人无需互联网即可安装 Mycena。连接同一 WiFi 或热点后扫描此二维码。</string>
     <string name="share_app_error_generic">Could not start sharing. Try again or use same Wi‑Fi mode.</string>
     <string name="share_app_hotspot_failed">Could not open a sharing hotspot on this phone. Try “Same Wi‑Fi” if you already share a network, or turn off your regular hotspot first.</string>
     <string name="share_app_instructions">接收方：连接同一 WiFi，扫描二维码或在浏览器中打开 URL。无需安装应用即可接收。</string>
@@ -364,10 +364,10 @@
     <string name="share_app_local_network">Same Wi‑Fi already</string>
     <string name="share_app_phone_to_phone">Share phone-to-phone (no internet)</string>
     <string name="share_app_phone_to_phone_hint">Creates a temporary Wi‑Fi on this phone. Your friend joins it, then installs from the link — no router or mobile data.</string>
-    <string name="share_app_qr_content_description">安装 Mycelium 的二维码</string>
+    <string name="share_app_qr_content_description">安装 Mycena 的二维码</string>
     <string name="share_app_share_link">Share install link</string>
     <string name="share_app_start">开始分享</string>
-    <string name="share_app_step_install_body">After joining Wi‑Fi (if needed), scan this QR or open the link in Chrome. Tap Install Mycelium on the page.</string>
+    <string name="share_app_step_install_body">After joining Wi‑Fi (if needed), scan this QR or open the link in Chrome. Tap Install Mycena on the page.</string>
     <string name="share_app_step_install_title">Step 2 — Install</string>
     <string name="share_app_step_wifi_body">Scan with the camera app to join this phone\'s Wi‑Fi. No password typing needed.</string>
     <string name="share_app_step_wifi_title">Step 1 — Join Wi‑Fi</string>
@@ -441,7 +441,7 @@
     <string name="wallet_to_hint">收件人（地址或对等 ID）</string>
     <string name="wallet_tx_pending">交易待处理（离线）</string>
     <string name="wallet_tx_sent">交易广播</string>
-    <string name="welcome_back_body">We found your existing Mycelium identity on this device. Your contacts will still recognize you.</string>
+    <string name="welcome_back_body">We found your existing Mycena identity on this device. Your contacts will still recognize you.</string>
     <string name="welcome_back_body_named">Welcome back, %1$s. Your existing identity was found on this device. Your contacts will still recognize you.</string>
     <string name="welcome_back_continue">Continue with my identity</string>
     <string name="welcome_back_fresh">Start fresh instead</string>

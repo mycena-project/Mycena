@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Stop Mycelium desktop dev: Tauri app, cargo tauri dev, Vite (:1420), optional local relay.
+# Stop Mycena desktop dev: Tauri app, cargo tauri dev, Vite (:1420), optional local relay.
 #
 # Usage:
 #   ./scripts/stop-desktop.sh
@@ -7,7 +7,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-DESKTOP_DIR="$ROOT/crates/mycelium-desktop"
+DESKTOP_DIR="$ROOT/crates/mycena-desktop"
 
 stop_pids() {
   local label="${1:?stop_pids: missing label}"
@@ -32,18 +32,18 @@ stop_pids() {
 }
 
 if [[ "$(uname -s)" == "Darwin" ]]; then
-  osascript -e 'tell application "Mycelium" to quit' 2>/dev/null || true
-  osascript -e 'tell application id "network.mycelium.desktop" to quit' 2>/dev/null || true
+  osascript -e 'tell application "Mycena" to quit' 2>/dev/null || true
+  osascript -e 'tell application id "io.github.mycena_project.desktop" to quit' 2>/dev/null || true
 fi
 
-stop_pids "Tauri dev (Mycelium)" \
+stop_pids "Tauri dev (Mycena)" \
   "${DESKTOP_DIR}.*cargo tauri dev" \
-  "crates/mycelium-desktop.*cargo tauri dev" \
-  "mycelium-desktop.*tauri dev"
+  "crates/mycena-desktop.*cargo tauri dev" \
+  "mycena-desktop.*tauri dev"
 
-stop_pids "mycelium-desktop binary" \
-  "${ROOT}/target/debug/mycelium-desktop" \
-  "${ROOT}/target/debug/deps/mycelium_desktop"
+stop_pids "mycena-desktop binary" \
+  "${ROOT}/target/debug/mycena-desktop" \
+  "${ROOT}/target/debug/deps/mycena_desktop"
 
 if command -v lsof >/dev/null 2>&1; then
   vite_pids="$(lsof -ti tcp:1420 2>/dev/null || true)"
@@ -57,12 +57,12 @@ if command -v lsof >/dev/null 2>&1; then
   fi
 fi
 
-stop_pids "local mycelium-relay" \
-  "cargo run -p mycelium-relay" \
-  "target/debug/mycelium-relay"
+stop_pids "local mycena-relay" \
+  "cargo run -p mycena-relay" \
+  "target/debug/mycena-relay"
 
-stop_pids "mycelium node (desktop dev)" \
-  "target/debug/mycelium-desktop" \
-  "mycelium_node::transport"
+stop_pids "mycena node (desktop dev)" \
+  "target/debug/mycena-desktop" \
+  "mycena_node::transport"
 
 echo "Desktop stopped."

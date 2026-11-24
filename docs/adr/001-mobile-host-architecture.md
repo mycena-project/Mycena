@@ -2,17 +2,17 @@
 
 **Status:** Accepted  
 **Date:** 2026-07-02  
-**Context:** Mycelium needs a long-term iPhone app. Android is the production beta. We must choose boundaries now so iOS does not force a rewrite later, without slowing Android work.
+**Context:** Mycena needs a long-term iPhone app. Android is the production beta. We must choose boundaries now so iOS does not force a rewrite later, without slowing Android work.
 
 ---
 
 ## Decision
 
-1. **Rust crates remain platform-neutral.** No `#[cfg(ios)]` in `mycelium-core`, `mycelium-node`, or `mycelium-app` except where absolutely required for portability (none today).
+1. **Rust crates remain platform-neutral.** No `#[cfg(ios)]` in `mycena-core`, `mycena-node`, or `mycena-app` except where absolutely required for portability (none today).
 
-2. **Mobile hosts talk to Rust only through UniFFI.** The contract is `crates/mycelium-ffi/src/mycelium.udl`. Android uses Kotlin bindings; iOS will use Swift bindings from the **same UDL**.
+2. **Mobile hosts talk to Rust only through UniFFI.** The contract is `crates/mycena-ffi/src/mycena.udl`. Android uses Kotlin bindings; iOS will use Swift bindings from the **same UDL**.
 
-3. **Desktop is a separate host.** Tauri calls Rust crates directly (no UniFFI). Duplicated bootstrap logic is acceptable short-term; extract `mycelium-host` before iOS implementation (Phase 2 in [MOBILE_PLATFORMS.md](../MOBILE_PLATFORMS.md)).
+3. **Desktop is a separate host.** Tauri calls Rust crates directly (no UniFFI). Duplicated bootstrap logic is acceptable short-term; extract `mycena-host` before iOS implementation (Phase 2 in [MOBILE_PLATFORMS.md](../MOBILE_PLATFORMS.md)).
 
 4. **Native UI is never shared.** Android keeps Kotlin/Compose; iOS gets Swift/SwiftUI. Behavioral parity (chat, invites, bulletin scopes) is tested; layout and navigation may differ.
 
@@ -49,13 +49,13 @@
 ### Negative / tradeoffs
 
 - Two UI codebases to maintain for mobile.
-- `mycelium-ffi` init and `mycelium-desktop` startup are duplicated until Phase 2 extract.
+- `mycena-ffi` init and `mycena-desktop` startup are duplicated until Phase 2 extract.
 - iOS background mesh will be weaker than Android by OS policy—not fixable in architecture alone.
 
 ---
 
 ## Compliance
 
-- New mobile features: implement in `mycelium-app` if domain logic; expose via UDL if mobile needs it; UI only in `android/` or future `ios/`.
-- UDL changes require regenerating Kotlin bindings and updating `MyceliumBindings.kt`; document Swift impact in PR.
+- New mobile features: implement in `mycena-app` if domain logic; expose via UDL if mobile needs it; UI only in `android/` or future `ios/`.
+- UDL changes require regenerating Kotlin bindings and updating `MycenaBindings.kt`; document Swift impact in PR.
 - Do not add Android-only fields to UDL without marking them optional or usable on iOS.

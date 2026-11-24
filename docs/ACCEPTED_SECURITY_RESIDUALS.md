@@ -4,7 +4,7 @@
 
 **These residuals are not signed.** Empty names below mean **no** engineering/product/external sign-off has occurred. Do not treat this table as a release certificate.
 
-**GitHub technical-beta freeze disposition (2026-08-29):** Mycelium maintainers accept residuals **R1–R10** **unsigned** for a **GitHub-only technical preview beta** (not Play Store). Owner: Mycelium maintainers. Date: 2026-08-29. HEAD: `fb32b1e5c89b318e14b1adc2a76b7dcefac6b3ec`. This is **not** a release certificate, **not** an external audit, and **not** Play approval. Play public beta still requires named Engineering/Product signatures (and an external reviewer when that engagement exists). See [SECURITY_RELEASE_REVIEW.md](./SECURITY_RELEASE_REVIEW.md).
+**GitHub technical-beta freeze disposition (2026-08-29):** Mycena maintainers accept residuals **R1–R10** **unsigned** for a **GitHub-only technical preview beta** (not Play Store). Owner: Mycena maintainers. Date: 2026-08-29. HEAD: `fb32b1e5c89b318e14b1adc2a76b7dcefac6b3ec`. This is **not** a release certificate, **not** an external audit, and **not** Play approval. Play public beta still requires named Engineering/Product signatures (and an external reviewer when that engagement exists). See [SECURITY_RELEASE_REVIEW.md](./SECURITY_RELEASE_REVIEW.md).
 
 **Cross-ref:** [THREAT_MODEL.md](./THREAT_MODEL.md) §5 · [BETA_SECURITY_ASSESSMENT.md](./BETA_SECURITY_ASSESSMENT.md) · [SECURITY_RELEASE_REVIEW.md](./SECURITY_RELEASE_REVIEW.md)
 

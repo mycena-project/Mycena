@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Mycena launcher foreground (logo v4a). 108dp canvas, artwork inside the 66dp safe zone. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <group android:translateX="18" android:translateY="15" android:scaleX="0.36" android:scaleY="0.36">
+        <path android:pathData="M64 132 C74 141 89 141 99 132" android:strokeColor="#8AF0C0" android:strokeWidth="4" android:strokeLineCap="round" android:fillColor="#00000000"/>
+        <path android:pathData="M99 132 C110 141 126 141 136 132" android:strokeColor="#8AF0C0" android:strokeWidth="4" android:strokeLineCap="round" android:fillColor="#00000000"/>
+        <path android:pathData="M64 132 C56 142 44 146 30 145" android:strokeColor="#8AF0C0" android:strokeWidth="3.6" android:strokeLineCap="round" android:fillColor="#00000000"/>
+        <path android:pathData="M99 132 C97 146 90 158 80 166" android:strokeColor="#8AF0C0" android:strokeWidth="3.6" android:strokeLineCap="round" android:fillColor="#00000000"/>
+        <path android:pathData="M136 132 C142 144 154 150 170 148" android:strokeColor="#8AF0C0" android:strokeWidth="3.6" android:strokeLineCap="round" android:fillColor="#00000000"/>
+        <path android:pathData="M118 139 C120 150 126 158 134 162" android:strokeColor="#8AF0C0" android:strokeWidth="3" android:strokeLineCap="round" android:fillColor="#00000000"/>
+        <path android:pathData="M100 86 C99 102 101 118 99 132" android:strokeColor="#8AF0C0" android:strokeWidth="7" android:strokeLineCap="round" android:fillColor="#00000000"/>
+        <group android:translateX="12" android:pivotX="52" android:pivotY="132" android:rotation="-8"><path android:pathData="M52 116 C51 122 53 127 52 132" android:strokeColor="#8AF0C0" android:strokeWidth="5.5" android:strokeLineCap="round" android:fillColor="#00000000"/><path android:pathData="M39 115 C39 99 45 90 52 90 C59 90 65 99 65 115 C65 117 63 118 61 117.5 C58 116.7 55 116.3 52 116.3 C49 116.3 46 116.7 43 117.5 C41 118 39 117 39 115 Z" android:fillColor="#8AF0C0"/></group>
+        <group android:translateX="-12" android:pivotX="148" android:pivotY="132" android:rotation="8"><path android:pathData="M148 102 C147 112 149 122 147 132" android:strokeColor="#8AF0C0" android:strokeWidth="6" android:strokeLineCap="round" android:fillColor="#00000000"/><path android:pathData="M131 101 C131 80 139 68 148 68 C157 68 165 80 165 101 C165 104 162 105 159 104 C155 103 151.5 102.5 148 102.5 C144.5 102.5 141 103 137 104 C134 105 131 104 131 101 Z" android:fillColor="#8AF0C0"/></group>
+        <path android:pathData="M78 84 C78 58 88 44 100 44 C112 44 122 58 122 84 C122 88 118 89 114 88 C109 86.5 104.5 86 100 86 C95.5 86 91 86.5 86 88 C82 89 78 88 78 84 Z" android:fillColor="#8AF0C0"/>
+        <path android:pathData="M24,145 a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 M73.5,166 a6.5,6.5 0 1,0 13.0,0 a6.5,6.5 0 1,0 -13.0,0 M164,148 a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 M127.5,162 a6.5,6.5 0 1,0 13.0,0 a6.5,6.5 0 1,0 -13.0,0" android:fillColor="#F2B65A"/>
+    </group>
+</vector>

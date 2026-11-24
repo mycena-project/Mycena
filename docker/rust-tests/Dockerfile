@@ -2,7 +2,7 @@
 # Repo is bind-mounted at run time (see docker-compose.yml).
 #
 # Use **slim** base (much smaller pull than `rust:*-bookworm`) + GTK/WebKit dev
-# packages so `mycelium-desktop` (Tauri) links on Linux. Build context is only
+# packages so `mycena-desktop` (Tauri) links on Linux. Build context is only
 # this directory (see docker-compose.yml).
 
 FROM rust:1.83-slim-bookworm

@@ -1,13 +1,13 @@
-# Reproducible Mycelium core build environment (Android APK primary artifact).
+# Reproducible Mycena core build environment (Android APK primary artifact).
 #
 # Build:
-#   docker build -t mycelium-reproducible-build docker/reproducible-build
+#   docker build -t mycena-reproducible-build docker/reproducible-build
 #
 # Run (from repo root):
 #   ./scripts/reproducible-build.sh
 #
 # Recipe digest is computed from this directory + rust-toolchain.toml + Cargo.lock
-# (see mycelium_core::release_integrity::compute_build_recipe_digest).
+# (see mycena_core::release_integrity::compute_build_recipe_digest).
 
 FROM --platform=linux/amd64 debian:bookworm-slim
 
@@ -17,8 +17,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
     RUSTUP_HOME=/opt/rustup \
     CARGO_HOME=/opt/cargo
 
-COPY toolchain.env /etc/mycelium/toolchain.env
-RUN set -a && . /etc/mycelium/toolchain.env && set +a \
+COPY toolchain.env /etc/mycena/toolchain.env
+RUN set -a && . /etc/mycena/toolchain.env && set +a \
     && echo "NDK ${NDK_VERSION} Rust ${RUST_VERSION} epoch ${SOURCE_DATE_EPOCH}"
 
 ENV ANDROID_NDK_HOME=/opt/android-sdk/ndk/26.1.10909125
@@ -38,7 +38,7 @@ RUN apt-get update \
         git \
     && rm -rf /var/lib/apt/lists/*
 
-RUN set -a && . /etc/mycelium/toolchain.env && set +a \
+RUN set -a && . /etc/mycena/toolchain.env && set +a \
     && mkdir -p "${ANDROID_SDK_ROOT}/cmdline-tools" \
     && wget -q "https://dl.google.com/android/repository/${CMDLINE_TOOLS_ZIP}" -O /tmp/cmdline.zip \
     && unzip -q /tmp/cmdline.zip -d /tmp \
@@ -51,7 +51,7 @@ RUN set -a && . /etc/mycelium/toolchain.env && set +a \
         "ndk;${NDK_VERSION}" \
     && rm -rf "${ANDROID_SDK_ROOT}/.cache" /tmp/* /root/.android/cache 2>/dev/null || true
 
-RUN set -a && . /etc/mycelium/toolchain.env && set +a \
+RUN set -a && . /etc/mycena/toolchain.env && set +a \
     && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
         | sh -s -- -y --default-toolchain "${RUST_VERSION}" --profile minimal \
     && rustup component add rustfmt clippy \

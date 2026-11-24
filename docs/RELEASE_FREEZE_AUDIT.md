@@ -1,4 +1,4 @@
-# Mycelium Release Freeze Audit (G1)
+# Mycena Release Freeze Audit (G1)
 
 **Audit date:** 2026-08-29
 **Repository SHA audited:** `fb32b1e5c89b318e14b1adc2a76b7dcefac6b3ec` (`fb32b1e Free disk on rust-budget so hosted runners can link tests.`)
@@ -40,7 +40,7 @@ Status vocabulary: `PASS` · `PARTIAL` · `FAIL` · `UNVERIFIED` · `NOT APPLICA
 |-------|--------|
 | **Requirement** | Dated inventory; §11 contradictions disposed or explicitly kept. |
 | **Status** | `PARTIAL` |
-| **Evidence** | This file is the audit note. Crate map matches [architecture.md](./architecture.md) (13 workspace crates under `crates/`; **no** `mycelium-android` crate despite `android-ci.yml` path filter). Share **is on `main`** (see §4); stash `wip: android share` still exists — C6 is **not** “share only in stash.” §11 items are **not** disposed (no owner/decision). Layer-boundary script exists: `scripts/check-layer-boundaries.sh` (CI invokes it; this audit did not re-run it). |
+| **Evidence** | This file is the audit note. Crate map matches [architecture.md](./architecture.md) (13 workspace crates under `crates/`; **no** `mycena-android` crate despite `android-ci.yml` path filter). Share **is on `main`** (see §4); stash `wip: android share` still exists — C6 is **not** “share only in stash.” §11 items are **not** disposed (no owner/decision). Layer-boundary script exists: `scripts/check-layer-boundaries.sh` (CI invokes it; this audit did not re-run it). |
 | **Relevant files** | this file; `docs/architecture.md`; `.github/workflows/android-ci.yml`; `docs/WIP-ANDROID-SHARE-STASH.md` |
 | **Risk** | Public docs still contradict BLE/share/StrongBox. |
 | **Recommended action** | Dispose each §11 row (fix doc, fix code, or accept). Diff stash vs `main` without applying it as a feature dump. |
@@ -54,7 +54,7 @@ Status vocabulary: `PASS` · `PARTIAL` · `FAIL` · `UNVERIFIED` · `NOT APPLICA
 | **Requirement** | No known reproducible P0 crash on in-scope flows; permissions denial non-fatal; device logs. |
 | **Status** | `FAIL` |
 | **Evidence** | **No** device logcat, models, or pass/fail table in-repo. Instrumentation is only `MeshServiceInstrumentationTest` (manifest declaration). Identified **crash/hang risks** in §5 (API 26–32 Wi-Fi Direct `registerReceiver` flags overload; `MeshService` init failure leaves `nodeReady=false` forever). Android unit tests exist (`android/app/src/test/...`) but this audit **did not run** `./gradlew testDebugUnitTest`. |
-| **Relevant files** | `android/app/src/main/java/network/mycelium/app/MeshService.kt`; `MainActivity.kt`; `bootstrap/WifiDirectShareGroupHelper.kt`; `android/app/src/androidTest/.../MeshServiceInstrumentationTest.kt` |
+| **Relevant files** | `android/app/src/main/java/io/github/mycena_project/app/MeshService.kt`; `MainActivity.kt`; `bootstrap/WifiDirectShareGroupHelper.kt`; `android/app/src/androidTest/.../MeshServiceInstrumentationTest.kt` |
 | **Risk** | Shipping without device evidence; possible P0 crash on share fallback. |
 | **Recommended action** | Fix identified crash paths; then record G2 device matrix. |
 | **Priority** | P0 |
@@ -92,10 +92,10 @@ Status vocabulary: `PASS` · `PARTIAL` · `FAIL` · `UNVERIFIED` · `NOT APPLICA
 |-------|--------|
 | **Requirement** | Recorded CI on freeze SHA: Rust, Android unit tests, fuzz-pr, secret-scan; unwrap gates. |
 | **Status** | `UNVERIFIED` |
-| **Evidence** | Workflows **exist**: `.github/workflows/ci.yml` (fmt, unwrap scripts, `check-dependencies.sh`, clippy, nextest, MyceliumLab `sim_ci_gates`, SD-030-related security tests on budget job), `android-ci.yml` (assemble via `android/build.sh` + `testDebugUnitTest`), `fuzz-pr.yml` (`FUZZ_SECONDS=45`, four targets — **YAML is authority**, not FUZZING.md’s 90s), `secret-scan.yml` (gitleaks). Android CI is **path-filtered** unless `MYCELIUM_CI_TIER=full`. **No** job URL or log for SHA `fb32b1e` is in this tree. This audit did **not** run tests. |
+| **Evidence** | Workflows **exist**: `.github/workflows/ci.yml` (fmt, unwrap scripts, `check-dependencies.sh`, clippy, nextest, MycenaLab `sim_ci_gates`, SD-030-related security tests on budget job), `android-ci.yml` (assemble via `android/build.sh` + `testDebugUnitTest`), `fuzz-pr.yml` (`FUZZ_SECONDS=45`, four targets — **YAML is authority**, not FUZZING.md’s 90s), `secret-scan.yml` (gitleaks). Android CI is **path-filtered** unless `MYCENA_CI_TIER=full`. **No** job URL or log for SHA `fb32b1e` is in this tree. This audit did **not** run tests. |
 | **Relevant files** | `.github/workflows/ci.yml`; `android-ci.yml`; `fuzz-pr.yml`; `secret-scan.yml` |
 | **Risk** | Docs-only PRs skip Rust/Android; freeze SHA might never have been Android-built. |
-| **Recommended action** | Record CI URLs for the freeze candidate; set `MYCELIUM_CI_TIER=full` when public. |
+| **Recommended action** | Record CI URLs for the freeze candidate; set `MYCENA_CI_TIER=full` when public. |
 | **Priority** | P0 (evidence) / P1 (full tier) |
 | **Blocks freeze** | Yes until a freeze SHA has recorded CI |
 
@@ -118,7 +118,7 @@ Status vocabulary: `PASS` · `PARTIAL` · `FAIL` · `UNVERIFIED` · `NOT APPLICA
 |-------|--------|
 | **Requirement** | Internal review; P0 mitigations not regressed; dependencies; residuals signed or deferred; secret scan. |
 | **Status** | `PARTIAL` |
-| **Evidence** | Registers exist. SD-030 tests in `crates/mycelium-node/tests/sd030_unsigned_drop.rs`. SD-081 fail-closed in `crates/mycelium-app/src/node.rs` + Android `ChatViewModel.sendChat` uses `sendChatEncrypted`. SD-171: `android:allowBackup="false"` + `backup_rules.xml`. SD-041 mini-app tests exist (not re-run). [ACCEPTED_SECURITY_RESIDUALS.md](./ACCEPTED_SECURITY_RESIDUALS.md) **unsigned**. Advisory allowlist `review_by` **2026-09-30** (future as of audit date 2026-08-29 — not expired yet). `cargo vet` **absent**. Dependabot **absent**. SBOM/reproducible **scripts and release.yml exist**; SD-150 row still says they are missing. External review **not commissioned**. Secret-scan workflow exists; no log for this SHA. |
+| **Evidence** | Registers exist. SD-030 tests in `crates/mycena-node/tests/sd030_unsigned_drop.rs`. SD-081 fail-closed in `crates/mycena-app/src/node.rs` + Android `ChatViewModel.sendChat` uses `sendChatEncrypted`. SD-171: `android:allowBackup="false"` + `backup_rules.xml`. SD-041 mini-app tests exist (not re-run). [ACCEPTED_SECURITY_RESIDUALS.md](./ACCEPTED_SECURITY_RESIDUALS.md) **unsigned**. Advisory allowlist `review_by` **2026-09-30** (future as of audit date 2026-08-29 — not expired yet). `cargo vet` **absent**. Dependabot **absent**. SBOM/reproducible **scripts and release.yml exist**; SD-150 row still says they are missing. External review **not commissioned**. Secret-scan workflow exists; no log for this SHA. |
 | **Relevant files** | `docs/SECURITY_DEBT_REGISTER.md`; `deny.toml`; `docs/DEPENDENCY_ADVISORY_ALLOWLIST.tsv`; `ACCEPTED_SECURITY_RESIDUALS.md` |
 | **Risk** | Stale debt rows; unsigned residuals; supply-chain story inconsistent. |
 | **Recommended action** | Snapshot register; run `check-dependencies.sh` and record output; sign or explicitly defer residuals for GitHub-only beta; refresh SD-150. |
@@ -131,7 +131,7 @@ Status vocabulary: `PASS` · `PARTIAL` · `FAIL` · `UNVERIFIED` · `NOT APPLICA
 |-------|--------|
 | **Requirement** | Safe to set Public; no secrets; license; security contact; CI_PUBLIC_TRANSITION checklist. |
 | **Status** | `PARTIAL` |
-| **Evidence** | `LICENSE` (AGPL) present. `SECURITY.md` has `security@example.invalid`. `.gitignore` covers `.env`, `*.jks`, `android/local.properties`, `secrets/`. `android/local.properties` exists **locally** (SDK path) and is **not** git-tracked (`git ls-files` empty). Play workflow references **GitHub secrets names only** (not values). [CI_PUBLIC_TRANSITION.md](./CI_PUBLIC_TRANSITION.md) checkboxes **unchecked**. No `.github/dependabot.yml` despite SD-150 “re-enable at public launch.” Git stash with unpublished WIP is **local-only** (not in the published tree) but maintainers must not `stash apply` secrets. Fly relay hostname appears in README as **public** bootstrap (`mycelium-relay.fly.dev`) — expected, not a credential. |
+| **Evidence** | `LICENSE` (AGPL) present. `SECURITY.md` has `github.com/mycena-project/Mycena/security/advisories/new`. `.gitignore` covers `.env`, `*.jks`, `android/local.properties`, `secrets/`. `android/local.properties` exists **locally** (SDK path) and is **not** git-tracked (`git ls-files` empty). Play workflow references **GitHub secrets names only** (not values). [CI_PUBLIC_TRANSITION.md](./CI_PUBLIC_TRANSITION.md) checkboxes **unchecked**. No `.github/dependabot.yml` despite SD-150 “re-enable at public launch.” Git stash with unpublished WIP is **local-only** (not in the published tree) but maintainers must not `stash apply` secrets. Fly relay hostname appears in README as **public** bootstrap (`mycena-relay.fly.dev`) — expected, not a credential. |
 | **Relevant files** | `LICENSE`; `SECURITY.md`; `.gitignore`; `docs/CI_PUBLIC_TRANSITION.md` |
 | **Risk** | Private CI budget left on after going public; Dependabot never enabled. |
 | **Recommended action** | Fill CI_PUBLIC_TRANSITION on the day of; add or explicitly reject Dependabot; do not publish stash contents blindly. |
@@ -174,7 +174,7 @@ Status vocabulary: `PASS` · `PARTIAL` · `FAIL` · `UNVERIFIED` · `NOT APPLICA
 |-------|--------|
 | **Requirement** | Fresh install launches; `MeshService` FGS; Rust node initializes. |
 | **Status** | `UNVERIFIED` |
-| **Evidence** | `MainActivity` starts FGS then waits on `MeshService.isNodeReady()`. `MeshService.onStartCommand` calls `startForeground` then `mycelium.initNode(...)`. Init `catch` logs and returns `START_STICKY` **without** setting `nodeReady` → UI **spins forever** (hang, not crash). No device proof. |
+| **Evidence** | `MainActivity` starts FGS then waits on `MeshService.isNodeReady()`. `MeshService.onStartCommand` calls `startForeground` then `mycena.initNode(...)`. Init `catch` logs and returns `START_STICKY` **without** setting `nodeReady` → UI **spins forever** (hang, not crash). No device proof. |
 | **Relevant files** | `MainActivity.kt`; `MeshService.kt` |
 | **Risk** | Failed native init looks like a freeze. FGS without notification permission on API 33+ may still start; notification may be hidden. |
 | **Recommended action** | Surface init failure in UI; record two successful cold starts on two API levels. |
@@ -226,7 +226,7 @@ Status vocabulary: `PASS` · `PARTIAL` · `FAIL` · `UNVERIFIED` · `NOT APPLICA
 |-------|--------|
 | **Requirement** | BLE mesh on hardware matrix devices. |
 | **Status** | `UNVERIFIED` |
-| **Evidence** | Substantial Kotlin: `BleBootstrapAdvertiser`, `BleBootstrapScanner` (null adapter → **return**, no crash), `BleInviteGattServer`, F2/F3 relay. Permissions requested from **Settings** BLE toggle, not at share/startup. Scanner unit tests for UUID. **No** two-phone BLE-air record. Desktop BLE **code exists** (`crates/mycelium-desktop/src/ble/host.rs`, `blew` crate) — contradicts KNOWN_LIMITATIONS “Mac BLE not active” (C1). |
+| **Evidence** | Substantial Kotlin: `BleBootstrapAdvertiser`, `BleBootstrapScanner` (null adapter → **return**, no crash), `BleInviteGattServer`, F2/F3 relay. Permissions requested from **Settings** BLE toggle, not at share/startup. Scanner unit tests for UUID. **No** two-phone BLE-air record. Desktop BLE **code exists** (`crates/mycena-desktop/src/ble/host.rs`, `blew` crate) — contradicts KNOWN_LIMITATIONS “Mac BLE not active” (C1). |
 | **Relevant files** | `MeshService.kt` `updateBleBootstrap`; `docs/adr/002-ble-mesh-transport.md` |
 | **Risk** | README implies pocket mesh; WORK_REMAINING still wants BLE drill. |
 | **Recommended action** | Device drill **or** soften user-facing BLE claims. |
@@ -252,8 +252,8 @@ Status vocabulary: `PASS` · `PARTIAL` · `FAIL` · `UNVERIFIED` · `NOT APPLICA
 |-------|--------|
 | **Requirement** | Encrypted 1:1 when keys known; no plaintext send; reconnect without re-scan. |
 | **Status** | `PARTIAL` |
-| **Evidence** | `sendChatEncrypted` only in `ChatViewModel`. Rust `enc_key_not_yet_exchanged` tests in `mycelium-app`. Reconnect (A2 #5) **not** device-tested. |
-| **Relevant files** | `ChatViewModel.kt`; `crates/mycelium-app/src/node.rs` |
+| **Evidence** | `sendChatEncrypted` only in `ChatViewModel`. Rust `enc_key_not_yet_exchanged` tests in `mycena-app`. Reconnect (A2 #5) **not** device-tested. |
+| **Relevant files** | `ChatViewModel.kt`; `crates/mycena-app/src/node.rs` |
 | **Risk** | Regression only caught if CI runs those tests on freeze SHA. |
 | **Recommended action** | Confirm CI includes app crate tests; device A2-5. |
 | **Priority** | P0 |
@@ -269,7 +269,7 @@ See **§4** (detailed). Overall: `FAIL` for freeze (no E2E evidence + blocking d
 |-------|--------|
 | **Requirement** | Contacts, keys, chat survive restart. |
 | **Status** | `UNVERIFIED` |
-| **Evidence** | sled path `filesDir/mycelium`; `StorageKeyHelper` EncryptedSharedPreferences + `setRequestStrongBoxBacked(true)` with software fallback. Identity keys still file-based (`.secrets/*.enc`). No restart test record. |
+| **Evidence** | sled path `filesDir/mycena`; `StorageKeyHelper` EncryptedSharedPreferences + `setRequestStrongBoxBacked(true)` with software fallback. Identity keys still file-based (`.secrets/*.enc`). No restart test record. |
 | **Relevant files** | `StorageKeyHelper.kt`; `IdentityHelper.kt`; `docs/SECURE_HARDWARE_STATUS.md` |
 | **Risk** | C8 docs vs code: StrongBox **is requested for MasterKey**, not identity keys. |
 | **Recommended action** | Device restart test; align C8 docs. |
@@ -295,7 +295,7 @@ See **§4** (detailed). Overall: `FAIL` for freeze (no E2E evidence + blocking d
 |-------|--------|
 | **Requirement** | Local wipe of messages, identity, ledger; UI discloses mesh copies remain. |
 | **Status** | `PARTIAL` |
-| **Evidence** | `LocalDataWiper.wipeAllLocalData` stops node, deletes DB dir (retry 5×), clears prefs, `StorageKeyHelper.clear`. CLI `mycelium panic` uses `wipe_node_directory`. Confirm dialog: “cannot be undone” — **does not** say copies on other devices persist. KNOWN_LIMITATIONS has that sentence; **Settings UI does not**. If delete fails after retries, code **logs and continues** (user may think wipe succeeded). |
+| **Evidence** | `LocalDataWiper.wipeAllLocalData` stops node, deletes DB dir (retry 5×), clears prefs, `StorageKeyHelper.clear`. CLI `mycena panic` uses `wipe_node_directory`. Confirm dialog: “cannot be undone” — **does not** say copies on other devices persist. KNOWN_LIMITATIONS has that sentence; **Settings UI does not**. If delete fails after retries, code **logs and continues** (user may think wipe succeeded). |
 | **Relevant files** | `LocalDataWiper.kt`; `SettingsScreen.kt` `PanicWipeSection`; `values/strings.xml` |
 | **Risk** | False sense of remote erasure; incomplete wipe on file lock. |
 | **Recommended action** | Add mesh-copies sentence to panic UI; fail the flow if DB still exists; device-test. |
@@ -577,7 +577,7 @@ Share **is implemented on `main`**. The 2026-08-01 stash note is **stale as a �
 |-------|--------|
 | **Requirement** | Browser download + unknown-sources; first launch joins mesh. |
 | **Status** | `FAIL` |
-| **Evidence** | Landing HTML “Install Mycelium” → `/mycelium.apk`. **No** in-app `REQUEST_INSTALL_PACKAGES` (correct for Device B without Mycelium). Landing page does **not** mention “allow unknown apps.” Bootstrap JS auto-download to browser Downloads. `OfflineBootstrap` cannot reliably read that (AUD-P2P-17). No install-permission activity in Mycelium for Device B. |
+| **Evidence** | Landing HTML “Install Mycena” → `/mycena.apk`. **No** in-app `REQUEST_INSTALL_PACKAGES` (correct for Device B without Mycena). Landing page does **not** mention “allow unknown apps.” Bootstrap JS auto-download to browser Downloads. `OfflineBootstrap` cannot reliably read that (AUD-P2P-17). No install-permission activity in Mycena for Device B. |
 | **Relevant files** | `WifiDirectSharer.kt`; `OfflineBootstrap.kt` |
 | **Risk** | User installs APK, skips mesh join, thinks share “worked.” |
 | **Recommended action** | UX copy for unknown sources; sidecar via intent extra / nearby file in app storage; first-run paste invite fallback. |
@@ -603,8 +603,8 @@ Share **is implemented on `main`**. The 2026-08-01 stash note is **stale as a �
 |-------|--------|
 | **Requirement** | Signed invite sidecar; no code execution. |
 | **Status** | `PARTIAL` |
-| **Evidence** | `refreshBootstrapSidecar`: if `!MeshService.isNodeReady()` → **null sidecar** (empty 200). `mycelium.buildOfflineShareBootstrapSidecar(installUrl)` when ready. JSON invite — not executable (agree with OFFLINE_DISTRIBUTION). Doc remaining gap: hotspot before node ready. |
-| **Relevant files** | `ShareAppViewModel.kt`; `crates/mycelium-app` offline share |
+| **Evidence** | `refreshBootstrapSidecar`: if `!MeshService.isNodeReady()` → **null sidecar** (empty 200). `mycena.buildOfflineShareBootstrapSidecar(installUrl)` when ready. JSON invite — not executable (agree with OFFLINE_DISTRIBUTION). Doc remaining gap: hotspot before node ready. |
+| **Relevant files** | `ShareAppViewModel.kt`; `crates/mycena-app` offline share |
 | **Risk** | APK shares without join credentials. |
 | **Recommended action** | Block “ready to share” until sidecar non-empty **or** show warning. |
 | **Priority** | P0 |
@@ -614,7 +614,7 @@ Share **is implemented on `main`**. The 2026-08-01 stash note is **stale as a �
 
 | Field | Value |
 |-------|--------|
-| **Requirement** | First launch imports `mycelium-bootstrap.myc`. |
+| **Requirement** | First launch imports `mycena-bootstrap.myc`. |
 | **Status** | `FAIL` |
 | **Evidence** | `Environment.getExternalStoragePublicDirectory(DIRECTORY_DOWNLOADS)` listFiles. Manifest has **no** `READ_EXTERNAL_STORAGE` / `READ_MEDIA_*` / `MANAGE_EXTERNAL_STORAGE`. On API 29+ scoped storage, Chrome downloads are **not** listable. Import-once flag can stick on failure paths only if prefs written — failure returns null without setting imported. |
 | **Relevant files** | `OfflineBootstrap.kt`; `AndroidManifest.xml` |
@@ -663,7 +663,7 @@ Unsafe platform APIs of note: deprecated Wi-Fi `disconnect`/`enableNetwork`; `Lo
 
 | ID | Requirement | Status | Evidence |
 |----|-------------|--------|----------|
-| AUD-REL-01 | What APK is shared / released | `PASS` (fact) | **Debug** `android/app/build/outputs/apk/debug/app-debug.apk`, renamed `mycelium-${TAG}-android.apk` in reproducible script and GitHub Release. In-app share serves **installed** `packageCodePath`. |
+| AUD-REL-01 | What APK is shared / released | `PASS` (fact) | **Debug** `android/app/build/outputs/apk/debug/app-debug.apk`, renamed `mycena-${TAG}-android.apk` in reproducible script and GitHub Release. In-app share serves **installed** `packageCodePath`. |
 | AUD-REL-02 | Base vs complete artifact | `PARTIAL` | Debug/universal APK is a **complete** APK (3 ABIs, no splits). Not an Android App Bundle. |
 | AUD-REL-03 | Play/AAB split problems | `DEFERRED` / trap | Play workflow builds **signed AAB**. Sharing from a Play install would serve a **split base APK** → install failure. Freeze must not mix Play install + share. |
 | AUD-REL-04 | Signing | `PARTIAL` | Debug keystore (Gradle default) for freeze APK. Release signingConfig only if `android.injected.signing.store.file` (Play workflow). Two trust roots if both exist. |
@@ -696,7 +696,7 @@ Unsafe platform APIs of note: deprecated Wi-Fi `disconnect`/`enableNetwork`; `Lo
 
 | ID | Status | Audit note |
 |----|--------|------------|
-| C1 Desktop BLE | **Keep open** | **Code:** `DesktopBleHost` + `blew` in `mycelium-desktop`. **Docs:** KNOWN_LIMITATIONS still “not active.” Prefer **code**; fix KNOWN_LIMITATIONS **or** prove host is stub-only at runtime (UNVERIFIED). |
+| C1 Desktop BLE | **Keep open** | **Code:** `DesktopBleHost` + `blew` in `mycena-desktop`. **Docs:** KNOWN_LIMITATIONS still “not active.” Prefer **code**; fix KNOWN_LIMITATIONS **or** prove host is stub-only at runtime (UNVERIFIED). |
 | C2 CONNECTIVITY stub vs shipped | **Keep open** | Same file conflict; desktop module is real source, not a stub file. |
 | C3 Disaster mesh intro vs table | **Keep open** | Intro sentence stale if blew host works. |
 | C4 Resource map UI | **Keep open** | Need UI grep in a later task; not blocking G3. |
@@ -722,7 +722,7 @@ Unsafe platform APIs of note: deprecated Wi-Fi `disconnect`/`enableNetwork`; `Lo
 
 | Layer | What exists | Gap |
 |-------|-------------|-----|
-| Rust | Workspace nextest in CI; SD-030 integration test; MyceliumLab gates; fuzz PR smoke | No log for this SHA |
+| Rust | Workspace nextest in CI; SD-030 integration test; MycenaLab gates; fuzz PR smoke | No log for this SHA |
 | Android unit | Permissions, onboarding copy, BLE UUID, **HTTP header strings**, Wi-Fi QR, thermal, activity profile | **No** hotspot/server/instrumented share tests |
 | Android instrumented | Manifest service declared | Does not start node |
 | Hardware | Pixel 6 battery VALID runs | Not freeze matrix |
@@ -779,7 +779,7 @@ Dependency-aware **next Cursor tasks** (do **not** start them in this audit):
 6. **G5 evidence** — Run/record `cargo nextest`, `android-ci`, fuzz-pr, gitleaks, `check-dependencies.sh` on the post-fix SHA.
 7. **G3+G6 hardware** — Two phones (include one Samsung or write exception): share, LAN chat, panic, reinstall, optional BLE-air.
 8. **G4** — Samsung idle/FGS/hotspot or public “untested” sentence.
-9. **G7/G8** — Residual deferral writing; Dependabot or SD-150 update; CI_PUBLIC_TRANSITION when flipping public; `MYCELIUM_CI_TIER=full`.
+9. **G7/G8** — Residual deferral writing; Dependabot or SD-150 update; CI_PUBLIC_TRANSITION when flipping public; `MYCENA_CI_TIER=full`.
 10. **G9 tag + G10** — Only after evidence exists.
 
 Do not implement those tasks in the same change as this audit.

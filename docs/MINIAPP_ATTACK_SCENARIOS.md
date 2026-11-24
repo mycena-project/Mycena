@@ -1,4 +1,4 @@
-# Mycelium Mini-App — Attack Scenarios
+# Mycena Mini-App — Attack Scenarios
 
 **Purpose:** Red-team catalog for Cell runtime — each scenario maps to mitigations and current gaps.  
 **Companion:** [SECURITY_DEBT_REGISTER.md](./SECURITY_DEBT_REGISTER.md) · [MINIAPP_RUNTIME_HARDENING.md](./MINIAPP_RUNTIME_HARDENING.md)
@@ -57,7 +57,7 @@
 | **Severity** | High |
 | **Attacker** | Malicious HTML/inline script |
 | **Path** | CSP allows `unsafe-inline` |
-| **Steps** | 1. Inject script via bulletin-rendered HTML or app UI. 2. Call `window.mycelium` freely. |
+| **Steps** | 1. Inject script via bulletin-rendered HTML or app UI. 2. Call `window.mycena` freely. |
 | **Impact** | All granted permissions used without user intent |
 | **Target mitigation** | CSP nonces; strict script-src |
 | **Today** | Network blocked; strict CSP nonces; inline scripts rejected at install |
@@ -207,7 +207,7 @@
 | **Severity** | Medium |
 | **Attacker** | Malicious desktop UI XSS |
 | **Path** | `postMessage(..., "*")` |
-| **Steps** | Parent page script forges `__mycelium_call` |
+| **Steps** | Parent page script forges `__mycena_call` |
 | **Impact** | Bridge calls as app |
 | **Target mitigation** | Origin check + fixed targetOrigin |
 | **Today** | iframe source check on receive ✓; target `*` |
@@ -221,8 +221,8 @@
 |-------|--------|
 | **Severity** | Low |
 | **Attacker** | Other WebView in app (if any) |
-| **Path** | `@JavascriptInterface MyceliumMiniapp` |
-| **Steps** | Secondary WebView tries `MyceliumMiniapp.onNativeCall` |
+| **Path** | `@JavascriptInterface MycenaMiniapp` |
+| **Steps** | Secondary WebView tries `MycenaMiniapp.onNativeCall` |
 | **Impact** | Bridge calls if reachable |
 | **Target mitigation** | `@JavascriptInterface` only on dedicated WebView; ProGuard |
 | **Today** | Single mini-app WebView |

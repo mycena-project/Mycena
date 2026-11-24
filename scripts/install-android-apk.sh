@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install Mycelium debug APK on a USB-connected device via adb.
+# Install Mycena debug APK on a USB-connected device via adb.
 #
 # Usage:
 #   ./scripts/install-android-apk.sh                 # local build output
@@ -16,9 +16,9 @@ DO_BUILD=0
 FROM_GITHUB=0
 TRIGGER_GITHUB=0
 NO_REPLACE=0
-PACKAGE="${MYCELIUM_ANDROID_PACKAGE:-network.mycelium.app}"
-REPO="${MYCELIUM_GITHUB_REPO:-the maintainer/Mycelium}"
-ARTIFACT="${MYCELIUM_ANDROID_ARTIFACT:-mycelium-debug-apk}"
+PACKAGE="${MYCENA_ANDROID_PACKAGE:-io.github.mycena_project.app}"
+REPO="${MYCENA_GITHUB_REPO:-mycena-project/Mycena}"
+ARTIFACT="${MYCENA_ANDROID_ARTIFACT:-mycena-debug-apk}"
 # Workflows that upload the debug APK (in priority order).
 WORKFLOWS=("android-debug-apk.yml" "android-ci.yml")
 
@@ -147,4 +147,4 @@ install_apk() {
 
 echo "Installing $APK …"
 install_apk
-echo "Done. Open Mycelium on the device; version is shown under Settings."
+echo "Done. Open Mycena on the device; version is shown under Settings."

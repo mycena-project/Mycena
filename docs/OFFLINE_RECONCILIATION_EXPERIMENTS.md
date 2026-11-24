@@ -82,7 +82,7 @@ Reduces long-term hoarding on device.
 
 ## Sim harness suggestions
 
-Extend `mycelium-sim` with:
+Extend `mycena-sim` with:
 
 1. Two partitions, one double-spend, merge event  
 2. Measure victim balance under caps  

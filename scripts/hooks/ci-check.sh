@@ -18,14 +18,14 @@ echo "ci-check: unwrap / invariant / deps gates"
 ./scripts/check-dependencies.sh
 
 echo "ci-check: cargo clippy (budget: exclude desktop)"
-cargo clippy --workspace --exclude mycelium-desktop --all-targets -- -D warnings
+cargo clippy --workspace --exclude mycena-desktop --all-targets -- -D warnings
 
 if command -v cargo-nextest >/dev/null 2>&1 || cargo nextest --version >/dev/null 2>&1; then
   echo "ci-check: cargo nextest (lib, budget profile)"
-  cargo nextest run --workspace --exclude mycelium-desktop --lib --profile ci-budget
+  cargo nextest run --workspace --exclude mycena-desktop --lib --profile ci-budget
 else
   echo "ci-check: cargo test --lib (nextest not installed)"
-  cargo test --workspace --exclude mycelium-desktop --lib
+  cargo test --workspace --exclude mycena-desktop --lib
 fi
 
-echo "ci-check: OK (matches Mycelium CI budget tier)"
+echo "ci-check: OK (matches Mycena CI budget tier)"

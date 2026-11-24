@@ -1,5 +1,5 @@
 [package]
-name = "mycelium-fuzz"
+name = "mycena-fuzz"
 version = "0.0.0"
 publish = false
 edition = "2021"
@@ -11,17 +11,17 @@ cargo-fuzz = true
 libfuzzer-sys = "0.4"
 bincode = "1.3"
 
-[dependencies.mycelium-core]
-path = "../crates/mycelium-core"
+[dependencies.mycena-core]
+path = "../crates/mycena-core"
 
-[dependencies.mycelium-node]
-path = "../crates/mycelium-node"
+[dependencies.mycena-node]
+path = "../crates/mycena-node"
 
-[dependencies.mycelium-coin]
-path = "../crates/mycelium-coin"
+[dependencies.mycena-coin]
+path = "../crates/mycena-coin"
 
-[dependencies.mycelium-miniapp]
-path = "../crates/mycelium-miniapp"
+[dependencies.mycena-miniapp]
+path = "../crates/mycena-miniapp"
 
 [[bin]]
 name = "fuzz_envelope"

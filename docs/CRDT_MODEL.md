@@ -1,11 +1,11 @@
-# CRDT merge model (Mycelium mesh)
+# CRDT merge model (Mycena mesh)
 
 **Status:** Implemented (core types + local storage integration)  
 **Last updated:** 2026-07-05
 
-Mycelium is offline-first and partition-tolerant. [`consistency.rs`](../crates/mycelium-core/src/consistency.rs) tags operations by guarantee; this document specifies **how** eventually-consistent state converges.
+Mycena is offline-first and partition-tolerant. [`consistency.rs`](../crates/mycena-core/src/consistency.rs) tags operations by guarantee; this document specifies **how** eventually-consistent state converges.
 
-Implementation: [`crates/mycelium-core/src/crdt/`](../crates/mycelium-core/src/crdt/)
+Implementation: [`crates/mycena-core/src/crdt/`](../crates/mycena-core/src/crdt/)
 
 ---
 
@@ -33,7 +33,7 @@ Each local write calls `HlcClock::tick(now_ms())`. On merge, `observe(remote_ts)
 | `account_id` | `LwwRegister<Option<String>>` | SD-190 account binding |
 | `previous_peer_ids` | `OrSet<String>` | Transport rotation history |
 
-Wire type: [`ContactDocument`](../crates/mycelium-core/src/crdt/contact.rs).  
+Wire type: [`ContactDocument`](../crates/mycena-core/src/crdt/contact.rs).  
 App storage merges via `AppStorage::merge_contact_document` and assigns HLC on every upsert.
 
 **Not used:** single global LWW on the whole contact object (would drop concurrent field edits).
@@ -115,14 +115,14 @@ This is intentional: marketplace inventory is a **conservation** constraint (uni
 | CRDT | Transport | Scope / body tag | Op constant |
 |------|-----------|------------------|-------------|
 | `ContactDocument` | Direct (pairwise) | `[contact:crdt]` | `OP_CONTACT_UPSERT` |
-| `GroupDocument` | Gossip | `mycelium/group-meta/{id}` · `[crdt:group:{id}]` | `OP_GROUP_MEMBERSHIP` |
-| `MarketplaceStock` | Gossip | `mycelium/marketplace/stock/v1` · `[crdt:stock:{listing_id}]` | `OP_MARKETPLACE_STOCK` |
+| `GroupDocument` | Gossip | `mycena/group-meta/{id}` · `[crdt:group:{id}]` | `OP_GROUP_MEMBERSHIP` |
+| `MarketplaceStock` | Gossip | `mycena/marketplace/stock/v1` · `[crdt:stock:{listing_id}]` | `OP_MARKETPLACE_STOCK` |
 
 **Contacts:** After signed `ContactHello`, each peer pushes their contact-book entry for the other party (`merge_contact_document` on receive). Docs about `local_peer_id` are ignored.
 
 **Groups:** `record_group_peer_seen` publishes the merged `GroupDocument` after OR-Set updates (group chat ingress + local sends).
 
-**Marketplace:** MeshMarket calls `window.mycelium.marketplaceStock.*` (bridge → `AppStorage` PN-Counter). Every init/sale/restock/resolve gossips the full counter; receive path calls `merge_marketplace_stock` and surfaces `StockQuantity::Conflict` in the UI.
+**Marketplace:** MeshMarket calls `window.mycena.marketplaceStock.*` (bridge → `AppStorage` PN-Counter). Every init/sale/restock/resolve gossips the full counter; receive path calls `merge_marketplace_stock` and surfaces `StockQuantity::Conflict` in the UI.
 
 Bridge methods: `marketplace.stock.get|init|record_sale|record_restock|resolve` (requires mini-app `Storage` permission).
 

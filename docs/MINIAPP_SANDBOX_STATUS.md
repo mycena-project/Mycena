@@ -8,7 +8,7 @@
 
 ## 1. Executive Summary
 
-Mycelium unterstützt jetzt ein **Hybrid-Runtime-Modell**:
+Mycena unterstützt jetzt ein **Hybrid-Runtime-Modell**:
 
 | `runtime` | Gast-Logik | UI | Status |
 |-----------|------------|-----|--------|
@@ -17,11 +17,11 @@ Mycelium unterstützt jetzt ein **Hybrid-Runtime-Modell**:
 
 **Neu implementiert (Jul 2026):**
 
-- `wasmtime` v36 as Feature `wasm-runtime` (Default) in `mycelium-miniapp`
+- `wasmtime` v36 as Feature `wasm-runtime` (Default) in `mycena-miniapp`
 - **Fuel-Metering** — deterministisches CPU-Budget pro Invocation
 - **Memory-Limit** — `ResourceLimiter` auf `Store` (Default 16 MiB linear memory)
 - **Execution-Timeout** — Epoch-Interruption + Wall-Clock-Watcher (Default 5 s)
-- **Bridge-Import** — `mycelium.bridge_call` delegiert an `BridgeHost` (Session-Injection)
+- **Bridge-Import** — `mycena.bridge_call` delegiert an `BridgeHost` (Session-Injection)
 - **Migration** — Manifest/Bundle/Scan/SDK akzeptieren `runtime: "wasm"`; WebView-Apps unverändert
 
 ---
@@ -69,7 +69,7 @@ Mycelium unterstützt jetzt ein **Hybrid-Runtime-Modell**:
 
 ```text
 runtime: "webview"  →  WebView (HTML/JS)  →  Bridge  →  BridgeHost
-runtime: "wasm"     →  wasmtime (guest.wasm)  →  mycelium.bridge_call  →  BridgeHost
+runtime: "wasm"     →  wasmtime (guest.wasm)  →  mycena.bridge_call  →  BridgeHost
                        optional: ui/index.html  →  WebView (nur UI)
 ```
 
@@ -77,14 +77,14 @@ runtime: "wasm"     →  wasmtime (guest.wasm)  →  mycelium.bridge_call  →  
 
 | Datei | Rolle |
 |-------|--------|
-| `crates/mycelium-miniapp/src/wasm_runtime.rs` | wasmtime Engine, Fuel, Memory, Epoch, Host-Import |
-| `crates/mycelium-miniapp/src/runtime.rs` | `GuestRuntime`, `invoke_wasm_run`, Bundle-Helfer |
-| `crates/mycelium-miniapp/src/manifest.rs` | `runtime: "webview" \| "wasm"`, Entry-Validierung |
-| `crates/mycelium-miniapp/src/bundle_scan.rs` | `.wasm` erlaubt, Magic-Check, Hybrid-HTML-Scan |
-| `crates/mycelium-app/src/wasm_bridge_host.rs` | `run_wasm_guest_for_app` + Bridge-Delegation |
-| `crates/mycelium-app/src/bridge_host.rs` | Unverändertes Permission-/Rate-Modell |
-| `crates/mycelium-desktop` | `miniapp_get_runtime`, `miniapp_invoke_wasm_run` |
-| `crates/mycelium-ffi` + Android AIDL | Gleiche FFI für isolierten `:miniapp`-Prozess |
+| `crates/mycena-miniapp/src/wasm_runtime.rs` | wasmtime Engine, Fuel, Memory, Epoch, Host-Import |
+| `crates/mycena-miniapp/src/runtime.rs` | `GuestRuntime`, `invoke_wasm_run`, Bundle-Helfer |
+| `crates/mycena-miniapp/src/manifest.rs` | `runtime: "webview" \| "wasm"`, Entry-Validierung |
+| `crates/mycena-miniapp/src/bundle_scan.rs` | `.wasm` erlaubt, Magic-Check, Hybrid-HTML-Scan |
+| `crates/mycena-app/src/wasm_bridge_host.rs` | `run_wasm_guest_for_app` + Bridge-Delegation |
+| `crates/mycena-app/src/bridge_host.rs` | Unverändertes Permission-/Rate-Modell |
+| `crates/mycena-desktop` | `miniapp_get_runtime`, `miniapp_invoke_wasm_run` |
+| `crates/mycena-ffi` + Android AIDL | Gleiche FFI für isolierten `:miniapp`-Prozess |
 | `crates/miniapp-sdk` | `lint` akzeptiert `wasm` + scan |
 
 ### 3.2 Default-Limits (WASM)
@@ -112,7 +112,7 @@ Fuel und Epoch-Timeout sind **komplementär**: Fuel = deterministisches CPU-Budg
 
 ### 4.2 Neue WASM-Miniapps
 
-`mycelium-app.json`:
+`mycena-app.json`:
 
 ```json
 {
@@ -128,13 +128,13 @@ Optional Hybrid-UI:
 ```text
 guest.wasm          # Logik (export "run" → i32)
 ui/index.html       # Deklarative UI, Bridge für API
-mycelium-app.json   # runtime: "wasm", entry: "guest.wasm"
+mycena-app.json   # runtime: "wasm", entry: "guest.wasm"
 ```
 
 Gast-Bridge (WAT/ Rust/ TinyGo):
 
 ```text
-(import "mycelium" "bridge_call"
+(import "mycena" "bridge_call"
   (func $bridge (param i32 i32 i32 i32 i32 i32) (result i32)))
 ```
 
@@ -156,13 +156,13 @@ SDK: `miniapp-sdk lint bundle.mxa` prüft WASM-Magic + Scan-Regeln.
 
 ```bash
 # WASM-Sandbox (Fuel, Memory, Run)
-cargo test -p mycelium-miniapp wasm
+cargo test -p mycena-miniapp wasm
 
 # Bridge-Guest-Runner
-cargo test -p mycelium-app wasm
+cargo test -p mycena-app wasm
 
 # Gesamte Miniapp-Suite
-cargo test -p mycelium-miniapp
+cargo test -p mycena-miniapp
 ```
 
 ---

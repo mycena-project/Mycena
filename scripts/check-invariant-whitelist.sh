@@ -9,15 +9,15 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 WHITELIST="${ROOT}/docs/UNWRAP_INVARIANT_WHITELIST.tsv"
-CRATES=(mycelium-node mycelium-core mycelium-coin mycelium-miniapp)
+CRATES=(mycena-node mycena-core mycena-coin mycena-miniapp)
 
 # Max production .unwrap( calls per crate (expect uses whitelist rows instead).
 unwrap_baseline() {
   case "$1" in
-    mycelium-node) echo 0 ;;
-    mycelium-core) echo 0 ;;
-    mycelium-coin) echo 0 ;;
-    mycelium-miniapp) echo 0 ;;
+    mycena-node) echo 0 ;;
+    mycena-core) echo 0 ;;
+    mycena-coin) echo 0 ;;
+    mycena-miniapp) echo 0 ;;
     *) echo 0 ;;
   esac
 }
@@ -105,7 +105,7 @@ while IFS=$'\t' read -r crate file line kind summary; do
 done < "$WHITELIST"
 
 echo "check-invariant-whitelist: every prod expect must be whitelisted..."
-for crate in mycelium-node mycelium-core mycelium-coin mycelium-miniapp; do
+for crate in mycena-node mycena-core mycena-coin mycena-miniapp; do
   while IFS= read -r rsfile; do
     [[ -f "$rsfile" ]] || continue
     while IFS= read -r line; do

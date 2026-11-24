@@ -46,7 +46,7 @@ When relays merge:
 
 **Residual risk:** Merchants who deliver goods on unsettled vouchers bear up to **voucher max amount** until settlement. UI must show: *"Unsettled payment — risk X MXC until settlement"*.
 
-Sim: `cargo test -p mycelium-sim voucher_double_spend_detected_at_merge_not_prevented_offline`
+Sim: `cargo test -p mycena-sim voucher_double_spend_detected_at_merge_not_prevented_offline`
 
 ---
 

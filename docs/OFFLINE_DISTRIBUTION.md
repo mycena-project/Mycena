@@ -1,30 +1,30 @@
 # Offline distribution (phone-to-phone)
 
-Mycelium supports **offline app and miniapp distribution** without Play Store, desktop relay, or internet. This document covers the end-to-end flows, shared conventions, and **security implications**.
+Mycena supports **offline app and miniapp distribution** without Play Store, desktop relay, or internet. This document covers the end-to-end flows, shared conventions, and **security implications**.
 
 ## Shared conventions
 
 | Constant | Value | Purpose |
 |----------|-------|---------|
 | HTTP port | **8765** | APK / bootstrap sidecar (Android hotspot, desktop LAN) |
-| APK path | `/mycelium.apk` | Installed package bytes |
+| APK path | `/mycena.apk` | Installed package bytes |
 | Bootstrap sidecar | `/mesh/bootstrap.myc` | JSON mesh join credentials |
 | Wi‑Fi Direct bearer | **7765** | Bulk MYBR frames between mesh peers (miniapp bundles) |
 
-Rust helpers live in `crates/mycelium-app/src/offline_share.rs`. Desktop uses `crates/mycelium-desktop/src/share_server.rs`; Android uses `WifiDirectSharer` + `LocalHotspotHelper`.
+Rust helpers live in `crates/mycena-app/src/offline_share.rs`. Desktop uses `crates/mycena-desktop/src/share_server.rs`; Android uses `WifiDirectSharer` + `LocalHotspotHelper`.
 
 ## Phone-to-phone APK flow (Android)
 
-1. **Device A** opens **Share Mycelium**. The app requests **Nearby Wi‑Fi devices** (API 33+) or **fine location** (API 26–32) before starting a local hotspot. Denial is explained; Quick Share still works. Location must be ON on API 26–32 for LocalOnlyHotspot on most phones.
+1. **Device A** opens **Share Mycena**. The app requests **Nearby Wi‑Fi devices** (API 33+) or **fine location** (API 26–32) before starting a local hotspot. Denial is explained; Quick Share still works. Location must be ON on API 26–32 for LocalOnlyHotspot on most phones.
 2. **Transport order:** LocalOnlyHotspot → (API 28 and older only) brief STA Wi‑Fi disconnect + retry → Wi‑Fi Direct group owner. API 29+ skips the disconnect: `WifiManager.disconnect` / `enableNetwork` are no-ops for third-party apps.
 3. The HTTP server binds **after** a non-loopback IPv4 is observed on the share link (Direct group-owner address from the P2P API when available; otherwise a newly appeared SoftAP/wlan/p2p interface). The advertised URL is never `localhost`.
 4. QR codes on Device A:
    - Wi‑Fi join (`WIFI:…`) only when SSID is non-blank
    - Install URL (`http://<share-ipv4>:8765/`)
    - Mesh invite (when the node produced a sidecar) — Device B scans this in **Contacts** after install
-5. Landing page (`/`): APK download, SHA-256, unknown-apps / Samsung Auto Blocker / Play Protect instructions (no bypass), optional bootstrap file. `GET /mycelium.apk.sha256` returns the same hash. Empty sidecar is **404**, not an empty 200.
-6. **Device B** installs via the system installer (no Mycelium yet). Allow the browser to install unknown apps if asked. If Samsung or Play Protect blocks, change those settings and retry — the app cannot override them.
-7. **Join mesh (do not rely on Downloads):** Chrome’s download is not listable under scoped storage (API 29+ / target 34). Device B should scan Device A’s **Step 3 invite QR**, or on first launch pick `mycelium-bootstrap.myc` via the file picker. Downloads auto-import remains best-effort only.
+5. Landing page (`/`): APK download, SHA-256, unknown-apps / Samsung Auto Blocker / Play Protect instructions (no bypass), optional bootstrap file. `GET /mycena.apk.sha256` returns the same hash. Empty sidecar is **404**, not an empty 200.
+6. **Device B** installs via the system installer (no Mycena yet). Allow the browser to install unknown apps if asked. If Samsung or Play Protect blocks, change those settings and retry — the app cannot override them.
+7. **Join mesh (do not rely on Downloads):** Chrome’s download is not listable under scoped storage (API 29+ / target 34). Device B should scan Device A’s **Step 3 invite QR**, or on first launch pick `mycena-bootstrap.myc` via the file picker. Downloads auto-import remains best-effort only.
 8. Sharing **stops** when Device A leaves the Share screen (ViewModel cleared), taps Stop, or the process dies. There is **no** foreground service for APK share. Keep the screen open (the UI holds a keep-screen-on flag while serving).
 
 **Artifact:** Phone-to-phone share serves a cache copy of the **Technical Beta APK** currently installed on the sharing phone. That APK is a complete universal `assembleRelease` package (armeabi-v7a, arm64-v8a, x86_64), signed with the local Technical Beta key — **not** the Play Store artifact, **not** a debug APK, **not** official.
@@ -52,12 +52,12 @@ See [PHONE_TO_PHONE_MANUAL_TEST.md](./PHONE_TO_PHONE_MANUAL_TEST.md) for hardwar
 When a device carrying signed miniapps enters a cluster (village, neighborhood):
 
 1. **`propagate_installed_miniapps()`** (Rust / FFI) publishes:
-   - Signed **listings** on `mycelium/appstore/v1`
-   - **Bundle chunks** (16 KiB) on `mycelium/appstore/bundles/v1`
+   - Signed **listings** on `mycena/appstore/v1`
+   - **Bundle chunks** (16 KiB) on `mycena/appstore/bundles/v1`
 2. Receivers reassemble chunks, verify **listing signature + bundle hash**, then install via `install_verified(VerifiedListing)`.
 3. Large transfers between connected peers also use **Wi‑Fi Direct bearer** (`queue_bearer_bulk`) with inbound TCP → `ingest_ble_frame` (Android).
 
-Implementation: `crates/mycelium-app/src/miniapp_epidemic.rs`.
+Implementation: `crates/mycena-app/src/miniapp_epidemic.rs`.
 
 ## Security implications (critical)
 
@@ -75,8 +75,8 @@ Offline distribution means **the install source must not be trusted by default**
 |---------|------------------------|
 | **Signed store listing** (`AppStoreListing.verify_signature`) | Listing hash must match developer Ed25519 key in manifest. Epidemic install **rejects** chunks without a verified listing. |
 | **Bundle content hash** | Blake3 hash in listing must match reassembled bytes. |
-| **`mycelium-bundle.sig.json`** (SD-041) | Sideload / manual install requires developer signature sidecar; epidemic path uses **VerifiedListing** only. |
-| **Revocation gossip** | `mycelium/appstore/revocations/v1` can block known-bad app ids cluster-wide. |
+| **`mycena-bundle.sig.json`** (SD-041) | Sideload / manual install requires developer signature sidecar; epidemic path uses **VerifiedListing** only. |
+| **Revocation gossip** | `mycena/appstore/revocations/v1` can block known-bad app ids cluster-wide. |
 | **No unsigned epidemic install** | `try_install_epidemic_bundle` refuses bundles without verified listing — gossip alone is insufficient. |
 
 ### Threat model notes
@@ -89,7 +89,7 @@ Offline distribution means **the install source must not be trusted by default**
 ### Operator checklist
 
 1. Sign miniapp listings with the developer libp2p key before epidemic seeding.
-2. Keep bundled revocations up to date in `mycelium-miniapp`.
+2. Keep bundled revocations up to date in `mycena-miniapp`.
 3. Prefer **VerifiedListing** epidemic path; never bypass `install_verified` for gossip-delivered bytes.
 4. Document local APK hash for your community if you run repeated offline installs.
 

@@ -31,7 +31,7 @@ for app in meshaid meshmarket proximity; do
   cargo run -q -p miniapp-sdk -- lint "$out"
 done
 
-ASSETS="$ROOT/crates/mycelium-app/assets/miniapp"
+ASSETS="$ROOT/crates/mycena-app/assets/miniapp"
 mkdir -p "$ASSETS/bundles"
 cp miniapps/dist/*.mxa "$ASSETS/bundles/"
 cargo run -q -p miniapp-sdk -- listings miniapps/dist \

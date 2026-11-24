@@ -36,7 +36,7 @@ env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
   # Optional build-time bootstrap override (comma-separated multiaddrs):
-  # MYCELIUM_BOOTSTRAP_PEERS: "/dns4/mein-relay.example.com/tcp/4001/p2p/12D3KooW..."
+  # MYCENA_BOOTSTRAP_PEERS: "/dns4/mein-relay.example.com/tcp/4001/p2p/12D3KooW..."
 
 jobs:
   build-rust:
@@ -76,35 +76,35 @@ jobs:
       - name: Configure NDK for cargo-ndk
         run: echo "ANDROID_NDK_HOME=${ANDROID_SDK_ROOT}/ndk/26.1.10909125" >> "$GITHUB_ENV"
 
-      - name: Build libmycelium_ffi.so for all targets
+      - name: Build libmycena_ffi.so for all targets
         run: |
           cargo ndk \
             -t aarch64-linux-android \
             -t armv7-linux-androideabi \
             -t x86_64-linux-android \
             -o android/rust-build \
-            build --release -p mycelium-ffi
+            build --release -p mycena-ffi
 
       - name: Generate UniFFI Kotlin bindings
         run: |
-          rm -rf android/uniffi-bindings/src/main/kotlin/uniffi/mycelium/uniffi
-          find android/uniffi-bindings/src/main/kotlin -name 'mycelium.kt' -delete
-          cargo run -p mycelium-ffi --bin uniffi-bindgen -- generate \
-            crates/mycelium-ffi/src/mycelium.udl \
+          rm -rf android/uniffi-bindings/src/main/kotlin/uniffi/mycena/uniffi
+          find android/uniffi-bindings/src/main/kotlin -name 'mycena.kt' -delete
+          cargo run -p mycena-ffi --bin uniffi-bindgen -- generate \
+            crates/mycena-ffi/src/mycena.udl \
             --language kotlin \
             --out-dir android/uniffi-bindings/src/main/kotlin/
-          count="$(find android/uniffi-bindings/src/main/kotlin -name 'mycelium.kt' | wc -l | tr -d ' ')"
+          count="$(find android/uniffi-bindings/src/main/kotlin -name 'mycena.kt' | wc -l | tr -d ' ')"
           if [ "$count" -ne 1 ]; then
-            echo "ERROR: expected exactly one generated mycelium.kt, found $count" >&2
-            find android/uniffi-bindings/src/main/kotlin -name 'mycelium.kt' -print >&2 || true
+            echo "ERROR: expected exactly one generated mycena.kt, found $count" >&2
+            find android/uniffi-bindings/src/main/kotlin -name 'mycena.kt' -print >&2 || true
             exit 1
           fi
 
       - name: Fix UniFFI Kotlin newline (no ktlint in CI)
         run: |
-          UNIFFI_KT="android/uniffi-bindings/src/main/kotlin/uniffi/mycelium/mycelium.kt"
+          UNIFFI_KT="android/uniffi-bindings/src/main/kotlin/uniffi/mycena/mycena.kt"
           if [ ! -f "$UNIFFI_KT" ]; then
-            UNIFFI_KT="$(find android/uniffi-bindings/src/main/kotlin -name 'mycelium.kt' | head -1)"
+            UNIFFI_KT="$(find android/uniffi-bindings/src/main/kotlin -name 'mycena.kt' | head -1)"
           fi
           perl -0777 -pi -e 's/\}\s+fun `addBootstrapPeer`/}\n\nfun `addBootstrapPeer`/' \
             "$UNIFFI_KT"
@@ -234,7 +234,7 @@ jobs:
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
-          packageName: network.mycelium.app
+          packageName: io.github.mycena_project.app
           releaseFiles: play-upload/app-release.aab
           track: ${{ github.event.inputs.track }}
           status: completed

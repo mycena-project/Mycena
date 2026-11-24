@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Regenerate UniFFI bindings for mobile hosts from crates/mycelium-ffi/src/mycelium.udl
+# Regenerate UniFFI bindings for mobile hosts from crates/mycena-ffi/src/mycena.udl
 #
 # Usage:
 #   ./scripts/regenerate-uniffi-bindings.sh           # Android (Kotlin) — default
@@ -23,7 +23,7 @@ case "$TARGET" in
     ;;
   all)
     "$ROOT/scripts/regenerate-uniffi-kotlin.sh"
-    if [[ -d "$ROOT/ios/Mycelium/Generated" ]]; then
+    if [[ -d "$ROOT/ios/Mycena/Generated" ]]; then
       "$ROOT/scripts/regenerate-uniffi-bindings.sh" swift
     fi
     ;;

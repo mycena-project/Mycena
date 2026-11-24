@@ -1,8 +1,8 @@
 # UserTrust — network contribution (non-financial)
 
 **Status:** Implemented (local-only)  
-**Crate:** `mycelium-coin/src/user_trust.rs`  
-**Related:** `mycelium-node/src/peer_trust.rs`, `mycelium-coin/src/spam_caution.rs`
+**Crate:** `mycena-coin/src/user_trust.rs`  
+**Related:** `mycena-node/src/peer_trust.rs`, `mycena-coin/src/spam_caution.rs`
 
 ---
 
@@ -21,7 +21,7 @@
 
 ## PeerTrust vs UserTrust (keep both)
 
-| | **PeerTrust** (`mycelium-node`) | **UserTrust** (`mycelium-coin`) |
+| | **PeerTrust** (`mycena-node`) | **UserTrust** (`mycena-coin`) |
 |---|---|---|
 | Subject | Remote peers (behavior observed) | Self + local endorsements of others |
 | Persistence | `peer_trust/` sled tree | `user_trust/` sled tree |
@@ -59,7 +59,7 @@ score = peer_trust.relay_selection_score(now)
 | `endorse_peer(peer_id, strength)` | Local 1–5 endorsement; syncs to node relay scoring |
 | `send_chat_priority(...)` | Burn + send with priority caution |
 
-Background task in `mycelium-ffi` syncs node metrics → UserTrustStore every 30s and ticks uptime every 60s.
+Background task in `mycena-ffi` syncs node metrics → UserTrustStore every 30s and ticks uptime every 60s.
 
 ---
 

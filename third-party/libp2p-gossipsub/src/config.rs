@@ -146,7 +146,7 @@ impl Config {
             .unwrap_or_else(|| self.topic_configuration.default_mesh_params.clone())
     }
 
-    /// Hot-swap default mesh parameters (used by Mycelium density backoff).
+    /// Hot-swap default mesh parameters (used by Mycena density backoff).
     pub fn set_default_mesh_params(&mut self, params: TopicMeshConfig) {
         self.topic_configuration.default_mesh_params = params;
     }

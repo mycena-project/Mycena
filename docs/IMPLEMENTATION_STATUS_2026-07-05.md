@@ -1,6 +1,6 @@
 # Implementation status — last four prompts (2026-07-05)
 
-Audit of the four most recent feature prompts in the Mycelium session. Use this as the checklist for what shipped in commit `3eac036` and the follow-up commit on the same date.
+Audit of the four most recent feature prompts in the Mycena session. Use this as the checklist for what shipped in commit `3eac036` and the follow-up commit on the same date.
 
 ---
 
@@ -8,7 +8,7 @@ Audit of the four most recent feature prompts in the Mycelium session. Use this 
 
 | Requirement | Status | Notes |
 |-------------|--------|-------|
-| Contact book: HLC LWW per field | **Done** | `crates/mycelium-core/src/crdt/{hlc,lww,contact}.rs` |
+| Contact book: HLC LWW per field | **Done** | `crates/mycena-core/src/crdt/{hlc,lww,contact}.rs` |
 | Group membership: OR-Set | **Done** | `crdt/or_set.rs`, `crdt/group.rs` |
 | Marketplace stock: PN-Counter (no naive LWW) | **Done** | `crdt/pn_counter.rs`; conflict surfaced, not silent merge |
 | `docs/CRDT_MODEL.md` | **Done** | Rationale for marketplace non-auto-merge |
@@ -70,9 +70,9 @@ Audit of the four most recent feature prompts in the Mycelium session. Use this 
 
 | Item | Reason |
 |------|--------|
-| **MyceliumLab eclipse / commuter custody sims** with geohash | Logic covered by unit test; sim scenarios are regression nice-to-have, not blocking. |
+| **MycenaLab eclipse / commuter custody sims** with geohash | Logic covered by unit test; sim scenarios are regression nice-to-have, not blocking. |
 | **FFI/UI exposure of peer geohash bucket** | Out of scope for routing-only prompt; trust store already persists for next selection. |
-| **GPS-derived geohash on device** | Co-presence requires `local_geohash_prefix` / `MYCELIUM_LOCAL_GEOHASH` (see `AR-06_REMAINING_GAPS.md`); without it, SOS/resource gossip remains the strong signal. |
+| **GPS-derived geohash on device** | Co-presence requires `local_geohash_prefix` / `MYCENA_LOCAL_GEOHASH` (see `AR-06_REMAINING_GAPS.md`); without it, SOS/resource gossip remains the strong signal. |
 
 ---
 
@@ -88,7 +88,7 @@ Audit of the four most recent feature prompts in the Mycelium session. Use this 
 
 | Item | Status | Notes |
 |------|--------|-------|
-| `MeshProfile::Crowd` for manual crowd mode | **Done** | `mycelium-node/src/transport.rs` |
+| `MeshProfile::Crowd` for manual crowd mode | **Done** | `mycena-node/src/transport.rs` |
 | `crowd_density_active` in metrics + UI | **Done** | NodeMetrics, UniFFI, Peers (Android), Settings (Desktop) |
 | Geohash prefix Settings + FFI → node | **Done** | `SetLocalGeohashPrefix`, Android Settings, Desktop Settings |
 | Wi‑Fi Direct inbound (AR-06) | **Already shipped** | Doc correction in AR-06 |
@@ -99,6 +99,6 @@ Audit of the four most recent feature prompts in the Mycelium session. Use this 
 ## Verification
 
 ```bash
-cargo test -p mycelium-node geographic_diversity security::tests
-cargo test -p mycelium-core crdt information_trust sos::tests
+cargo test -p mycena-node geographic_diversity security::tests
+cargo test -p mycena-core crdt information_trust sos::tests
 ```

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Remove regenerable build artifacts from the Mycelium workspace.
+# Remove regenerable build artifacts from the Mycena workspace.
 #
 # Usage:
 #   ./scripts/clean-repo.sh           # Rust + Android + APK junk (~13+ GB typical)
@@ -39,7 +39,7 @@ rm_path() {
   rm -rf "$p"
 }
 
-echo "Cleaning Mycelium workspace at $ROOT …"
+echo "Cleaning Mycena workspace at $ROOT …"
 
 # Local debug captures (LAN test logs)
 rm_path "$ROOT/.debug-logs"
@@ -64,7 +64,7 @@ fi
 for item in \
   AndroidManifest.xml resources.arsc DebugProbesKt.bin \
   META-INF assets res kotlin lib okhttp3 com \
-  mycelium-serve.sh; do
+  mycena-serve.sh; do
   rm_path "$ROOT/$item"
 done
 for dex in "$ROOT"/classes*.dex; do
@@ -73,13 +73,13 @@ for dex in "$ROOT"/classes*.dex; do
 done
 
 # Tauri / desktop UI caches (regenerated on dev/build)
-rm_path "$ROOT/crates/mycelium-desktop/ui/dist"
-rm_path "$ROOT/crates/mycelium-desktop/ui/.svelte-kit"
-rm_path "$ROOT/crates/mycelium-desktop/gen/schemas"
-rm_path "$ROOT/crates/mycelium-desktop/gen"
+rm_path "$ROOT/crates/mycena-desktop/ui/dist"
+rm_path "$ROOT/crates/mycena-desktop/ui/.svelte-kit"
+rm_path "$ROOT/crates/mycena-desktop/gen/schemas"
+rm_path "$ROOT/crates/mycena-desktop/gen"
 
 # Stale duplicate UniFFI output
-rm_path "$ROOT/android/uniffi-bindings/src/main/kotlin/uniffi/mycelium/uniffi"
+rm_path "$ROOT/android/uniffi-bindings/src/main/kotlin/uniffi/mycena/uniffi"
 
 # Android cross-compile artifacts (also removed with target/, but explicit if target partial)
 for triple in aarch64-linux-android armv7-linux-androideabi x86_64-linux-android; do
@@ -87,18 +87,18 @@ for triple in aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
 done
 
 if [[ "$DEEP" -eq 1 ]]; then
-  rm_path "$ROOT/crates/mycelium-desktop/ui/node_modules"
+  rm_path "$ROOT/crates/mycena-desktop/ui/node_modules"
 fi
 
 if [[ "$DOCKER" -eq 1 ]] && command -v docker >/dev/null 2>&1; then
   for vol in \
-    mycelium-android-cargo-registry \
-    mycelium-android-cargo-git \
-    mycelium-android-target \
-    mycelium-android-gradle \
-    mycelium-mingc-cargo \
-    mycelium-mingc-rustup \
-    mycelium-mingc-target; do
+    mycena-android-cargo-registry \
+    mycena-android-cargo-git \
+    mycena-android-target \
+    mycena-android-gradle \
+    mycena-mingc-cargo \
+    mycena-mingc-rustup \
+    mycena-mingc-target; do
     if docker volume inspect "$vol" >/dev/null 2>&1; then
       if [[ "$DRY" -eq 1 ]]; then
         echo "docker volume: $vol"

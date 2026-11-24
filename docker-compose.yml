@@ -22,13 +22,13 @@ services:
     build:
       context: docker/rust-tests
       dockerfile: Dockerfile
-    image: mycelium-rust-tests:local
+    image: mycena-rust-tests:local
     working_dir: /workspace
     volumes:
       - .:/workspace
-      - mycelium-cargo-registry:/usr/local/cargo/registry
-      - mycelium-cargo-git:/usr/local/cargo/git
-      - mycelium-target-docker:/workspace/target-docker
+      - mycena-cargo-registry:/usr/local/cargo/registry
+      - mycena-cargo-git:/usr/local/cargo/git
+      - mycena-target-docker:/workspace/target-docker
     environment:
       CARGO_TARGET_DIR: /workspace/target-docker
     command:
@@ -43,9 +43,9 @@ services:
     build:
       context: docker/android-ci
       dockerfile: Dockerfile
-    image: mycelium-android-ci:local
+    image: mycena-android-ci:local
 
 volumes:
-  mycelium-cargo-registry:
-  mycelium-cargo-git:
-  mycelium-target-docker:
+  mycena-cargo-registry:
+  mycena-cargo-git:
+  mycena-target-docker:

@@ -6,7 +6,7 @@
     <string name="action_export">Export</string>
     <string name="action_subscribe">Subscribe</string>
     <string name="action_unsubscribe">Unsubscribe</string>
-    <string name="app_name">Mycelium</string>
+    <string name="app_name">Mycena</string>
     <string name="app_tagline">Автономная сеть</string>
     <string name="ble_handoff_connected_body">Linked via Bluetooth — libp2p direct path over BLE when Wi‑Fi or relay are unavailable.</string>
     <string name="ble_handoff_connected_title">Peer linked via Bluetooth</string>
@@ -89,7 +89,7 @@
     <string name="discovery_in_range">в зоне</string>
     <string name="discovery_nearby">рядом</string>
     <string name="discovery_notification_body">Нажмите для подключения (%1$s…)</string>
-    <string name="discovery_notification_title">Узел Mycelium %1$s</string>
+    <string name="discovery_notification_title">Узел Mycena %1$s</string>
     <string name="discovery_very_close">очень близко</string>
     <string name="error_invalid_invite">Invalid invite</string>
     <string name="error_invalid_qr">Неверный формат QR</string>
@@ -111,7 +111,7 @@
     <string name="group_new">Новая группа</string>
     <string name="language_system">Язык системы</string>
     <string name="location_open_maps">Открыть в картах</string>
-    <string name="location_privacy_body">Координаты GPS отправятся один раз. Mycelium не отслеживает вас постоянно. Сообщение шифруется.</string>
+    <string name="location_privacy_body">Координаты GPS отправятся один раз. Mycena не отслеживает вас постоянно. Сообщение шифруется.</string>
     <string name="location_privacy_title">Поделиться местоположением?</string>
     <string name="location_share_once">Отправить один раз</string>
     <string name="mail_body_hint">Тело</string>
@@ -148,7 +148,7 @@
     <string name="miniapp_grant_identity_title">Поделитесь личностью?</string>
     <string name="miniapp_grant_payments_message">Это приложение может считывать баланс и показывать QR-коды оплаты.</string>
     <string name="miniapp_grant_payments_title">Доступ к кошельку?</string>
-    <string name="miniapp_hosted_dialog_notice">Это сообщение исходит от мини-приложения, а не от Mycelium.</string>
+    <string name="miniapp_hosted_dialog_notice">Это сообщение исходит от мини-приложения, а не от Mycena.</string>
     <string name="miniapp_inline_script_warning">В этом приложении используются встроенные скрипты (более высокий риск XSS).</string>
     <string name="miniapp_install_cancel">Отмена</string>
     <string name="miniapp_install_confirm">Установить</string>
@@ -189,7 +189,7 @@
     <string name="more_mail_sub">Store-and-forward messages when chat is offline</string>
     <string name="more_mini_apps_sub">MeshAid and other mesh mini-apps</string>
     <string name="more_settings_sub">Identity, network, privacy, bulletin scopes</string>
-    <string name="more_share_app_sub">Pass Mycelium to a nearby phone — no internet or Play Store</string>
+    <string name="more_share_app_sub">Pass Mycena to a nearby phone — no internet or Play Store</string>
     <string name="more_subtitle">Apps, network contribution, offline messages, and settings.</string>
     <string name="more_title">More</string>
     <string name="more_wallet_sub">Offline utility credits for mesh services</string>
@@ -224,7 +224,7 @@
     <string name="peers_discovery_connecting_title">Подключение…</string>
     <string name="peers_discovery_idle_body">Включите Bluetooth mesh в настройках для автоматических подключений рядом или отсканируйте QR-код выше.</string>
     <string name="peers_discovery_idle_title">Поиск устройств рядом выключен</string>
-    <string name="peers_discovery_nearby_found_body">Устройства Mycelium в зоне доступа. Подключение автоматически…</string>
+    <string name="peers_discovery_nearby_found_body">Устройства Mycena в зоне доступа. Подключение автоматически…</string>
     <string name="peers_discovery_nearby_found_title">Устройства рядом</string>
     <string name="peers_discovery_nobody_body">Это нормально. Откройте «Подключение» на другом телефоне рядом или один раз отсканируйте QR-коды друг друга.</string>
     <string name="peers_discovery_nobody_title">Сейчас никого рядом нет</string>
@@ -283,7 +283,7 @@
     <string name="settings_crowd_mode_sub">Caps mDNS dials and uses crowd gossip tuning. Full transport limits apply after app restart.</string>
     <string name="settings_crowd_mode_title">Crowd mode (festivals / dense events)</string>
     <string name="settings_danger_zone">Опасная зона</string>
-    <string name="settings_data_handling">Как Mycelium обрабатывает ваши данные</string>
+    <string name="settings_data_handling">Как Mycena обрабатывает ваши данные</string>
     <string name="settings_display_name">Отображаемое имя</string>
     <string name="settings_display_name_hint">Ваше имя в сети</string>
     <string name="settings_encrypted_channels">Encrypted channels</string>
@@ -344,11 +344,11 @@
     <string name="settings_scan_channel_prompt">Scan channel invite</string>
     <string name="settings_scan_scope_key">Scan channel invite QR</string>
     <string name="settings_scope_key_export_title">Channel invite</string>
-    <string name="settings_scope_key_placeholder">mycelium/rescue/team-alpha</string>
+    <string name="settings_scope_key_placeholder">mycena/rescue/team-alpha</string>
     <string name="settings_scope_label">Scope</string>
     <string name="settings_share_app">Поделиться приложением…</string>
     <string name="settings_show_technical_ids">Show technical IDs (advanced)</string>
-    <string name="settings_spread_description">При включении устройство передаёт Bluetooth-сигнал, чтобы рядом можно было обнаружить и установить Mycelium. Личные данные не передаются.</string>
+    <string name="settings_spread_description">При включении устройство передаёт Bluetooth-сигнал, чтобы рядом можно было обнаружить и установить Mycena. Личные данные не передаются.</string>
     <string name="settings_spread_title">Помочь распространить Мицелий</string>
     <string name="settings_store_size">Сохраненные сообщения</string>
     <string name="settings_title">Настройки</string>
@@ -356,7 +356,7 @@
     <string name="settings_transport_id_label">Network ID (changes daily)</string>
     <string name="settings_version">Версия</string>
     <string name="settings_version_format">Версия %1$s (сборка %2$d)</string>
-    <string name="share_app_description">Установка Mycelium рядом без интернета: одна сеть Wi‑Fi или точка доступа, затем QR-код.</string>
+    <string name="share_app_description">Установка Mycena рядом без интернета: одна сеть Wi‑Fi или точка доступа, затем QR-код.</string>
     <string name="share_app_error_generic">Could not start sharing. Try again or use same Wi‑Fi mode.</string>
     <string name="share_app_hotspot_failed">Could not open a sharing hotspot on this phone. Try “Same Wi‑Fi” if you already share a network, or turn off your regular hotspot first.</string>
     <string name="share_app_instructions">Получатель: та же сеть Wi‑Fi, сканировать QR или открыть URL в браузере. Приложение не нужно.</string>
@@ -367,7 +367,7 @@
     <string name="share_app_qr_content_description">QR-код для установки</string>
     <string name="share_app_share_link">Share install link</string>
     <string name="share_app_start">Начать передачу</string>
-    <string name="share_app_step_install_body">After joining Wi‑Fi (if needed), scan this QR or open the link in Chrome. Tap Install Mycelium on the page.</string>
+    <string name="share_app_step_install_body">After joining Wi‑Fi (if needed), scan this QR or open the link in Chrome. Tap Install Mycena on the page.</string>
     <string name="share_app_step_install_title">Step 2 — Install</string>
     <string name="share_app_step_wifi_body">Scan with the camera app to join this phone\'s Wi‑Fi. No password typing needed.</string>
     <string name="share_app_step_wifi_title">Step 1 — Join Wi‑Fi</string>
@@ -441,7 +441,7 @@
     <string name="wallet_to_hint">Кому (адрес или идентификатор узла)</string>
     <string name="wallet_tx_pending">Ожидаемая транзакция (офлайн)</string>
     <string name="wallet_tx_sent">Трансляция транзакции</string>
-    <string name="welcome_back_body">We found your existing Mycelium identity on this device. Your contacts will still recognize you.</string>
+    <string name="welcome_back_body">We found your existing Mycena identity on this device. Your contacts will still recognize you.</string>
     <string name="welcome_back_body_named">Welcome back, %1$s. Your existing identity was found on this device. Your contacts will still recognize you.</string>
     <string name="welcome_back_continue">Continue with my identity</string>
     <string name="welcome_back_fresh">Start fresh instead</string>

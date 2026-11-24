@@ -10,7 +10,7 @@ Semantic Versioning (`MAJOR.MINOR.PATCH`).
 4. GitHub Actions **Release** (`.github/workflows/release.yml`) builds:
    - Android APK via **reproducible container** (`scripts/reproducible-build.sh`)
    - Unsigned `release-integrity-*.json` + `build-report.json` (M-of-N co-sign offline per [docs/RELEASE_INTEGRITY.md](docs/RELEASE_INTEGRITY.md))
-   - CycloneDX SBOM (`mycelium-sbom-*.cdx.json`) — see [docs/DEPENDENCY_RISK.md](docs/DEPENDENCY_RISK.md)
+   - CycloneDX SBOM (`mycena-sbom-*.cdx.json`) — see [docs/DEPENDENCY_RISK.md](docs/DEPENDENCY_RISK.md)
    - Tauri desktop bundles (Linux / macOS / Windows)
    - `SHA256SUMS.txt` for all artifacts
 5. Verify the GitHub Release page and install smoke-test on one platform.
@@ -18,14 +18,14 @@ Semantic Versioning (`MAJOR.MINOR.PATCH`).
 
 ## License reminder (AGPL-3.0-or-later)
 
-Release notes include AGPL obligations. Operators who host a **modified relay** must comply — see [mycelium-relay](https://github.com/mycena-project/mycelium-relay).
+Release notes include AGPL obligations. Operators who host a **modified relay** must comply — see [mycena-relay](https://github.com/mycena-project/mycena-relay).
 
 ## Related repos (separate tags)
 
 | Repo | Deploy on tag |
 |------|----------------|
-| [mycelium-relay](https://github.com/mycena-project/mycelium-relay) | VPS (`scripts/deploy-relay-vps.sh` in that repo) |
-| [mycelium-web](https://github.com/mycena-project/mycelium-web) | Vercel |
+| [mycena-relay](https://github.com/mycena-project/mycena-relay) | Fly.io (`scripts/deploy-relay-fly.sh` in that repo) |
+| [mycena-web](https://github.com/mycena-project/mycena-web) | Vercel |
 
 ## Not in this workflow
 
@@ -39,17 +39,17 @@ Release notes include AGPL obligations. Operators who host a **modified relay** 
 ### Prerequisites
 
 - Rust stable + platform targets (`x86_64-apple-darwin`, `aarch64-apple-darwin`, `x86_64-pc-windows-msvc`, `x86_64-unknown-linux-gnu`)
-- Node.js 20+ for `crates/mycelium-desktop/ui`
+- Node.js 20+ for `crates/mycena-desktop/ui`
 - macOS: Xcode CLT; Windows: WebView2 + VS Build Tools; Linux: `webkit2gtk`, `patchelf`
 
 ### Local build
 
 ```bash
-cd crates/mycelium-desktop/ui && npm ci && npm run build
-cd ../.. && cargo tauri build -p mycelium-desktop
+cd crates/mycena-desktop/ui && npm ci && npm run build
+cd ../.. && cargo tauri build -p mycena-desktop
 ```
 
-Artifacts land under `crates/mycelium-desktop/target/release/bundle/` (`.dmg`, `.msi`, `.AppImage`, etc.).
+Artifacts land under `crates/mycena-desktop/target/release/bundle/` (`.dmg`, `.msi`, `.AppImage`, etc.).
 
 ### Code signing
 
@@ -61,7 +61,7 @@ Artifacts land under `crates/mycelium-desktop/target/release/bundle/` (`.dmg`, `
 
 ### Auto-update (Tauri v2)
 
-1. Configure updater pubkey in `crates/mycelium-desktop/tauri.conf.json` (`plugins.updater`).
+1. Configure updater pubkey in `crates/mycena-desktop/tauri.conf.json` (`plugins.updater`).
 2. GitHub Release attaches `{target}-update.json` + signed bundle (see `release.yml`).
 3. Desktop checks on launch; offline mesh use continues if update fetch fails.
 
@@ -69,7 +69,7 @@ Artifacts land under `crates/mycelium-desktop/target/release/bundle/` (`.dmg`, `
 
 1. Fresh install bundle on each target OS.
 2. Start node → Settings → verify connectivity banner + crisis toggle.
-3. Headless regression: `mycelium --headless --api-port 7760` then `curl -H "Authorization: Bearer $TOKEN" localhost:7760/api/v1/status` (token is printed at start).
-4. Panic wipe from Settings (desktop) or `mycelium panic --yes --db .mycelium-node` (CLI) on a throwaway profile.
+3. Headless regression: `mycena --headless --api-port 7760` then `curl -H "Authorization: Bearer $TOKEN" localhost:7760/api/v1/status` (token is printed at start).
+4. Panic wipe from Settings (desktop) or `mycena panic --yes --db .mycena-node` (CLI) on a throwaway profile.
 
 See also [RELEASE_INTEGRITY.md](docs/RELEASE_INTEGRITY.md) for artifact co-signing.

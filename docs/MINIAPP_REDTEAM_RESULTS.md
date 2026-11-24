@@ -7,7 +7,7 @@
 
 | Scenario | Result | Notes |
 |----------|--------|-------|
-| AS-01 Trojan sideload | **BLOCKED** | Sideload requires valid `mycelium-bundle.sig.json` (SD-041) |
+| AS-01 Trojan sideload | **BLOCKED** | Sideload requires valid `mycena-bundle.sig.json` (SD-041) |
 | AS-02 Listing hash swap | **BLOCKED** | `install_verified` rejects hash mismatch vs cached listing |
 | AS-03 Downgrade | **BLOCKED** | Preview blocks downgrade unless user explicitly allows |
 | AS-04 XSS inline script | **BLOCKED** | CSP nonce-only; `scan_bundle` rejects inline `<script>` |
@@ -17,9 +17,9 @@
 ## Automated evidence
 
 ```bash
-cargo test -p mycelium-app --lib install_policy
-cargo test -p mycelium-app --lib miniapp_security
-cargo test -p mycelium-app bundled_listings
+cargo test -p mycena-app --lib install_policy
+cargo test -p mycena-app --lib miniapp_security
+cargo test -p mycena-app bundled_listings
 miniapp-sdk lint miniapps/dist/*.mxa   # bundle_signature_ok: true
 ```
 

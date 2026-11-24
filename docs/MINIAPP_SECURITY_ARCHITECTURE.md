@@ -1,4 +1,4 @@
-# Mycelium Mini-App — Zero-Trust Security Architecture
+# Mycena Mini-App — Zero-Trust Security Architecture
 
 **Codename:** **Cell** (mini-app runtime)  
 **Status:** Target architecture + gap analysis vs today  
@@ -9,7 +9,7 @@
 
 ## 1. Design philosophy
 
-Mini-apps are **untrusted code** running in a **hostile environment** (protest networks, scam stores, sideloaded ZIPs). The host (Mycelium node + UI) is the **only** trusted computing base (TCB).
+Mini-apps are **untrusted code** running in a **hostile environment** (protest networks, scam stores, sideloaded ZIPs). The host (Mycena node + UI) is the **only** trusted computing base (TCB).
 
 **Zero-trust principles:**
 
@@ -60,7 +60,7 @@ Mini-apps are **untrusted code** running in a **hostile environment** (protest n
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ TCB: Mycelium Host (Rust node, native UI, policy engine)     │
+│ TCB: Mycena Host (Rust node, native UI, policy engine)     │
 │  · Install verifier · Capability issuer · Native prompts       │
 └───────────────────────────┬─────────────────────────────────┘
                             │ IPC (capability token + method)
@@ -79,9 +79,9 @@ Mini-apps are **untrusted code** running in a **hostile environment** (protest n
 
 ### Layer 0 — Provenance & supply chain
 
-- Signed `mycelium-app.json` + **bundle content hash** in `AppStoreListing`
+- Signed `mycena-app.json` + **bundle content hash** in `AppStoreListing`
 - **Reproducible build** attestation (developer publishes `mxa.sha256` + build recipe)
-- **Revocation list** (signed by Mycelium curator + optional community keys)
+- **Revocation list** (signed by Mycena curator + optional community keys)
 - Offline install: verify against **cached** listing or **pinned** developer key
 
 ### Layer 1 — Install gate (static analysis)
@@ -105,7 +105,7 @@ Before `AppStore::install`:
 
 ### Layer 3 — Capability plane (API)
 
-- Guest calls `window.mycelium.*` → bridge → **`CellPolicy::invoke(cap, method, args)`**
+- Guest calls `window.mycena.*` → bridge → **`CellPolicy::invoke(cap, method, args)`**
 - Each method requires:
   - Manifest permission **or** runtime grant
   - Valid **capability token** (session + nonce)
@@ -193,7 +193,7 @@ User updates:
 RevocationEntry { app_id, max_version, reason, revoked_at, curator_sig }
 ```
 
-Host refuses launch/install if `app_id` on revocation list (bundled + gossip `mycelium/appstore/revocations`).
+Host refuses launch/install if `app_id` on revocation list (bundled + gossip `mycena/appstore/revocations`).
 
 ---
 
@@ -229,7 +229,7 @@ Exceeded → `ResourceExhausted` error; safe mode auto if repeated.
 
 ### 8.1 Goals
 
-- Safe defaults in `mycelium-app.json`
+- Safe defaults in `mycena-app.json`
 - Type-safe JS wrapper with **no** raw bridge access
 - Build-time linter for permissions vs API usage
 - Reproducible bundle builder CLI
@@ -239,7 +239,7 @@ Exceeded → `ResourceExhausted` error; safe mode auto if repeated.
 ```text
 tools/miniapp-sdk/
   cli/          mxa pack, mxa sign, mxa verify
-  js/           @mycelium/miniapp-sdk (ESM, no node fs)
+  js/           @mycena/miniapp-sdk (ESM, no node fs)
   schema/       manifest-v1.schema.json
   templates/    minimal app, payment app
 ```
@@ -247,8 +247,8 @@ tools/miniapp-sdk/
 ### 8.3 Developer-safe API surface
 
 ```javascript
-// @mycelium/miniapp-sdk — wraps window.mycelium
-import { messaging, storage, identity } from '@mycelium/miniapp-sdk';
+// @mycena/miniapp-sdk — wraps window.mycena
+import { messaging, storage, identity } from '@mycena/miniapp-sdk';
 
 // Linter ensures:
 // - messaging.send only if Messaging declared
@@ -328,7 +328,7 @@ See [MINIAPP_PERMISSION_MODEL.md](./MINIAPP_PERMISSION_MODEL.md) §4.
 | CSP strict | **Partial** `unsafe-inline` |
 | Native payment confirm | **Missing** Android handler |
 | Capability tokens | Bridge **session** (C2) + **HMAC runtime caps** (P4/H25) |
-| Revocation | **Local sled + gossip** `mycelium/appstore/revocations/v1` (P2) |
+| Revocation | **Local sled + gossip** `mycena/appstore/revocations/v1` (P2) |
 | Encrypted app storage | **HKDF + ChaCha20** when `storage_key` set (C2) |
 | Process isolation | **Android `:miniapp` process** (P2); desktop iframe only |
 | Safe mode / reputation | **Local score + safe mode** (P2) |

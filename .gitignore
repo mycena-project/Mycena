@@ -1,5 +1,5 @@
 # Local relay identity / DB (never commit)
-/.mycelium-relay/
+/.mycena-relay/
 
 # Rust
 /target/
@@ -12,8 +12,8 @@
 # iOS
 /ios/rust-build/
 /ios/DerivedData/
-/ios/Mycelium/Generated/
-/ios/Mycelium.xcodeproj/
+/ios/Mycena/Generated/
+/ios/Mycena.xcodeproj/
 
 # Bundled dev tools (XcodeGen zip — see scripts/ios-xcodegen.sh)
 /scripts/tools/
@@ -25,7 +25,7 @@
 /android/local.properties
 /android/rust-build/
 /android/app/src/main/assets/miniapp/
-/android/uniffi-bindings/src/main/kotlin/uniffi/mycelium/uniffi/
+/android/uniffi-bindings/src/main/kotlin/uniffi/mycena/uniffi/
 
 # IDE / OS
 .idea/
@@ -53,8 +53,8 @@ service-account*.json
 # Node (desktop UI)
 node_modules/
 **/node_modules/
-crates/mycelium-desktop/ui/dist/
-crates/mycelium-desktop/ui/.svelte-kit/
+crates/mycena-desktop/ui/dist/
+crates/mycena-desktop/ui/.svelte-kit/
 
 # Accidental APK extraction at repo root
 /AndroidManifest.xml
@@ -68,11 +68,11 @@ crates/mycelium-desktop/ui/.svelte-kit/
 /lib/
 /okhttp3/
 /com/
-/mycelium-serve.sh
+/mycena-serve.sh
 
 # Generated UniFFI Kotlin (regenerate via scripts/regenerate-uniffi-kotlin.sh)
-/android/uniffi-bindings/src/main/kotlin/uniffi/mycelium/mycelium.kt
+/android/uniffi-bindings/src/main/kotlin/uniffi/mycena/mycena.kt
 artifacts/
 
 # cargo-cyclonedx staging files (real SBOM goes to target/sbom/)
-crates/*/mycelium-sbom-*.json
+crates/*/mycena-sbom-*.json

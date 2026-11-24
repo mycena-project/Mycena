@@ -1,8 +1,8 @@
 # Crash reporting (Android freeze)
 
-How to collect **enough** diagnostics to identify a Mycelium crash, and **where** to store them so secrets and chat never land in git.
+How to collect **enough** diagnostics to identify a Mycena crash, and **where** to store them so secrets and chat never land in git.
 
-**Related:** [HARDWARE_TEST_RUNBOOK.md](./HARDWARE_TEST_RUNBOOK.md), [SAMSUNG_STABILITY_AUDIT.md](./SAMSUNG_STABILITY_AUDIT.md) (`MyceliumStability`), [SECURITY.md](../SECURITY.md) (vulnerability reports).
+**Related:** [HARDWARE_TEST_RUNBOOK.md](./HARDWARE_TEST_RUNBOOK.md), [SAMSUNG_STABILITY_AUDIT.md](./SAMSUNG_STABILITY_AUDIT.md) (`MycenaStability`), [SECURITY.md](../SECURITY.md) (vulnerability reports).
 
 This is **not** a crash-analytics product. There is no in-app telemetry upload.
 
@@ -13,25 +13,25 @@ This is **not** a crash-analytics product. There is no in-app telemetry upload.
 | Include | Do not include |
 |---------|----------------|
 | Operation / HV id (e.g. HV-05, P2P-MT-05) | Chat, mail, SOS, bulletin **bodies** |
-| Lifecycle (`fg` / `bg` if logged) | Invite URIs (`mycelium://…`) |
+| Lifecycle (`fg` / `bg` if logged) | Invite URIs (`mycena://…`) |
 | Android API / One UI / model | Storage keys, hex blobs ≥32 chars |
 | Exception type + stack | Private keys, tokens, `.myc` contents |
 | APK SHA-256 + git SHA | Full `bugreport.zip` in the repo |
 | Filtered logcat path (local) | Unfiltered `*:V` dumps in PRs |
 
-In-app tag **`MyceliumStability`** already records: `op=`, `api=`, `mfr=`, `model=`, `lifecycle=`, `subtype=` and a **redacted** stack. Uncaught exceptions are logged then handed to the previous handler (process still dies).
+In-app tag **`MycenaStability`** already records: `op=`, `api=`, `mfr=`, `model=`, `lifecycle=`, `subtype=` and a **redacted** stack. Uncaught exceptions are logged then handed to the previous handler (process still dies).
 
 ---
 
 ## 2. Exact commands (this repo)
 
-Package: `network.mycelium.app`.
+Package: `io.github.mycena_project.app`.
 Multiple devices: `export ANDROID_SERIAL=<serial>` (`adb devices`).
 
 ### 2.1 Preferred: capture script
 
 ```bash
-# Mycelium repo root
+# Mycena repo root
 ./scripts/android/capture-freeze-evidence.sh info
 ./scripts/android/capture-freeze-evidence.sh start          # optional run-id argument
 # reproduce the crash
@@ -56,7 +56,7 @@ Clear, then reproduce, then dump:
 adb logcat -c
 
 adb logcat -v threadtime \
-  MyceliumStability:I MeshService:I AndroidRuntime:E DEBUG:I libc:F \
+  MycenaStability:I MeshService:I AndroidRuntime:E DEBUG:I libc:F \
   ShareAppViewModel:I WifiDirectSharer:I LocalHotspot:I WifiDirectShare:I \
   WifiPauseHelper:I OfflineBootstrap:I BleBootstrap:I BleScanner:I BleScanDuty:I \
   BleInviteGatt:I WifiDirectBearer:I LocalDataWiper:I WifiAwareDiscovery:I \
@@ -85,13 +85,13 @@ adb pull /data/anr/traces.txt ./traces.txt   # often permission-denied on user b
 adb bugreport ./artifacts/hardware-runs/bugreport.zip
 ```
 
-Store the zip **only** under `artifacts/`. Bugreports contain more than Mycelium (accounts, nearby Wi-Fi names). Do not attach them to public GitHub issues.
+Store the zip **only** under `artifacts/`. Bugreports contain more than Mycena (accounts, nearby Wi-Fi names). Do not attach them to public GitHub issues.
 
 ### 2.4 Confirm the process / FGS
 
 ```bash
-adb shell dumpsys activity services network.mycelium.app/.MeshService
-adb shell pidof network.mycelium.app
+adb shell dumpsys activity services io.github.mycena_project.app/.MeshService
+adb shell pidof io.github.mycena_project.app
 ```
 
 ### 2.5 Device identity for the matrix
@@ -104,7 +104,7 @@ adb shell getprop ro.product.model
 adb shell getprop ro.build.version.release
 adb shell getprop ro.build.version.sdk
 adb shell getprop ro.build.version.oneui    # Samsung; empty on Pixel
-adb shell dumpsys package network.mycelium.app | grep -E 'versionName|versionCode'
+adb shell dumpsys package io.github.mycena_project.app | grep -E 'versionName|versionCode'
 ```
 
 ---
@@ -118,9 +118,9 @@ adb shell dumpsys package network.mycelium.app | grep -E 'versionName|versionCod
 | GitHub issue / private advisory | Redacted stack + HV id + SHA | Yes, after redact |
 | `docs/freeze-evidence/` | Optional later **summary** note (plan §5) | Yes, if it has **no** logs |
 
-If you must share a snippet in a PR: copy **only** `MyceliumStability` / `AndroidRuntime` lines after checking they contain no invite URI or `storageKeyHex`.
+If you must share a snippet in a PR: copy **only** `MycenaStability` / `AndroidRuntime` lines after checking they contain no invite URI or `storageKeyHex`.
 
-Redact locally (same rules as `StabilityDiagnostics.redact`): drop `mycelium://` URIs, `storageKeyHex=…`, long hex.
+Redact locally (same rules as `StabilityDiagnostics.redact`): drop `mycena://` URIs, `storageKeyHex=…`, long hex.
 
 ---
 

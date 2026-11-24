@@ -67,7 +67,7 @@ Public label: **Public Technical Beta — Feature Development Frozen, Release Va
 | SD-081 fail-closed | `PASS` (code + unit tests in G7) | Device send path **UNVERIFIED**. |
 | SD-030 unsigned `Data` dropped | `PASS` (code + unit tests in G7) | |
 | SD-171 `allowBackup=false` | `PASS` (manifest inspection) | |
-| SECURITY.md reporting path | `PASS` | `security@example.invalid`; GitHub advisory if enabled. |
+| SECURITY.md reporting path | `PASS` | `github.com/mycena-project/Mycena/security/advisories/new`; GitHub advisory if enabled. |
 
 **P0 rule (plan):** freeze is **not** a clean P0 pass. **Policy freeze** proceeds only with the exceptions in [DEVELOPMENT_FREEZE.md](./DEVELOPMENT_FREEZE.md).
 
@@ -135,13 +135,13 @@ These are **product/threat-model limits**, not freeze P0 bugs, **if** public cop
 
 ## 5. Security statement
 
-Mycelium has an **internal** freeze security note ([SECURITY_RELEASE_REVIEW.md](./SECURITY_RELEASE_REVIEW.md)) and a threat model. **No external security audit has been commissioned or completed.**
+Mycena has an **internal** freeze security note ([SECURITY_RELEASE_REVIEW.md](./SECURITY_RELEASE_REVIEW.md)) and a threat model. **No external security audit has been commissioned or completed.**
 
 The project **does not** claim: formal audit, production-grade security, military-grade protection, guaranteed anonymity, or that compromise is impossible.
 
 What is in evidence: selected mitigations exist in code (unsigned `Data` drop, fail-closed chat without enc key, sideload bundle signature, `allowBackup=false`) with **unit tests for some** and **no independent review**. Metadata, relay IP, Sybil MeshCoin, and WebView residuals are **accepted for preview**, not solved.
 
-Report vulnerabilities privately: **security@example.invalid** ([SECURITY.md](../SECURITY.md)).
+Report vulnerabilities privately: **github.com/mycena-project/Mycena/security/advisories/new** ([SECURITY.md](../SECURITY.md)).
 
 ---
 
@@ -197,7 +197,7 @@ Do **not** say hardware was validated, G9 published, or that P0 device gates pas
 
 ### Technical beta description
 
-Mycelium is an **early public technical beta**. Feature work is **paused**. LAN and nearby-device code exists. **No freeze hardware-matrix pass is recorded.** Sideload is untrusted-by-default. MeshCoin is not money. Security is **not** independently audited.
+Mycena is an **early public technical beta**. Feature work is **paused**. LAN and nearby-device code exists. **No freeze hardware-matrix pass is recorded.** Sideload is untrusted-by-default. MeshCoin is not money. Security is **not** independently audited.
 
 ---
 

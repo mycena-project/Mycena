@@ -1,6 +1,6 @@
 {
   "locale": "de",
-  "title": "Wie Mycelium mit deinen Daten umgeht",
+  "title": "Wie Mycena mit deinen Daten umgeht",
   "intro": "Das Wichtigste in einfachen Worten — etwa eine Minute Lesezeit.",
   "sections": [
     {
@@ -24,9 +24,9 @@
     {
       "heading": "Wer die App betreibt",
       "paragraphs": [
-        "Herausgegeben von the maintainer.",
-        "Mycelium ist Open-Source-Software — der Quellcode ist einsehbar.",
-        "Fragen: privacy@example.invalid"
+        "Herausgegeben vom Mycena-Projekt.",
+        "Mycena ist Open-Source-Software — der Quellcode ist einsehbar.",
+        "Fragen: github.com/mycena-project/Mycena/issues"
       ]
     }
   ],

@@ -10,7 +10,7 @@
 
 | Question | Answer |
 |----------|--------|
-| **Is there a separate repository for the native Android/iOS app?** | **No.** The mobile hosts live in this monorepo: [`android/`](../android/) (shipping Kotlin/Compose shell) and [`ios/`](../ios/) (SwiftUI shell in progress). Other Mycelium repos ([mycelium-relay](https://github.com/mycena-project/mycelium-relay), [mycelium-web](https://github.com/mycena-project/mycelium-web)) are relay and marketing only — see [ECOSYSTEM.md](./ECOSYSTEM.md). |
+| **Is there a separate repository for the native Android/iOS app?** | **No.** The mobile hosts live in this monorepo: [`android/`](../android/) (shipping Kotlin/Compose shell) and [`ios/`](../ios/) (SwiftUI shell in progress). Other Mycena repos ([mycena-relay](https://github.com/mycena-project/mycena-relay), [mycena-web](https://github.com/mycena-project/mycena-web)) are relay and marketing only — see [ECOSYSTEM.md](./ECOSYSTEM.md). |
 | **Does `release_integrity.rs` / `reproducible_build.rs` protect user keys on device?** | **No.** Those modules attest **official build artifacts** (APK, desktop bundles, mini-app bundles) via M-of-N release signing and reproducible-build digests. They do **not** touch end-user identity keys. |
 | **Is hardware-bound user key storage done?** | **Partial.** Android: EncryptedSharedPreferences with **StrongBox requested** (software Keystore fallback). iOS: Keychain (`AfterFirstUnlockThisDeviceOnly`) for the 32-byte master key. Identity keys are **not** non-exportable Secure Enclave / StrongBox objects. Root/jailbreak still wins. |
 
@@ -20,13 +20,13 @@
 
 ## Repository layout (clarification)
 
-Some checkouts use a parent workspace (e.g. `the maintainer/`) where **`android/` is not at the workspace root**. The native Android app is always:
+Some checkouts use a parent workspace (e.g. `mycena-project/`) where **`android/` is not at the workspace root**. The native Android app is always:
 
 ```text
-Mycelium/android/          ← Kotlin host, Gradle, StorageKeyHelper.kt
-Mycelium/ios/              ← Swift host (partial)
-Mycelium/crates/mycelium-ffi/   ← UniFFI boundary (storage_key_hex in NodeConfig)
-Mycelium/crates/mycelium-core/src/at_rest.rs   ← SecretVault (ChaCha20-Poly1305)
+Mycena/android/          ← Kotlin host, Gradle, StorageKeyHelper.kt
+Mycena/ios/              ← Swift host (partial)
+Mycena/crates/mycena-ffi/   ← UniFFI boundary (storage_key_hex in NodeConfig)
+Mycena/crates/mycena-core/src/at_rest.rs   ← SecretVault (ChaCha20-Poly1305)
 ```
 
 There is **no** hidden mobile-only GitHub repository for keystore integration.
@@ -37,9 +37,9 @@ There is **no** hidden mobile-only GitHub repository for keystore integration.
 
 | Component | Protects | Does **not** protect |
 |-----------|----------|----------------------|
-| [`release_integrity.rs`](../crates/mycelium-core/src/release_integrity.rs) | Integrity of **released binaries** (BLAKE3 + M-of-N Ed25519 release signers) | User Ed25519 / X25519 keys on phone |
-| [`reproducible_build.rs`](../crates/mycelium-miniapp/src/reproducible_build.rs) | Mini-app **bundle** recipe attestation in store listings | User keys |
-| [`SecretVault` / `at_rest.rs`](../crates/mycelium-core/src/at_rest.rs) | Identity & enc key **files** (`.secrets/*.enc`) given a 32-byte master key | Where that master key lives — **host responsibility** |
+| [`release_integrity.rs`](../crates/mycena-core/src/release_integrity.rs) | Integrity of **released binaries** (BLAKE3 + M-of-N Ed25519 release signers) | User Ed25519 / X25519 keys on phone |
+| [`reproducible_build.rs`](../crates/mycena-miniapp/src/reproducible_build.rs) | Mini-app **bundle** recipe attestation in store listings | User keys |
+| [`SecretVault` / `at_rest.rs`](../crates/mycena-core/src/at_rest.rs) | Identity & enc key **files** (`.secrets/*.enc`) given a 32-byte master key | Where that master key lives — **host responsibility** |
 | Android `StorageKeyHelper.kt` | Master key **confidentiality at rest** via EncryptedSharedPreferences | Hardware non-exportability of identity keys; root resistance |
 | Desktop OS keyring (`keyring` crate) | Master key in platform credential store | Mobile parity; theft with unlocked session |
 | iOS Keychain (shipping in shell) | Master key in Keychain, this-device-only | Not Secure Enclave-bound identity keys; app not store-ready |
@@ -48,12 +48,12 @@ There is **no** hidden mobile-only GitHub repository for keystore integration.
 
 ## Android (in monorepo — partial)
 
-**Implementation:** [`android/app/src/main/java/network/mycelium/app/StorageKeyHelper.kt`](../android/app/src/main/java/network/mycelium/app/StorageKeyHelper.kt)
+**Implementation:** [`android/app/src/main/java/io/github/mycena_project/app/StorageKeyHelper.kt`](../android/app/src/main/java/io/github/mycena_project/app/StorageKeyHelper.kt)
 
 **Flow:**
 
 1. `SecureRandom` generates a 32-byte hex master key on first launch.
-2. Key is stored in `EncryptedSharedPreferences` (`mycelium_secure` / `storage_key_hex`).
+2. Key is stored in `EncryptedSharedPreferences` (`mycena_secure` / `storage_key_hex`).
 3. `MasterKey.Builder` (AES256-GCM) uses Android Keystore to encrypt the **preferences file**.
 4. `MeshService` passes `storageKeyHex` into UniFFI → `NodeConfig.storage_key` → `SecretVault::open`.
 
@@ -75,7 +75,7 @@ There is **no** hidden mobile-only GitHub repository for keystore integration.
 
 ## iOS (in monorepo — not ready)
 
-**Implementation status:** BLE host scaffolding exists under [`ios/Mycelium/`](../ios/Mycelium/). A Keychain helper (`StorageKeyHelper.swift`) stores the 32-byte master key with `AfterFirstUnlockThisDeviceOnly`. The iOS app is still a scaffold — not TestFlight/App Store ready — and identity keys are not Secure Enclave–bound.
+**Implementation status:** BLE host scaffolding exists under [`ios/Mycena/`](../ios/Mycena/). A Keychain helper (`StorageKeyHelper.swift`) stores the 32-byte master key with `AfterFirstUnlockThisDeviceOnly`. The iOS app is still a scaffold — not TestFlight/App Store ready — and identity keys are not Secure Enclave–bound.
 
 **Secure Enclave:** No plan yet for storing Ed25519/X25519 material in Secure Enclave–backed Keychain items (`kSecAttrTokenIDSecureEnclave` / CryptoKit `SecureEnclave.P256.Signing`). Required work for App Store–grade posture.
 
@@ -83,7 +83,7 @@ There is **no** hidden mobile-only GitHub repository for keystore integration.
 
 ## Desktop
 
-**Implementation:** `SecretVault` prefers OS keyring ([`at_rest.rs`](../crates/mycelium-core/src/at_rest.rs)); refuses weak file-only creation on fresh installs when keyring is unavailable (**SD-131**).
+**Implementation:** `SecretVault` prefers OS keyring ([`at_rest.rs`](../crates/mycena-core/src/at_rest.rs)); refuses weak file-only creation on fresh installs when keyring is unavailable (**SD-131**).
 
 Desktop is **not** the Play/App Store launch blocker, but theft + unlocked session still exposes keys in RAM.
 
@@ -131,10 +131,10 @@ When assessing nation-state or forensic theft scenarios, assume **keys are extra
 ## Code references
 
 ```text
-User key at rest (Rust):     crates/mycelium-core/src/at_rest.rs
+User key at rest (Rust):     crates/mycena-core/src/at_rest.rs
 Android master key (Kotlin): android/.../StorageKeyHelper.kt
 Node wiring:                 android/.../MeshService.kt → storageKeyHex
-Build integrity (NOT user):  crates/mycelium-core/src/release_integrity.rs
-Mini-app build attestation:  crates/mycelium-miniapp/src/reproducible_build.rs
+Build integrity (NOT user):  crates/mycena-core/src/release_integrity.rs
+Mini-app build attestation:  crates/mycena-miniapp/src/reproducible_build.rs
 Security debt:               SD-120, SD-121, SD-131
 ```

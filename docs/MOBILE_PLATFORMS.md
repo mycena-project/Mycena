@@ -3,7 +3,7 @@
 **Status:** Android shipping; iOS BLE host implemented (app shell pending)  
 **Last updated:** 2026-07-04
 
-This document records how Mycelium splits **shared Rust** from **native mobile shells**, so Android development can continue unchanged while iOS is added with minimal rework.
+This document records how Mycena splits **shared Rust** from **native mobile shells**, so Android development can continue unchanged while iOS is added with minimal rework.
 
 Related: [architecture.md](./architecture.md) · [SECURITY.md](./SECURITY.md) · [SECURE_HARDWARE_STATUS.md](./SECURE_HARDWARE_STATUS.md) · [DISCOVERY.md](./DISCOVERY.md) · [ADR 001](./adr/001-mobile-host-architecture.md)
 
@@ -14,7 +14,7 @@ Related: [architecture.md](./architecture.md) · [SECURITY.md](./SECURITY.md) ·
 1. **One mesh core** — protocol, crypto, persistence, and app logic stay in Rust crates.
 2. **Native shells** — Android (Kotlin/Compose) and future iOS (Swift/SwiftUI) own OS integration only.
 3. **Android-first** — current beta velocity on Android is unchanged; iOS groundwork must not block it.
-4. **UniFFI as the mobile API contract** — `mycelium.udl` is the stable boundary for both Kotlin and Swift.
+4. **UniFFI as the mobile API contract** — `mycena.udl` is the stable boundary for both Kotlin and Swift.
 5. **No shared mobile UI** — Compose and SwiftUI stay separate; parity is behavioral, not pixel-identical.
 
 ---
@@ -24,21 +24,21 @@ Related: [architecture.md](./architecture.md) · [SECURITY.md](./SECURITY.md) ·
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │  Shared Rust (platform-neutral)                              │
-│  mycelium-core → mycelium-node → mycelium-app → mycelium-coin│
+│  mycena-core → mycena-node → mycena-app → mycena-coin│
 └───────────────────────────────┬─────────────────────────────┘
                                 │
           ┌─────────────────────┼─────────────────────┐
           │                     │                     │
           ▼                     ▼                     ▼
-   mycelium-ffi            mycelium-desktop      mycelium-cli
+   mycena-ffi            mycena-desktop      mycena-cli
    (UniFFI cdylib)         (Tauri, native Rust)  (headless + HTTP)
           │                     │
           ▼                     ▼
-   android/                 crates/mycelium-desktop/ui/
+   android/                 crates/mycena-desktop/ui/
    Kotlin + Compose         Svelte
 ```
 
-**Important:** Desktop does **not** use UniFFI. It links the same Rust crates directly inside the Tauri process. Only **mobile** hosts use `mycelium-ffi`.
+**Important:** Desktop does **not** use UniFFI. It links the same Rust crates directly inside the Tauri process. Only **mobile** hosts use `mycena-ffi`.
 
 ---
 
@@ -46,10 +46,10 @@ Related: [architecture.md](./architecture.md) · [SECURITY.md](./SECURITY.md) ·
 
 | Concern | Shared Rust | Native host (Android / iOS) |
 |--------|-------------|-----------------------------|
-| libp2p mesh, gossip, store-and-forward | `mycelium-node` | — |
-| Chat, mail, bulletin, contacts, mini-apps | `mycelium-app` | — |
-| At-rest encryption (given 32-byte master key) | `mycelium-core` (`SecretVault`) | Generate/store master key |
-| Node bootstrap (runner, storage paths, coin) | `mycelium-ffi` today *(see Phase 2)* | Call `init_node` / supply `NodeConfig` |
+| libp2p mesh, gossip, store-and-forward | `mycena-node` | — |
+| Chat, mail, bulletin, contacts, mini-apps | `mycena-app` | — |
+| At-rest encryption (given 32-byte master key) | `mycena-core` (`SecretVault`) | Generate/store master key |
+| Node bootstrap (runner, storage paths, coin) | `mycena-ffi` today *(see Phase 2)* | Call `init_node` / supply `NodeConfig` |
 | Foreground / background lifecycle | — | Service (Android) / BG modes (iOS) |
 | System notifications | `NotificationSink` hook | Show notification UI |
 | Events to UI | `NodeEventCallback` (UniFFI) | Broadcast / Flow (Android) · delegate (iOS) |
@@ -65,16 +65,16 @@ Related: [architecture.md](./architecture.md) · [SECURITY.md](./SECURITY.md) ·
 
 | Host | Mechanism | Contract | Regenerate |
 |------|-----------|----------|------------|
-| **Android** | UniFFI → Kotlin | `crates/mycelium-ffi/src/mycelium.udl` | `scripts/regenerate-uniffi-kotlin.sh` |
+| **Android** | UniFFI → Kotlin | `crates/mycena-ffi/src/mycena.udl` | `scripts/regenerate-uniffi-kotlin.sh` |
 | **iOS (planned)** | UniFFI → Swift | Same UDL | `scripts/regenerate-uniffi-bindings.sh swift` *(stub)* |
-| **Desktop** | Direct Rust in Tauri | Tauri commands in `mycelium-desktop/src/lib.rs` | N/A |
+| **Desktop** | Direct Rust in Tauri | Tauri commands in `mycena-desktop/src/lib.rs` | N/A |
 
 Hand-written facades sit above generated code:
 
-- Android: `android/uniffi-bindings/.../MyceliumBindings.kt`
-- iOS (planned): `ios/MyceliumBindings/` Swift wrapper
+- Android: `android/uniffi-bindings/.../MycenaBindings.kt`
+- iOS (planned): `ios/MycenaBindings/` Swift wrapper
 
-**Rule:** Do not add platform-specific logic to `mycelium-core` or `mycelium-app`. If Rust needs a host capability, extend a **trait** (`NotificationSink`, future `PlatformLog`) or pass data through `NodeConfig` / callbacks.
+**Rule:** Do not add platform-specific logic to `mycena-core` or `mycena-app`. If Rust needs a host capability, extend a **trait** (`NotificationSink`, future `PlatformLog`) or pass data through `NodeConfig` / callbacks.
 
 ---
 
@@ -86,7 +86,7 @@ These are **intentionally** not in shared Rust:
 |---------|----------|------------------------|
 | Foreground mesh service | `MeshService.kt` | `BGProcessingTask` / limited BG fetch |
 | Encrypted prefs master key | `StorageKeyHelper.kt` (EncryptedSharedPreferences — **not** full Keystore identity binding) | Keychain wrapper (**planned**, [SECURE_HARDWARE_STATUS.md](./SECURE_HARDWARE_STATUS.md)) |
-| BLE bootstrap advertise/scan + peripheral GATT | `bootstrap/BleBootstrap*.kt`, `BleInviteGattServer.kt` | `ios/Mycelium/BLE/` (`BleMeshHost`, restoration IDs) |
+| BLE bootstrap advertise/scan + peripheral GATT | `bootstrap/BleBootstrap*.kt`, `BleInviteGattServer.kt` | `ios/Mycena/BLE/` (`BleMeshHost`, restoration IDs) |
 | Wi‑Fi multicast lock | `bootstrap/WifiMulticastLock.kt` | iOS mDNS without extra lock |
 | Mesh event bus | `MeshEventBus.kt` | `NotificationCenter` / async stream |
 | Mini-app isolated process | `miniapp/MiniAppProcessActivity.kt` | App extension or in-process WebView policy |
@@ -109,7 +109,7 @@ These are **intentionally** not in shared Rust:
 
 ### Phase 2 — Shared host bootstrap crate *(before iOS coding)*
 
-Extract duplicated node startup from `mycelium-ffi/src/lib.rs` and `mycelium-desktop/src/lib.rs` into a new crate, e.g. `mycelium-host`:
+Extract duplicated node startup from `mycena-ffi/src/lib.rs` and `mycena-desktop/src/lib.rs` into a new crate, e.g. `mycena-host`:
 
 - `HostConfig` (db path, listen addr, storage key, settings)
 - `HostRuntime::start()` → `(AppNode, NodeHandle, inbox streams)`
@@ -121,12 +121,12 @@ Extract duplicated node startup from `mycelium-ffi/src/lib.rs` and `mycelium-des
 ### Phase 3 — iOS shell MVP
 
 1. Add Rust targets: `aarch64-apple-ios`, `aarch64-apple-ios-sim`, `x86_64-apple-ios` (Intel sim optional)
-2. Build `libuniffi_mycelium.a` / `.xcframework`
+2. Build `libuniffi_mycena.a` / `.xcframework`
 3. `uniffi-bindgen --language swift` → `ios/Generated/`
 4. SwiftUI app: onboarding, Connect (QR), Chat, Settings
 5. Keychain → `NodeConfig.storage_key_hex`
 6. Free Apple ID or TestFlight for distribution (see below)
-7. [x] Core Bluetooth peripheral + central mesh host (`ios/Mycelium/BLE/`) — **background limits:** [IOS_BLE_CONSTRAINTS.md](./IOS_BLE_CONSTRAINTS.md)
+7. [x] Core Bluetooth peripheral + central mesh host (`ios/Mycena/BLE/`) — **background limits:** [IOS_BLE_CONSTRAINTS.md](./IOS_BLE_CONSTRAINTS.md)
 
 ### Phase 4 — Parity and platform polish
 
@@ -153,10 +153,10 @@ Bulletin, mail, mini-apps, BLE, background policy — prioritized by user need, 
 2. Implement master-key storage → 64-char hex → `NodeConfig.storage_key_hex`.
 3. Call `init_node` once per process; keep node alive (service / BG task).
 4. Implement `NodeEventCallback` → native event bus → UI refresh.
-5. Regenerate bindings from `mycelium.udl`; add hand-written facade module.
+5. Regenerate bindings from `mycena.udl`; add hand-written facade module.
 6. Map notifications: chat, mail, bulletin, SOS, contact requests.
-7. QR: camera permission + invite URI handling (`mycelium://invite/...`).
-8. Do **not** fork `mycelium-app` or duplicate protocol logic in the shell language.
+7. QR: camera permission + invite URI handling (`mycena://invite/...`).
+8. Do **not** fork `mycena-app` or duplicate protocol logic in the shell language.
 
 ---
 
@@ -173,12 +173,12 @@ Bulletin, mail, mini-apps, BLE, background policy — prioritized by user need, 
 
 | Area | Path |
 |------|------|
-| UniFFI contract | `crates/mycelium-ffi/src/mycelium.udl` |
-| FFI implementation | `crates/mycelium-ffi/src/lib.rs` |
-| Notification hook | `crates/mycelium-app/src/notify.rs` |
-| At-rest vault | `crates/mycelium-core/src/at_rest.rs` |
-| Android host | `android/app/src/main/java/network/mycelium/app/` |
+| UniFFI contract | `crates/mycena-ffi/src/mycena.udl` |
+| FFI implementation | `crates/mycena-ffi/src/lib.rs` |
+| Notification hook | `crates/mycena-app/src/notify.rs` |
+| At-rest vault | `crates/mycena-core/src/at_rest.rs` |
+| Android host | `android/app/src/main/java/io/github/mycena_project/app/` |
 | Android build | `android/README.md` |
-| iOS scaffold + BLE host | `ios/README.md`, `ios/Mycelium/BLE/` |
+| iOS scaffold + BLE host | `ios/README.md`, `ios/Mycena/BLE/` |
 | iOS BLE background limits | `docs/IOS_BLE_CONSTRAINTS.md` |
 | Binding regen | `scripts/regenerate-uniffi-bindings.sh` |

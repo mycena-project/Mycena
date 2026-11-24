@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build or verify the Mycelium Technical Beta APK (offline / phone-to-phone).
+# Build or verify the Mycena Technical Beta APK (offline / phone-to-phone).
 #
 # This is NOT the Play Store artifact. This is NOT an official M-of-N release.
 # Do not publish or tag from this script.
@@ -13,11 +13,11 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT_DIR="$ROOT/artifacts/technical-beta"
-KEYSTORE="$OUT_DIR/mycelium-technical-beta.jks"
-KEY_ALIAS="mycelium-technical-beta"
+KEYSTORE="$OUT_DIR/mycena-technical-beta.jks"
+KEY_ALIAS="mycena-technical-beta"
 # Local tester key only — not a production/Play secret. Gitignored with artifacts/.
-STORE_PASS="${MYCELIUM_TECHNICAL_BETA_STORE_PASS:-mycelium-technical-beta-local}"
-DNAME="CN=Mycelium Technical Beta, OU=Mycelium, O=the maintainer, L=Unknown, ST=Unknown, C=DE"
+STORE_PASS="${MYCENA_TECHNICAL_BETA_STORE_PASS:-mycena-technical-beta-local}"
+DNAME="CN=Mycena Technical Beta, OU=Mycena, O=Mycena Project, L=Unknown, ST=Unknown, C=DE"
 REQUIRED_ABIS=(armeabi-v7a arm64-v8a x86_64)
 
 SKIP_NATIVE=0
@@ -52,7 +52,7 @@ version_name="$(grep -E '^versionName=' "$ROOT/android/version.properties" | cut
 version_code="$(grep -E '^versionCode=' "$ROOT/android/version.properties" | cut -d= -f2)"
 [[ -n "$version_name" && -n "$version_code" ]] || die "android/version.properties missing versionName/versionCode"
 
-artifact_name="mycelium-${version_name}-technical-beta-android.apk"
+artifact_name="mycena-${version_name}-technical-beta-android.apk"
 
 find_apksigner() {
   local root="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
@@ -123,9 +123,9 @@ verify_apk() {
 
   local apksigner
   apksigner="$(find_apksigner)" || die "apksigner not found (ANDROID_HOME / build-tools)"
-  "$apksigner" verify --verbose "$apk" >/tmp/mycelium-apksigner-verify.txt 2>&1 \
-    || die "apksigner verify failed (unsigned or corrupt). See /tmp/mycelium-apksigner-verify.txt"
-  if grep -qi "does not verify" /tmp/mycelium-apksigner-verify.txt; then
+  "$apksigner" verify --verbose "$apk" >/tmp/mycena-apksigner-verify.txt 2>&1 \
+    || die "apksigner verify failed (unsigned or corrupt). See /tmp/mycena-apksigner-verify.txt"
+  if grep -qi "does not verify" /tmp/mycena-apksigner-verify.txt; then
     die "apksigner: APK does not verify"
   fi
 
@@ -142,7 +142,7 @@ verify_apk() {
     local badging
     badging="$("$aapt" dump badging "$apk" 2>/dev/null || true)"
     echo "$badging" | grep -q "application-debuggable" && die "APK is application-debuggable"
-    echo "$badging" | grep -q "package: name='network.mycelium.app'" \
+    echo "$badging" | grep -q "package: name='io.github.mycena_project.app'" \
       || die "unexpected package name"
     echo "$badging" | grep -q "versionName='${version_name}'" \
       || die "versionName mismatch (expected ${version_name})"
@@ -169,7 +169,7 @@ write_report() {
   size="$(wc -c < "$apk" | tr -d ' ')"
   blake3=""
   if command -v cargo >/dev/null 2>&1; then
-    blake3="$(cargo run -q -p mycelium-cli -- release hash "$apk" 2>/dev/null || true)"
+    blake3="$(cargo run -q -p mycena-cli -- release hash "$apk" 2>/dev/null || true)"
   fi
   local apksigner
   apksigner="$(find_apksigner)"
@@ -180,20 +180,20 @@ write_report() {
 
   local report="$OUT_DIR/VERIFICATION.txt"
   cat > "$report" <<EOF
-Mycelium Technical Beta APK — local verification
+Mycena Technical Beta APK — local verification
 ================================================
 This artifact is for technical-beta/offline testing and is not the Play Store artifact.
 It is not official, not tagged, and not published.
 
 versionName:     ${version_name}
 versionCode:     ${version_code}
-applicationId:   network.mycelium.app
+applicationId:   io.github.mycena_project.app
 build type:      Gradle release (minify enabled)
 ABIs:            armeabi-v7a, arm64-v8a, x86_64 (universal APK)
 file:            ${apk}
 bytes:           ${size}
 SHA-256:         ${sha}
-BLAKE3:          ${blake3:-UNVERIFIED (cargo mycelium-cli release hash failed)}
+BLAKE3:          ${blake3:-UNVERIFIED (cargo mycena-cli release hash failed)}
 apksigner:       verifies
 signer DN:       ${dn:-UNVERIFIED}
 cert SHA-256:    ${cert_sha:-UNVERIFIED}
@@ -212,8 +212,8 @@ EOF
 
 if [[ "$VERIFY_ONLY" -eq 1 ]]; then
   apk="${VERIFY_APK:-$OUT_DIR/$artifact_name}"
-  if [[ ! -f "$apk" && -f "$ROOT/artifacts/release-candidate/mycelium-0.1.75-rc.1-android.apk" ]]; then
-    apk="$ROOT/artifacts/release-candidate/mycelium-0.1.75-rc.1-android.apk"
+  if [[ ! -f "$apk" && -f "$ROOT/artifacts/release-candidate/mycena-0.1.75-rc.1-android.apk" ]]; then
+    apk="$ROOT/artifacts/release-candidate/mycena-0.1.75-rc.1-android.apk"
   fi
   verify_apk "$apk"
   mkdir -p "$OUT_DIR"
@@ -225,9 +225,9 @@ ensure_keystore
 [[ -f "$KEYSTORE" ]] || die "signing is absent: keystore not created"
 
 if [[ "$SKIP_NATIVE" -eq 0 ]]; then
-  MYCELIUM_SKIP_GRADLE=1 bash "$ROOT/android/build.sh"
+  MYCENA_SKIP_GRADLE=1 bash "$ROOT/android/build.sh"
 else
-  [[ -d "$ROOT/android/uniffi-bindings/src/main/kotlin/uniffi/mycelium" ]] \
+  [[ -d "$ROOT/android/uniffi-bindings/src/main/kotlin/uniffi/mycena" ]] \
     || die "UniFFI Kotlin missing; run without --skip-native on a clean checkout"
 fi
 

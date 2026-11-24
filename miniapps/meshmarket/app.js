@@ -18,7 +18,7 @@ const CATEGORIES = [
 
   async function fetchStock(listingId) {
     try {
-      const s = await window.mycelium?.marketplaceStock?.get(listingId);
+      const s = await window.mycena?.marketplaceStock?.get(listingId);
       if (s) stockById[listingId] = s;
       return s;
     } catch { return null; }
@@ -44,7 +44,7 @@ const CATEGORIES = [
 
   async function init() {
     try {
-      const id = await window.mycelium?.getIdentity?.();
+      const id = await window.mycena?.getIdentity?.();
       myPeerId = id?.peer_id || '';
     } catch {}
     renderCats();
@@ -63,9 +63,9 @@ const CATEGORIES = [
   async function loadListings() {
     const scope = scopeFor(category);
     try {
-      const stored = await window.mycelium?.storage.get(STORAGE_KEY + ':' + category);
+      const stored = await window.mycena?.storage.get(STORAGE_KEY + ':' + category);
       listings = stored ? JSON.parse(stored).filter(l => l.expires_at > Date.now()) : [];
-      const bulletins = await window.mycelium?.getBulletins(scope) || [];
+      const bulletins = await window.mycena?.getBulletins(scope) || [];
       bulletins.forEach(b => {
         try {
           const l = JSON.parse(b.body);
@@ -76,7 +76,7 @@ const CATEGORIES = [
       });
       listings.sort((a,b) => b.created_at - a.created_at);
       await loadStockForListings();
-      await window.mycelium?.storage.set(STORAGE_KEY + ':' + category, JSON.stringify(listings));
+      await window.mycena?.storage.set(STORAGE_KEY + ':' + category, JSON.stringify(listings));
     } catch (e) { console.error(e); }
     renderListings();
   }
@@ -132,13 +132,13 @@ const CATEGORIES = [
     const msg = prompt(`Message about "${l.title}":`);
     if (!msg) return;
     try {
-      await window.mycelium?.sendMessage(peer, `[MeshMarket] ${msg}`);
+      await window.mycena?.sendMessage(peer, `[MeshMarket] ${msg}`);
       alert('Message sent!');
     } catch (e) { alert('Failed: ' + e.message); }
   }
 
   async function recordSale(listingId, qty = 1) {
-    const result = await window.mycelium?.marketplaceStock?.recordSale(listingId, qty);
+    const result = await window.mycena?.marketplaceStock?.recordSale(listingId, qty);
     stockById[listingId] = result;
     if (result?.status === 'conflict') {
       throw new Error(`Stock conflict — oversold by ${result.oversold_by}`);
@@ -155,7 +155,7 @@ const CATEGORIES = [
     }
     try {
       await recordSale(listingId, 1);
-      await window.mycelium?.requestPayment(l.price_muon, `MeshMarket: ${l.title}`);
+      await window.mycena?.requestPayment(l.price_muon, `MeshMarket: ${l.title}`);
       alert('Payment initiated — confirm in the host app.');
       renderListings();
     } catch (e) { alert('Payment failed: ' + e.message); }
@@ -176,7 +176,7 @@ const CATEGORIES = [
     const qty = parseInt(prompt('Set authoritative on-hand quantity:', '0') || '0', 10);
     if (Number.isNaN(qty) || qty < 0) return;
     try {
-      const result = await window.mycelium?.marketplaceStock?.resolve(listingId, qty);
+      const result = await window.mycena?.marketplaceStock?.resolve(listingId, qty);
       stockById[listingId] = result;
       alert('Stock conflict resolved.');
       renderListings();
@@ -227,10 +227,10 @@ const CATEGORIES = [
       expires_at: Date.now() + ttl * 1000,
     };
     listings.unshift(listing);
-    await window.mycelium?.storage.set(STORAGE_KEY + ':' + category, JSON.stringify(listings));
-    await window.mycelium?.postBulletin(scopeFor(category), listing.title, JSON.stringify(listing), ttl);
+    await window.mycena?.storage.set(STORAGE_KEY + ':' + category, JSON.stringify(listings));
+    await window.mycena?.postBulletin(scopeFor(category), listing.title, JSON.stringify(listing), ttl);
     try {
-      const stock = await window.mycelium?.marketplaceStock?.init(listing.id, initialQty);
+      const stock = await window.mycena?.marketplaceStock?.init(listing.id, initialQty);
       stockById[listing.id] = stock;
     } catch (e) {
       console.warn('stock init failed', e);
@@ -242,5 +242,5 @@ const CATEGORIES = [
   });
 
   init();
-  window.mycelium?.registerBulletinRefresh?.(loadListings);
+  window.mycena?.registerBulletinRefresh?.(loadListings);
   setInterval(loadListings, 20000);

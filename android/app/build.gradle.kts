@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Copyright (C) 2026 Mycelium Project
+// Copyright (C) 2026 Mycena Project
 import java.util.Properties
 import org.gradle.api.GradleException
 
@@ -17,11 +17,11 @@ val versionProps =
     }
 
 android {
-    namespace = "network.mycelium.app"
+    namespace = "io.github.mycena_project.app"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "network.mycelium.app"
+        applicationId = "io.github.mycena_project.app"
         minSdk = 26
         targetSdk = 34
         versionCode = versionProps.getProperty("versionCode", "1").toInt()
@@ -102,7 +102,7 @@ android {
             pickFirsts +=
                 setOf(
                     "**/libjnidispatch.so",
-                    "**/libmycelium_ffi.so",
+                    "**/libmycena_ffi.so",
                 )
         }
 
@@ -117,7 +117,7 @@ android {
 
 val copyMiniappBridge =
     tasks.register<Copy>("copyMiniappBridge") {
-        from(rootProject.projectDir.resolve("../crates/mycelium-miniapp/src/bridge_api.js"))
+        from(rootProject.projectDir.resolve("../crates/mycena-miniapp/src/bridge_api.js"))
         into(layout.projectDirectory.dir("src/main/assets/miniapp"))
     }
 val copyOnboardingCopy =

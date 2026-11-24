@@ -3,7 +3,7 @@
 **Status:** Active
 **Audience:** Users, support, and developers wiring Settings UI.
 
-Mycelium runs **parallel paths** — LAN, internet relay, rendezvous, and (on Android) BLE — not a single on/off switch. Settings control which paths are **allowed**; runtime status shows which paths are **working right now**.
+Mycena runs **parallel paths** — LAN, internet relay, rendezvous, and (on Android) BLE — not a single on/off switch. Settings control which paths are **allowed**; runtime status shows which paths are **working right now**.
 
 See also: [CONNECT.md](./CONNECT.md), [DISCOVERY.md](./DISCOVERY.md), [DISASTER_MESH_ROADMAP.md](./DISASTER_MESH_ROADMAP.md), [ADR 002](./adr/002-ble-mesh-transport.md), [ADR 003](./adr/003-desktop-ble-and-disaster-mesh.md).
 
@@ -83,4 +83,4 @@ These are the **product decisions** for how modes combine. Implementation should
 
 - Desktop emits `settings-updated` and `metrics-updated` with `internet_enabled`, `rendezvous_enabled`, `connectivity_mode`, `connectivity_detail`.
 - `ConnectivityMode` in Rust (`Internet` vs `MeshOnly`) reflects **relay reachability**, not the user's internet toggle alone.
-- Custom bootstrap peers: one per line in Settings; empty = default `relay.example.invalid`.
+- Custom bootstrap peers: one per line in Settings; empty = default `mycena-relay.fly.dev`.

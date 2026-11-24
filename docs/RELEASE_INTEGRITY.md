@@ -1,6 +1,6 @@
 # Release integrity — reproducible builds and M-of-N signing
 
-Mycelium **core** releases (Android APK, future desktop bundles) must be **reproducible** and **co-signed** by independent operators before they are marked **official**. Mini-apps continue to use [`reproducible_build`](../crates/mycelium-miniapp/src/reproducible_build.rs) in their manifests; this document covers the main application.
+Mycena **core** releases (Android APK, future desktop bundles) must be **reproducible** and **co-signed** by independent operators before they are marked **official**. Mini-apps continue to use [`reproducible_build`](../crates/mycena-miniapp/src/reproducible_build.rs) in their manifests; this document covers the main application.
 
 **Goal:** No single person or CI job can ship a malicious binary unnoticed. Users compare the published **BLAKE3 hash** against a self-built artifact and check that **≥3 of 5** independent signers attested the same hash.
 
@@ -35,11 +35,11 @@ Mycelium **core** releases (Android APK, future desktop bundles) must be **repro
 
 ```bash
 # One-time or after recipe changes:
-docker build -t mycelium-reproducible-build docker/reproducible-build
+docker build -t mycena-reproducible-build docker/reproducible-build
 
 # Reproducible Android APK + build report:
 ./scripts/reproducible-build.sh --tag v0.1.62
-# → target/reproducible/mycelium-v0.1.62-android.apk
+# → target/reproducible/mycena-v0.1.62-android.apk
 # → target/reproducible/build-report.json
 ```
 
@@ -52,21 +52,21 @@ Inside the container:
 ### Compare your hash to the published release
 
 ```bash
-cargo run -p mycelium-cli -- release hash target/reproducible/mycelium-v0.1.62-android.apk
+cargo run -p mycena-cli -- release hash target/reproducible/mycena-v0.1.62-android.apk
 # Must match artifact_blake3_hex in the signed manifest
 ```
 
 ### Recipe digest
 
 ```bash
-cargo run -p mycelium-cli -- release recipe-digest .
+cargo run -p mycena-cli -- release recipe-digest .
 ```
 
-Computed from sorted recipe files listed in [`RECIPE_PATHS`](../crates/mycelium-core/src/release_integrity.rs). Any recipe change requires a new digest and fresh co-signatures.
+Computed from sorted recipe files listed in [`RECIPE_PATHS`](../crates/mycena-core/src/release_integrity.rs). Any recipe change requires a new digest and fresh co-signatures.
 
 ---
 
-## 3. M-of-N signature schema (`mycelium-release-integrity/v1`)
+## 3. M-of-N signature schema (`mycena-release-integrity/v1`)
 
 Default threshold: **3 of 5** independent signers.
 
@@ -84,7 +84,7 @@ Signer Ed25519 keys are embedded in the client (`release_signer_pubkey_hex` deri
 
 See [`docs/examples/release_integrity.example.json`](./examples/release_integrity.example.json).
 
-Signed payload prefix: `MYCEL/RELEASE/ATTEST/v1\0` + `release_tag` + `artifact_name` + `artifact_blake3_hex` + `build_recipe_digest_hex`.
+Signed payload prefix: `MYCENA/RELEASE/ATTEST/v1\0` + `release_tag` + `artifact_name` + `artifact_blake3_hex` + `build_recipe_digest_hex`.
 
 A release is **official** when:
 
@@ -92,7 +92,7 @@ A release is **official** when:
 2. `build_recipe_digest_hex` matches the tagged source tree.
 3. ≥ `threshold.required` valid signatures from distinct known signer IDs.
 
-Implementation: [`crates/mycelium-core/src/release_integrity.rs`](../crates/mycelium-core/src/release_integrity.rs).
+Implementation: [`crates/mycena-core/src/release_integrity.rs`](../crates/mycena-core/src/release_integrity.rs).
 
 ---
 
@@ -107,9 +107,9 @@ Implementation: [`crates/mycelium-core/src/release_integrity.rs`](../crates/myce
 ### Step B — create manifest template
 
 ```bash
-cargo run -p mycelium-cli -- release init \
+cargo run -p mycena-cli -- release init \
   --tag v0.1.62 \
-  --artifact target/reproducible/mycelium-v0.1.62-android.apk \
+  --artifact target/reproducible/mycena-v0.1.62-android.apk \
   --out release-integrity-v0.1.62.json
 ```
 
@@ -140,7 +140,7 @@ Mark the release **official** in notes only when Step C threshold is met.
 
 ```bash
 # Download APK + release-integrity-v0.1.62.json from GitHub Releases
-./scripts/release-verify.sh release-integrity-v0.1.62.json mycelium-v0.1.62-android.apk
+./scripts/release-verify.sh release-integrity-v0.1.62.json mycena-v0.1.62-android.apk
 ```
 
 Optional: rebuild from source tag and compare:
@@ -148,7 +148,7 @@ Optional: rebuild from source tag and compare:
 ```bash
 git checkout v0.1.62
 ./scripts/reproducible-build.sh --tag v0.1.62
-cargo run -p mycelium-cli -- release hash target/reproducible/mycelium-v0.1.62-android.apk
+cargo run -p mycena-cli -- release hash target/reproducible/mycena-v0.1.62-android.apk
 # → must equal artifact_blake3_hex
 ```
 
@@ -157,11 +157,11 @@ cargo run -p mycelium-cli -- release hash target/reproducible/mycelium-v0.1.62-a
 ## 6. CLI reference
 
 ```bash
-mycelium release hash ARTIFACT
-mycelium release recipe-digest [REPO_ROOT]
-mycelium release init --tag TAG --artifact PATH [--out MANIFEST.json]
-mycelium release sign MANIFEST.json --signer-id release-signer-eu
-mycelium release verify MANIFEST.json ARTIFACT [--repo .]
+mycena release hash ARTIFACT
+mycena release recipe-digest [REPO_ROOT]
+mycena release init --tag TAG --artifact PATH [--out MANIFEST.json]
+mycena release sign MANIFEST.json --signer-id release-signer-eu
+mycena release verify MANIFEST.json ARTIFACT [--repo .]
 ```
 
 ---

@@ -18,7 +18,7 @@ Manufacturer-specific *guesses* (Knox internals, undocumented SemWifiManager) ar
 
 ## How to use crash logs
 
-Filter: `MyceliumStability`. Lines look like:
+Filter: `MycenaStability`. Lines look like:
 
 `op=<operation> api=<int> mfr=<Build.MANUFACTURER> model=<Build.MODEL> lifecycle=<fg|bg|unknown> subtype=<exception class>`
 
@@ -68,7 +68,7 @@ Uncaught exceptions are logged then passed to the previous handler (process stil
 | **Code path** | `BluetoothLeScanner.startScan`; `BluetoothLeAdvertiser.startAdvertising`; `openGattServer` |
 | **Platform assumption** | Permission check at BLE-enable time remains valid. Android 12+: these APIs throw `SecurityException` if `BLUETOOTH_SCAN`/`CONNECT`/`ADVERTISE` revoked while running. `ScanSettings.CALLBACK_TYPE_FIRST_MATCH` is optional hardware; `onScanFailed(SCAN_FAILED_FEATURE_UNSUPPORTED)` is documented. Restarting the same settings can loop. |
 | **Potential failure** | Process crash on permission revoke; scan fail-loop on stacks that do not support FIRST_MATCH (common complaint on mixed OEM BLE). |
-| **Mitigation** | Catch `SecurityException`/`IllegalStateException`/`IllegalArgumentException` at start **and stop** scan/advertise; log via `MyceliumStability`; do not scan. Fallback once to `CALLBACK_TYPE_ALL_MATCHES` when error code is feature-unsupported. Null-safe `BluetoothManager`. |
+| **Mitigation** | Catch `SecurityException`/`IllegalStateException`/`IllegalArgumentException` at start **and stop** scan/advertise; log via `MycenaStability`; do not scan. Fallback once to `CALLBACK_TYPE_ALL_MATCHES` when error code is feature-unsupported. Null-safe `BluetoothManager`. |
 | **Runtime verification** | Samsung: toggle Bluetooth mesh, revoke Nearby/Bluetooth in Settings while scanning. |
 | **Status after this task** | STATICALLY MITIGATED. VERIFIED ON REAL SAMSUNG HARDWARE: no. |
 
@@ -96,7 +96,7 @@ Uncaught exceptions are logged then passed to the previous handler (process stil
 | **Code path** | JNI/disk/keystore failure on cold start (including after OEM process death) |
 | **Platform assumption** | `initNode` always succeeds. Documented in freeze audit RFB-NET-01. |
 | **Potential failure** | Hang, not always a crash. Samsung aggressive kill + sticky restart increases hit rate. |
-| **Mitigation** | `nodeFailed` flag, `MyceliumStability` log with stack, MainActivity timeout + retry (no infinite loop). |
+| **Mitigation** | `nodeFailed` flag, `MycenaStability` log with stack, MainActivity timeout + retry (no infinite loop). |
 | **Runtime verification** | Cold start after force-stop; optional storage-full. |
 | **Status after this task** | STATICALLY MITIGATED. VERIFIED ON REAL SAMSUNG HARDWARE: no. |
 
@@ -123,7 +123,7 @@ Uncaught exceptions are logged then passed to the previous handler (process stil
 | **File** | `ShareIntent.kt`, `file_paths.xml`, `WifiDirectSharer` landing HTML |
 | **Code path** | `FileProvider.getUriForFile`; browser package install |
 | **Platform assumption** | `sourceDir` is a complete APK; install always allowed. Split installs are incomplete. Samsung Auto Blocker / unknown-sources / Play Protect block sideload (user settings, not bypassable). `getUriForFile` throws `IllegalArgumentException` if the path is not in `file_paths`. |
-| **Potential failure** | Incomplete APK; install blocked (not a Mycelium crash); FileProvider crash if cache path wrong. |
+| **Potential failure** | Incomplete APK; install blocked (not a Mycena crash); FileProvider crash if cache path wrong. |
 | **Mitigation** | Cache-path only; refuse splits; catch `IllegalArgumentException` on share sheet; landing copy for Samsung settings. |
 | **Runtime verification** | Install from share on a Samsung with Auto Blocker on (expect **block**, then user changes setting). |
 | **Status after this task** | STATICALLY MITIGATED for provider/split. Install UX is NEEDS RUNTIME. VERIFIED ON REAL SAMSUNG HARDWARE: no. |
@@ -165,7 +165,7 @@ Uncaught exceptions are logged then passed to the previous handler (process stil
 | **Code path** | BLE collect loops, crisis refresh |
 | **Platform assumption** | Child failures are ignored. Uncaught in a launched coroutine can cancel the supervisor depending on context; `CoroutineExceptionHandler` is the documented way to observe failures. |
 | **Potential failure** | Silent drop of BLE loop; or process crash if exception escapes a thread. |
-| **Mitigation** | Handler logs via `MyceliumStability`, does not swallow `CancellationException`. |
+| **Mitigation** | Handler logs via `MycenaStability`, does not swallow `CancellationException`. |
 | **Runtime verification** | Optional. |
 | **Status after this task** | STATICALLY MITIGATED (diagnostics). VERIFIED ON REAL SAMSUNG HARDWARE: no. |
 
@@ -201,7 +201,7 @@ Uncaught exceptions are logged then passed to the previous handler (process stil
 
 ### S13 — Package installation APIs
 
-Mycelium does **not** call `PackageInstaller` on Device B (no app yet). Failure is the **system** installer / Auto Blocker. No in-process crash path to fix. Landing page already explains settings. **NEEDS RUNTIME** (P2P-MT-16).
+Mycena does **not** call `PackageInstaller` on Device B (no app yet). Failure is the **system** installer / Auto Blocker. No in-process crash path to fix. Landing page already explains settings. **NEEDS RUNTIME** (P2P-MT-16).
 
 ---
 
@@ -219,7 +219,7 @@ Listing `DIRECTORY_DOWNLOADS` can throw or return null under scoped storage. Alr
 | **Code path** | `LOCATION_SERVICE` / `BLUETOOTH_SERVICE` non-null cast; `requestLocationUpdates` after a permission check |
 | **Platform assumption** | System services always exist; location permission remains valid until the next check. |
 | **Potential failure** | NPE on null service; `SecurityException` if the user revokes location while a one-shot request is in flight. |
-| **Mitigation** | Safe casts; catch `SecurityException` / `IllegalArgumentException` on location requests; log via `MyceliumStability`. |
+| **Mitigation** | Safe casts; catch `SecurityException` / `IllegalArgumentException` on location requests; log via `MycenaStability`. |
 | **Runtime verification** | Optional (not Samsung-specific). |
 | **Status after this task** | STATICALLY MITIGATED. VERIFIED ON REAL SAMSUNG HARDWARE: no. |
 
@@ -236,7 +236,7 @@ Listing `DIRECTORY_DOWNLOADS` can throw or return null under scoped storage. Alr
 
 ## Manual tests (device-dependent)
 
-IDs for a future Samsung (or any OEM) session. Record model, One UI / Android version, app SHA, pass/fail, logcat `MyceliumStability`.
+IDs for a future Samsung (or any OEM) session. Record model, One UI / Android version, app SHA, pass/fail, logcat `MycenaStability`.
 
 | ID | Steps | Expected |
 |----|--------|----------|
@@ -244,7 +244,7 @@ IDs for a future Samsung (or any OEM) session. Record model, One UI / Android ve
 | **OEM-MT-02** | Cold start after force-stop. | UI ready or **error + retry**, never infinite spinner. |
 | **OEM-MT-03** | Share phone-to-phone on Samsung. | Hotspot or Direct or Quick Share; URL not localhost; no crash. |
 | **OEM-MT-04** | Deny Nearby/location on Share. | Error copy, no crash. |
-| **OEM-MT-05** | BLE mesh on, revoke Bluetooth permission in system Settings. | Scan/advertise stops; no crash; `MyceliumStability` line. |
+| **OEM-MT-05** | BLE mesh on, revoke Bluetooth permission in system Settings. | Scan/advertise stops; no crash; `MycenaStability` line. |
 | **OEM-MT-06** | Install APK from share with Auto Blocker **on**. | OS blocks; landing text matches; app does not bypass. |
 | **OEM-MT-07** | Same with Auto Blocker off / unknown apps allowed for Chrome. | Install completes or honest failure. |
 | **OEM-MT-08** | Leave app idle 4+ hours (screen off). | Mesh notification present **or** killed — record only. Do not “fix” with battery exemption in this freeze. |

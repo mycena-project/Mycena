@@ -10,12 +10,12 @@
 
 1. **Settings parity first** — Desktop network toggles apply immediately and emit `settings-updated`, matching Android. Status shows `connectivity_detail` explaining relay vs user opt-out.
 
-2. **Single Rust node, host BLE bridge** — Same pattern as ADR 001: `mycelium-node` owns libp2p + ingest; desktop host implements GATT scan/advertise and calls existing FFI:
+2. **Single Rust node, host BLE bridge** — Same pattern as ADR 001: `mycena-node` owns libp2p + ingest; desktop host implements GATT scan/advertise and calls existing FFI:
    - `register_ble_link(peer, mac)`
    - `ingest_ble_frame(bytes)`
    - `drain_ble_outbound()` / `drain_ble_stream_outbound()`
 
-3. **Phase 1a (shipped):** `DesktopBleHost` stub in `mycelium-desktop/src/ble/mod.rs` — logs when `ble_bootstrap` is enabled; no radio activity.
+3. **Phase 1a (shipped):** `DesktopBleHost` stub in `mycena-desktop/src/ble/mod.rs` — logs when `ble_bootstrap` is enabled; no radio activity.
 
 4. **Phase 1b (shipped):** [`blew`](https://github.com/mcginty/blew) on macOS and Linux (primary + secondary):
    - GATT service UUIDs **match Android** (`6e400001`, invite `6e400002`, mesh data `6e400003`)
@@ -36,13 +36,13 @@
 | **btleplug** | Mature central API | **No GATT server** — cannot advertise invite |
 | **Platform Swift (macOS native)** | Best macOS integration | Splits host code; slower to ship F1 parity |
 
-**Choice:** `blew` inside `mycelium-desktop/src/ble/` for Phase 1b.
+**Choice:** `blew` inside `mycena-desktop/src/ble/` for Phase 1b.
 
 ---
 
 ## macOS permissions (Phase 1b)
 
-- `NSBluetoothAlwaysUsageDescription` in `Info.plist` (see `crates/mycelium-desktop/Info.plist`)
+- `NSBluetoothAlwaysUsageDescription` in `Info.plist` (see `crates/mycena-desktop/Info.plist`)
 - User must grant Bluetooth in System Settings
 - On denial: setting stays saved; status detail notes “Bluetooth permission denied”
 
@@ -51,7 +51,7 @@
 ## Module layout
 
 ```
-crates/mycelium-desktop/src/ble/
+crates/mycena-desktop/src/ble/
   mod.rs           — DesktopBleHost spawn/stop
   gatt.rs          — (1b) service/characteristic setup
   scanner.rs       — (1b) central role, F1 invite read

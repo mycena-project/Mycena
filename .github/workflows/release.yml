@@ -33,9 +33,9 @@ jobs:
 
       - name: Create unsigned release-integrity manifest
         run: |
-          cargo run -p mycelium-cli -- release init \
+          cargo run -p mycena-cli -- release init \
             --tag "${{ github.ref_name }}" \
-            --artifact "target/reproducible/mycelium-${{ github.ref_name }}-android.apk" \
+            --artifact "target/reproducible/mycena-${{ github.ref_name }}-android.apk" \
             --out "target/reproducible/release-integrity-${{ github.ref_name }}.json"
 
       - name: Upload reproducible Android artifacts
@@ -87,13 +87,13 @@ jobs:
           node-version: '20'
 
       - name: Install frontend deps
-        working-directory: crates/mycelium-desktop/ui
+        working-directory: crates/mycena-desktop/ui
         run: npm install
 
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v1
         with:
-          projectPath: crates/mycelium-desktop
+          projectPath: crates/mycena-desktop
           tauriScript: cargo tauri
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -103,10 +103,10 @@ jobs:
         with:
           name: desktop-${{ matrix.target }}
           path: |
-            crates/mycelium-desktop/target/release/bundle/**/*.AppImage
-            crates/mycelium-desktop/target/release/bundle/**/*.deb
-            crates/mycelium-desktop/target/release/bundle/**/*.dmg
-            crates/mycelium-desktop/target/release/bundle/**/*.msi
+            crates/mycena-desktop/target/release/bundle/**/*.AppImage
+            crates/mycena-desktop/target/release/bundle/**/*.deb
+            crates/mycena-desktop/target/release/bundle/**/*.dmg
+            crates/mycena-desktop/target/release/bundle/**/*.msi
           if-no-files-found: warn
           retention-days: 7
 
@@ -149,12 +149,12 @@ jobs:
           rm -rf "$STAGING"
           mkdir -p "$STAGING"
 
-          if [ -f "artifacts/android-reproducible/mycelium-${TAG}-android.apk" ]; then
-            cp "artifacts/android-reproducible/mycelium-${TAG}-android.apk" "$STAGING/"
+          if [ -f "artifacts/android-reproducible/mycena-${TAG}-android.apk" ]; then
+            cp "artifacts/android-reproducible/mycena-${TAG}-android.apk" "$STAGING/"
             cp "artifacts/android-reproducible/build-report.json" "$STAGING/" 2>/dev/null || true
             cp "artifacts/android-reproducible/release-integrity-${TAG}.json" "$STAGING/" 2>/dev/null || true
           elif [ -f artifacts/android-apk/app-debug.apk ]; then
-            cp artifacts/android-apk/app-debug.apk "$STAGING/mycelium-${TAG}-android-debug.apk"
+            cp artifacts/android-apk/app-debug.apk "$STAGING/mycena-${TAG}-android-debug.apk"
           fi
 
           find artifacts -type f \( \
@@ -182,19 +182,19 @@ jobs:
           body: |
             ## License — AGPL-3.0-or-later
 
-            **Mycelium** is free software under the [GNU Affero General Public License v3.0 or later](https://www.gnu.org/licenses/agpl-3.0.html).
+            **Mycena** is free software under the [GNU Affero General Public License v3.0 or later](https://www.gnu.org/licenses/agpl-3.0.html).
 
-            - If you **modify and operate** Mycelium (app, relay, or combined stack) as a **network service**, you must offer **corresponding source** to users interacting with it over the network.
-            - To run your **own bootstrap relay**, see [mycelium-relay](https://github.com/mycena-project/mycelium-relay) (same license).
+            - If you **modify and operate** Mycena (app, relay, or combined stack) as a **network service**, you must offer **corresponding source** to users interacting with it over the network.
+            - To run your **own bootstrap relay**, see [mycena-relay](https://github.com/mycena-project/mycena-relay) (same license).
 
             ### Artifacts
 
             | File | Platform |
             |------|----------|
-            | `mycelium-*-android.apk` | Android (reproducible debug-signed sideload) |
+            | `mycena-*-android.apk` | Android (reproducible debug-signed sideload) |
             | `release-integrity-*.json` | BLAKE3 + recipe digest (M-of-N co-sign before **official**) |
             | `build-report.json` | Reproducible build report from CI container |
-            | `mycelium-sbom-*.cdx.json` | CycloneDX SBOM (workspace dependencies) |
+            | `mycena-sbom-*.cdx.json` | CycloneDX SBOM (workspace dependencies) |
             | `sbom-manifest.json` | SBOM generator metadata |
             | `*.AppImage` / `*.deb` | Linux desktop |
             | `*.dmg` | macOS desktop |
@@ -202,8 +202,8 @@ jobs:
 
             Verify downloads: `shasum -a 256 -c SHA256SUMS.txt`
 
-            **Release integrity:** compare BLAKE3 and co-signatures per [RELEASE_INTEGRITY.md](https://github.com/mycena-project/Mycelium/blob/main/docs/RELEASE_INTEGRITY.md). The release is **official** only after ≥3 of 5 independent signers attest the same artifact hash.
+            **Release integrity:** compare BLAKE3 and co-signatures per [RELEASE_INTEGRITY.md](https://github.com/mycena-project/Mycena/blob/main/docs/RELEASE_INTEGRITY.md). The release is **official** only after ≥3 of 5 independent signers attest the same artifact hash.
 
-            **Early beta** — not a replacement for emergency services. See [KNOWN_LIMITATIONS.md](https://github.com/mycena-project/Mycelium/blob/main/docs/KNOWN_LIMITATIONS.md).
+            **Early beta** — not a replacement for emergency services. See [KNOWN_LIMITATIONS.md](https://github.com/mycena-project/Mycena/blob/main/docs/KNOWN_LIMITATIONS.md).
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

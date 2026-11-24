@@ -10,21 +10,21 @@
 #   ./scripts/android/capture-freeze-evidence.sh apk-sha [path-to-apk]
 #
 # Multiple devices: export ANDROID_SERIAL=<adb serial>
-# Package override:  export MYCELIUM_ANDROID_PACKAGE=network.mycelium.app
+# Package override:  export MYCENA_ANDROID_PACKAGE=io.github.mycena_project.app
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-PACKAGE="${MYCELIUM_ANDROID_PACKAGE:-network.mycelium.app}"
+PACKAGE="${MYCENA_ANDROID_PACKAGE:-io.github.mycena_project.app}"
 RUNS_ROOT="$ROOT/artifacts/hardware-runs"
 LATEST_FILE="$RUNS_ROOT/LATEST.txt"
-DEFAULT_APK="$ROOT/artifacts/technical-beta/mycelium-0.1.75-technical-beta-android.apk"
+DEFAULT_APK="$ROOT/artifacts/technical-beta/mycena-0.1.75-technical-beta-android.apk"
 if [[ ! -f "$DEFAULT_APK" ]]; then
   DEFAULT_APK="$ROOT/android/app/build/outputs/apk/debug/app-debug.apk"
 fi
 
 # Crash-relevant tags only. Do not use *:V — chat/mail bodies can appear on other tags.
 LOG_TAGS=(
-  MyceliumStability:I
+  MycenaStability:I
   MeshService:I
   AndroidRuntime:E
   DEBUG:I
@@ -183,8 +183,8 @@ case "$cmd" in
     echo "=== logcat crash buffer ==="
     adb_bin logcat -b crash -d -v threadtime || true
     echo ""
-    echo "=== filtered MyceliumStability / AndroidRuntime ==="
-    adb_bin logcat -d -v threadtime MyceliumStability:I AndroidRuntime:E DEBUG:I *:S || true
+    echo "=== filtered MycenaStability / AndroidRuntime ==="
+    adb_bin logcat -d -v threadtime MycenaStability:I AndroidRuntime:E DEBUG:I *:S || true
     echo ""
     echo "=== dropbox data_app_crash (may be empty) ==="
     adb_bin shell dumpsys dropbox --print data_app_crash 2>/dev/null | tail -n 200 || true

@@ -12,16 +12,16 @@ prod_awk='/#\[cfg\(test\)\]/ || /#!\[cfg\(test\)\]/ { exit } { print NR ":" $0 }
 
 # P0: decode/parse/verify paths — no .unwrap( / .expect( on untrusted input.
 P0_STRICT=(
-  crates/mycelium-core/src/ble_mesh.rs
-  crates/mycelium-core/src/ble_stream.rs
-  crates/mycelium-core/src/contact_hello.rs
-  crates/mycelium-core/src/invite.rs
-  crates/mycelium-core/src/crypto/mod.rs
-  crates/mycelium-core/src/data.rs
-  crates/mycelium-node/src/security.rs
-  crates/mycelium-node/src/ingest_guard.rs
-  crates/mycelium-coin/src/node.rs
-  crates/mycelium-coin/src/payload.rs
+  crates/mycena-core/src/ble_mesh.rs
+  crates/mycena-core/src/ble_stream.rs
+  crates/mycena-core/src/contact_hello.rs
+  crates/mycena-core/src/invite.rs
+  crates/mycena-core/src/crypto/mod.rs
+  crates/mycena-core/src/data.rs
+  crates/mycena-node/src/security.rs
+  crates/mycena-node/src/ingest_guard.rs
+  crates/mycena-coin/src/node.rs
+  crates/mycena-coin/src/payload.rs
 )
 
 is_panic_call() {
@@ -52,7 +52,7 @@ if ! ./scripts/check-invariant-whitelist.sh; then
 fi
 
 if [[ "$violations" -ne 0 ]]; then
-  echo "Unwrap audit FAILED — see crates/mycelium-node/docs/unwrap-audit.csv and docs/UNWRAP_INVARIANT_WHITELIST.tsv" >&2
+  echo "Unwrap audit FAILED — see crates/mycena-node/docs/unwrap-audit.csv and docs/UNWRAP_INVARIANT_WHITELIST.tsv" >&2
   exit 1
 fi
 

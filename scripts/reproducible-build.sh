@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Reproducible Mycelium core build (Android APK) inside pinned toolchain container.
+# Reproducible Mycena core build (Android APK) inside pinned toolchain container.
 #
 #   ./scripts/reproducible-build.sh
 #   ./scripts/reproducible-build.sh --tag v0.1.62
@@ -10,8 +10,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-IMAGE="${MYCELIUM_REPRO_IMAGE:-mycelium-reproducible-build}"
-PLATFORM="${MYCELIUM_DOCKER_PLATFORM:-linux/amd64}"
+IMAGE="${MYCENA_REPRO_IMAGE:-mycena-reproducible-build}"
+PLATFORM="${MYCENA_DOCKER_PLATFORM:-linux/amd64}"
 TAG="${TAG:-}"
 
 while [[ $# -gt 0 ]]; do
@@ -40,7 +40,7 @@ repro_build_inside() {
   export SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-1700000000}"
   export RUSTFLAGS="${RUSTFLAGS:--C debuginfo=0}"
   export CARGO_INCREMENTAL=0
-  export MYCELIUM_REPRODUCIBLE_BUILD=1
+  export MYCENA_REPRODUCIBLE_BUILD=1
   export CARGO_HOME="${CARGO_HOME:-/opt/cargo}"
 
   bash ./android/build.sh
@@ -54,12 +54,12 @@ repro_build_inside() {
   if [[ -z "$artifact_tag" ]]; then
     artifact_tag="$(git describe --tags --always 2>/dev/null || echo local)"
   fi
-  local artifact="mycelium-${artifact_tag}-android.apk"
+  local artifact="mycena-${artifact_tag}-android.apk"
   cp "$SRC_APK" "$OUT_DIR/$artifact"
 
   local hash recipe
-  hash="$(cargo run -q -p mycelium-cli -- release hash "$OUT_DIR/$artifact")"
-  recipe="$(cargo run -q -p mycelium-cli -- release recipe-digest "$ROOT")"
+  hash="$(cargo run -q -p mycena-cli -- release hash "$OUT_DIR/$artifact")"
+  recipe="$(cargo run -q -p mycena-cli -- release recipe-digest "$ROOT")"
 
   cat > "$OUT_DIR/build-report.json" <<EOF
 {
@@ -67,7 +67,7 @@ repro_build_inside() {
   "artifact_name": "$artifact",
   "artifact_blake3_hex": "$hash",
   "build_recipe_digest_hex": "$recipe",
-  "recipe_url": "https://github.com/mycena-project/Mycelium/blob/main/docs/RELEASE_INTEGRITY.md"
+  "recipe_url": "https://github.com/mycena-project/Mycena/blob/main/docs/RELEASE_INTEGRITY.md"
 }
 EOF
   echo "Reproducible build: $OUT_DIR/build-report.json"
@@ -75,7 +75,7 @@ EOF
   echo "  recipe_digest:   $recipe"
 }
 
-if [[ "${MYCELIUM_REPRO_INSIDE:-0}" == "1" ]]; then
+if [[ "${MYCENA_REPRO_INSIDE:-0}" == "1" ]]; then
   repro_build_inside
   exit 0
 fi
@@ -87,13 +87,13 @@ fi
 
 docker run --rm \
   --platform "$PLATFORM" \
-  -e MYCELIUM_REPRO_INSIDE=1 \
+  -e MYCENA_REPRO_INSIDE=1 \
   -e SOURCE_DATE_EPOCH=1700000000 \
   -e TAG="${TAG}" \
   -v "$ROOT:/src" \
-  -v mycelium-repro-cargo-registry:/opt/cargo/registry \
-  -v mycelium-repro-cargo-git:/opt/cargo/git \
-  -v mycelium-repro-target:/src/target \
-  -v mycelium-repro-gradle:/root/.gradle \
+  -v mycena-repro-cargo-registry:/opt/cargo/registry \
+  -v mycena-repro-cargo-git:/opt/cargo/git \
+  -v mycena-repro-target:/src/target \
+  -v mycena-repro-gradle:/root/.gradle \
   "$IMAGE" \
   bash -lc 'cd /src && ./scripts/reproducible-build.sh'

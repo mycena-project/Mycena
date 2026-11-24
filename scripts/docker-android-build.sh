@@ -5,14 +5,14 @@
 #   ./scripts/docker-android-build.sh              # full Rust + Gradle in container
 #   ./scripts/docker-android-build.sh --no-bump
 #
-# Image: mycelium-android-ci (override with MYCELIUM_ANDROID_IMAGE).
+# Image: mycena-android-ci (override with MYCENA_ANDROID_IMAGE).
 # First time: builds image (~3–6 GiB, mostly NDK) if missing.
 # Rebuild image: make docker-android-ci
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-IMAGE="${MYCELIUM_ANDROID_IMAGE:-mycelium-android-ci}"
-PLATFORM="${MYCELIUM_DOCKER_PLATFORM:-linux/amd64}"
+IMAGE="${MYCENA_ANDROID_IMAGE:-mycena-android-ci}"
+PLATFORM="${MYCENA_DOCKER_PLATFORM:-linux/amd64}"
 BUMP=1
 
 for arg in "$@"; do
@@ -39,10 +39,10 @@ fi
 docker run --rm \
   --platform "$PLATFORM" \
   -v "$ROOT:/src" \
-  -v mycelium-android-cargo-registry:/opt/cargo/registry \
-  -v mycelium-android-cargo-git:/opt/cargo/git \
-  -v mycelium-android-target:/src/target \
-  -v mycelium-android-gradle:/root/.gradle \
+  -v mycena-android-cargo-registry:/opt/cargo/registry \
+  -v mycena-android-cargo-git:/opt/cargo/git \
+  -v mycena-android-target:/src/target \
+  -v mycena-android-gradle:/root/.gradle \
   "$IMAGE" \
   bash -c './scripts/prune-android-native-libs.sh 2>/dev/null || true; ./android/build.sh'
 

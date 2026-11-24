@@ -1,4 +1,4 @@
-# Mycelium release candidate
+# Mycena release candidate
 
 **Candidate ID:** `0.1.75-rc.1`
 **Gate:** [RELEASE_FREEZE_PLAN.md](./RELEASE_FREEZE_PLAN.md) **G9**
@@ -24,7 +24,7 @@ This file is **not** a freeze pass, **not** an official M-of-N release, and **no
 | **Git tag** | **None.** Not created (do not publish). |
 | **Build date (UTC)** | 2026-08-29T15:02:46Z (hash/copy time; Gradle package ~16:59 CEST) |
 | **Builder** | Local machine; `assembleRelease`; NDK `26.1.10909125`; not the reproducible Docker container |
-| **applicationId** | `network.mycelium.app` |
+| **applicationId** | `io.github.mycena_project.app` |
 | **minSdk / targetSdk / compileSdk** | 26 / 34 / 34 |
 
 ---
@@ -35,24 +35,24 @@ Binaries live under **`artifacts/release-candidate/`** (gitignored). They are **
 
 | Artifact | Role |
 |----------|------|
-| `mycelium-0.1.75-rc.1-android.apk` | Universal release APK (armeabi-v7a, arm64-v8a, x86_64) |
+| `mycena-0.1.75-rc.1-android.apk` | Universal release APK (armeabi-v7a, arm64-v8a, x86_64) |
 | `SHA256SUMS.txt` | SHA-256 of APK + SBOM |
-| `mycelium-sbom-0.1.75-rc.1.cdx.json` | CycloneDX 1.5 for `mycelium-node` |
+| `mycena-sbom-0.1.75-rc.1.cdx.json` | CycloneDX 1.5 for `mycena-node` |
 | `sbom-manifest.json` | Generator metadata |
 | `mapping.txt` | R8 mapping (crash deobfuscation; keep private) |
 | `output-metadata.json` | Gradle listing |
-| `mycelium-rc-technical-beta.jks` | **Local RC keystore — do not commit, do not publish** |
+| `mycena-rc-technical-beta.jks` | **Local RC keystore — do not commit, do not publish** |
 
 ### 2.1 Hashes
 
 | File | SHA-256 |
 |------|---------|
-| `mycelium-0.1.75-rc.1-android.apk` | `413c35287607f71ee55458266cc1a38557764ba4376d05adedef5aa6bb1a396d` |
-| `mycelium-sbom-0.1.75-rc.1.cdx.json` | `ec9555989bb16f37060fca977ef1e838d8bd48a6effa6c61154ffdc05c97560c` |
+| `mycena-0.1.75-rc.1-android.apk` | `413c35287607f71ee55458266cc1a38557764ba4376d05adedef5aa6bb1a396d` |
+| `mycena-sbom-0.1.75-rc.1.cdx.json` | `ec9555989bb16f37060fca977ef1e838d8bd48a6effa6c61154ffdc05c97560c` |
 
-| File | BLAKE3 (mycelium-cli `release hash`) |
+| File | BLAKE3 (mycena-cli `release hash`) |
 |------|--------------------------------------|
-| `mycelium-0.1.75-rc.1-android.apk` | `9ca27eadf110a1c418562dcfd55b5061aeaa0f2c009d43db418bc0fd7d1fd7e8` |
+| `mycena-0.1.75-rc.1-android.apk` | `9ca27eadf110a1c418562dcfd55b5061aeaa0f2c009d43db418bc0fd7d1fd7e8` |
 
 APK size: **96453496** bytes (~92 MiB).
 
@@ -63,7 +63,7 @@ APK size: **96453496** bytes (~92 MiB).
 | Build type | Gradle **`release`** (`isMinifyEnabled = true`) |
 | `android:debuggable` | Not set in packaged manifest (release default **false**) |
 | `apksigner verify` | **Verifies** (APK Signature Scheme **v2**) |
-| Signer DN | `CN=Mycelium Technical Beta RC, OU=Mycelium, O=the maintainer, L=Unknown, ST=Unknown, C=DE` |
+| Signer DN | `CN=Mycena Technical Beta RC, OU=Mycena, O=Mycena Project, L=Unknown, ST=Unknown, C=DE` |
 | Cert SHA-256 | `fd5bf4aa5040d9b7d56c3ff0e53385c0145044045a87ee8a9ac66c71b5a070d2` |
 | Android debug keystore | **Not used** |
 | Play App Signing / upload key | **Not used** |
@@ -77,7 +77,7 @@ This key is a **local technical-beta key** generated 2026-08-29 for this candida
 
 | Surface | Claim |
 |---------|--------|
-| **Intended** | Android API 26–34, ABIs `armeabi-v7a` / `arm64-v8a` / `x86_64` (native `libuniffi_mycelium.so` present for all three) |
+| **Intended** | Android API 26–34, ABIs `armeabi-v7a` / `arm64-v8a` / `x86_64` (native `libuniffi_mycena.so` present for all three) |
 | **Hardware matrix** | [HARDWARE_TEST_MATRIX.md](./HARDWARE_TEST_MATRIX.md) — **all rows `unrun`** |
 | **Samsung** | **UNVERIFIED** (G4 option b still required in public copy until a named device exists) |
 | **Desktop Tauri** | **NOT APPLICABLE** for this candidate (Android APK only) |
@@ -94,9 +94,9 @@ These were verified **in this session** with command output (not on a phone):
 | Item | Evidence |
 |------|----------|
 | `assembleRelease` succeeds | Gradle `BUILD SUCCESSFUL` |
-| APK contains three JNI ABIs | `unzip -l` `lib/*/libuniffi_mycelium.so` |
+| APK contains three JNI ABIs | `unzip -l` `lib/*/libuniffi_mycena.so` |
 | Release signing, not debug | `apksigner verify --print-certs` |
-| Package identity | `aapt dump badging`: `network.mycelium.app` `0.1.75` / `76` |
+| Package identity | `aapt dump badging`: `io.github.mycena_project.app` `0.1.75` / `76` |
 | SHA-256 / BLAKE3 recorded | this file |
 | CycloneDX SBOM generated | `cargo cyclonedx` via `scripts/generate-sbom.sh 0.1.75-rc.1` |
 | Advisory allowlist dates (earlier G7) | `check-advisory-allowlist.sh` OK as of 2026-08-29 — **not re-run on this APK** |
@@ -196,7 +196,7 @@ The freeze backlog is **not** substantially complete. P0 items still `open` or `
 ```bash
 # Technical Beta APK (not Play, not official) — preferred for testers
 ./scripts/build-technical-beta-apk.sh
-adb install -r artifacts/technical-beta/mycelium-0.1.75-technical-beta-android.apk
+adb install -r artifacts/technical-beta/mycena-0.1.75-technical-beta-android.apk
 ```
 
 A prior local candidate also exists at `artifacts/release-candidate/` if that directory is still on the machine; prefer the script output above for new installs.
@@ -206,7 +206,7 @@ Or copy the APK to a phone and use the system installer (unknown apps / Play Pro
 Verify hash before install:
 
 ```bash
-shasum -a 256 artifacts/release-candidate/mycelium-0.1.75-rc.1-android.apk
+shasum -a 256 artifacts/release-candidate/mycena-0.1.75-rc.1-android.apk
 # expect 413c35287607f71ee55458266cc1a38557764ba4376d05adedef5aa6bb1a396d
 ```
 
@@ -219,7 +219,7 @@ This APK is the **offline distribution artifact** (complete universal package, n
 | Requirement | Status |
 |-------------|--------|
 | Pinned Docker reproducible recipe for **this** APK | **UNVERIFIED** (script still debug) |
-| CycloneDX SBOM (`mycelium-node`) | Generated (Rust graph only; **not** a full Gradle/npm SBOM) |
+| CycloneDX SBOM (`mycena-node`) | Generated (Rust graph only; **not** a full Gradle/npm SBOM) |
 | License/advisory `check-dependencies.sh` | **UNVERIFIED** |
 | Allowlist `review_by` | 2026-09-30 (must not expire without review) |
 
@@ -239,7 +239,7 @@ This APK is the **offline distribution artifact** (complete universal package, n
 | Signing | PASS for local RC key | Not Play, not M-of-N official |
 | Release configuration (`minify`) | PASS compile | Runtime **UNVERIFIED** |
 | Complete APK (all freeze ABIs) | PASS | three `.so` |
-| SBOM | PASS generate | Scope limited to `mycelium-node` |
+| SBOM | PASS generate | Scope limited to `mycena-node` |
 | Install smoke on matrix device | **UNVERIFIED** → G9 fail | No device |
 | RELEASING.md steps 1–5 | **FAIL / skipped** | CI not evidenced; **no tag**; **not published** (requested) |
 | CHANGELOG | **NOT APPLICABLE** | RELEASING no longer requires root CHANGELOG (RFB-DOC-04) |

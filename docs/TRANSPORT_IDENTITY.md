@@ -17,8 +17,8 @@ Stable **account identity** (contacts, payments, signed invites) is separate fro
 
 On node bootstrap (`bootstrap_identities`):
 
-1. **Every cold start** (default) — `MYCELIUM_TRANSPORT_ROTATE_ON_START=0` to disable.
-2. **Or every N seconds** since last rotation — default 86400 (`MYCELIUM_TRANSPORT_ROTATION_SECS`).
+1. **Every cold start** (default) — `MYCENA_TRANSPORT_ROTATE_ON_START=0` to disable.
+2. **Or every N seconds** since last rotation — default 86400 (`MYCENA_TRANSPORT_ROTATION_SECS`).
 
 First install does not rotate (initial `transport_meta` stamp only).
 
@@ -26,8 +26,8 @@ First install does not rotate (initial `transport_meta` stamp only).
 
 After rotation the node sends `IdentityRotationGossip` to each contact with an E2E session or enc key:
 
-- **Channel:** Double-Ratchet / legacy E2E `EncryptedDirect` (inner prefix `MYCEL/IDROT/E2E\0`).
-- **Not** public gossip (`mycelium/identity/v1`) — avoids linking account ↔ new PeerId for LAN/relay observers.
+- **Channel:** Double-Ratchet / legacy E2E `EncryptedDirect` (inner prefix `MYCENA/IDROT/E2E\0`).
+- **Not** public gossip (`mycena/identity/v1`) — avoids linking account ↔ new PeerId for LAN/relay observers.
 
 Contacts verify the account signature, remap `account_id → new_peer_id`, migrate chat history tree, group members, and node ratchet/enc-key maps.
 

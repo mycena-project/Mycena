@@ -1,0 +1,22 @@
+{
+  "id": "io.github.mycena_project.meshmarket",
+  "name": "MeshMarket",
+  "description": "Buy, sell, and trade locally — no internet, no fees.",
+  "version": "0.2.0",
+  "developer": "Mycena",
+  "entry": "index.html",
+  "permissions": ["Messaging", "BulletinRead", "BulletinWrite", "Payments", "Storage"],
+  "min_mycena_version": "0.1.0",
+  "accepts_payments": false,
+  "categories": ["Commerce", "Local"],
+  "runtime": "webview",
+  "bulletin_scopes": [
+    "market/food",
+    "market/tools",
+    "market/shelter",
+    "market/clothing",
+    "market/medical",
+    "market/services",
+    "market/other"
+  ]
+}

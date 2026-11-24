@@ -1,4 +1,4 @@
-# Mycelium Mini-App — Permission & Capability Model
+# Mycena Mini-App — Permission & Capability Model
 
 **Version:** manifest v1 → **capability v2** (target)  
 **Companion:** [MINIAPP_SECURITY_ARCHITECTURE.md](./MINIAPP_SECURITY_ARCHITECTURE.md)
@@ -20,7 +20,7 @@ Install UI shows **all** manifest permissions. Runtime UI shows **why now** (met
 
 ## 2. Permission catalog (v1 — implemented)
 
-Defined in `crates/mycelium-app/src/miniapp/manifest.rs`:
+Defined in `crates/mycena-app/src/miniapp/manifest.rs`:
 
 | Permission | Risk tier | Bridge methods (today) | Install default |
 |------------|-----------|------------------------|-----------------|
@@ -238,10 +238,10 @@ Local score `0..100` (not global truth):
 
 ## 12. Migration from v1 → v2
 
-1. Ship host that accepts both manifests (`min_mycelium_version` gate).
+1. Ship host that accepts both manifests (`min_mycena_version` gate).
 2. `identity.get` starts requiring `Identity` — breaking; major version bump.
 3. Issue capability tokens optionally (`cap` field ignored if absent during transition).
-4. Enforce tokens in `min_mycelium_version: 0.2.0`.
+4. Enforce tokens in `min_mycena_version: 0.2.0`.
 
 ---
 

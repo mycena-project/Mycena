@@ -9,10 +9,10 @@ from pathlib import Path
 ALLOW = "#![allow(clippy::unwrap_used, clippy::expect_used)]"
 
 CRATES = [
-    "crates/mycelium-node/src",
-    "crates/mycelium-coin/src",
-    "crates/mycelium-core/src",
-    "crates/mycelium-miniapp/src",
+    "crates/mycena-node/src",
+    "crates/mycena-coin/src",
+    "crates/mycena-core/src",
+    "crates/mycena-miniapp/src",
 ]
 
 PATTERNS = [

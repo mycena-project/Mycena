@@ -1,4 +1,4 @@
-# Mycelium discovery (transport layer)
+# Mycena discovery (transport layer)
 
 Three complementary ways to find **other devices** on the network (not the same as **contacts** for chat).
 
@@ -16,7 +16,7 @@ Three complementary ways to find **other devices** on the network (not the same 
 
 ## Internet relay
 
-- Default bootstrap: `relay.example.invalid` (libp2p TCP/UDP 4001; health and rendezvous at `http://relay.example.invalid:8080`).
+- Default bootstrap: `mycena-relay.fly.dev` (libp2p TCP/UDP 4001; health and rendezvous at `https://mycena-relay.fly.dev`).
 - Nodes listen on `/p2p-circuit` at the relay for inbound NAT traversal.
 - **Rendezvous (opt-in):** Settings → *Relay discovery*
   - **Off (default):** you are not listed on `GET /rendezvous`; you do not auto-dial rendezvous peers.
@@ -24,7 +24,7 @@ Three complementary ways to find **other devices** on the network (not the same 
 
 ## Manual linking
 
-- QR / invite: `mycelium://invite/v1#<PeerID>` (short; dialled via relay circuit). Adds an **accepted contact** for chat.
+- QR / invite: `mycena://invite/v1#<PeerID>` (short; dialled via relay circuit). Adds an **accepted contact** for chat.
 - Multiaddr paste on Peers tab (transport dial only).
 - BLE mesh handoff (F1): reads the same invite over GATT but only opens a **transport path** — does not add a chat contact.
 

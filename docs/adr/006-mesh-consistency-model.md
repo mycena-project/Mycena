@@ -2,13 +2,13 @@
 
 **Status:** Accepted (coin typed first)  
 **Date:** 2026-07-03  
-**Context:** Mycelium is offline-first and partition-tolerant. Each device holds a **local sled view** of messages, contacts, and ledger state. There is no global coordinator, so code must not assume **Strong** (linearizable, network-wide) reads — e.g. “fetch every peer’s balance, then spend” or “message delivered everywhere before showing ✓”.
+**Context:** Mycena is offline-first and partition-tolerant. Each device holds a **local sled view** of messages, contacts, and ledger state. There is no global coordinator, so code must not assume **Strong** (linearizable, network-wide) reads — e.g. “fetch every peer’s balance, then spend” or “message delivered everywhere before showing ✓”.
 
 ---
 
 ## Decision
 
-1. Introduce [`Consistency`](../../crates/mycelium-core/src/consistency.rs) in **mycelium-core**:
+1. Introduce [`Consistency`](../../crates/mycena-core/src/consistency.rs) in **mycena-core**:
    - `Local` — single device; may use propagation caps (SOS).
    - `EventuallyConsistent` — mergeable / anti-entropy; stale reads OK.
    - `Strong` — **not available on mesh**; enum variant documents forbidden assumptions only.
@@ -16,9 +16,9 @@
 
 2. Tag state-changing operations with `StateOp<C: ConsistencyModel>` constants (same module).
 
-3. App-layer crates consume types via **`mycelium-l0-facade`** re-exports (layer boundary ADR 005).
+3. App-layer crates consume types via **`mycena-l0-facade`** re-exports (layer boundary ADR 005).
 
-4. **First typed enforcement:** `mycelium-coin` — highest double-spend risk.
+4. **First typed enforcement:** `mycena-coin` — highest double-spend risk.
 
 ---
 
@@ -97,8 +97,8 @@ Outgoing `send_transaction` requires `SpendAuthorization`, forcing callers throu
 
 ## References
 
-- [`crates/mycelium-core/src/consistency.rs`](../../crates/mycelium-core/src/consistency.rs)
-- [`crates/mycelium-coin/src/views.rs`](../../crates/mycelium-coin/src/views.rs)
+- [`crates/mycena-core/src/consistency.rs`](../../crates/mycena-core/src/consistency.rs)
+- [`crates/mycena-coin/src/views.rs`](../../crates/mycena-coin/src/views.rs)
 - [`docs/VOUCHER_SETTLEMENT.md`](../VOUCHER_SETTLEMENT.md)
 - [`docs/OFFLINE_SETTLEMENT_MODEL.md`](../OFFLINE_SETTLEMENT_MODEL.md)
 - [`docs/DOUBLE_SPEND_TRADEOFFS.md`](../DOUBLE_SPEND_TRADEOFFS.md)

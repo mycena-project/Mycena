@@ -1,10 +1,10 @@
-# Mycelium — Security & privacy (for users)
+# Mycena — Security & privacy (for users)
 
 This page explains what the app protects, what it does not, and how to use safety features.
 
-## How Mycelium works
+## How Mycena works
 
-Mycelium is a **delay-tolerant mesh network**. Messages can travel device-to-device without constant internet. They may be **stored and forwarded** by other nodes until they reach the recipient.
+Mycena is a **delay-tolerant mesh network**. Messages can travel device-to-device without constant internet. They may be **stored and forwarded** by other nodes until they reach the recipient.
 
 That is useful offline or in poor connectivity — but it is **not** the same as a central server you trust.
 
@@ -46,15 +46,15 @@ Use this if you need to **quickly remove sensitive data from this device**.
 Panic wipe does **not**:
 
 - Delete messages already on other devices
-- Remove data from backups outside Mycelium
+- Remove data from backups outside Mycena
 - Guarantee forensic erasure of flash storage (OS-level secure delete is outside the app)
 
 ## Mini-app store
 
-Apps listed in the store are signed by a developer peer ID when gossip listings are accepted. **Sideload installs** require a valid **`mycelium-bundle.sig.json`** signature — treat unknown bundles like unknown software.
+Apps listed in the store are signed by a developer peer ID when gossip listings are accepted. **Sideload installs** require a valid **`mycena-bundle.sig.json`** signature — treat unknown bundles like unknown software.
 
 - Only install apps you trust; review **Messaging**, **Payments**, and **Identity** permissions.
-- Sideload installs require a valid **`mycelium-bundle.sig.json`** developer signature — treat unknown bundles like unknown software.
+- Sideload installs require a valid **`mycena-bundle.sig.json`** developer signature — treat unknown bundles like unknown software.
 - Mini-apps cannot open arbitrary websites (network is blocked), but a malicious app can still abuse permissions you grant.
 - Developers and auditors: [MINIAPP_SECURITY_ARCHITECTURE.md](./MINIAPP_SECURITY_ARCHITECTURE.md)
 

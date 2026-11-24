@@ -1,10 +1,10 @@
-# iOS Core Bluetooth constraints for Mycelium mesh
+# iOS Core Bluetooth constraints for Mycena mesh
 
 **Status:** Engineering reference  
 **Last updated:** 2026-07-04  
 **Audience:** iOS host developers, product, support
 
-This document separates **Apple platform limits** (cannot be fixed in app code) from **implementation choices** in `ios/Mycelium/BLE/`. Android’s foreground `MeshService` is the parity target for *behavior*, not for *reliability in background*.
+This document separates **Apple platform limits** (cannot be fixed in app code) from **implementation choices** in `ios/Mycena/BLE/`. Android’s foreground `MeshService` is the parity target for *behavior*, not for *reliability in background*.
 
 Related: [MOBILE_PLATFORMS.md](./MOBILE_PLATFORMS.md) · [ADR 002 BLE mesh transport](./adr/002-ble-mesh-transport.md) · [DISCOVERY.md](./DISCOVERY.md)
 
@@ -32,12 +32,12 @@ Related: [MOBILE_PLATFORMS.md](./MOBILE_PLATFORMS.md) · [ADR 002 BLE mesh trans
 
 ## What we implemented (not a platform gap)
 
-These exist in `ios/Mycelium/BLE/` and mirror Android `bootstrap/Ble*.kt`:
+These exist in `ios/Mycena/BLE/` and mirror Android `bootstrap/Ble*.kt`:
 
 | Component | Role |
 |-----------|------|
 | `BleInviteGattServer` | `CBPeripheralManager` GATT server — invite read + mesh-data write |
-| `BleBootstrapAdvertiser` | Connectable advertising with Mycelium service UUID + local name |
+| `BleBootstrapAdvertiser` | Connectable advertising with Mycena service UUID + local name |
 | `BleBootstrapScanner` | Filtered central scan for `6e400001-…` |
 | `BleInviteReader` | Central connect + invite characteristic read |
 | `BleMeshHandoff` | Invite → `connectTransportInvite` + link registry |
@@ -47,15 +47,15 @@ These exist in `ios/Mycelium/BLE/` and mirror Android `bootstrap/Ble*.kt`:
 
 **State Preservation / Restoration identifiers** (required for background BLE):
 
-- Peripheral: `network.mycelium.ble.peripheral`
-- Central: `network.mycelium.ble.central`
+- Peripheral: `io.github.mycena_project.ble.peripheral`
+- Central: `io.github.mycena_project.ble.central`
 
-**Info.plist** (see `ios/Mycelium/Resources/Info.ble.plist.snippet`):
+**Info.plist** (see `ios/Mycena/Resources/Info.ble.plist.snippet`):
 
 - `NSBluetoothAlwaysUsageDescription`
 - `UIBackgroundModes`: `bluetooth-central`, `bluetooth-peripheral`
 
-Rust contract unchanged: `ble_transport.rs`, `ble_mesh.rs`, UniFFI surface in `mycelium.udl`.
+Rust contract unchanged: `ble_transport.rs`, `ble_mesh.rs`, UniFFI surface in `mycena.udl`.
 
 ---
 
@@ -124,7 +124,7 @@ These are **opportunistic**. They improve disaster-mesh *chance* but do not crea
 
 ## Foreground expectations (parity with Android)
 
-When the Mycelium iOS app is **active** (or recently active with Bluetooth session):
+When the Mycena iOS app is **active** (or recently active with Bluetooth session):
 
 - iPhone **can** act as a mesh participant: advertise invite, accept mesh-data writes, scan, hand off, and flush outbound queues on the 2 s cadence.
 - GATT UUIDs and chunk format match Android/desktop (`BleMeshGatt`, MYLC/MYLP).
@@ -136,7 +136,7 @@ When the Mycelium iOS app is **active** (or recently active with Bluetooth sessi
 
 **Safe to say:**
 
-- “On iPhone, Mycelium can join the BLE mesh **while the app is open**.”
+- “On iPhone, Mycena can join the BLE mesh **while the app is open**.”
 - “With Bluetooth permissions, the app may **continue limited mesh activity in the background** when iOS allows.”
 - “Background behavior is **best-effort** and varies by iOS version, battery state, and whether the app was force-quit.”
 
@@ -164,7 +164,7 @@ When the Mycelium iOS app is **active** (or recently active with Bluetooth sessi
 
 | Path | Purpose |
 |------|---------|
-| `ios/Mycelium/BLE/BleMeshHost.swift` | Entry point for mesh host |
-| `ios/Mycelium/BLE/BleInviteGattServer.swift` | Peripheral GATT + advertising |
+| `ios/Mycena/BLE/BleMeshHost.swift` | Entry point for mesh host |
+| `ios/Mycena/BLE/BleInviteGattServer.swift` | Peripheral GATT + advertising |
 | `docs/MOBILE_PLATFORMS.md` | Host strategy |
 | `android/.../MeshService.kt` | Android reference orchestration |

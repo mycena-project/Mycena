@@ -6,7 +6,7 @@
     <string name="action_export">Export</string>
     <string name="action_subscribe">Subscribe</string>
     <string name="action_unsubscribe">Unsubscribe</string>
-    <string name="app_name">Mycelium</string>
+    <string name="app_name">Mycena</string>
     <string name="app_tagline">شبکه آفلاین</string>
     <string name="ble_handoff_connected_body">Linked via Bluetooth — libp2p direct path over BLE when Wi‑Fi or relay are unavailable.</string>
     <string name="ble_handoff_connected_title">Peer linked via Bluetooth</string>
@@ -89,7 +89,7 @@
     <string name="discovery_in_range">در برد</string>
     <string name="discovery_nearby">نزدیک</string>
     <string name="discovery_notification_body">برای اتصال لمس کنید (%1$s…)</string>
-    <string name="discovery_notification_title">گره Mycelium %1$s</string>
+    <string name="discovery_notification_title">گره Mycena %1$s</string>
     <string name="discovery_very_close">خیلی نزدیک</string>
     <string name="error_invalid_invite">Invalid invite</string>
     <string name="error_invalid_qr">قالب QR نامعتبر</string>
@@ -148,7 +148,7 @@
     <string name="miniapp_grant_identity_title">هویت را به اشتراک بگذارید؟</string>
     <string name="miniapp_grant_payments_message">این برنامه می‌تواند موجودی را بخواند و کدهای QR پرداخت را نشان دهد.</string>
     <string name="miniapp_grant_payments_title">دسترسی به کیف پول؟</string>
-    <string name="miniapp_hosted_dialog_notice">این پیام از یک برنامه کوچک می آید، نه از Mycelium.</string>
+    <string name="miniapp_hosted_dialog_notice">این پیام از یک برنامه کوچک می آید، نه از Mycena.</string>
     <string name="miniapp_inline_script_warning">این برنامه از اسکریپت های درون خطی (خطر XSS بالاتر) استفاده می کند.</string>
     <string name="miniapp_install_cancel">لغو کنید</string>
     <string name="miniapp_install_confirm">نصب کنید</string>
@@ -189,7 +189,7 @@
     <string name="more_mail_sub">Store-and-forward messages when chat is offline</string>
     <string name="more_mini_apps_sub">MeshAid and other mesh mini-apps</string>
     <string name="more_settings_sub">Identity, network, privacy, bulletin scopes</string>
-    <string name="more_share_app_sub">Pass Mycelium to a nearby phone — no internet or Play Store</string>
+    <string name="more_share_app_sub">Pass Mycena to a nearby phone — no internet or Play Store</string>
     <string name="more_subtitle">Apps, network contribution, offline messages, and settings.</string>
     <string name="more_title">More</string>
     <string name="more_wallet_sub">Offline utility credits for mesh services</string>
@@ -224,7 +224,7 @@
     <string name="peers_discovery_connecting_title">در حال اتصال…</string>
     <string name="peers_discovery_idle_body">برای اتصال خودکار نزدیک، mesh بلوتوث را در تنظیمات روشن کنید، یا QR بالا را اسکن کنید.</string>
     <string name="peers_discovery_idle_title">کشف دستگاه‌های نزدیک خاموش است</string>
-    <string name="peers_discovery_nearby_found_body">دستگاه‌های Mycelium در برد هستند. در حال اتصال خودکار…</string>
+    <string name="peers_discovery_nearby_found_body">دستگاه‌های Mycena در برد هستند. در حال اتصال خودکار…</string>
     <string name="peers_discovery_nearby_found_title">دستگاه‌های نزدیک</string>
     <string name="peers_discovery_nobody_body">این طبیعی است. «اتصال» را روی گوشی دیگری در نزدیکی باز کنید، یا یک‌بار QR یکدیگر را اسکن کنید.</string>
     <string name="peers_discovery_nobody_title">فعلاً کسی در نزدیکی نیست</string>
@@ -283,7 +283,7 @@
     <string name="settings_crowd_mode_sub">Caps mDNS dials and uses crowd gossip tuning. Full transport limits apply after app restart.</string>
     <string name="settings_crowd_mode_title">Crowd mode (festivals / dense events)</string>
     <string name="settings_danger_zone">منطقه خطر</string>
-    <string name="settings_data_handling">Mycelium چگونه با داده‌های شما برخورد می‌کند</string>
+    <string name="settings_data_handling">Mycena چگونه با داده‌های شما برخورد می‌کند</string>
     <string name="settings_display_name">نام نمایشی</string>
     <string name="settings_display_name_hint">نام شما در شبکه</string>
     <string name="settings_encrypted_channels">Encrypted channels</string>
@@ -344,11 +344,11 @@
     <string name="settings_scan_channel_prompt">Scan channel invite</string>
     <string name="settings_scan_scope_key">Scan channel invite QR</string>
     <string name="settings_scope_key_export_title">Channel invite</string>
-    <string name="settings_scope_key_placeholder">mycelium/rescue/team-alpha</string>
+    <string name="settings_scope_key_placeholder">mycena/rescue/team-alpha</string>
     <string name="settings_scope_label">Scope</string>
     <string name="settings_share_app">اشتراک‌گذاری برنامه…</string>
     <string name="settings_show_technical_ids">Show technical IDs (advanced)</string>
-    <string name="settings_spread_description">با فعال‌سازی، دستگاه شما سیگنال بلوتوث می‌فرستد تا دستگاه‌های نزدیک بتوانند Mycelium را پیدا و نصب کنند. دادهٔ شخصی ارسال نمی‌شود.</string>
+    <string name="settings_spread_description">با فعال‌سازی، دستگاه شما سیگنال بلوتوث می‌فرستد تا دستگاه‌های نزدیک بتوانند Mycena را پیدا و نصب کنند. دادهٔ شخصی ارسال نمی‌شود.</string>
     <string name="settings_spread_title">کمک به گسترش میسلیوم</string>
     <string name="settings_store_size">پیام های ذخیره شده</string>
     <string name="settings_title">تنظیمات</string>
@@ -356,7 +356,7 @@
     <string name="settings_transport_id_label">Network ID (changes daily)</string>
     <string name="settings_version">نسخه</string>
     <string name="settings_version_format">نسخه %1$s (ساخت %2$d)</string>
-    <string name="share_app_description">نصب Mycelium برای کسی در نزدیکی بدون اینترنت. همان Wi‑Fi یا هات‌اسپات، سپس اسکن QR.</string>
+    <string name="share_app_description">نصب Mycena برای کسی در نزدیکی بدون اینترنت. همان Wi‑Fi یا هات‌اسپات، سپس اسکن QR.</string>
     <string name="share_app_error_generic">Could not start sharing. Try again or use same Wi‑Fi mode.</string>
     <string name="share_app_hotspot_failed">Could not open a sharing hotspot on this phone. Try “Same Wi‑Fi” if you already share a network, or turn off your regular hotspot first.</string>
     <string name="share_app_instructions">گیرنده: همان Wi‑Fi، QR را اسکن کند یا URL را در مرورگر باز کند. برنامه لازم نیست.</string>
@@ -367,7 +367,7 @@
     <string name="share_app_qr_content_description">کد QR برای نصب</string>
     <string name="share_app_share_link">Share install link</string>
     <string name="share_app_start">شروع اشتراک</string>
-    <string name="share_app_step_install_body">After joining Wi‑Fi (if needed), scan this QR or open the link in Chrome. Tap Install Mycelium on the page.</string>
+    <string name="share_app_step_install_body">After joining Wi‑Fi (if needed), scan this QR or open the link in Chrome. Tap Install Mycena on the page.</string>
     <string name="share_app_step_install_title">Step 2 — Install</string>
     <string name="share_app_step_wifi_body">Scan with the camera app to join this phone\'s Wi‑Fi. No password typing needed.</string>
     <string name="share_app_step_wifi_title">Step 1 — Join Wi‑Fi</string>
@@ -441,7 +441,7 @@
     <string name="wallet_to_hint">به (آدرس یا شناسه همتا)</string>
     <string name="wallet_tx_pending">تراکنش در انتظار (آفلاین)</string>
     <string name="wallet_tx_sent">پخش تراکنش</string>
-    <string name="welcome_back_body">We found your existing Mycelium identity on this device. Your contacts will still recognize you.</string>
+    <string name="welcome_back_body">We found your existing Mycena identity on this device. Your contacts will still recognize you.</string>
     <string name="welcome_back_body_named">Welcome back, %1$s. Your existing identity was found on this device. Your contacts will still recognize you.</string>
     <string name="welcome_back_continue">Continue with my identity</string>
     <string name="welcome_back_fresh">Start fresh instead</string>

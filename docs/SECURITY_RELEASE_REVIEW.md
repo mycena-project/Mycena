@@ -3,7 +3,7 @@
 **Review date:** 2026-08-29
 **HEAD SHA:** `fb32b1e5c89b318e14b1adc2a76b7dcefac6b3ec` (`fb32b1e Free disk on rust-budget so hosted runners can link tests.`)
 **Working tree:** this clone also contains **uncommitted** freeze work (share, Samsung/stability harness, public-repo hygiene). Findings that depend only on committed HEAD are marked. Findings that depend on the working tree are marked.
-**Reviewer:** internal freeze review (Mycelium maintainers). **Not** an external auditor. **No named independent reviewer.**
+**Reviewer:** internal freeze review (Mycena maintainers). **Not** an external auditor. **No named independent reviewer.**
 **Plan:** [RELEASE_FREEZE_PLAN.md](./RELEASE_FREEZE_PLAN.md) G7.
 **Threat model:** [THREAT_MODEL.md](./THREAT_MODEL.md) **v1.1**. The freeze plan’s “§8 checklist” is the **mapping table**. The reviewer checklist used here is **§9**.
 **Debt snapshot:** [SECURITY_DEBT_REGISTER.md](./SECURITY_DEBT_REGISTER.md) last updated **2026-08-29**.
@@ -18,7 +18,7 @@ This document is a **dated internal review**. It is **not** a certification, **n
 
 **Play Store / wide public beta:** still blocked on process: named residual sign-off, scheduled external review, Play Data Safety, and an official (M-of-N / Play-signed) artifact — not on a newly discovered Critical in preview scope.
 
-**Do not claim:** “Mycelium is secure,” Signal-class metadata privacy, whistleblower/Tor resistance, or that GitHub debug APKs are official M-of-N releases.
+**Do not claim:** “Mycena is secure,” Signal-class metadata privacy, whistleblower/Tor resistance, or that GitHub debug APKs are official M-of-N releases.
 
 **G7 gate:** this page **is** the required internal review. It does **not** by itself pass freeze G7/G10: [RFB-SEC-04](./RELEASE_FREEZE_BACKLOG.md) (Gitleaks job URL on freeze SHA) and RC SBOM / `release-verify` remain open. Do not tick plan checkboxes from this file alone.
 
@@ -56,11 +56,11 @@ A control is **not** “secure” because code exists. Each finding uses:
 
 | ID | Control | 1 Impl | 2 Tested (this session) | 3 Independent | 4 Residual | Notes |
 |----|---------|--------|-------------------------|---------------|------------|-------|
-| SD-030 / SD-140 | Unsigned `WireMessage::Data` dropped (`UNSIGNED_GRACE_PERIOD_UNTIL_MS = 0`) | yes | **yes** — `cargo test -p mycelium-node --test sd030_unsigned_drop` (3 ok); `unsigned_dropped_after_grace_period` (1 ok) | **no** | Gossip relay bodies remain unsigned by design (SD-080) | CI budget `nextest --workspace` **should** include these; named “Security regression gates” job does **not** list `sd030`. No freeze-SHA CI URL. |
+| SD-030 / SD-140 | Unsigned `WireMessage::Data` dropped (`UNSIGNED_GRACE_PERIOD_UNTIL_MS = 0`) | yes | **yes** — `cargo test -p mycena-node --test sd030_unsigned_drop` (3 ok); `unsigned_dropped_after_grace_period` (1 ok) | **no** | Gossip relay bodies remain unsigned by design (SD-080) | CI budget `nextest --workspace` **should** include these; named “Security regression gates” job does **not** list `sd030`. No freeze-SHA CI URL. |
 | SD-031 | Relay fanout default **3** | yes | **partial** — diversity/fanout unit tests in `security.rs` (`eclipse_swarm_blocked_without_diversity`, `max_fanout: 3`). No dedicated `sd031` integration test run. | **no** | Authenticated DHT routing still missing (hardening) | Default `default_max_relay_fanout() -> 3`. |
 | SD-080 | Gossip stored via `Envelope::new_unsigned_gossip` | yes | **indirect** — `sd030` gossip-body exempt test; ingest path is `ingest_unsigned_gossip` | **no** | Inner payload auth still required for trust | Do not re-introduce local re-sign. |
 | SD-081 / SD-141 | Fail-closed chat without enc key | yes | **yes** — `sd081_enc_key_error_is_actionable`; `send_chat_encrypted_requires_peer_key` | **no** | Group PSK (R9) is a separate residual | Android maps `enc_key_not_yet_exchanged` in `ChatViewModel.kt`. |
-| SD-041 / SD-240 | Sideload requires `mycelium-bundle.sig.json` | yes | **yes** — `sideload_without_bundle_signature_rejected`, `sideload_install_without_listing`, `hash_mismatch_blocked_on_sideload` | **no** | User can still install a **signed** malicious bundle (R4/WebView) | Developer pinning UX missing (register). |
+| SD-041 / SD-240 | Sideload requires `mycena-bundle.sig.json` | yes | **yes** — `sideload_without_bundle_signature_rejected`, `sideload_install_without_listing`, `hash_mismatch_blocked_on_sideload` | **no** | User can still install a **signed** malicious bundle (R4/WebView) | Developer pinning UX missing (register). |
 | SD-171 | `android:allowBackup="false"` + extraction rules | yes | **no automated test run** (manifest inspection only) | **no** | Root/ADB/backup-unrelated seizure (TM §5.3) | `fullBackupContent="false"`; `backup_rules.xml` excludes file/db/prefs. |
 | SD-032 | Ingest rate limits + size cap | yes | **yes** — `freshness_rejects_stale_and_far_future`; `direct_rate_limit_trips` exists (freshness run this session) | **no** | Sybil can still use many authors | Register **body** for SD-032 was stale vs code; aligned in this pass. |
 | SD-060 | 30 min freshness + author id window | yes | **yes** — freshness test; `author_replay_window_catches_duplicate_id` in crate | **no** | Replay **inside** the 30 min / 512-id window still possible | Register **body** was stale vs summary; aligned in this pass. |
@@ -78,7 +78,7 @@ Status vocabulary: `mitigated` · `residual accepted` · `process gap` · `doc d
 | **Severity** | High for **Play / wide beta**; Medium for **GitHub technical preview** (expected by plan) |
 | **Evidence** | [EXTERNAL_SECURITY_REVIEW.md](./EXTERNAL_SECURITY_REVIEW.md) was a briefing pack with status **Not commissioned**. No signed reviewer statement, no engagement ID, no third-party report in-tree. |
 | **Affected component** | Release governance |
-| **Status** | `process gap` — **explicitly deferred** for GitHub-only technical beta (2026-08-29, Mycelium maintainers). **Not** scheduled. |
+| **Status** | `process gap` — **explicitly deferred** for GitHub-only technical beta (2026-08-29, Mycena maintainers). **Not** scheduled. |
 | **Mitigation** | Internal review (this file) + public honesty docs. Class: **4** for GitHub freeze; **missing 3** for Play. |
 | **Residual risk** | Unknown classes of bugs an external review would catch. Preview users must not treat the app as audited. |
 | **Release impact** | Does **not** invent a Play blocker beyond [PRE_RELEASE_GAPS.md](./PRE_RELEASE_GAPS.md). **Must not** be described as “security audited.” |
@@ -101,7 +101,7 @@ Status vocabulary: `mitigated` · `residual accepted` · `process gap` · `doc d
 |-------|---------|
 | **Severity** | Informational / Medium (assurance gap, not a new bug) |
 | **Evidence** | Tests and source cited in the P0 table. No external review of those diffs. |
-| **Affected component** | `mycelium-node`, `mycelium-app`, `mycelium-miniapp`, Android manifest |
+| **Affected component** | `mycena-node`, `mycena-app`, `mycena-miniapp`, Android manifest |
 | **Status** | `not independently reviewed` |
 | **Mitigation** | Classes **1** and (where noted) **2**. Not **3**. |
 | **Residual risk** | Tests can miss protocol edge cases (e.g. SD-031 amplification under crisis-mode overrides). |
@@ -113,7 +113,7 @@ Status vocabulary: `mitigated` · `residual accepted` · `process gap` · `doc d
 |-------|---------|
 | **Severity** | Informational (by design) |
 | **Evidence** | No end-user accounts or passwords. Peer identity is libp2p `PeerId` from Ed25519. Direct `Data` requires envelope signature (SD-030). `EncryptedDirect` dropped without valid `mesh_signature` (`node.rs` ingest). Chat send refuses without peer enc key (SD-081). |
-| **Affected component** | `mycelium-node`, `mycelium-app` |
+| **Affected component** | `mycena-node`, `mycena-app` |
 | **Status** | `mitigated` for **content authenticity of signed Data / EncryptedDirect**; `residual accepted` for **human identity** (anyone can generate keys). |
 | **Mitigation** | Class **1**; SD-030/081 **2**. Not **3**. |
 | **Residual risk** | Contact-book confusion, QR/social-engineering of PeerIds, group PSK (R9). |
@@ -125,7 +125,7 @@ Status vocabulary: `mitigated` · `residual accepted` · `process gap` · `doc d
 |-------|---------|
 | **Severity** | Informational |
 | **Evidence** | Ed25519 (identity, wire, mini-app bundle, release attest), X25519 / Double Ratchet path (ADR 004; legacy static remaining per KNOWN_LIMITATIONS), ChaCha20-Poly1305 at-rest (`at_rest.rs`), BLAKE3 (release artifacts, bundle hash). libp2p Noise/TLS/QUIC for transport. |
-| **Affected component** | `mycelium-core`, `mycelium-node`, Android Keystore wrapping of storage master key |
+| **Affected component** | `mycena-core`, `mycena-node`, Android Keystore wrapping of storage master key |
 | **Status** | `mitigated` as **standard constructions in use**; **not** a crypto audit. |
 | **Mitigation** | Class **1**. Limited **2** (unit tests, not a formal proof). Not **3**. |
 | **Residual risk** | Implementation bugs, ratchet/legacy mix, group PSK. |
@@ -149,7 +149,7 @@ Status vocabulary: `mitigated` · `residual accepted` · `process gap` · `doc d
 |-------|---------|
 | **Severity** | High **if** compared to Tor/Signal metadata goals; **accepted** for this product (R2, R6, R8) |
 | **Evidence** | libp2p gossip/sync; default relay path; INTERNET permission. No padding (SD-070). Relay sees IP (R6). |
-| **Affected component** | `mycelium-node`, `mycelium-relay` (companion), Android permissions |
+| **Affected component** | `mycena-node`, `mycena-relay` (companion), Android permissions |
 | **Status** | `residual accepted` |
 | **Mitigation** | E2E for chat **content** after keys (class **1/2** for fail-closed). Metadata: class **4** only. |
 | **Residual risk** | Relationship mapping, timing, ISP/relay observation. |
@@ -160,7 +160,7 @@ Status vocabulary: `mitigated` · `residual accepted` · `process gap` · `doc d
 | Field | Content |
 |-------|---------|
 | **Severity** | Medium (impersonation via social graph, not protocol forge of signed Data) |
-| **Evidence** | PeerId = key. No TOFU safety-number UX audit in this review. Invites are `mycelium://` (redacted in stability logs). |
+| **Evidence** | PeerId = key. No TOFU safety-number UX audit in this review. Invites are `mycena://` (redacted in stability logs). |
 | **Affected component** | Contacts, QR, BLE/Wi-Fi share |
 | **Status** | `residual accepted` (human binding) |
 | **Mitigation** | Cryptographic binding class **1**. UX class incomplete. Not **3**. |
@@ -196,7 +196,7 @@ Status vocabulary: `mitigated` · `residual accepted` · `process gap` · `doc d
 | Field | Content |
 |-------|---------|
 | **Severity** | High if a **debug-signed** GitHub APK is called “official”; Medium as documented honesty |
-| **Evidence** | [RELEASE_INTEGRITY.md](./RELEASE_INTEGRITY.md): BLAKE3 + M-of-N; **CI MUST NOT hold ≥3 signer keys**; tag workflow `release.yml` runs `reproducible-build.sh` and **unsigned** `mycelium-cli release init`. `android-ci.yml` / `android-debug-apk.yml` ship **debug** APK. `release.yml` notes “reproducible debug-signed sideload.” Play AAB is a **different** key (§7). Share landing SHA-256 is **hash honesty**, not Play signing. Production HSM signers: “once provisioned.” |
+| **Evidence** | [RELEASE_INTEGRITY.md](./RELEASE_INTEGRITY.md): BLAKE3 + M-of-N; **CI MUST NOT hold ≥3 signer keys**; tag workflow `release.yml` runs `reproducible-build.sh` and **unsigned** `mycena-cli release init`. `android-ci.yml` / `android-debug-apk.yml` ship **debug** APK. `release.yml` notes “reproducible debug-signed sideload.” Play AAB is a **different** key (§7). Share landing SHA-256 is **hash honesty**, not Play signing. Production HSM signers: “once provisioned.” |
 | **Affected component** | Release, Android signing, phone-to-phone share |
 | **Status** | `process gap` for **official** artifacts; `documented residual` for debug sideload |
 | **Mitigation** | Class **1** for the **integrity scheme**. Class **2** for `release_integrity` tests in CI YAML (not re-run here). Official M-of-N **not** produced for this SHA. Not **3**. |
@@ -246,7 +246,7 @@ Status vocabulary: `mitigated` · `residual accepted` · `process gap` · `doc d
 | **Severity** | Medium if secrets hit logcat; Low with current redaction **if** developers follow [CRASH_REPORTING.md](./CRASH_REPORTING.md) |
 | **Evidence** | `StabilityDiagnostics` redacts invite URIs, long hex, `storageKeyHex`. Uncaught handler logs then delegates (process still dies). No in-app crash telemetry upload. Platform (Google/Apple) crash may still leave the device. `StorageKeyHelper` logs key **generation**, not the hex. |
 | **Affected component** | Android logging, developer adb |
-| **Status** | `mitigated` for intentional Mycelium tags; `residual accepted` for OS crash pipelines |
+| **Status** | `mitigated` for intentional Mycena tags; `residual accepted` for OS crash pipelines |
 | **Mitigation** | Class **1**. Unit tests for redact **not** run this session. Not **3**. Class **4** (platform logs). |
 | **Residual risk** | Other tags (`Log.d`) still logging sensitive strings; unfiltered `*:V` in a PR. |
 | **Release impact** | Keep crash artifacts gitignored (`artifacts/`). |
@@ -269,7 +269,7 @@ Status vocabulary: `mitigated` · `residual accepted` · `process gap` · `doc d
 |-------|---------|
 | **Severity** | Critical **if** treated as money (SD-011/061/160); Informational for preview |
 | **Evidence** | `wallet_experimental_notice`: “Not money, not an investment…”. [MESHCOIN_UI_COPY.md](./MESHCOIN_UI_COPY.md). Residuals R1, R3. |
-| **Affected component** | Wallet UI, `mycelium-coin` |
+| **Affected component** | Wallet UI, `mycena-coin` |
 | **Status** | `residual accepted` while preview-only |
 | **Mitigation** | Class **4**. Sybil/quorum **not** mitigated (class 1 missing for real value). |
 | **Residual risk** | Users still misunderstand credits. German copy still flagged in MESHCOIN_UI_COPY. |
@@ -291,28 +291,28 @@ Status vocabulary: `mitigated` · `residual accepted` · `process gap` · `doc d
 
 ## Tests executed this session (not freeze-SHA CI)
 
-Working directory: Mycelium repo. **Not** a GitHub Actions job URL.
+Working directory: Mycena repo. **Not** a GitHub Actions job URL.
 
 ```text
 ./scripts/check-advisory-allowlist.sh
   → Advisory allowlist OK (review dates current)
 
-cargo test -p mycelium-node --test sd030_unsigned_drop
+cargo test -p mycena-node --test sd030_unsigned_drop
   → 3 passed
 
-cargo test -p mycelium-node --lib unsigned_dropped
+cargo test -p mycena-node --lib unsigned_dropped
   → unsigned_dropped_after_grace_period ok
 
-cargo test -p mycelium-node --lib freshness_rejects
+cargo test -p mycena-node --lib freshness_rejects
   → freshness_rejects_stale_and_far_future ok
 
-cargo test -p mycelium-app --lib sd081
+cargo test -p mycena-app --lib sd081
   → sd081_enc_key_error_is_actionable ok
 
-cargo test -p mycelium-app --lib send_chat_encrypted_requires_peer_key
+cargo test -p mycena-app --lib send_chat_encrypted_requires_peer_key
   → send_chat_encrypted_requires_peer_key ok
 
-cargo test -p mycelium-miniapp --lib sideload
+cargo test -p mycena-miniapp --lib sideload
   → 3 passed (sideload signature / hash)
 ```
 
@@ -324,7 +324,7 @@ cargo test -p mycelium-miniapp --lib sideload
 
 Reviewed [SECURITY.md](../SECURITY.md):
 
-- Private report to **security@example.invalid** is documented; **do not** file public issues for vulns.
+- Private report to **github.com/mycena-project/Mycena/security/advisories/new** is documented; **do not** file public issues for vulns.
 - 72-hour acknowledgement target.
 - GitHub Security Advisories listed as second channel.
 - Scope covers Android/desktop/Rust, companion relay, crypto/mesh/mini-app. Third-party deps out of scope with heads-up welcome.

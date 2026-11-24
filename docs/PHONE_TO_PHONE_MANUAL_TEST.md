@@ -2,7 +2,7 @@
 
 **Harness:** [HARDWARE_TEST_RUNBOOK.md](./HARDWARE_TEST_RUNBOOK.md) HV-10 / HV-11. Record devices in [HARDWARE_TEST_MATRIX.md](./HARDWARE_TEST_MATRIX.md). Logs: [CRASH_REPORTING.md](./CRASH_REPORTING.md).
 
-**Not executed in the 2026-08-29 code change.** Fill rows when devices are available. Logcat filter: `ShareAppViewModel`, `WifiDirectSharer`, `LocalHotspot`, `WifiDirectShare`, `ShareP2P`, `P2P-MT`, `MyceliumStability`.
+**Not executed in the 2026-08-29 code change.** Fill rows when devices are available. Logcat filter: `ShareAppViewModel`, `WifiDirectSharer`, `LocalHotspot`, `WifiDirectShare`, `ShareP2P`, `P2P-MT`, `MycenaStability`.
 
 Install under test: GitHub/debug **universal** APK (not a Play split). Record models, Android version, app SHA, APK SHA-256 from the Share screen.
 
@@ -27,4 +27,4 @@ Install under test: GitHub/debug **universal** APK (not a Play split). Record mo
 
 G3 freeze pass requires MT-05, MT-06, MT-07 plus an honest MT-08 on two physical phones ([RELEASE_FREEZE_PLAN.md](./RELEASE_FREEZE_PLAN.md) G3).
 
-Samsung / OEM crash and idle checks are **OEM-MT-01–09** in [SAMSUNG_STABILITY_AUDIT.md](./SAMSUNG_STABILITY_AUDIT.md) (logcat `MyceliumStability`). Those are not G3; they are G4 / RFB-OEM-03.
+Samsung / OEM crash and idle checks are **OEM-MT-01–09** in [SAMSUNG_STABILITY_AUDIT.md](./SAMSUNG_STABILITY_AUDIT.md) (logcat `MycenaStability`). Those are not G3; they are G4 / RFB-OEM-03.

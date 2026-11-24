@@ -10,22 +10,22 @@
 #   ./scripts/android/run-hardware-tests.sh snapshot
 #
 # Device selector: ANDROID_SERIAL
-# Package:         MYCELIUM_ANDROID_PACKAGE (default network.mycelium.app)
-# Expected SHA:    MYCELIUM_TECHNICAL_BETA_SHA256
+# Package:         MYCENA_ANDROID_PACKAGE (default io.github.mycena_project.app)
+# Expected SHA:    MYCENA_TECHNICAL_BETA_SHA256
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-PACKAGE="${MYCELIUM_ANDROID_PACKAGE:-network.mycelium.app}"
+PACKAGE="${MYCENA_ANDROID_PACKAGE:-io.github.mycena_project.app}"
 RUNS_ROOT="$ROOT/artifacts/hardware-runs"
 LATEST_FILE="$RUNS_ROOT/LATEST.txt"
-EXPECTED_SHA="${MYCELIUM_TECHNICAL_BETA_SHA256:-276e653ee6c128445a83b133bf98c9b3b83a306fc461859f4fbb6a9dacf11678}"
+EXPECTED_SHA="${MYCENA_TECHNICAL_BETA_SHA256:-276e653ee6c128445a83b133bf98c9b3b83a306fc461859f4fbb6a9dacf11678}"
 VERSION_PROPS="$ROOT/android/version.properties"
 CAPTURE="$ROOT/scripts/android/capture-freeze-evidence.sh"
 
 version_name="$(grep -E '^versionName=' "$VERSION_PROPS" | cut -d= -f2)"
 version_code="$(grep -E '^versionCode=' "$VERSION_PROPS" | cut -d= -f2)"
-DEFAULT_APK="$ROOT/artifacts/technical-beta/mycelium-${version_name}-technical-beta-android.apk"
-APK="${MYCELIUM_TECHNICAL_BETA_APK:-$DEFAULT_APK}"
+DEFAULT_APK="$ROOT/artifacts/technical-beta/mycena-${version_name}-technical-beta-android.apk"
+APK="${MYCENA_TECHNICAL_BETA_APK:-$DEFAULT_APK}"
 
 die() { echo "FAIL: $*" >&2; exit 1; }
 
@@ -266,7 +266,7 @@ inspect_installed() {
 inspect_crashes() {
   local out="$1"
   adb_bin logcat -b crash -d -v threadtime >"$out/logcat-crash.txt" 2>/dev/null || true
-  adb_bin logcat -d -v threadtime MyceliumStability:I AndroidRuntime:E DEBUG:I *:S \
+  adb_bin logcat -d -v threadtime MycenaStability:I AndroidRuntime:E DEBUG:I *:S \
     >"$out/logcat-stability.txt" 2>/dev/null || true
   if grep -q "AndroidRuntime" "$out/logcat-crash.txt" 2>/dev/null; then
     echo "crash_buffer_has_androidruntime=yes" | tee "$out/crash-summary.txt"
@@ -287,7 +287,7 @@ Automated (this harness, observational only):
   On-disk Technical Beta APK exists; SHA-256 vs freeze expected
   On-disk APK not debug-named; not CN=Android Debug (if apksigner)
   If package installed: versionName/versionCode, debuggable flag, pulled APK SHA
-  pidof; permission dump; interface names; crash/MyceliumStability buffers
+  pidof; permission dump; interface names; crash/MycenaStability buffers
 
 NOT automated (human / later HV; do not claim PASS from inspect):
   HV-01 fresh install (requires uninstall — destructive; operator-only)

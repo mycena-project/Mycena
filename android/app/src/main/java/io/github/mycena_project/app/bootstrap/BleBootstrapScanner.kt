@@ -1,0 +1,186 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Mycena Project
+package io.github.mycena_project.app.bootstrap
+
+import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothManager
+import android.bluetooth.le.ScanCallback
+import android.bluetooth.le.ScanFilter
+import android.bluetooth.le.ScanResult
+import android.bluetooth.le.ScanSettings
+import android.content.Context
+import android.os.ParcelUuid
+import android.util.Log
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import io.github.mycena_project.app.stability.StabilityDiagnostics
+import io.github.mycena_project.bindings.mycena
+
+/**
+ * Scans for Mycena GATT service and emits handoff targets for invite read + dial (F1).
+ */
+class BleBootstrapScanner(private val context: Context) {
+
+    data class HandoffTarget(
+        val device: BluetoothDevice,
+        val rssi: Int,
+    )
+
+    data class NearbyNode(
+        /** BLE MAC — display only; no peer id on air. */
+        val deviceAddress: String,
+        val rssi: Int,
+        val firstSeen: Long = System.currentTimeMillis(),
+    )
+
+    private val _handoffTargets = MutableSharedFlow<HandoffTarget>(extraBufferCapacity = 8)
+    val handoffTargets: SharedFlow<HandoffTarget> = _handoffTargets.asSharedFlow()
+
+    private val _nearbyNodes = MutableSharedFlow<List<NearbyNode>>(replay = 1)
+    val nearbyNodes: SharedFlow<List<NearbyNode>> = _nearbyNodes.asSharedFlow()
+
+    private var scanCallback: ScanCallback? = null
+    private var isScanning = false
+    private var lowPowerScan = false
+    private var useAllMatchesFallback = false
+    private val seenAddresses = linkedMapOf<String, NearbyNode>()
+
+    var onScanRestarted: (() -> Unit)? = null
+    var onPeerObserved: (() -> Unit)? = null
+
+    fun isScanning(): Boolean = isScanning
+
+    /** When Wi-Fi Aware handles discovery, reduce BLE scan duty (TransportScore policy). */
+    fun setLowPowerScan(enabled: Boolean) {
+        if (lowPowerScan == enabled) return
+        lowPowerScan = enabled
+        if (isScanning) {
+            stopScanning()
+            startScanning()
+        }
+    }
+
+    fun startScanning() {
+        if (isScanning) return
+
+        val scanner = bluetoothManagerOrNull()?.adapter?.bluetoothLeScanner ?: return
+
+        val filter =
+            ScanFilter.Builder()
+                .setServiceUuid(ParcelUuid(BleMeshGatt.SERVICE_UUID))
+                .build()
+
+        val callbackType =
+            if (useAllMatchesFallback) {
+                BleScanPolicy.portableCallbackType()
+            } else {
+                BleScanPolicy.firstMatchCallbackType()
+            }
+
+        val settings =
+            ScanSettings.Builder()
+                .setScanMode(
+                    if (lowPowerScan) {
+                        ScanSettings.SCAN_MODE_LOW_POWER
+                    } else {
+                        ScanSettings.SCAN_MODE_BALANCED
+                    },
+                )
+                .setCallbackType(callbackType)
+                .build()
+
+        scanCallback =
+            object : ScanCallback() {
+                override fun onScanResult(callbackType: Int, result: ScanResult) {
+                    val device = result.device ?: return
+                    val address = device.address ?: return
+                    val node =
+                        NearbyNode(
+                            deviceAddress = address,
+                            rssi = result.rssi,
+                        )
+                    seenAddresses[address] = node
+                    _nearbyNodes.tryEmit(seenAddresses.values.toList())
+                    onPeerObserved?.invoke()
+                    if (callbackType == ScanSettings.CALLBACK_TYPE_FIRST_MATCH) {
+                        Log.i(
+                            "BleScanner",
+                            "Mycena BLE peer $address RSSI=${result.rssi} — attempting handoff",
+                        )
+                    }
+                    mycena.recordBleDiscoveryObservation(
+                        80u,
+                        64u,
+                        true,
+                    )
+                    _handoffTargets.tryEmit(
+                        HandoffTarget(device = device, rssi = result.rssi),
+                    )
+                }
+
+                override fun onScanFailed(errorCode: Int) {
+                    Log.w("BleScanner", "BLE scan failed ($errorCode)")
+                    StabilityDiagnostics.info(
+                        "BleScanner.onScanFailed",
+                        "errorCode=$errorCode fallback=$useAllMatchesFallback",
+                    )
+                    if (BleScanPolicy.shouldFallbackToAllMatches(errorCode)) {
+                        if (!useAllMatchesFallback) {
+                            useAllMatchesFallback = true
+                            restartScanSilently()
+                        } else {
+                            isScanning = false
+                        }
+                        return
+                    }
+                    restartScanSilently()
+                }
+            }
+
+        try {
+            scanner.startScan(listOf(filter), settings, scanCallback!!)
+            isScanning = true
+        } catch (e: SecurityException) {
+            StabilityDiagnostics.record("BleScanner.startScan", e)
+            isScanning = false
+        } catch (e: IllegalStateException) {
+            StabilityDiagnostics.record("BleScanner.startScan", e)
+            isScanning = false
+        }
+    }
+
+    /** Stop LE scan only — keeps nearby cache (duty-cycle pause). */
+    fun stopScanOnly() {
+        scanCallback?.let { stopScanQuietly(it) }
+        isScanning = false
+    }
+
+    /** Stop and restart scan without clearing the UI nearby cache (scan failure recovery). */
+    fun restartScanSilently() {
+        stopScanOnly()
+        startScanning()
+        onScanRestarted?.invoke()
+    }
+
+    fun stopScanning() {
+        scanCallback?.let { stopScanQuietly(it) }
+        isScanning = false
+        seenAddresses.clear()
+        _nearbyNodes.tryEmit(emptyList())
+    }
+
+    private fun bluetoothManagerOrNull(): BluetoothManager? =
+        context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+
+    private fun stopScanQuietly(callback: ScanCallback) {
+        val scanner = bluetoothManagerOrNull()?.adapter?.bluetoothLeScanner ?: return
+        try {
+            scanner.stopScan(callback)
+        } catch (e: SecurityException) {
+            StabilityDiagnostics.record("BleScanner.stopScan", e)
+        } catch (e: IllegalStateException) {
+            StabilityDiagnostics.record("BleScanner.stopScan", e)
+        }
+    }
+}

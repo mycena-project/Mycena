@@ -2,7 +2,7 @@
 
 **Status:** Scaffold — SwiftUI + BLE host compile for Simulator; physical-device BLE is best-effort and **not** feature-complete vs Android. Not TestFlight/App Store ready.
 
-Mycelium’s iPhone app will be a **native Swift/SwiftUI shell** over the same Rust core as Android, via **UniFFI** and `crates/mycelium-ffi/src/mycelium.udl`.
+Mycena’s iPhone app will be a **native Swift/SwiftUI shell** over the same Rust core as Android, via **UniFFI** and `crates/mycena-ffi/src/mycena.udl`.
 
 Read first: [docs/MOBILE_PLATFORMS.md](../docs/MOBILE_PLATFORMS.md) · [docs/IOS_BLE_CONSTRAINTS.md](../docs/IOS_BLE_CONSTRAINTS.md) · [docs/adr/001-mobile-host-architecture.md](../docs/adr/001-mobile-host-architecture.md)
 
@@ -13,28 +13,28 @@ Read first: [docs/MOBILE_PLATFORMS.md](../docs/MOBILE_PLATFORMS.md) · [docs/IOS
 ```
 ios/
 ├── README.md                 # this file
-├── Mycelium.xcodeproj/       # SwiftUI app (future)
-├── Mycelium/
+├── Mycena.xcodeproj/       # SwiftUI app (future)
+├── Mycena/
 │   ├── BLE/                  # CoreBluetooth mesh host (F1–F3)
 │   │   ├── BleMeshHost.swift           # orchestrator (start from MeshHost)
 │   │   ├── BleInviteGattServer.swift   # CBPeripheralManager GATT + advertise
 │   │   ├── BleBootstrapScanner.swift   # CBCentralManager scan + restoration
 │   │   ├── BleMeshHandoff.swift        # invite read → connectTransportInvite
 │   │   ├── BleMeshRelay.swift          # unified bearer outbound drain
-│   │   └── UniffiMyceliumBridge.swift  # Rust FFI facade
+│   │   └── UniffiMycenaBridge.swift  # Rust FFI facade
 │   ├── App/
-│   │   └── MyceliumApp.swift           # SwiftUI entry
+│   │   └── MycenaApp.swift           # SwiftUI entry
 │   ├── Services/
 │   │   ├── MeshHost.swift              # initNode + BLE lifecycle
 │   │   ├── StorageKeyHelper.swift      # Keychain master key
 │   │   ├── MeshNodeCallback.swift      # NodeEventCallback → UI / notifications
 │   │   ├── MeshEvents.swift            # NotificationCenter bus
 │   │   └── MeshSettings.swift          # UserDefaults host prefs
-├── MyceliumBindings/         # Hand-written Swift facade (future)
-└── rust-build/               # libuniffi_mycelium.xcframework (gitignored)
+├── MycenaBindings/         # Hand-written Swift facade (future)
+└── rust-build/               # libuniffi_mycena.xcframework (gitignored)
 ```
 
-Rust artifacts use the same `mycelium-ffi` crate as Android.
+Rust artifacts use the same `mycena-ffi` crate as Android.
 
 ---
 
@@ -48,13 +48,13 @@ Rust artifacts use the same `mycelium-ffi` crate as Android.
 
 **Restoration IDs** (State Preservation API — required for background BLE):
 
-- `network.mycelium.ble.peripheral`
-- `network.mycelium.ble.central`
+- `io.github.mycena_project.ble.peripheral`
+- `io.github.mycena_project.ble.central`
 
 **Important:** Background mesh on iOS is **best-effort**, not Android foreground-service parity. See [IOS_BLE_CONSTRAINTS.md](../docs/IOS_BLE_CONSTRAINTS.md) before making reliability claims.
 
 ```swift
-// App launch (see MyceliumApp.swift):
+// App launch (see MycenaApp.swift):
 await MeshHost.shared.startNode(bleBootstrap: true)  // false in Simulator
 MeshHost.shared.setBleBootstrapEnabled(false)
 MeshHost.shared.stop()
@@ -70,7 +70,7 @@ MeshHost.shared.stop()
 ./scripts/ios-xcodegen.sh
 
 # 3. Open in Xcode (or build from CLI)
-open ios/Mycelium.xcodeproj
+open ios/Mycena.xcodeproj
 # Simulator: pick iPhone 17 (or any iOS 26 sim). BLE is off in Simulator by design.
 ```
 
@@ -98,11 +98,11 @@ Build Rust FFI: `./scripts/build-ios-xcframework.sh`
 
 ## Implementation checklist
 
-- [x] XcodeGen spec + SwiftUI shell (`ios/project.yml`, `Mycelium/App/`)
-- [x] Run `xcodegen generate` and open `Mycelium.xcodeproj` (`scripts/ios-xcodegen.sh`)
-- [x] Cross-compile + link `MyceliumFFI` xcframework (`scripts/build-ios-xcframework.sh`)
-- [x] Generate Swift from `mycelium.udl` (`scripts/regenerate-uniffi-swift.sh`)
-- [x] BLE peripheral + central mesh host (`ios/Mycelium/BLE/`)
+- [x] XcodeGen spec + SwiftUI shell (`ios/project.yml`, `Mycena/App/`)
+- [x] Run `xcodegen generate` and open `Mycena.xcodeproj` (`scripts/ios-xcodegen.sh`)
+- [x] Cross-compile + link `MycenaFFI` xcframework (`scripts/build-ios-xcframework.sh`)
+- [x] Generate Swift from `mycena.udl` (`scripts/regenerate-uniffi-swift.sh`)
+- [x] BLE peripheral + central mesh host (`ios/Mycena/BLE/`)
 - [x] iOS BLE constraints doc (`docs/IOS_BLE_CONSTRAINTS.md`)
 - [x] `MeshHost` → `BleMeshHost` wiring (`Services/MeshHost.swift`)
 - [x] Keychain wrapper → 32-byte master key hex; `initNode` + `NodeEventCallback`
@@ -116,7 +116,7 @@ Build Rust FFI: `./scripts/build-ios-xcframework.sh`
 ## What not to put here
 
 - Protocol or crypto logic (belongs in `crates/`)
-- Duplicate of `mycelium-app` features in Swift
+- Duplicate of `mycena-app` features in Swift
 - Shared UI with Android
 
 ---

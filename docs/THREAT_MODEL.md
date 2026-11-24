@@ -1,4 +1,4 @@
-# Mycelium — Threat Model
+# Mycena — Threat Model
 
 **Status:** Pre–public release · **required input for external security review**
 **Version:** 1.1 · July 2026
@@ -7,7 +7,7 @@
 
 This document is the **adversary and asset model** that unifies existing security work. It does **not** replace detailed debt tracking or privacy planning — it links them.
 
-**Scope boundary:** [§2 Out of scope and explicit design goals](#2-out-of-scope-and-explicit-design-goals) states what Mycelium deliberately does **not** promise (e.g. nation-state targeting of an individual). Read it before comparing the project to Tor, whistleblower tools, or forensic-resistance products.
+**Scope boundary:** [§2 Out of scope and explicit design goals](#2-out-of-scope-and-explicit-design-goals) states what Mycena deliberately does **not** promise (e.g. nation-state targeting of an individual). Read it before comparing the project to Tor, whistleblower tools, or forensic-resistance products.
 
 | Document | Role |
 |----------|------|
@@ -43,11 +43,11 @@ Each threat below references **Security Debt IDs** (`SD-*`) and, where applicabl
 
 ## 2. Out of scope and explicit design goals
 
-This section is **public by design**. It defines the boundary of what Mycelium is built for so reviewers, users, and critics can judge the project against its **stated intent** — not against every conceivable adversary.
+This section is **public by design**. It defines the boundary of what Mycena is built for so reviewers, users, and critics can judge the project against its **stated intent** — not against every conceivable adversary.
 
 ### 2.1 Not in scope — do not expect these protections
 
-Mycelium is **not** designed to protect a **specific targeted individual** against a **resource-rich state-level adversary** that can combine long-term surveillance, legal compulsion, infrastructure control, and targeted operations. **This is not a whistleblower tool** and must not be marketed or evaluated as one.
+Mycena is **not** designed to protect a **specific targeted individual** against a **resource-rich state-level adversary** that can combine long-term surveillance, legal compulsion, infrastructure control, and targeted operations. **This is not a whistleblower tool** and must not be marketed or evaluated as one.
 
 The following are **explicitly out of scope** (non-goals, not “future phases we forgot to ship”):
 
@@ -58,7 +58,7 @@ The following are **explicitly out of scope** (non-goals, not “future phases w
 | **Forensic device-seizure resistance** | Seized, unlocked, or rooted devices may yield keys, history, and cached state. Panic wipe clears **local** state only; mesh copies elsewhere may persist until TTL (see [§6.7](#67-mesh-copies-are-not-erasable-centrally)). |
 | **Attacker with physical access to the target device** | Shoulder surfing, unlocked-phone use, adb/debugging, chip-off storage, or coercion at the keyboard are outside the threat model we optimize for. |
 
-If your threat model requires any row above, use additional tools (Tor, dedicated secure messengers with documented nation-state posture, hardware tokens, operational security) — **not Mycelium alone**.
+If your threat model requires any row above, use additional tools (Tor, dedicated secure messengers with documented nation-state posture, hardware tokens, operational security) — **not Mycena alone**.
 
 ### 2.2 In scope — what we treat as design goals
 
@@ -89,8 +89,8 @@ flowchart TB
   subgraph device["User device (trust boundary)"]
     UI[UI / Mini-app WebView]
     Bridge[Bridge host]
-    Node[mycelium-node]
-    Coin[mycelium-coin]
+    Node[mycena-node]
+    Coin[mycena-coin]
     Vault[At-rest vault / Keystore]
     UI --> Bridge --> Node
     Node --> Coin
@@ -133,7 +133,7 @@ flowchart TB
 **What:** Ed25519 account identity, libp2p transport keypair, X25519 encryption keys, Double Ratchet session state, mini-app signing keys, hot-wallet spending keys.
 
 **Location:** Host-supplied master key → sled vault (`.secrets/*.enc`), process RAM during use.
-**Platform detail:** Android uses EncryptedSharedPreferences ([`StorageKeyHelper.kt`](../android/app/src/main/java/network/mycelium/app/StorageKeyHelper.kt)); desktop uses OS keyring; iOS Keychain **not yet wired**. This is **not** full hardware-bound keystore integration — see [SECURE_HARDWARE_STATUS.md](./SECURE_HARDWARE_STATUS.md).
+**Platform detail:** Android uses EncryptedSharedPreferences ([`StorageKeyHelper.kt`](../android/app/src/main/java/io/github/mycena_project/app/StorageKeyHelper.kt)); desktop uses OS keyring; iOS Keychain **not yet wired**. This is **not** full hardware-bound keystore integration — see [SECURE_HARDWARE_STATUS.md](./SECURE_HARDWARE_STATUS.md).
 
 **Security goals:** Confidentiality, integrity, non-repudiation of signed envelopes (where required).
 
@@ -181,7 +181,7 @@ flowchart TB
 
 **What:** `PaymentVoucher`, redemption records, `LocalLedger` balances, witness sets, hot-wallet cache, unsettled voucher exposure.
 
-**Location:** `mycelium-coin` sled; gossip scope `mycelium/coin/v1`.
+**Location:** `mycena-coin` sled; gossip scope `mycena/coin/v1`.
 
 **Security goals:** Bounded loss under partition; detect double-spend at merge; no silent inflation on honest nodes.
 
@@ -249,7 +249,7 @@ flowchart TB
 | | |
 |---|---|
 | **Goals** | Long-term deanonymization, selective censorship, lawful intercept metadata, infrastructure mapping |
-| **Capabilities** | ISP/passive fiber taps, DNS control, national blocking, subpoena to hosting (VPS), RF monitoring on LAN, correlation across time |
+| **Capabilities** | ISP/passive fiber taps, DNS control, national blocking, subpoena to hosting (Fly.io), RF monitoring on LAN, correlation across time |
 | **Limitations** | Cannot break modern E2E without device/key compromise; cannot forge Ed25519 voucher signatures without issuer key |
 | **Primary assets targeted** | Message content (metadata), Identity keys (tracking), Relay reputation (N/A — observational) |
 | **Representative threats** | Traffic analysis; IP ↔ PeerId binding; relay log compulsion; bootstrap censorship |
@@ -293,7 +293,7 @@ flowchart TB
 |---|---|
 | **Goals** | Spam amplification, fake witnesses, eclipse victim, skew relay selection, flood custody |
 | **Capabilities** | Unlimited libp2p PeerIds (no global stake); LAN/BLE proximity; colluding nodes |
-| **Limitations** | Per-device rate limits, hop caps, fanout limits; spray budget on custody; strikes throttle; [`PeerDiversityConfig`](../crates/mycelium-node/src/security.rs) caps transport/age/social **and local geohash-bucket** spread for relay/custody (SOS gossip + co-presence hints; ASN diversity is relay-federation only — see [`relay_diversity.rs`](../crates/mycelium-core/src/relay_diversity.rs)) |
+| **Limitations** | Per-device rate limits, hop caps, fanout limits; spray budget on custody; strikes throttle; [`PeerDiversityConfig`](../crates/mycena-node/src/security.rs) caps transport/age/social **and local geohash-bucket** spread for relay/custody (SOS gossip + co-presence hints; ASN diversity is relay-federation only — see [`relay_diversity.rs`](../crates/mycena-core/src/relay_diversity.rs)) |
 | **Primary assets targeted** | Relay reputation, Payment vouchers (witnesses), Message content (availability), Custody queue |
 
 **Linked debt:** SD-010, SD-011, SD-030, SD-031, SD-032, SD-061, SD-241
@@ -365,7 +365,7 @@ They **cannot** read plaintext chat/mail body without recipient keys. Metadata e
 
 E2E protects **content**, not **who talks to whom, when, or how much** (`SD-001`, SD-002, SD-070).
 
-**Privacy roadmap:** Phase C–D; experimental padding in [`privacy_shaping.rs`](../crates/mycelium-core/src/privacy_shaping.rs) (off by default).
+**Privacy roadmap:** Phase C–D; experimental padding in [`privacy_shaping.rs`](../crates/mycena-core/src/privacy_shaping.rs) (off by default).
 
 ---
 

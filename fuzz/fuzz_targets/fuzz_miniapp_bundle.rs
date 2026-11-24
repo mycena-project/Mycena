@@ -1,8 +1,8 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use mycelium_miniapp::bundle::MiniAppBundle;
-use mycelium_miniapp::bundle_signature::parse_bundle_signature;
+use mycena_miniapp::bundle::MiniAppBundle;
+use mycena_miniapp::bundle_signature::parse_bundle_signature;
 
 const MAX_BUNDLE_BYTES: usize = 4 * 1024 * 1024;
 

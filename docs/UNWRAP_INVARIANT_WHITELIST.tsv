@@ -3,10 +3,10 @@
 # New rows require code review. Clippy #![deny(clippy::unwrap_used, clippy::expect_used)] blocks all others.
 # Validated by scripts/check-invariant-whitelist.sh (CI + make ci).
 crate	file	line	kind	invariant_summary
-mycelium-node	crates/mycelium-node/src/behaviour.rs	59	expect	MeshProfile params always satisfy gossipsub ConfigBuilder constraints.
-mycelium-node	crates/mycelium-node/src/behaviour.rs	65	expect	signed local key + valid config always initialize gossipsub.
-mycelium-node	crates/mycelium-node/src/behaviour.rs	69	expect	default mdns config + valid peer id always initialize.
-mycelium-core	crates/mycelium-core/src/crypto/ratchet.rs	339	expect	hkdf_64 output is [u8; 64]; [0..32] always converts to [u8; 32].
-mycelium-core	crates/mycelium-core/src/crypto/ratchet.rs	340	expect	hkdf_64 output is [u8; 64]; [32..64] always converts to [u8; 32].
-mycelium-core	crates/mycelium-core/src/crypto/ratchet.rs	348	expect	HKDF expand length is fixed at 64 bytes for chain/root KDF.
-mycelium-miniapp	crates/mycelium-miniapp/src/capability_token.rs	94	expect	mac_key is always 32 bytes from blake3::derive_key.
+mycena-node	crates/mycena-node/src/behaviour.rs	59	expect	MeshProfile params always satisfy gossipsub ConfigBuilder constraints.
+mycena-node	crates/mycena-node/src/behaviour.rs	65	expect	signed local key + valid config always initialize gossipsub.
+mycena-node	crates/mycena-node/src/behaviour.rs	69	expect	default mdns config + valid peer id always initialize.
+mycena-core	crates/mycena-core/src/crypto/ratchet.rs	339	expect	hkdf_64 output is [u8; 64]; [0..32] always converts to [u8; 32].
+mycena-core	crates/mycena-core/src/crypto/ratchet.rs	340	expect	hkdf_64 output is [u8; 64]; [32..64] always converts to [u8; 32].
+mycena-core	crates/mycena-core/src/crypto/ratchet.rs	348	expect	HKDF expand length is fixed at 64 bytes for chain/root KDF.
+mycena-miniapp	crates/mycena-miniapp/src/capability_token.rs	94	expect	mac_key is always 32 bytes from blake3::derive_key.

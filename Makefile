@@ -3,7 +3,7 @@ SHELL := /bin/zsh
 .PHONY: help desktop-dev desktop-stop desktop-nuke desktop-check-relay android-apk android-apk-ci android-apk-local android-technical-beta android-test android-install android-deploy android-nuke android-hw-info android-hw-inspect clean test test-fast test-integration test-unit test-sim check check-app-layer check-layer-boundaries check-unwrap-audit check-invariant-whitelist check-no-unwrap-prod check-dependencies clippy ci fmt fuzz-smoke docker-android-ci docker-compose-android gradle-wrapper sync-privacy-policy sync-onboarding-copy reproducible-build release-verify generate-sbom
 
 help:
-	@echo "Mycelium — the maintainer mesh client (no server stack)"
+	@echo "Mycena — offline-first mesh client (no server stack)"
 	@echo ""
 	@echo "  make desktop-dev      Run desktop UI (Tauri) — local dev"
 	@echo "  make desktop-stop     Stop desktop dev (Tauri / Vite / local relay)"
@@ -29,7 +29,7 @@ gradle-wrapper:
 
 # Toolchain-only image (~3–4 GiB; NDK + JDK + Rust). No project COPY / no baked APK.
 docker-android-ci:
-	docker build --platform linux/amd64 -t mycelium-android-ci docker/android-ci
+	docker build --platform linux/amd64 -t mycena-android-ci docker/android-ci
 
 # Build APK via mounted repo (caches in Docker volumes, not on host).
 docker-android-apk:
@@ -46,7 +46,7 @@ test-unit:
 	CARGO_HOME="$(CURDIR)/.cargo-home" cargo test --workspace --lib
 
 test-sim:
-	CARGO_HOME="$(CURDIR)/.cargo-home" cargo test -p mycelium-sim -- --test-threads=1
+	CARGO_HOME="$(CURDIR)/.cargo-home" cargo test -p mycena-sim -- --test-threads=1
 
 test:
 	CARGO_HOME="$(CURDIR)/.cargo-home" cargo test --workspace
@@ -61,7 +61,7 @@ clippy:
 	CARGO_HOME="$(CURDIR)/.cargo-home" cargo clippy --workspace --all-targets -- -D warnings
 
 check-app-layer:
-	CARGO_HOME="$(CURDIR)/.cargo-home" cargo check -p mycelium-l0-facade -p mycelium-l1-facade -p mycelium-miniapp -p mycelium-app -p mycelium-coin -p miniapp-sdk -p mycelium-desktop -p mycelium-cli
+	CARGO_HOME="$(CURDIR)/.cargo-home" cargo check -p mycena-l0-facade -p mycena-l1-facade -p mycena-miniapp -p mycena-app -p mycena-coin -p miniapp-sdk -p mycena-desktop -p mycena-cli
 
 check-layer-boundaries:
 	./scripts/check-layer-boundaries.sh
@@ -79,11 +79,11 @@ check-dependencies:
 	./scripts/check-dependencies.sh
 
 ci: check test-fast test-integration check-app-layer check-layer-boundaries check-no-unwrap-prod check-invariant-whitelist check-unwrap-audit check-dependencies clippy
-	CARGO_HOME="$(CURDIR)/.cargo-home" cargo test -p mycelium-core release_integrity --lib
-	CARGO_HOME="$(CURDIR)/.cargo-home" cargo test -p mycelium-node --test mutex_poison_recovery
-	CARGO_HOME="$(CURDIR)/.cargo-home" cargo test -p mycelium-ffi ffi_global_slots_survive_mutex_poison --lib
-	CARGO_HOME="$(CURDIR)/.cargo-home" cargo test -p mycelium-sim city_custody -- --test-threads=1
-	CARGO_HOME="$(CURDIR)/.cargo-home" cargo test -p mycelium-sim myceliumlab_ci_gates -- --test-threads=1
+	CARGO_HOME="$(CURDIR)/.cargo-home" cargo test -p mycena-core release_integrity --lib
+	CARGO_HOME="$(CURDIR)/.cargo-home" cargo test -p mycena-node --test mutex_poison_recovery
+	CARGO_HOME="$(CURDIR)/.cargo-home" cargo test -p mycena-ffi ffi_global_slots_survive_mutex_poison --lib
+	CARGO_HOME="$(CURDIR)/.cargo-home" cargo test -p mycena-sim city_custody -- --test-threads=1
+	CARGO_HOME="$(CURDIR)/.cargo-home" cargo test -p mycena-sim mycenalab_ci_gates -- --test-threads=1
 	CARGO_HOME="$(CURDIR)/.cargo-home" cargo fmt --all --check
 
 fuzz-smoke:
@@ -93,7 +93,7 @@ fmt:
 	CARGO_HOME="$(CURDIR)/.cargo-home" cargo fmt --all
 
 desktop-check-relay:
-	./scripts/check-mycelium-relay.sh
+	./scripts/check-mycena-relay.sh
 
 desktop-dev:
 	./scripts/run-desktop.sh
@@ -108,7 +108,7 @@ desktop-nuke:
 android-apk:
 	./scripts/mingc-android-build.sh
 
-# Slim mycelium-android-ci image (scripts/docker-android-build.sh)
+# Slim mycena-android-ci image (scripts/docker-android-build.sh)
 android-apk-ci:
 	./scripts/docker-android-build.sh
 
@@ -137,7 +137,7 @@ android-nuke:
 	./scripts/nuke-android-data.sh
 
 android-hw-info:
-	./scripts/android/capture-freeze-evidence.sh info artifacts/technical-beta/mycelium-0.1.75-technical-beta-android.apk
+	./scripts/android/capture-freeze-evidence.sh info artifacts/technical-beta/mycena-0.1.75-technical-beta-android.apk
 
 # Observational hardware inspect (no install/wipe). Does not mark HV PASS.
 android-hw-inspect:

@@ -2,7 +2,7 @@
 # CI fails on new critical/high (or DoS-category) advisories not listed here.
 # See docs/DEPENDENCY_RISK.md for remediation owners and dates.
 id	crate	version	review_by	notes
-RUSTSEC-2026-0118	hickory-proto	0.25.2	2026-12-31	libp2p-dns; no DNSSEC validation in Mycelium resolver path — track libp2p bump
+RUSTSEC-2026-0118	hickory-proto	0.25.2	2026-12-31	libp2p-dns; no DNSSEC validation in Mycena resolver path — track libp2p bump
 RUSTSEC-2026-0119	hickory-proto	0.25.2	2026-12-31	libp2p-dns; DoS via crafted DNS — mitigated by relay-first bootstrap
 RUSTSEC-2026-0194	quick-xml	0.37.5	2026-12-31	uniffi/raoul XML parse; untrusted XML not accepted from peers
 RUSTSEC-2026-0195	quick-xml	0.37.5	2026-12-31	uniffi/raoul XML parse; untrusted XML not accepted from peers

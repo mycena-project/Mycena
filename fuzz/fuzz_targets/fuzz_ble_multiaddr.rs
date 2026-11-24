@@ -1,7 +1,7 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use mycelium_core::ble_multiaddr::parse_ble_multiaddr;
+use mycena_core::ble_multiaddr::parse_ble_multiaddr;
 
 /// BLE dial multiaddrs from peer advertisements / invites.
 fuzz_target!(|data: &[u8]| {

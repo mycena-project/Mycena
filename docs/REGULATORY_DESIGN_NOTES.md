@@ -6,7 +6,7 @@
 
 ## Positioning statement (defensive)
 
-Mycelium MeshCoin is designed as:
+Mycena MeshCoin is designed as:
 
 1. **A technology preview** for emergency offline commerce continuity  
 2. **A non-investment utility** with no expectation of profit  

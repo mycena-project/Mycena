@@ -1,0 +1,14 @@
+{
+  "id": "io.github.mycena_project.meshaid",
+  "name": "MeshAid",
+  "description": "Coordinate help in emergencies. Works without internet.",
+  "version": "0.1.0",
+  "developer": "Mycena",
+  "entry": "index.html",
+  "permissions": ["Messaging", "BulletinRead", "BulletinWrite", "Storage"],
+  "min_mycena_version": "0.1.0",
+  "accepts_payments": false,
+  "categories": ["Emergency", "Community"],
+  "runtime": "webview",
+  "bulletin_scopes": ["mycena/meshaid/v1"]
+}

@@ -1,6 +1,6 @@
 # Android Build & Test Guide
 
-This guide explains how to build and test the Android app with embedded Rust (`mycelium-ffi`) and UniFFI bindings.
+This guide explains how to build and test the Android app with embedded Rust (`mycena-ffi`) and UniFFI bindings.
 
 **Clean checkout:** generated UniFFI Kotlin is **not** in git. `./gradlew assembleDebug` or `./gradlew testDebugUnitTest` **alone will fail**. That is intentional. Follow [Clean checkout](#clean-checkout) below — do not treat a Gradle-only command as a complete workflow.
 
@@ -27,9 +27,9 @@ SDK path: Gradle reads `android/local.properties` (`sdk.dir=…`). `./android/bu
 
 ## Clean checkout
 
-Order matters. Bindings stay **untracked** (`.gitignore`: `android/uniffi-bindings/src/main/kotlin/uniffi/mycelium/mycelium.kt`). Do not commit them unless the project later decides to track generated code.
+Order matters. Bindings stay **untracked** (`.gitignore`: `android/uniffi-bindings/src/main/kotlin/uniffi/mycena/mycena.kt`). Do not commit them unless the project later decides to track generated code.
 
-Generation uses the **existing** binder only: `scripts/regenerate-uniffi-kotlin.sh` → `cargo run -p mycelium-ffi --bin uniffi-bindgen` on `crates/mycelium-ffi/src/mycelium.udl`. Output is deterministic for a given `Cargo.lock` / UniFFI version. It **requires host Rust**; it does **not** require the NDK.
+Generation uses the **existing** binder only: `scripts/regenerate-uniffi-kotlin.sh` → `cargo run -p mycena-ffi --bin uniffi-bindgen` on `crates/mycena-ffi/src/mycena.udl`. Output is deterministic for a given `Cargo.lock` / UniFFI version. It **requires host Rust**; it does **not** require the NDK.
 
 ### 1. Prepare
 
@@ -43,7 +43,7 @@ From the **repository root** (not `android/`):
 ./scripts/regenerate-uniffi-kotlin.sh
 ```
 
-Expect exactly one `android/uniffi-bindings/src/main/kotlin/uniffi/mycelium/mycelium.kt`. If Gradle is run first, `:uniffi-bindings:requireUniffiKotlin` fails with these same commands.
+Expect exactly one `android/uniffi-bindings/src/main/kotlin/uniffi/mycena/mycena.kt`. If Gradle is run first, `:uniffi-bindings:requireUniffiKotlin` fails with these same commands.
 
 ### 3. Build the Android app (Development APK)
 
@@ -89,7 +89,7 @@ This artifact is for **technical-beta / offline testing** and is **not** the Pla
 
 ```bash
 ./scripts/build-technical-beta-apk.sh
-# output: artifacts/technical-beta/mycelium-<versionName>-technical-beta-android.apk
+# output: artifacts/technical-beta/mycena-<versionName>-technical-beta-android.apk
 ```
 
 That is Gradle **`assembleRelease`** (minify on) with an explicit local Technical Beta keystore (`artifacts/technical-beta/*.jks`, gitignored). `assembleRelease` without that keystore **fails closed** (unsigned release APKs are not produced).
@@ -141,7 +141,7 @@ cargo ndk \
   -t armv7-linux-androideabi \
   -t x86_64-linux-android \
   -o android/rust-build \
-  build --release -p mycelium-ffi
+  build --release -p mycena-ffi
 ```
 
 Then:
@@ -180,7 +180,7 @@ cd android
 
 - **`Generated UniFFI Kotlin is missing` / `requireUniffiKotlin`**: run `./scripts/regenerate-uniffi-kotlin.sh` from the repo root, or `./scripts/android-test.sh` / `./android/build.sh`.
 - **`gradlew` missing**: generate wrapper in Android Studio or run `make gradle-wrapper`.
-- **No `.so` loaded at runtime**: `android/rust-build` must contain ABI folders and `libuniffi_mycelium.so` — use `./android/build.sh`, not Gradle-only.
+- **No `.so` loaded at runtime**: `android/rust-build` must contain ABI folders and `libuniffi_mycena.so` — use `./android/build.sh`, not Gradle-only.
 - **Binding mismatch**: re-run UniFFI generation after UDL changes.
 - **Camera/QR issues**: ensure camera permission granted on device.
 - **Peer discovery on hotspot**: use QR/manual bootstrap multiaddr flow (`addBootstrapPeer`).

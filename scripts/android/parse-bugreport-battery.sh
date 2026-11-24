@@ -11,7 +11,7 @@
 set -euo pipefail
 
 DIR="${1:-}"
-PACKAGE="${PACKAGE:-network.mycelium.app}"
+PACKAGE="${PACKAGE:-io.github.mycena_project.app}"
 MIN_ON_BATTERY_HOURS="${MIN_ON_BATTERY_HOURS:-3}"
 
 if [[ -z "$DIR" || ! -d "$DIR" ]]; then
@@ -117,7 +117,7 @@ for line in pkg.splitlines():
                 uid_mah[key] = m.group(1)
         break
 
-# BLE: parse each `  network.mycelium.app:` block; keep the one with most scan time
+# BLE: parse each `  io.github.mycena_project.app:` block; keep the one with most scan time
 ble = {
     "scan_starts": "",
     "scan_stops": "",
@@ -272,7 +272,7 @@ fi
 section "Wake locks (app)"
 for f in "$BS" "$PKG" "$PWR"; do
   [[ -f "$f" ]] || continue
-  hits="$(grep -i "wake lock" "$f" | grep -iE "$PACKAGE|mycelium" || true)"
+  hits="$(grep -i "wake lock" "$f" | grep -iE "$PACKAGE|mycena" || true)"
   if [[ -n "$hits" ]]; then
     echo "--- $(basename "$f") ---"
     echo "$hits" | head -15
@@ -303,7 +303,7 @@ fi
   echo "| Computed drain | $(get_metric COMPUTED_DRAIN_MAH) mAh |"
   echo ""
   if [[ "$VALID_RUN" == "yes" ]]; then
-    echo "**mAh split (Mycelium UID, screen-off FGS):**"
+    echo "**mAh split (Mycena UID, screen-off FGS):**"
     echo ""
     echo "| Kategorie | mAh |"
     echo "|-----------|-----|"

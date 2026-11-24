@@ -55,7 +55,7 @@ fi
 
 version_name="$(grep -E '^versionName=' "$ROOT/android/version.properties" | cut -d= -f2)"
 version_code="$(grep -E '^versionCode=' "$ROOT/android/version.properties" | cut -d= -f2)"
-echo "Building Mycelium Android ${version_name} (${version_code})…"
+echo "Building Mycena Android ${version_name} (${version_code})…"
 
 if [[ "$MODE" == "full" ]]; then
   bash "$ROOT/android/build.sh"
@@ -92,5 +92,5 @@ echo "APK: $APK"
 echo "Install: ./scripts/install-android-apk.sh"
 if command -v unzip >/dev/null 2>&1; then
   echo "Native libs:"
-  unzip -l "$APK" | grep -E 'lib/.*/lib(jnidispatch|uniffi_mycelium)\.so' || true
+  unzip -l "$APK" | grep -E 'lib/.*/lib(jnidispatch|uniffi_mycena)\.so' || true
 fi

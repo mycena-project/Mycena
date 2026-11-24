@@ -50,7 +50,7 @@ Actual implementation still required in the Android tree.
 | **Exact problem (was)** | Confirm copy omitted mesh copies on other devices. Incomplete wipe still relaunched. |
 | **Files changed** | `strings.xml` + locale overlays; `LocalDataWiper.kt`; `SettingsScreen.kt` (`PanicWipeSection`); `LocalDataWiperTest.kt` |
 | **Implementation status** | Confirm body states this device is wiped, cannot be undone, and copies on other mesh devices are not wiped. `wipeAllLocalData` returns false if `dbDir` remains. `performPanicWipe` does not relaunch on failure; Settings shows an incomplete-wipe dialog. |
-| **Tests run** | `./gradlew testDebugUnitTest --tests network.mycelium.app.LocalDataWiperTest` SUCCESS (missing dir; successful delete; incomplete delete is failure). Full `:app:testDebugUnitTest` SUCCESS. |
+| **Tests run** | `./gradlew testDebugUnitTest --tests io.github.mycena_project.app.LocalDataWiperTest` SUCCESS (missing dir; successful delete; incomplete delete is failure). Full `:app:testDebugUnitTest` SUCCESS. |
 | **Tests not run** | HV-18 on a physical device |
 | **Remaining hardware verification** | HV-18 panic row (section D) |
 
@@ -71,7 +71,7 @@ Required to produce a **valid hardware-test artifact**. Not a git tag. GitHub `r
 | **Files changed** | `scripts/build-technical-beta-apk.sh`; `android/app/build.gradle.kts`; `android/build.sh`; `ShareApkArtifact.kt` + share UI/ViewModel; `WifiDirectSharer.kt` landing copy; docs listed in §C; `Makefile` `android-technical-beta` |
 | **Implementation status** | Technical Beta = `assembleRelease` + local JKS. Development = `assembleDebug`. Play AAB unchanged. Share refuses debug/split/incomplete. |
 | **Tests run** | `./gradlew testDebugUnitTest` SUCCESS. `./scripts/build-technical-beta-apk.sh` VERIFY_OK. Hashes in [TECHNICAL_BETA_ARTIFACT_VERIFICATION.md](./TECHNICAL_BETA_ARTIFACT_VERIFICATION.md). |
-| **Artifact** | `artifacts/technical-beta/mycelium-0.1.75-technical-beta-android.apk` — SHA-256 `276e653ee6c128445a83b133bf98c9b3b83a306fc461859f4fbb6a9dacf11678`; cert SHA-256 `536d0992d3f13825b5fdeaf8ef3a7193a1d8045fd3754218a76f609eba6eeb9e`; BLAKE3 `1fc9246508f73fb44d698018c1d4b36264d440421e8efd033264328bf7953ac0`. Not tagged. Not published. |
+| **Artifact** | `artifacts/technical-beta/mycena-0.1.75-technical-beta-android.apk` — SHA-256 `276e653ee6c128445a83b133bf98c9b3b83a306fc461859f4fbb6a9dacf11678`; cert SHA-256 `536d0992d3f13825b5fdeaf8ef3a7193a1d8045fd3754218a76f609eba6eeb9e`; BLAKE3 `1fc9246508f73fb44d698018c1d4b36264d440421e8efd033264328bf7953ac0`. Not tagged. Not published. |
 | **Tests not run** | Hardware install; two-phone share |
 | **Remaining hardware verification** | `adb install` of the Technical Beta APK (HV-01); G3 share |
 

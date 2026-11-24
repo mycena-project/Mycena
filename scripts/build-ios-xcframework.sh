@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build mycelium-ffi for iOS device + simulator and pack MyceliumFFI.xcframework.
+# Build mycena-ffi for iOS device + simulator and pack MycenaFFI.xcframework.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
@@ -15,7 +15,7 @@ TARGET_DIR="${CARGO_TARGET_DIR:-$ROOT/target}"
 
 OUT="$ROOT/ios/rust-build"
 HEADERS="$OUT/headers"
-LIB="libuniffi_mycelium.a"
+LIB="libuniffi_mycena.a"
 DEVICE_TRIPLE=aarch64-apple-ios
 SIM_TRIPLES=(aarch64-apple-ios-sim)
 if rustup target list --installed | grep -qx 'x86_64-apple-ios'; then
@@ -25,12 +25,12 @@ for t in "$DEVICE_TRIPLE" "${SIM_TRIPLES[@]}"; do
   rustup target add "$t" 2>/dev/null || true
 done
 mkdir -p "$OUT" "$HEADERS"
-cp "$ROOT/ios/Mycelium/Generated/myceliumFFI.h" "$HEADERS/"
-cp "$ROOT/ios/Mycelium/Generated/myceliumFFI.modulemap" "$HEADERS/module.modulemap"
+cp "$ROOT/ios/Mycena/Generated/mycenaFFI.h" "$HEADERS/"
+cp "$ROOT/ios/Mycena/Generated/mycenaFFI.modulemap" "$HEADERS/module.modulemap"
 
 for t in "$DEVICE_TRIPLE" "${SIM_TRIPLES[@]}"; do
-  echo "Building mycelium-ffi (staticlib) for $t"
-  cargo rustc -p mycelium-ffi --release --target "$t" --lib --crate-type staticlib
+  echo "Building mycena-ffi (staticlib) for $t"
+  cargo rustc -p mycena-ffi --release --target "$t" --lib --crate-type staticlib
 done
 
 DEVICE="$TARGET_DIR/$DEVICE_TRIPLE/release/$LIB"
@@ -44,17 +44,17 @@ if [[ ${#SIM_LIBS[@]} -eq 1 ]]; then
 else
   lipo -create "${SIM_LIBS[@]}" -output "$SIM_UNI"
 fi
-rm -rf "$OUT/MyceliumFFI.xcframework"
+rm -rf "$OUT/MycenaFFI.xcframework"
 if xcodebuild -create-xcframework \
   -library "$DEVICE" -headers "$HEADERS" \
   -library "$SIM_UNI" -headers "$HEADERS" \
-  -output "$OUT/MyceliumFFI.xcframework"; then
-  echo "iOS FFI xcframework: $OUT/MyceliumFFI.xcframework"
+  -output "$OUT/MycenaFFI.xcframework"; then
+  echo "iOS FFI xcframework: $OUT/MycenaFFI.xcframework"
 else
   echo "Note: create-xcframework failed; leaving flat static libs in $OUT" >&2
-  mkdir -p "$OUT/MyceliumFFI.xcframework"
-  cp "$DEVICE" "$OUT/MyceliumFFI.xcframework/device-$LIB"
-  cp "$SIM_UNI" "$OUT/MyceliumFFI.xcframework/sim-$LIB"
-  cp -R "$HEADERS" "$OUT/MyceliumFFI.xcframework/Headers"
+  mkdir -p "$OUT/MycenaFFI.xcframework"
+  cp "$DEVICE" "$OUT/MycenaFFI.xcframework/device-$LIB"
+  cp "$SIM_UNI" "$OUT/MycenaFFI.xcframework/sim-$LIB"
+  cp -R "$HEADERS" "$OUT/MycenaFFI.xcframework/Headers"
 fi
 echo "iOS FFI artifacts in $OUT"

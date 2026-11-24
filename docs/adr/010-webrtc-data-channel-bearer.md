@@ -2,7 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-07-05  
-**Context:** Mobile mesh clients use BLE and Wi‑Fi Direct for ad-hoc encounters. **Desktop** and **browser** clients (mycelium-desktop, web miniapp hosts) have no equivalent radio path and today rely entirely on **libp2p Internet relay** circuits. Relay adds latency and load; many NAT topologies allow **direct UDP/TCP** once peers know each other's addresses.
+**Context:** Mobile mesh clients use BLE and Wi‑Fi Direct for ad-hoc encounters. **Desktop** and **browser** clients (mycena-desktop, web miniapp hosts) have no equivalent radio path and today rely entirely on **libp2p Internet relay** circuits. Relay adds latency and load; many NAT topologies allow **direct UDP/TCP** once peers know each other's addresses.
 
 WebRTC provides ICE/STUN NAT traversal and an ordered **RTCDataChannel** without operating a dedicated signaling server.
 
@@ -12,15 +12,15 @@ Related: [BEARER_TRANSPORT.md](../BEARER_TRANSPORT.md) · [ADR 007](./007-wifi-d
 
 ## Decision
 
-1. **New data bearer:** [`BearerMedium::WebRtc`](../../crates/mycelium-core/src/bearer_transport.rs) (`medium=3`) carries the same **MYBR** frames as BLE/Wi‑Fi Direct after the data channel opens.
+1. **New data bearer:** [`BearerMedium::WebRtc`](../../crates/mycena-core/src/bearer_transport.rs) (`medium=3`) carries the same **MYBR** frames as BLE/Wi‑Fi Direct after the data channel opens.
 
-2. **Signaling only over existing relay:** SDP offers/answers and ICE candidates are exchanged as [`WireMessage::WebRtcSignal`](../../crates/mycelium-core/src/transport.rs) on the established **libp2p direct** path (including relay circuits). No new HTTP signaling service.
+2. **Signaling only over existing relay:** SDP offers/answers and ICE candidates are exchanged as [`WireMessage::WebRtcSignal`](../../crates/mycena-core/src/transport.rs) on the established **libp2p direct** path (including relay circuits). No new HTTP signaling service.
 
-3. **Path selection:** When an RTCDataChannel is ready toward a peer, [`decide_transport_path`](../../crates/mycelium-core/src/transport_score.rs) prefers **`TransportPath::WebRtc`** over **`InternetRelay`**. Until ICE completes, traffic stays on relay (including signaling).
+3. **Path selection:** When an RTCDataChannel is ready toward a peer, [`decide_transport_path`](../../crates/mycena-core/src/transport_score.rs) prefers **`TransportPath::WebRtc`** over **`InternetRelay`**. Until ICE completes, traffic stays on relay (including signaling).
 
-4. **Capability flag:** [`ProtocolCapabilityFlags::WEBRTC`](../../crates/mycelium-core/src/protocol_capabilities.rs) is negotiated in `PeerInfo`. Initiator = lexicographically smaller libp2p PeerId.
+4. **Capability flag:** [`ProtocolCapabilityFlags::WEBRTC`](../../crates/mycena-core/src/protocol_capabilities.rs) is negotiated in `PeerInfo`. Initiator = lexicographically smaller libp2p PeerId.
 
-5. **STUN defaults:** Public Google STUN (`stun.l.google.com:19302`) via [`default_stun_servers()`](../../crates/mycelium-core/src/webrtc_signaling.rs). No TURN in Phase 1 — relay remains fallback when ICE fails.
+5. **STUN defaults:** Public Google STUN (`stun.l.google.com:19302`) via [`default_stun_servers()`](../../crates/mycena-core/src/webrtc_signaling.rs). No TURN in Phase 1 — relay remains fallback when ICE fails.
 
 6. **Not a mobile↔mobile replacement:** Android may expose WebRTC for phone↔desktop, but **BLE / Wi‑Fi Direct remain** the primary phone↔phone bearers.
 

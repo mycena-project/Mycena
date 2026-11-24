@@ -13,16 +13,16 @@
 
 | Console field | Recommended answer | Notes |
 |---------------|-------------------|-------|
-| **Privacy policy URL** | `https://example.invalid/Mycelium/privacy-policy.html` | Enable Pages: [docs/legal/README.md](../legal/README.md) · canonical source: [privacy-policy.html](../legal/privacy-policy.html) |
-| **Does your app collect or share any of the required user data types?** | **Yes** | P2P mesh transmits user-generated data to **other users’ devices** and optional **relay infrastructure**. Google treats off-device transmission as collection/sharing even without a central Mycelium server. |
+| **Privacy policy URL** | `https://mycena-project.github.io/Mycena/privacy-policy.html` | Enable Pages: [docs/legal/README.md](../legal/README.md) · canonical source: [privacy-policy.html](../legal/privacy-policy.html) |
+| **Does your app collect or share any of the required user data types?** | **Yes** | P2P mesh transmits user-generated data to **other users’ devices** and optional **relay infrastructure**. Google treats off-device transmission as collection/sharing even without a central Mycena server. |
 | **Is all of the user data collected by your app encrypted in transit?** | **Partially / depends on mode** | Direct chat uses E2E when keys are exchanged. Bulletin, mail metadata, PeerInfo, and coin gossip are **not** all E2E. Select **Yes** only if Google allows “some data types”; otherwise answer honestly per type below. |
-| **Do you provide a way for users to request that their data is deleted?** | **Yes** (device-local) | **Panic wipe** in Settings. Clarify in “Deletion” notes: mesh copies on other devices are **not** deletable by the maintainer. |
+| **Do you provide a way for users to request that their data is deleted?** | **Yes** (device-local) | **Panic wipe** in Settings. Clarify in “Deletion” notes: mesh copies on other devices are **not** deletable by the Mycena project. |
 
 ---
 
-## 1. Data not collected by the maintainer (publisher)
+## 1. Data not collected by the Mycena project (publisher)
 
-Declare **No** for publisher collection where the open-source client does **not** send data to the maintainer servers:
+Declare **No** for publisher collection where the open-source client does **not** send data to the Mycena project servers:
 
 | Data type (Console category) | Collected by us? | Shared by us? |
 |------------------------------|------------------|---------------|
@@ -31,9 +31,9 @@ Declare **No** for publisher collection where the open-source client does **not*
 | Physical address | **No** | **No** |
 | Analytics / advertising IDs | **No** | **No** |
 | In-app search history (to publisher) | **No** | **No** |
-| Crash logs **to the maintainer** | **No** | **No** |
+| Crash logs **to the Mycena project** | **No** | **No** |
 
-**Separate note:** Google Play may collect **install / crash diagnostics** under Google’s own data safety entry — that is **Google**, not Mycelium app code. Do not claim “no crash data” globally if Play Services reporting is enabled; check Android manifest and Play dependencies.
+**Separate note:** Google Play may collect **install / crash diagnostics** under Google’s own data safety entry — that is **Google**, not Mycena app code. Do not claim “no crash data” globally if Play Services reporting is enabled; check Android manifest and Play dependencies.
 
 ---
 
@@ -42,7 +42,7 @@ Declare **No** for publisher collection where the open-source client does **not*
 Use **Collected** = transmitted off the user’s device (includes P2P to other users and relay).
 Use **Shared** = transmitted to **third parties** other than the user’s chosen peers.
 
-For Mycelium, peers are **other users**, not the maintainer. Relay operator is a **third party** for IP/circuit metadata only.
+For Mycena, peers are **other users**, not the Mycena project. Relay operator is a **third party** for IP/circuit metadata only.
 
 ### 2.1 Personal info
 
@@ -96,10 +96,10 @@ For Mycelium, peers are **other users**, not the maintainer. Relay operator is a
 
 | Third party | Data exposed | Publisher control |
 |-------------|--------------|-------------------|
-| **Other Mycelium users (P2P)** | Messages, PeerIds, display name, keys, coin gossip | User chooses contacts / installs |
-| **Relay operator** (operated relay on VPS, or a community relay) | IP address, circuit peer IDs, timing, volume | User can use mesh-only / LAN; see [THREAT_MODEL.md](./THREAT_MODEL.md) §4.5 |
+| **Other Mycena users (P2P)** | Messages, PeerIds, display name, keys, coin gossip | User chooses contacts / installs |
+| **Relay operator** (operated relay on Fly.io, or a community relay) | IP address, circuit peer IDs, timing, volume | User can use mesh-only / LAN; see [THREAT_MODEL.md](./THREAT_MODEL.md) §4.5 |
 | **Google Play** | Install/crash per Google policy | Platform |
-| **the maintainer** | **None** from app telemetry in OSS client | — |
+| **the Mycena project** | **None** from app telemetry in OSS client | — |
 
 **“Do you share data with third parties?”** → **Yes**, with **other users** and **relay operators** when Internet path is used. **No** sale of data. **No** ads.
 
@@ -134,7 +134,7 @@ For Mycelium, peers are **other users**, not the maintainer. Relay operator is a
 
 **Deletion:**
 
-> Users delete local data via Settings → Panic wipe (keys, messages, wallet, mini-app data). Mycelium has no central server; copies on other users’ devices cannot be deleted by the developer.
+> Users delete local data via Settings → Panic wipe (keys, messages, wallet, mini-app data). Mycena has no central server; copies on other users’ devices cannot be deleted by the developer.
 
 **Encryption:**
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Pocket / no-peers battery profiling for Mycelium (Battery Historian workflow).
+# Pocket / no-peers battery profiling for Mycena (Battery Historian workflow).
 #
 # Scenario: BLE bootstrap on (or off for control), no peers, screen off, device on battery.
 #
@@ -29,7 +29,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-PACKAGE="${PACKAGE:-network.mycelium.app}"
+PACKAGE="${PACKAGE:-io.github.mycena_project.app}"
 DURATION_HOURS="${DURATION_HOURS:-4}"
 MIN_ON_BATTERY_HOURS="${MIN_ON_BATTERY_HOURS:-3}"
 SCENARIO="${SCENARIO:-ble_on}"
@@ -262,7 +262,7 @@ prepare() {
   write_meta_header
   echo "measurement_window=starts_on_unplug" >>"$META_FILE"
 
-  echo "=== Mycelium pocket battery profile — prepare ==="
+  echo "=== Mycena pocket battery profile — prepare ==="
   echo "Session:  $(basename "$OUT_DIR")"
   echo "Output:   $OUT_DIR"
   echo "Scenario: $SCENARIO"
@@ -329,7 +329,7 @@ prepare() {
   if ! is_on_battery && [[ "${FORCE_ON_AC:-0}" != "1" ]]; then
     echo "  [ ] UNPLUG USB/charger NOW (timer starts here)"
   fi
-  echo "  [ ] No Mycelium devices within ~30 m"
+  echo "  [ ] No Mycena devices within ~30 m"
   echo "  [ ] Screen off — do not force-stop the app"
   echo "  [ ] Stay on battery for ${DURATION_HOURS}+ hours (overnight is fine)"
   echo ""

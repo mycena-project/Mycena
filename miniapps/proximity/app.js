@@ -45,7 +45,7 @@ const INTEREST_OPTIONS = [
         <p>Share your profile with people around you. Nothing is stored on servers.</p>
 
         <div class="warning">
-          ⚠️ Your profile will be visible to other Mycelium users
+          ⚠️ Your profile will be visible to other Mycena users
           nearby. Only share what you are comfortable with.
           You can stop at any time.
         </div>
@@ -340,7 +340,7 @@ const INTEREST_OPTIONS = [
         if (!payload.looking_for) payload.looking_for = '';
 
         try {
-          await window.mycelium?.startProximity?.(payload, state.ttl);
+          await window.mycena?.startProximity?.(payload, state.ttl);
           state.screen = 'active';
           state.lastMessageMs = 0;
           render();
@@ -353,7 +353,7 @@ const INTEREST_OPTIONS = [
     const stopBtn = document.getElementById('stop-btn');
     if (stopBtn) {
       stopBtn.addEventListener('click', async () => {
-        await window.mycelium?.stopProximity?.();
+        await window.mycena?.stopProximity?.();
         state.screen = 'setup';
         state.nearby = [];
         state.messages = [];
@@ -376,7 +376,7 @@ const INTEREST_OPTIONS = [
         const pubkey = btn.dataset.pubkey;
         btn.disabled = true;
         try {
-          const result = await window.mycelium?.connectProximity?.(pubkey);
+          const result = await window.mycena?.connectProximity?.(pubkey);
           await loadNearby();
           if (state.nearby.find(p => p.enc_pubkey_hex === pubkey)?.is_mutual) {
             alert("It's a match! You can message each other.");
@@ -436,7 +436,7 @@ const INTEREST_OPTIONS = [
     if (!msg || !state.activeChat) return;
     const pubkey = state.activeChat.pubkey;
     try {
-      await window.mycelium?.sendProximityMessage?.(pubkey, msg);
+      await window.mycena?.sendProximityMessage?.(pubkey, msg);
       const entry = { body: msg, at: Date.now(), mine: true };
       state.activeChat.outgoing.push(entry);
       state.sentMessages.push({
@@ -454,7 +454,7 @@ const INTEREST_OPTIONS = [
 
   async function loadNearby() {
     try {
-      const profiles = await window.mycelium?.nearbyProfiles?.() || [];
+      const profiles = await window.mycena?.nearbyProfiles?.() || [];
       state.nearby = profiles.filter(p => !p.has_expired);
       if (state.screen === 'active' && !state.activeChat) {
         document.getElementById('count-badge').textContent =
@@ -472,7 +472,7 @@ const INTEREST_OPTIONS = [
 
   async function loadMessages() {
     try {
-      const msgs = await window.mycelium?.proximityMessages?.(state.lastMessageMs) || [];
+      const msgs = await window.mycena?.proximityMessages?.(state.lastMessageMs) || [];
       if (msgs.length > 0) {
         state.messages.push(...msgs);
         state.lastMessageMs = Math.max(

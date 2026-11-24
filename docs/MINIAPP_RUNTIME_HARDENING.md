@@ -1,4 +1,4 @@
-# Mycelium Mini-App — Runtime Hardening & Implementation Review
+# Mycena Mini-App — Runtime Hardening & Implementation Review
 
 > **Status May 2026**: Items §1 (CSP), §3 (bridge sessions), §4 (process isolation),
 > §8 (rate limits), §9 (capability tokens) are implemented.
@@ -19,13 +19,13 @@
 ├──────────────────────────────────────────────────────────────────┤
 │ Desktop: MiniApp.svelte iframe + postMessage → miniapp_bridge_call │
 ├──────────────────────────────────────────────────────────────────┤
-│ mycelium-ffi: install_app, get_app_file, miniapp_bridge_call      │
+│ mycena-ffi: install_app, get_app_file, miniapp_bridge_call      │
 ├──────────────────────────────────────────────────────────────────┤
-│ mycelium-app:                                                     │
+│ mycena-app:                                                     │
 │   bundle.rs      ZIP load, path traversal check                   │
 │   store.rs       install, listings, sled trees                    │
 │   bridge_host.rs permission checks (partial)                      │
-│   bridge_api.js  window.mycelium facade                           │
+│   bridge_api.js  window.mycena facade                           │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
@@ -60,7 +60,7 @@
 
 | Boundary | Target | Current |
 |----------|--------|---------|
-| Process | Mini-app renderer separate | **Shared** with Mycelium app |
+| Process | Mini-app renderer separate | **Shared** with Mycena app |
 | Network | Deny all guest egress | **Enforced** (JS stubs + intercept) ✓ |
 | Filesystem | Virtual app URL only | **Enforced** WebView intercept ✓ |
 | Storage | Encrypted per-app | **Plaintext** sled; prefix isolation ✓ |
@@ -80,7 +80,7 @@
 | `payment.create_qr` | 3 | Payments | None | Returns mxcpay URI + render hint |
 | `payment.request` | 3 | Payments | **Not implemented** | Fake UI risk |
 | `messaging.send` | 2 | Messaging | None | Formats body with app id |
-| `messaging.broadcast` | 3 | Messaging | None | Default scope `mycelium/chat` |
+| `messaging.broadcast` | 3 | Messaging | None | Default scope `mycena/chat` |
 | `bulletin.post` | 2 | BulletinWrite | None | Any scope |
 | `peers.nearby` | 2 | PeerDiscovery | None | Full peer list |
 | `util.scan_qr` | 3 | **None** | **Not implemented** | Camera |
@@ -102,7 +102,7 @@
 | Check | `bundle.rs` | `store.install` | Gossip listing |
 |-------|-------------|-----------------|----------------|
 | Path traversal | ✓ | via load | N/A |
-| `mycelium-app.json` present | ✓ | ✓ | N/A |
+| `mycena-app.json` present | ✓ | ✓ | N/A |
 | Manifest validate | ✓ | ✓ | N/A |
 | 10 MB cap | test | ✓ | N/A |
 | MIME / polyglot scan | ✓ | ✓ (install) | N/A |
@@ -174,14 +174,14 @@ pub fn install_verified(
 - [x] **H11** Version monotonic check on install (`install_policy.rs`); `allow_downgrade` override in install UI
 - [x] **H12** Single storage tree: removed dead `AppStore::miniapp_kv_*`; bridge + FFI use `miniapp_storage`
 - [x] **H13** Desktop postMessage reply targets iframe `origin` — Cell C3
-- [x] **H14** Native `AlertDialog` with app name + “not from Mycelium” notice (Android); desktop prefix on alerts
+- [x] **H14** Native `AlertDialog` with app name + “not from Mycena” notice (Android); desktop prefix on alerts
 - [x] **H15** Bulletin scope allowlist (`manifest.bulletin_scopes`) — Cell C1/C2
 
 ### P2 — Defense in depth
 
 - [x] **H16** Android `:miniapp` process + `MiniAppBridgeService` IPC (H16)
 - [x] **H17** Bridge session tokens per app launch — Cell C2; HMAC runtime caps in P4/H25
-- [x] **H18** Signed revocation gossip `mycelium/appstore/revocations/v1` + sled merge
+- [x] **H18** Signed revocation gossip `mycena/appstore/revocations/v1` + sled merge
 - [x] **H19** `miniapp-sdk` CLI `lint` + `hash` — Cell C4
 - [x] **H20** Safe mode per app (user toggle + forced by reputation); bridge blocks Tier 2–3
 - [x] **H21** Local reputation score in sled; install/report/revocation/anomaly signals
@@ -201,7 +201,7 @@ pub fn install_verified(
 - [x] **H27** `miniapp_security_tests.rs` (revoked install, bundle scan, capability MAC, gossip revocation)
 - [x] **H28** Desktop runner: iframe `credentialless` + `referrerpolicy="no-referrer"` (full utility process deferred)
 
-**CI gate:** `cargo test -p mycelium-app miniapp::`
+**CI gate:** `cargo test -p mycena-app miniapp::`
 
 ---
 
@@ -266,7 +266,7 @@ when (result.optString("_bridge_action")) {
 | Fuzz | `miniapp_bridge_call` random method strings |
 | Red team | [MINIAPP_ATTACK_SCENARIOS.md](./MINIAPP_ATTACK_SCENARIOS.md) script |
 
-**CI gate:** `cargo test -p mycelium-app` + future `miniapp_security_tests.rs`
+**CI gate:** `cargo test -p mycena-app` + future `miniapp_security_tests.rs`
 
 ---
 

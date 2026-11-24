@@ -5,9 +5,9 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 STAMP="$ROOT/android/rust-build/.ffi-stamp"
-UDL="$ROOT/crates/mycelium-ffi/src/mycelium.udl"
-LIBRS="$ROOT/crates/mycelium-ffi/src/lib.rs"
-CARGO_TOML="$ROOT/crates/mycelium-ffi/Cargo.toml"
+UDL="$ROOT/crates/mycena-ffi/src/mycena.udl"
+LIBRS="$ROOT/crates/mycena-ffi/src/lib.rs"
+CARGO_TOML="$ROOT/crates/mycena-ffi/Cargo.toml"
 
 stamp_inputs() {
   { [[ -f "$UDL" ]] && shasum -a 256 "$UDL"; } 2>/dev/null || true
@@ -27,7 +27,7 @@ newest_so_mtime() {
     if [[ "$m" -gt "$newest" ]]; then
       newest="$m"
     fi
-  done < <(find "$ROOT/android/rust-build" -name 'libuniffi_mycelium.so' 2>/dev/null)
+  done < <(find "$ROOT/android/rust-build" -name 'libuniffi_mycena.so' 2>/dev/null)
   echo "$newest"
 }
 
@@ -59,8 +59,8 @@ so_has_symbol() {
 
 # --- checks ---
 
-if ! find "$ROOT/android/rust-build" -name 'libuniffi_mycelium.so' 2>/dev/null | grep -q .; then
-  echo "android-ffi-stale: no libuniffi_mycelium.so in android/rust-build" >&2
+if ! find "$ROOT/android/rust-build" -name 'libuniffi_mycena.so' 2>/dev/null | grep -q .; then
+  echo "android-ffi-stale: no libuniffi_mycena.so in android/rust-build" >&2
   exit 0
 fi
 
@@ -78,11 +78,11 @@ if [[ "$ffi_mtime" -gt "$so_mtime" ]]; then
 fi
 
 # Kotlin may reference symbols absent from an older .so (e.g. after gradle-only regen).
-sample_so="$(find "$ROOT/android/rust-build" -name 'libuniffi_mycelium.so' | head -1)"
+sample_so="$(find "$ROOT/android/rust-build" -name 'libuniffi_mycena.so' | head -1)"
 if [[ -n "$sample_so" ]]; then
   for sym in \
-    uniffi_uniffi_mycelium_checksum_func_set_rendezvous_enabled \
-    uniffi_uniffi_mycelium_fn_func_set_rendezvous_enabled; do
+    uniffi_uniffi_mycena_checksum_func_set_rendezvous_enabled \
+    uniffi_uniffi_mycena_fn_func_set_rendezvous_enabled; do
     if ! so_has_symbol "$sample_so" "$sym"; then
       echo "android-ffi-stale: native lib missing $sym" >&2
       exit 0

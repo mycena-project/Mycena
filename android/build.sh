@@ -29,7 +29,7 @@ if [[ -n "${CI:-}" ]]; then
   # cargo-ndk -o copies each .so into android/rust-build before we drop target/.
   rm -rf target/aarch64-linux-android target/armv7-linux-androideabi target/x86_64-linux-android
   for t in "${ANDROID_TARGETS[@]}"; do
-    cargo ndk -t "$t" -o android/rust-build build --release -p mycelium-ffi
+    cargo ndk -t "$t" -o android/rust-build build --release -p mycena-ffi
     rm -rf "target/${t}"
   done
 else
@@ -38,7 +38,7 @@ else
     -t armv7-linux-androideabi \
     -t x86_64-linux-android \
     -o android/rust-build \
-    build --release -p mycelium-ffi
+    build --release -p mycena-ffi
 fi
 
 mkdir -p android/rust-build
@@ -48,8 +48,8 @@ mkdir -p android/rust-build
 
 "$ROOT/scripts/regenerate-uniffi-kotlin.sh"
 
-if [[ "${MYCELIUM_SKIP_GRADLE:-0}" == "1" ]]; then
-  echo "Skipped Gradle (MYCELIUM_SKIP_GRADLE=1). Native libs + UniFFI are ready."
+if [[ "${MYCENA_SKIP_GRADLE:-0}" == "1" ]]; then
+  echo "Skipped Gradle (MYCENA_SKIP_GRADLE=1). Native libs + UniFFI are ready."
   exit 0
 fi
 

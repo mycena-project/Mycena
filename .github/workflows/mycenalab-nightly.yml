@@ -1,0 +1,29 @@
+name: MycenaLab nightly
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: mycenalab-nightly
+  cancel-in-progress: false
+
+env:
+  CI_TIER: ${{ vars.MYCENA_CI_TIER || 'budget' }}
+
+jobs:
+  dense-cluster-10k:
+    if: github.event_name == 'workflow_dispatch' || vars.MYCENA_CI_TIER == 'full'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/setup-rust-cache
+        with:
+          toolchain: "1.88.0"
+          cache-key-suffix: mycenalab-nightly
+
+      - name: Dense cluster 10k smoke
+        run: cargo test -p mycena-sim dense_cluster_10k_smoke -- --ignored --nocapture

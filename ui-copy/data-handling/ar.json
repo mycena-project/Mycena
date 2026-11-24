@@ -1,6 +1,6 @@
 {
   "locale": "ar",
-  "title": "كيف يتعامل Mycelium مع بياناتك",
+  "title": "كيف يتعامل Mycena مع بياناتك",
   "intro": "الأساسيات بلغة بسيطة — حوالي دقيقة للقراءة.",
   "sections": [
     {
@@ -24,9 +24,9 @@
     {
       "heading": "من يدير هذا التطبيق",
       "paragraphs": [
-        "نشرته the maintainer.",
-        "Mycelium برنامج مفتوح المصدر — يمكن لأي شخص مراجعة الشيفرة.",
-        "أسئلة: privacy@example.invalid"
+        "نشره مشروع Mycena.",
+        "Mycena برنامج مفتوح المصدر — يمكن لأي شخص مراجعة الشيفرة.",
+        "أسئلة: github.com/mycena-project/Mycena/issues"
       ]
     }
   ],

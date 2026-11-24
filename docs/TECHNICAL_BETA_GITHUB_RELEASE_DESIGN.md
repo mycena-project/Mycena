@@ -25,8 +25,8 @@ Three Android artifacts exist as **product kinds**. Only one of them is the free
 
 | Kind | How it is produced today | Signing | Where it lands | Phone-to-phone |
 |------|--------------------------|---------|----------------|----------------|
-| **Development APK** | `make android-apk` / `./android/build.sh` / CI `android-ci.yml` / `android-debug-apk.yml` / `scripts/reproducible-build.sh` | Android **debug** keystore | Local `app-debug.apk`; CI artifact `mycelium-debug-apk`; tag workflow copies it to `mycelium-${TAG}-android.apk` | **Refused** (`ShareApkArtifact`) |
-| **Technical Beta APK** | `make android-technical-beta` → `./scripts/build-technical-beta-apk.sh` | Local Technical Beta JKS (`CN=Mycelium Technical Beta`) | gitignored `artifacts/technical-beta/` | **Required** |
+| **Development APK** | `make android-apk` / `./android/build.sh` / CI `android-ci.yml` / `android-debug-apk.yml` / `scripts/reproducible-build.sh` | Android **debug** keystore | Local `app-debug.apk`; CI artifact `mycena-debug-apk`; tag workflow copies it to `mycena-${TAG}-android.apk` | **Refused** (`ShareApkArtifact`) |
+| **Technical Beta APK** | `make android-technical-beta` → `./scripts/build-technical-beta-apk.sh` | Local Technical Beta JKS (`CN=Mycena Technical Beta`) | gitignored `artifacts/technical-beta/` | **Required** |
 | **Play AAB** | `android-release-play.yml` `bundleRelease` | Play upload key (repo secrets) | Play Console; CI artifacts `release-aab` | **Refused** (split install) |
 
 Facts from the tree:
@@ -72,7 +72,7 @@ Local hardware work stays:
 ```text
 make android-technical-beta
    ↓
-adb install -r artifacts/technical-beta/mycelium-*-technical-beta-android.apk
+adb install -r artifacts/technical-beta/mycena-*-technical-beta-android.apk
 ```
 
 Those two paths are different artifacts (see §8).
@@ -87,10 +87,10 @@ Those two paths are different artifacts (see §8).
 
 | Item | Value |
 |------|--------|
-| Keystore path | `artifacts/technical-beta/mycelium-technical-beta.jks` |
-| Alias | `mycelium-technical-beta` |
-| DN | `CN=Mycelium Technical Beta, OU=Mycelium, O=the maintainer, L=Unknown, ST=Unknown, C=DE` |
-| Password | `MYCELIUM_TECHNICAL_BETA_STORE_PASS` if set; otherwise a **local default** in the script |
+| Keystore path | `artifacts/technical-beta/mycena-technical-beta.jks` |
+| Alias | `mycena-technical-beta` |
+| DN | `CN=Mycena Technical Beta, OU=Mycena, O=Mycena Project, L=Unknown, ST=Unknown, C=DE` |
+| Password | `MYCENA_TECHNICAL_BETA_STORE_PASS` if set; otherwise a **local default** in the script |
 | Gradle | `-Pandroid.injected.signing.store.file=…` (store + key passwords, alias) |
 | Fail-closed | `packageRelease` depends on `assertTechnicalBetaSigning`; unsigned release APKs are not produced |
 
@@ -163,7 +163,7 @@ The script’s **default local password** is a developer convenience. CI must us
 When implementation is allowed:
 
 1. **`release.yml` Android job:** stop calling `reproducible-build.sh` for the Release APK. Build Technical Beta (`assembleRelease` + injected Technical Beta secrets). Fail closed if secrets missing, if `CN=Android Debug`, if filename contains `debug`, if ABIs missing, if `application-debuggable`.
-2. **Release notes / asset names:** `mycelium-${versionName}-technical-beta-android.apk` (never `app-debug.apk`, never a renamed debug file).
+2. **Release notes / asset names:** `mycena-${versionName}-technical-beta-android.apk` (never `app-debug.apk`, never a renamed debug file).
 3. **`android-ci.yml` / `android-debug-apk.yml`:** unchanged role — Development APK **workflow artifacts**. Not GitHub Release assets.
 4. **`android-release-play.yml`:** unchanged. Never attach `.aab` to the Technical Beta GitHub Release.
 5. **Do not** add a second `on: push: tags: v*.*.*` workflow that also runs `action-gh-release`.
@@ -184,7 +184,7 @@ A Technical Beta GitHub Release is a **sideload tester package**, not Play, not 
 
 | Asset | Role |
 |-------|------|
-| `mycelium-<versionName>-technical-beta-android.apk` | Universal `assembleRelease` APK (`armeabi-v7a`, `arm64-v8a`, `x86_64`). Filename **must** contain `technical-beta` and **must not** contain `debug`. |
+| `mycena-<versionName>-technical-beta-android.apk` | Universal `assembleRelease` APK (`armeabi-v7a`, `arm64-v8a`, `x86_64`). Filename **must** contain `technical-beta` and **must not** contain `debug`. |
 | `SHA256SUMS.txt` | SHA-256 of **every** attached file (existing `release.yml` pattern). |
 | `TECHNICAL_BETA_CERT_SHA256.txt` (or a line in a small `android-signing.txt`) | Signer certificate SHA-256 (Android signing identity). |
 | `VERIFICATION.txt` or equivalent | versionName, versionCode, commit SHA, `apksigner verify` result, ABI list, “not Play / not official”. |
@@ -193,7 +193,7 @@ A Technical Beta GitHub Release is a **sideload tester package**, not Play, not 
 
 | Asset | Role |
 |-------|------|
-| `mycelium-sbom-*.cdx.json` + `sbom-manifest.json` | Dependency inventory ([DEPENDENCY_RISK.md](./DEPENDENCY_RISK.md)). Not a security certification. |
+| `mycena-sbom-*.cdx.json` + `sbom-manifest.json` | Dependency inventory ([DEPENDENCY_RISK.md](./DEPENDENCY_RISK.md)). Not a security certification. |
 | `release-integrity-*.json` | **Optional** for Technical Beta. If attached **unsigned**, label it **not official** ([RELEASE_INTEGRITY.md](./RELEASE_INTEGRITY.md) §7). Do not imply M-of-N pass. |
 | Desktop bundles | Optional; not a freeze hardware target. Must not replace the APK as the primary sideload asset. |
 
@@ -228,7 +228,7 @@ A Technical Beta GitHub Release is a **sideload tester package**, not Play, not 
 - `gh` authenticated to GitHub.
 - `adb` on `PATH`.
 - Optional: `apksigner` / Android build-tools for cert check.
-- Repo default: `the maintainer/Mycelium` (overridable).
+- Repo default: `mycena-project/Mycena` (overridable).
 
 ### 6.2 Steps
 
@@ -259,7 +259,7 @@ Never silently install:
 - a debug APK;
 - a Play AAB;
 - a split/base APK;
-- an arbitrary Actions artifact (`mycelium-debug-apk`);
+- an arbitrary Actions artifact (`mycena-debug-apk`);
 - a download whose SHA-256 was not checked.
 
 ---
@@ -366,7 +366,7 @@ Do not execute this list in the design-only task. Order is for **after** hardwar
 - Switching Play Store on.
 - Converting `android-ci.yml` from debug to release (Development APK stays debug).
 - Byte-identical zip reproducibility of the Technical Beta APK (not a freeze requirement; [RELEASE_FREEZE_BACKLOG.md](./RELEASE_FREEZE_BACKLOG.md) out-of-scope list).
-- Using `make android-install-github` as the Technical Beta installer (it targets `mycelium-debug-apk`).
+- Using `make android-install-github` as the Technical Beta installer (it targets `mycena-debug-apk`).
 
 ---
 

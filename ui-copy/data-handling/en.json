@@ -1,6 +1,6 @@
 {
   "locale": "en",
-  "title": "How Mycelium handles your data",
+  "title": "How Mycena handles your data",
   "intro": "The essentials in plain language — about one minute to read.",
   "sections": [
     {
@@ -24,9 +24,9 @@
     {
       "heading": "Who runs this app",
       "paragraphs": [
-        "Published by the maintainer.",
-        "Mycelium is open-source software — anyone can review the code.",
-        "Questions: privacy@example.invalid"
+        "Published by the Mycena project.",
+        "Mycena is open-source software — anyone can review the code.",
+        "Questions: github.com/mycena-project/Mycena/issues"
       ]
     }
   ],

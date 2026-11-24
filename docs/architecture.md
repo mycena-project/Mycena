@@ -1,4 +1,4 @@
-# Mycelium Architecture
+# Mycena Architecture
 
 Current layout (2026-08). The stack is **Android-first** with a shared Rust mesh core. This is not a CLI-only MVP.
 
@@ -6,18 +6,18 @@ Current layout (2026-08). The stack is **Android-first** with a shared Rust mesh
 
 | Crate | Role |
 |-------|------|
-| `mycelium-core` | Crypto, wire formats, at-rest vault, protocol IDs (L0) |
-| `mycelium-l0-facade` | Stable app-facing re-exports of L0 (`EncKey`, invites, wipe helpers) |
-| `mycelium-node` | libp2p node, gossip, custody DTN, ingest (L1) |
-| `mycelium-l1-facade` | Stable node API (`NodeHandle`, `WireMessage`) |
-| `mycelium-app` | Chat, contacts, loopback HTTP API, mini-app bridge host (L3) |
-| `mycelium-miniapp` | Manifests, bundles, wasmtime sandbox (L2) |
-| `mycelium-coin` | Experimental local MeshCoin ledger (preview only) |
-| `mycelium-ffi` | UniFFI for Android (and future iOS) |
-| `mycelium-cli` | Operator CLI + loopback API |
-| `mycelium-desktop` | Tauri desktop host |
-| `mycelium-relay` | Public libp2p relay + token-gated `/status` |
-| `mycelium-sim` | MyceliumLab simulations / CI gates |
+| `mycena-core` | Crypto, wire formats, at-rest vault, protocol IDs (L0) |
+| `mycena-l0-facade` | Stable app-facing re-exports of L0 (`EncKey`, invites, wipe helpers) |
+| `mycena-node` | libp2p node, gossip, custody DTN, ingest (L1) |
+| `mycena-l1-facade` | Stable node API (`NodeHandle`, `WireMessage`) |
+| `mycena-app` | Chat, contacts, loopback HTTP API, mini-app bridge host (L3) |
+| `mycena-miniapp` | Manifests, bundles, wasmtime sandbox (L2) |
+| `mycena-coin` | Experimental local MeshCoin ledger (preview only) |
+| `mycena-ffi` | UniFFI for Android (and future iOS) |
+| `mycena-cli` | Operator CLI + loopback API |
+| `mycena-desktop` | Tauri desktop host |
+| `mycena-relay` | Public libp2p relay + token-gated `/status` |
+| `mycena-sim` | MycenaLab simulations / CI gates |
 
 Layer rules: [adr/005-layer-cargo-boundaries.md](./adr/005-layer-cargo-boundaries.md). Enforced by `scripts/check-layer-boundaries.sh` (includes CLI and relay).
 

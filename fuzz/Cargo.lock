@@ -2404,7 +2404,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "mycelium-coin"
+name = "mycena-coin"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -2413,8 +2413,8 @@ dependencies = [
  "blake3",
  "bs58",
  "libp2p",
- "mycelium-l0-facade",
- "mycelium-l1-facade",
+ "mycena-l0-facade",
+ "mycena-l1-facade",
  "serde",
  "sled",
  "tokio",
@@ -2424,7 +2424,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "mycelium-core"
+name = "mycena-core"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -2448,40 +2448,40 @@ dependencies = [
 ]
 
 [[package]]
-name = "mycelium-fuzz"
+name = "mycena-fuzz"
 version = "0.0.0"
 dependencies = [
  "bincode",
  "libfuzzer-sys",
- "mycelium-coin",
- "mycelium-core",
- "mycelium-miniapp",
- "mycelium-node",
+ "mycena-coin",
+ "mycena-core",
+ "mycena-miniapp",
+ "mycena-node",
 ]
 
 [[package]]
-name = "mycelium-l0-facade"
+name = "mycena-l0-facade"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "hex",
  "libp2p",
- "mycelium-core",
+ "mycena-core",
  "sled",
  "tracing",
  "zeroize",
 ]
 
 [[package]]
-name = "mycelium-l1-facade"
+name = "mycena-l1-facade"
 version = "0.1.0"
 dependencies = [
- "mycelium-l0-facade",
- "mycelium-node",
+ "mycena-l0-facade",
+ "mycena-node",
 ]
 
 [[package]]
-name = "mycelium-miniapp"
+name = "mycena-miniapp"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -2491,7 +2491,7 @@ dependencies = [
  "hex",
  "hmac",
  "libp2p",
- "mycelium-l0-facade",
+ "mycena-l0-facade",
  "serde",
  "serde_json",
  "sha2",
@@ -2504,7 +2504,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "mycelium-node"
+name = "mycena-node"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -2514,8 +2514,8 @@ dependencies = [
  "futures",
  "hex",
  "libp2p",
- "mycelium-core",
- "mycelium-l0-facade",
+ "mycena-core",
+ "mycena-l0-facade",
  "serde",
  "serde_cbor",
  "serde_json",

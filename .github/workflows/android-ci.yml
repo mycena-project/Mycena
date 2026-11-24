@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  CI_TIER: ${{ vars.MYCELIUM_CI_TIER || 'budget' }}
+  CI_TIER: ${{ vars.MYCENA_CI_TIER || 'budget' }}
 
 jobs:
   changes:
@@ -33,10 +33,10 @@ jobs:
           filters: |
             android:
               - 'android/**'
-              - 'crates/mycelium-ffi/**'
-              - 'crates/mycelium-app/**'
-              - 'crates/mycelium-node/**'
-              - 'crates/mycelium-core/**'
+              - 'crates/mycena-ffi/**'
+              - 'crates/mycena-app/**'
+              - 'crates/mycena-node/**'
+              - 'crates/mycena-core/**'
 
   android:
     needs: changes
@@ -44,7 +44,7 @@ jobs:
       github.actor != 'dependabot[bot]' &&
       (
         needs.changes.outputs.android == 'true' ||
-        (vars.MYCELIUM_CI_TIER == 'full' && github.event_name != 'pull_request')
+        (vars.MYCENA_CI_TIER == 'full' && github.event_name != 'pull_request')
       )
     runs-on: ubuntu-latest
     timeout-minutes: 90
@@ -98,6 +98,6 @@ jobs:
       - name: Upload debug APK
         uses: actions/upload-artifact@v7
         with:
-          name: mycelium-debug-apk
+          name: mycena-debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 14

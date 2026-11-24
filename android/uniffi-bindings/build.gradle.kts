@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Copyright (C) 2026 Mycelium Project
+// Copyright (C) 2026 Mycena Project
 import org.gradle.api.GradleException
 
 plugins {
@@ -8,7 +8,7 @@ plugins {
 }
 
 android {
-    namespace = "network.mycelium.bindings"
+    namespace = "io.github.mycena_project.bindings"
     compileSdk = 34
     defaultConfig {
         minSdk = 26
@@ -26,16 +26,16 @@ dependencies {
     compileOnly("net.java.dev.jna:jna:5.13.0")
 }
 
-// mycelium.kt is gitignored. Fail closed with the real generate command — do not invent a second binder.
+// mycena.kt is gitignored. Fail closed with the real generate command — do not invent a second binder.
 val uniffiKotlin =
-    layout.projectDirectory.file("src/main/kotlin/uniffi/mycelium/mycelium.kt").asFile
+    layout.projectDirectory.file("src/main/kotlin/uniffi/mycena/mycena.kt").asFile
 tasks.register("requireUniffiKotlin") {
     doLast {
         if (!uniffiKotlin.isFile || uniffiKotlin.length() == 0L) {
             throw GradleException(
                 """
                 Generated UniFFI Kotlin is missing (intentionally not tracked in git).
-                From the Mycelium repository root:
+                From the Mycena repository root:
                   ./scripts/regenerate-uniffi-kotlin.sh
                 JVM unit tests (generate + testDebugUnitTest):
                   ./scripts/android-test.sh

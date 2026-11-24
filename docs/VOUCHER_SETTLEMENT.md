@@ -74,7 +74,7 @@ After merge detects conflict on a losing redemption:
 
 ## Simulation
 
-See `mycelium-sim::coin_scenarios::voucher_partition_double_spend` — Alice → Bob (partition A) and Carol (partition B); merge detects double-spend, Bob wins, Carol clawed back.
+See `mycena-sim::coin_scenarios::voucher_partition_double_spend` — Alice → Bob (partition A) and Carol (partition B); merge detects double-spend, Bob wins, Carol clawed back.
 
 ---
 

@@ -1,4 +1,4 @@
-# Mycelium MVP Smoke Test
+# Mycena MVP Smoke Test
 
 This document gives a copy/paste validation flow for:
 - two local nodes (CLI)
@@ -32,13 +32,13 @@ Open two terminals.
 ### Terminal A
 
 ```bash
-cargo run -p mycelium-cli -- --db /tmp/node-a --name Alice --api-port 7760
+cargo run -p mycena-cli -- --db /tmp/node-a --name Alice --api-port 7760
 ```
 
 ### Terminal B
 
 ```bash
-cargo run -p mycelium-cli -- --db /tmp/node-b --name Bob --api-port 7761
+cargo run -p mycena-cli -- --db /tmp/node-b --name Bob --api-port 7761
 ```
 
 Both terminals print a line like:
@@ -64,7 +64,7 @@ You should see the other peer eventually.
 Send a mail from A to B:
 
 ```text
-/mail <PEER_ID_OF_B> Hallo | Das ist eine Test-Mail ueber Mycelium.
+/mail <PEER_ID_OF_B> Hallo | Das ist eine Test-Mail ueber Mycena.
 ```
 
 REST calls need the bearer token from node B's log (`TOKEN_B`):
@@ -127,7 +127,7 @@ Expected: one bulletin with title `Markt`.
 
 ## 6) API Status and Settings
 
-The loopback API requires a bearer token (printed at node start, or set `MYCELIUM_API_TOKEN` before launch). `GET /api/v1/health` is unauthenticated.
+The loopback API requires a bearer token (printed at node start, or set `MYCENA_API_TOKEN` before launch). `GET /api/v1/health` is unauthenticated.
 
 ```bash
 export TOKEN='<token from node A log>'
@@ -194,17 +194,17 @@ Android freeze DoD (HV-01–20, Pixel + Samsung slots): [HARDWARE_TEST_RUNBOOK.m
 ### Prerequisites
 
 ```bash
-cd Mycelium
+cd Mycena
 cargo test --workspace
 make android-install   # or android-deploy
-# Desktop: cd crates/mycelium-desktop/ui && npm ci && npm run build
-# then run desktop app from IDE or `cargo run -p mycelium-desktop`
+# Desktop: cd crates/mycena-desktop/ui && npm ci && npm run build
+# then run desktop app from IDE or `cargo run -p mycena-desktop`
 ```
 
 Relay health (optional):
 
 ```bash
-curl -s 'http://relay.example.invalid:8080/health' | python3 -m json.tool
+curl -s 'https://mycena-relay.fly.dev/health' | python3 -m json.tool
 ```
 
 Expect `"ok": true` from `/health`. Connection counts are on `/status` and require the operator token.
@@ -224,7 +224,7 @@ Expect `"ok": true` from `/health`. Connection counts are on `/status` and requi
 |---|----------|-------|---------------|
 | 1 | **LAN only** | Same Wi‑Fi; relay reachable or not | Connect tab shows peer; chat works without re-scan |
 | 2 | **Relay only** | Different networks (or disable Wi‑Fi on one device) | QR scan connects via circuit; chat works |
-| 3 | **QR v3** | Default QR shows **v3 signed** invite (`mycelium://invite/v3#…`); E2E badge after connect |
+| 3 | **QR v3** | Default QR shows **v3 signed** invite (`mycena://invite/v3#…`); E2E badge after connect |
 | 4 | **QR v2 (legacy)** | Paste v2 invite manually if testing legacy codes | Still parses; enc key seeded from QR |
 | 5 | **Reconnect** | Force-quit both apps; reopen | Chat works without re-scan (may need brief wait for dial) |
 | 6 | **Airplane mode** | Wi‑Fi on, cellular off (or full offline LAN) | mDNS path still finds peer on same LAN |
@@ -240,7 +240,7 @@ Manual spot-check (automated in `cargo test`):
 
 | Platform | Check |
 |----------|-------|
-| Android Connect → Show QR | Payload starts with `mycelium://invite/v3#` |
+| Android Connect → Show QR | Payload starts with `mycena://invite/v3#` |
 | Desktop Connect → QR | Same v3 signed prefix |
 | Scan still accepts v1/v2 pasted invites | Manual paste of legacy strings still connects |
 
@@ -278,11 +278,11 @@ Manual spot-check (automated in `cargo test`):
 
 | # | Scenario | Pass criteria |
 |---|----------|---------------|
-| 1 | Desktop + Android QR | Shows **v3 signed** invite (`mycelium://invite/v3#…`); tampered paste rejected |
+| 1 | Desktop + Android QR | Shows **v3 signed** invite (`mycena://invite/v3#…`); tampered paste rejected |
 | 2 | Block contact | Block in Chat (desktop + Android) → inbound messages ignored |
 | 3 | Reputation | Chat shows strike count from mesh ingest (desktop + Android) |
 | 4 | SOS (opt-in) | **SOS tab** → listen off by default; post SOS with geohash; rate limit under spam |
-| 5 | Identity rotation | After 24h (or `MYCELIUM_TRANSPORT_ROTATION_SECS=0` test), restart → new PeerId, contact book keeps account mapping |
+| 5 | Identity rotation | After 24h (or `MYCENA_TRANSPORT_ROTATION_SECS=0` test), restart → new PeerId, contact book keeps account mapping |
 
 ---
 
@@ -290,14 +290,14 @@ Manual spot-check (automated in `cargo test`):
 
 | # | Scenario | Pass criteria |
 |---|----------|---------------|
-| 1 | Dense gossip | `MYCELIUM_MESH_PROFILE=dense` or crowd mode → node logs dense mesh; `cargo test -p mycelium-core mesh_profile` green |
+| 1 | Dense gossip | `MYCENA_MESH_PROFILE=dense` or crowd mode → node logs dense mesh; `cargo test -p mycena-core mesh_profile` green |
 | 2 | Relay pool | Multiple TCP bootstrap relays in `bootstrap.txt` → client dials each; circuit uses hash-rotated relay |
 | 3 | Relay failover | Kill primary relay TCP session → logs `relay failover`; circuit still works via next pool entry |
 | 4 | Crowd mode | Settings → crowd mode on, **restart app** → mDNS dial cap (3/min), max ~20 direct peers, bulletin scopes subscribed first (desktop + Android) |
 | 5 | Rendezvous dial | Both opt in → logs `rendezvous bucket X/Y: dialing N` (≤3 peers/tick), not full-list storm |
-| 6 | Sim soak | `cargo test -p mycelium-sim festival_relay_soak` — 500 virtual nodes, no single relay >45% load |
+| 6 | Sim soak | `cargo test -p mycena-sim festival_relay_soak` — 500 virtual nodes, no single relay >45% load |
 
-Automated: `cargo test --workspace` including `mycelium-core::relay_pool` and `mycelium-sim::scenarios`.
+Automated: `cargo test --workspace` including `mycena-core::relay_pool` and `mycena-sim::scenarios`.
 
 ---
 
@@ -306,10 +306,10 @@ Automated: `cargo test --workspace` including `mycelium-core::relay_pool` and `m
 | # | Scenario | Pass criteria |
 |---|----------|---------------|
 | 1 | SOS tab | Desktop **SOS** nav + Android **SOS** tab — post geohash + message |
-| 2 | Listen opt-in | Default off; enable listen → subscribe to `mycelium/sos/v1`; disable → unsubscribe |
+| 2 | Listen opt-in | Default off; enable listen → subscribe to `mycena/sos/v1`; disable → unsubscribe |
 | 3 | Receive SOS | Two devices: A posts, B listening → B sees post + notification (Android) / `sos-updated` (desktop) |
 | 4 | Rate limits | Spam >6/min from one peer or >24/min same geohash → dropped at ingest (`ingest_guard` tests) |
-| 5 | MeshAid | SOS screen → **Open MeshAid** launches `network.mycelium.meshaid` mini-app |
+| 5 | MeshAid | SOS screen → **Open MeshAid** launches `io.github.mycena_project.meshaid` mini-app |
 | 6 | Not 911 | UI disclaimer visible on SOS screens |
 
-Automated: `cargo test -p mycelium-node ingest_guard::tests::sos_*` and `cargo test -p mycelium-core sos`.
+Automated: `cargo test -p mycena-node ingest_guard::tests::sos_*` and `cargo test -p mycena-core sos`.

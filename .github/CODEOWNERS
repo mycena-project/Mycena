@@ -1,8 +1,0 @@
-* @the maintainer
-
-/.github/ @the maintainer
-/crates/mycelium-core/src/crypto/ @the maintainer
-/crates/mycelium-core/src/at_rest.rs @the maintainer
-/SECURITY.md @the maintainer
-/docs/SECURITY_DEBT_REGISTER.md @the maintainer
-/docs/THREAT_MODEL.md @the maintainer

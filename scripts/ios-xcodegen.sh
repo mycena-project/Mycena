@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Generate Mycelium.xcodeproj from project.yml (uses bundled XcodeGen if brew is unavailable).
+# Generate Mycena.xcodeproj from project.yml (uses bundled XcodeGen if brew is unavailable).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 IOS="$ROOT/ios"
@@ -14,4 +14,4 @@ if [[ ! -x "$XCODEGEN" ]]; then
 fi
 cd "$IOS"
 "$XCODEGEN" generate
-echo "Generated $IOS/Mycelium.xcodeproj"
+echo "Generated $IOS/Mycena.xcodeproj"

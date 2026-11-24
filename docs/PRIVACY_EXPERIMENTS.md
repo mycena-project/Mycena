@@ -1,6 +1,6 @@
-# Mycelium — Experimental Privacy Layer (Anti-Metadata R&D)
+# Mycena — Experimental Privacy Layer (Anti-Metadata R&D)
 
-**Codename:** **Shade** (experimental overlay on `mycelium-node`, not a separate app)  
+**Codename:** **Shade** (experimental overlay on `mycena-node`, not a separate app)  
 **Status:** Research & incremental prototype  
 **Last updated:** May 2026  
 **Companion:** [PRIVACY_ROADMAP.md](./PRIVACY_ROADMAP.md) · [SECURITY_DEBT_REGISTER.md](./SECURITY_DEBT_REGISTER.md) · [ARCHITECTURE_RISKS.md](./ARCHITECTURE_RISKS.md)
@@ -9,7 +9,7 @@
 
 ## 0. Why this exists
 
-Mycelium already has **content** protection (X25519 E2E, signed wire frames) but leaks **metadata** aggressively: stable libp2p PeerIds, bloom sync, gossip scopes, timing, fanout patterns, BLE manufacturer data, relay IP paths.
+Mycena already has **content** protection (X25519 E2E, signed wire frames) but leaks **metadata** aggressively: stable libp2p PeerIds, bloom sync, gossip scopes, timing, fanout patterns, BLE manufacturer data, relay IP paths.
 
 **Shade** is deliberately **not** “Signal with a mesh transport.” It treats the network as an **untrusted broadcast medium** and applies delay, mixing, cover traffic, and identity fragmentation **only where mesh constraints allow**—Bluetooth and WiFi Direct first, Internet relay second.
 
@@ -43,7 +43,7 @@ Mycelium already has **content** protection (X25519 E2E, signed wire frames) but
 ### 1.3 Non-goals (honest)
 
 - Shade does **not** guarantee Tor-grade anonymity on Internet path in v1 experiments.
-- Shade does **not** hide that *some* Mycelium activity occurred on a device (RF power, app foreground).
+- Shade does **not** hide that *some* Mycena activity occurred on a device (RF power, app foreground).
 - Shade cannot erase gossip copies on other peers’ disks.
 
 ### 1.4 Security invariant (must not regress)
@@ -82,7 +82,7 @@ Mycelium already has **content** protection (X25519 E2E, signed wire frames) but
 | `WireMessage::SyncBloom` | Encrypted-interest variant |
 | `BleBootstrapAdvertiser` | No PeerId in manufacturer data |
 | `ConnectivityMode` | Shade profiles per mode |
-| `mycelium-sim` | Metadata oracle tests |
+| `mycena-sim` | Metadata oracle tests |
 
 ---
 
@@ -171,7 +171,7 @@ Each entry: **idea → packet/behaviour → impacts → attacks → ship slice**
 
 ### 3.5 Scoped anonymous subscriptions
 
-**Idea:** User subscribes to `H(scope_secret, epoch)` instead of `mycelium/bulletin/berlin`. Only holders of secret see matching gossip.
+**Idea:** User subscribes to `H(scope_secret, epoch)` instead of `mycena/bulletin/berlin`. Only holders of secret see matching gossip.
 
 | Dimension | Detail |
 |-----------|--------|
@@ -517,7 +517,7 @@ WireMessage::DeadDropInterest { enc_bloom: Vec<u8> }
 
 | User-facing | Behaviour |
 |-------------|-----------|
-| **Shade off** | Current Mycelium |
+| **Shade off** | Current Mycena |
 | **Shade Balanced** | Delay + prob. forward + burst sync + no BLE id leak |
 | **Shade Paranoid** | + padding + cover budget + trust ring only |
 | Indicators | “Blending”, “Delayed”, “Budget 62% left” |
@@ -581,7 +581,7 @@ WireMessage::DeadDropInterest { enc_bloom: Vec<u8> }
 | E0.2 | Fanout cap + no broadcast-all | §3.1 | `node.rs`, `forwarding.rs` |
 | E0.3 | BLE adv without PeerId | §7.1 | `BleBootstrapAdvertiser.kt` |
 | E0.4 | Burst sync timer | §3.9 | `node.rs` |
-| E0.5 | Metadata oracle test in sim | §14 | `mycelium-sim` |
+| E0.5 | Metadata oracle test in sim | §14 | `mycena-sim` |
 
 ### Phase E1 — Shade cells (8–12 weeks)
 
@@ -618,7 +618,7 @@ WireMessage::DeadDropInterest { enc_bloom: Vec<u8> }
 
 ### 14.1 Metadata oracle (automated)
 
-Extend `mycelium-sim` with **OracleAdversary**:
+Extend `mycena-sim` with **OracleAdversary**:
 
 | Test | Pass condition |
 |------|----------------|
@@ -678,7 +678,7 @@ Extend `mycelium-sim` with **OracleAdversary**:
 
 ## 17. Summary
 
-**Shade** is Mycelium’s experimental answer to: *store-and-forward mesh is a metadata hose.* We do not fix that by copying Signal—we fix it by **delaying, padding, mixing, rotating, and budgeting** metadata on **local radios first**, while keeping **signed, E2E inner payloads** intact.
+**Shade** is Mycena’s experimental answer to: *store-and-forward mesh is a metadata hose.* We do not fix that by copying Signal—we fix it by **delaying, padding, mixing, rotating, and budgeting** metadata on **local radios first**, while keeping **signed, E2E inner payloads** intact.
 
 **First code to write:** E0.2 (fanout cap), E0.3 (BLE), E0.4 (burst sync), E0.5 (sim oracle)—no new cryptography required.
 

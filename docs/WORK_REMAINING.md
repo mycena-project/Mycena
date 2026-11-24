@@ -1,4 +1,4 @@
-# Mycelium — work remaining (audit 2026-07-05)
+# Mycena — work remaining (audit 2026-07-05)
 
 Master tracker from a full-repo scan.
 **Legend:** ✅ done · ⏳ outstanding
@@ -62,9 +62,9 @@ Master tracker from a full-repo scan.
 | **P1** | **Android offline mesh indicator** — `StatusViewModel.offlineMeshActive` banner |
 | **P2** | **Desktop `postMessage` origin lock (SD-051)** — MiniApp iframe uses `"null"` origin, validates inbound |
 | **P2** | **Wi‑Fi Aware / WebRTC metrics in `NodeMetrics`** — ADR 009/010 bearer observability |
-| **P2** | **MyceliumLab geohash eclipse / custody sims** — CI gates for geohash-clustered sybil scenarios |
-| **P3** | **Volunteer coordination (phase 2)** — `mycelium/volunteer/v1` + Android/Desktop SOS UI + FFI |
-| **P3** | **Relay wire semantic parity** — shared `mycelium_core::protocol` IDs on node + relay |
+| **P2** | **MycenaLab geohash eclipse / custody sims** — CI gates for geohash-clustered sybil scenarios |
+| **P3** | **Volunteer coordination (phase 2)** — `mycena/volunteer/v1` + Android/Desktop SOS UI + FFI |
+| **P3** | **Relay wire semantic parity** — shared `mycena_core::protocol` IDs on node + relay |
 | **P3** | **Desktop release runbook** — signing, local build, updater smoke in `RELEASING.md` |
 | **P3** | **CLI groups / wallet / panic** — subcommands + `--headless` + HTTP API routes |
 
@@ -83,7 +83,7 @@ _All Category 3 software backlog items through Iteration E were historically com
 1. ~~**A** — Gossip hot-swap (P0)~~ ✅
 2. ~~**B** — Multi-shard SOS + bulletin geohash + crisis metrics + offline mesh (P1)~~ ✅
 3. ~~**C** — SD-051 origin lock (P2 partial)~~ ✅
-4. ~~**D** — Bearer metrics (P2) + MyceliumLab sims (P2)~~ ✅
+4. ~~**D** — Bearer metrics (P2) + MycenaLab sims (P2)~~ ✅
 5. ~~**E** — P3 CLI/desktop/relay backlog~~ ✅
 
 After **E**, the 2026-07-05 Category 3 software list was empty. Remaining **release-freeze / P0** work is **not** empty — see [RELEASE_FREEZE_BACKLOG.md](./RELEASE_FREEZE_BACKLOG.md). Category 1 (sign-offs, review, legal) and Category 2 (field hardware drills) also remain.
@@ -95,4 +95,4 @@ After **E**, the 2026-07-05 Category 3 software list was empty. Remaining **rele
 - [AR-06_REMAINING_GAPS.md](./AR-06_REMAINING_GAPS.md)
 - [IMPLEMENTATION_STATUS_2026-07-05.md](./IMPLEMENTATION_STATUS_2026-07-05.md)
 - [DISASTER_MESH_ROADMAP.md](./DISASTER_MESH_ROADMAP.md)
-- [third-party/libp2p-gossipsub/README-MYCELIUM.md](../third-party/libp2p-gossipsub/README-MYCELIUM.md)
+- [third-party/libp2p-gossipsub/README-MYCENA.md](../third-party/libp2p-gossipsub/README-MYCENA.md)

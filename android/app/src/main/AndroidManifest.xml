@@ -33,13 +33,15 @@
     <uses-permission android:name="android.permission.NFC" />
 
     <application
-        android:name=".MyceliumApplication"
+        android:name=".MycenaApplication"
         android:allowBackup="false"
         android:fullBackupContent="false"
         android:dataExtractionRules="@xml/backup_rules"
         android:label="@string/app_name"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Mycelium">
+        android:theme="@style/Theme.Mycena">
         <activity
             android:name=".OnboardingActivity"
             android:exported="false" />

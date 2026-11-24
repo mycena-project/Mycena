@@ -1,10 +1,10 @@
 # Relay operator guide
 
-This document explains how an **independent third party** (not the Mycelium core team) can run a public libp2p relay for the Mycelium mesh and get listed in the federated bootstrap registry **without** letting a malicious operator Sybil-flood the relay list.
+This document explains how an **independent third party** (not the Mycena core team) can run a public libp2p relay for the Mycena mesh and get listed in the federated bootstrap registry **without** letting a malicious operator Sybil-flood the relay list.
 
 ## Anti-censorship bootstrap (not redundancy)
 
-Mycelium ships **seven equal default bootstrap relays** in every client (`STANDARD_BOOTSTRAP_RELAYS` in `crates/mycelium-core/src/standard_bootstrap.rs`). This is a deliberate **anti-censorship** measure:
+Mycena ships **seven equal default bootstrap relays** in every client (`STANDARD_BOOTSTRAP_RELAYS` in `crates/mycena-core/src/standard_bootstrap.rs`). This is a deliberate **anti-censorship** measure:
 
 - There is **no primary relay**. All slots are listed with the same weight.
 - Each slot includes **both** `/ip4/…` and `/dns4/…` multiaddrs (plus QUIC). Blocking DNS alone is insufficient; censors must block every IP **and** every hostname embedded in the binary.
@@ -15,22 +15,22 @@ This is **not** classic HA redundancy (N+1 for uptime). It is **shutdown resista
 
 Related code:
 
-- Standard slots: `crates/mycelium-core/src/standard_bootstrap.rs`
-- Registry format: `crates/mycelium-core/src/relay_registry.rs`
-- Client pool + failover: `crates/mycelium-core/src/relay_pool.rs`, `crates/mycelium-node/src/transport.rs`
-- Reference relay binary: `crates/mycelium-relay`
+- Standard slots: `crates/mycena-core/src/standard_bootstrap.rs`
+- Registry format: `crates/mycena-core/src/relay_registry.rs`
+- Client pool + failover: `crates/mycena-core/src/relay_pool.rs`, `crates/mycena-node/src/transport.rs`
+- Reference relay binary: `crates/mycena-relay`
 
 ### Default bootstrap slots (embedded)
 
 | Slot | Region | Provider (target) | DNS | IPv4 (slot) | Live |
 |------|--------|-------------------|-----|-------------|------|
-| `eu-vps` | EU-Central | VPS (DE) | `relay.example.invalid` | `192.0.2.57` | yes |
-| `eu-fra` | EU-Central | Hetzner (DE) | `bootstrap-eu-fra.mycelium.network` | `243.185.187.10` | reserved |
-| `eu-ams` | EU-West | OVH (NL) | `bootstrap-eu-ams.mycelium.network` | `243.186.187.10` | reserved |
-| `na-east` | NA-East | Vultr (US-East) | `bootstrap-na-east.mycelium.network` | `243.187.187.10` | reserved |
-| `na-west` | NA-West | Akamai/Linode (US-West) | `bootstrap-na-west.mycelium.network` | `243.188.187.10` | reserved |
-| `ap-syd` | AP-Southeast | DigitalOcean (AU) | `bootstrap-ap-syd.mycelium.network` | `243.189.187.10` | reserved |
-| `sa-sao` | SA-East | Hostinger (BR) | `bootstrap-sa-sao.mycelium.network` | `243.190.187.10` | reserved |
+| `eu-fly` | EU-Central | Fly.io (FRA) | `mycena-relay.fly.dev` | `192.0.2.57` | yes |
+| `eu-fra` | EU-Central | Hetzner (DE) | `bootstrap-eu-fra.mycena.network` | `243.185.187.10` | reserved |
+| `eu-ams` | EU-West | OVH (NL) | `bootstrap-eu-ams.mycena.network` | `243.186.187.10` | reserved |
+| `na-east` | NA-East | Vultr (US-East) | `bootstrap-na-east.mycena.network` | `243.187.187.10` | reserved |
+| `na-west` | NA-West | Akamai/Linode (US-West) | `bootstrap-na-west.mycena.network` | `243.188.187.10` | reserved |
+| `ap-syd` | AP-Southeast | DigitalOcean (AU) | `bootstrap-ap-syd.mycena.network` | `243.189.187.10` | reserved |
+| `sa-sao` | SA-East | Hostinger (BR) | `bootstrap-sa-sao.mycena.network` | `243.190.187.10` | reserved |
 
 Reserved slots use non-routed `243.x` placeholder IPv4 until an operator deploys and replaces the address in a release. PeerIds for reserved slots are **deterministic** from slot seeds — operators must deploy with the listed identity.
 
@@ -53,14 +53,14 @@ Relays see **transport metadata** (IP addresses, connection timing). They do **n
 | Requirement | Rationale |
 |-------------|-----------|
 | **Dedicated public IPv4** (or stable DNS → IPv4) | Shared reverse proxies break the Noise handshake; raw libp2p TCP must terminate on your host. |
-| **TCP 4001** (+ optional **UDP 4001 QUIC**) open inbound | Default listen addrs in `mycelium-relay`. |
+| **TCP 4001** (+ optional **UDP 4001 QUIC**) open inbound | Default listen addrs in `mycena-relay`. |
 | **≥99% monthly uptime** target | Clients track consecutive dial failures and rotate away after 3 failures. |
 | **Independent operator account** | Hosting, DNS, and billing must not share credentials with other listed relays (Sybil policy). |
 | **Unique /24 IPv4 prefix** per dialable relay | Prevents one VPS provider block from dominating the pool. |
 | **Ed25519 operator key** (offline-capable) | Signs your registration; distinct from the libp2p relay peer key. |
 | **Curator endorsement** | At least one signature from a known curator (see §5). |
 
-Recommended: 1 vCPU, 512 MiB RAM, 20 Mbit/s. Public health is `GET /health`. Full telemetry is `GET /status` with `Authorization: Bearer` (`MYCELIUM_RELAY_STATUS_TOKEN`, ≥16 chars). Without a token, `/status` returns 401.
+Recommended: 1 vCPU, 512 MiB RAM, 20 Mbit/s. Public health is `GET /health`. Full telemetry is `GET /status` with `Authorization: Bearer` (`MYCENA_RELAY_STATUS_TOKEN`, ≥16 chars). Without a token, `/status` returns 401.
 
 ---
 
@@ -69,14 +69,14 @@ Recommended: 1 vCPU, 512 MiB RAM, 20 Mbit/s. Public health is `GET /health`. Ful
 Build and start the reference server:
 
 ```bash
-cargo build -p mycelium-relay --release
-export MYCELIUM_RELAY_STATUS_TOKEN='replace-with-a-long-random-token'
-./target/release/mycelium-relay \
+cargo build -p mycena-relay --release
+export MYCENA_RELAY_STATUS_TOKEN='replace-with-a-long-random-token'
+./target/release/mycena-relay \
   --listen /ip4/0.0.0.0/tcp/4001 \
   --listen-quic /ip4/0.0.0.0/udp/4001/quic-v1 \
-  --keypair-path /var/lib/mycelium-relay/identity \
+  --keypair-path /var/lib/mycena-relay/identity \
   --status-port 8080 \
-  --status-token "$MYCELIUM_RELAY_STATUS_TOKEN"
+  --status-token "$MYCENA_RELAY_STATUS_TOKEN"
 ```
 
 Note the **PeerId** printed at startup. Your bootstrap multiaddr looks like:
@@ -91,14 +91,14 @@ Verify locally:
 curl -s http://127.0.0.1:8080/health | jq .
 # {"ok":true,"version":"…"} — Fly/load-balancer health checks should use this path.
 
-curl -s -H "Authorization: Bearer $MYCELIUM_RELAY_STATUS_TOKEN" \
+curl -s -H "Authorization: Bearer $MYCENA_RELAY_STATUS_TOKEN" \
   http://127.0.0.1:8080/status | jq .
-# Includes "wire_protocol": "mycelium/0.1" — must match mesh nodes (`mycelium_core::protocol::IDENTIFY_PROTOCOL`).
+# Includes "wire_protocol": "mycena/0.1" — must match mesh nodes (`mycena_core::protocol::IDENTIFY_PROTOCOL`).
 ```
 
 ---
 
-## 4. Registration format (`mycelium-relay-registry/v2`)
+## 4. Registration format (`mycena-relay-registry/v2`)
 
 Each relay is a **signed JSON entry** with **public accountability** and **verifiable operating history** — anonymous entries are rejected.
 
@@ -114,13 +114,13 @@ Each relay is a **signed JSON entry** with **public accountability** and **verif
 | `operator_label` + `operator_contact` | required | Public identity — URL or email, no anonymous slots |
 | `asn` | required | BGP ASN for client-side infrastructure diversity |
 
-Client-side [`relay_diversity`](../../crates/mycelium-core/src/relay_diversity.rs) enforces parallel dial batches that never use **only** one IPv4 /24 or ASN when alternatives exist, and reserves quota for minority operators — so a single actor listing many relays still leaves minimum reachability to independent infrastructure.
+Client-side [`relay_diversity`](../../crates/mycena-core/src/relay_diversity.rs) enforces parallel dial batches that never use **only** one IPv4 /24 or ASN when alternatives exist, and reserves quota for minority operators — so a single actor listing many relays still leaves minimum reachability to independent infrastructure.
 
 ### JSON schema
 
 ```json
 {
-  "format": "mycelium-relay-registry/v2",
+  "format": "mycena-relay-registry/v2",
   "issued_at_ms": 1700000000000,
   "policy": {
     "min_curator_endorsements": 1,
@@ -160,13 +160,13 @@ Client-side [`relay_diversity`](../../crates/mycelium-core/src/relay_diversity.r
 
 Sign the canonical payload (see `RelayRegistration::signable_bytes`):
 
-- Prefix: `MYCEL/RELAY/REG/v1\0`
+- Prefix: `MYCENA/RELAY/REG/v1\0`
 - Fields: `peer_id`, each `multiaddr`, `operator_pubkey_hex`, `operator_label`, `region`, `registered_at_ms` (LE u64), `catalog_only` (u8)
 
 Use the same Ed25519 key as `operator_pubkey_hex`. In Rust:
 
 ```rust
-use mycelium_core::relay_registry::{build_signed_registration, SignedRegistrationParams};
+use mycena_core::relay_registry::{build_signed_registration, SignedRegistrationParams};
 
 let reg = build_signed_registration(SignedRegistrationParams {
     operator_key: &operator_keypair,
@@ -192,11 +192,11 @@ Optional but recommended: append snapshots when your monitor probes `/status`. C
 
 | Curator ID | Role |
 |------------|------|
-| `mycelium-release` | Core release train (operated VPS relay) |
+| `mycena-release` | Core release train (operated Fly.io relay) |
 | `community-mesh-eu` | Independent EU community operator |
 | `community-mesh-na` | Independent NA community operator |
 
-Endorsement payload (`MYCEL/RELAY/ENDORSE/v1\0` + registration digest + peer_id + signed_at_ms).
+Endorsement payload (`MYCENA/RELAY/ENDORSE/v1\0` + registration digest + peer_id + signed_at_ms).
 
 ### Why this limits Sybil attacks
 
@@ -230,7 +230,7 @@ Clients load:
 1. **Embedded manifest** (signed entries shipped with the app).
 2. Optional merge: `<db_path>/relay_registry.json` (same format; deduped by `peer_id`).
 
-Set `MYCELIUM_INCLUDE_CATALOG_RELAYS=1` to dial `catalog_only` / TEST-NET template entries (203.0.113.x).
+Set `MYCENA_INCLUDE_CATALOG_RELAYS=1` to dial `catalog_only` / TEST-NET template entries (203.0.113.x).
 
 ### Selection and rotation
 
@@ -238,18 +238,18 @@ Set `MYCELIUM_INCLUDE_CATALOG_RELAYS=1` to dial `catalog_only` / TEST-NET templa
 - On dial failure or disconnect, the client marks failures and **rotates** to the next healthy relay.
 - After **3 consecutive failures**, a relay is skipped until it succeeds again.
 
-Override order for bootstrap peers remains: `MYCELIUM_BOOTSTRAP_PEERS` → `bootstrap.txt` → federated registry (embedded standard slots) → [`standard_bootstrap_multiaddrs()`].
+Override order for bootstrap peers remains: `MYCENA_BOOTSTRAP_PEERS` → `bootstrap.txt` → federated registry (embedded standard slots) → [`standard_bootstrap_multiaddrs()`].
 
 ---
 
 ## 7. Staging without a release
 
-Use `"catalog_only": true` for TEST-NET documentation entries. They appear in the manifest for audit but are **not dialed** unless `MYCELIUM_INCLUDE_CATALOG_RELAYS=1`.
+Use `"catalog_only": true` for TEST-NET documentation entries. They appear in the manifest for audit but are **not dialed** unless `MYCENA_INCLUDE_CATALOG_RELAYS=1`.
 
 For private testing, place a verified manifest at:
 
 ```text
-~/.mycelium-node/relay_registry.json
+~/.mycena-node/relay_registry.json
 ```
 
 ---
@@ -295,4 +295,4 @@ See also [PRIVACY_ROADMAP.md](./PRIVACY_ROADMAP.md) Phase B · [THREAT_MODEL.md]
 
 - `docs/ARCHITECTURE_RISKS.md` — AR-01 (concentration), AR-10 (operator liability)
 - `docs/DISASTER_MESH_ROADMAP.md` — Phase D relay pool
-- `crates/mycelium-relay` — reference implementation
+- `crates/mycena-relay` — reference implementation

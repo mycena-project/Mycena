@@ -25,8 +25,8 @@ android/rust-build/
 android/local.properties
 
 # Runtime / secrets (never useful in an image)
-.mycelium-relay/
-**/.mycelium-relay/
+.mycena-relay/
+**/.mycena-relay/
 
 # IDE / junk
 .idea/

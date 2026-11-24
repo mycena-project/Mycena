@@ -1,6 +1,6 @@
 {
   "locale": "zh",
-  "title": "Mycelium 如何处理你的数据",
+  "title": "Mycena 如何处理你的数据",
   "intro": "用通俗语言说明要点——大约阅读一分钟。",
   "sections": [
     {
@@ -24,9 +24,9 @@
     {
       "heading": "谁运营此应用",
       "paragraphs": [
-        "由 the maintainer 发布。",
-        "Mycelium 是开源软件——任何人都可以审查代码。",
-        "问题请联系：privacy@example.invalid"
+        "由 Mycena 项目发布。",
+        "Mycena 是开源软件——任何人都可以审查代码。",
+        "问题请联系：github.com/mycena-project/Mycena/issues"
       ]
     }
   ],

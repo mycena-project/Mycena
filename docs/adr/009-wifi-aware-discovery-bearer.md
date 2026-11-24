@@ -2,7 +2,7 @@
 
 **Status:** Accepted (Android Phase 1)  
 **Date:** 2026-07-05  
-**Context:** Continuous BLE LE scanning for F1 bootstrap discovery is reliable but costly on battery at comparable indoor range. Android **Wi-Fi Aware** (NAN) and **NSD** can advertise small service-specific payloads with lower average radio duty cycle. Mycelium already routes **data** via [`BearerMeshRouter`](../../crates/mycelium-node/src/bearer_mesh.rs) (BLE trickle + Wi-Fi Direct bulk, [ADR 007](./007-wifi-direct-bulk-bearer.md)). We need a third [`BearerMedium`](../../crates/mycelium-core/src/bearer_transport.rs) without duplicating bulk transfer paths.
+**Context:** Continuous BLE LE scanning for F1 bootstrap discovery is reliable but costly on battery at comparable indoor range. Android **Wi-Fi Aware** (NAN) and **NSD** can advertise small service-specific payloads with lower average radio duty cycle. Mycena already routes **data** via [`BearerMeshRouter`](../../crates/mycena-node/src/bearer_mesh.rs) (BLE trickle + Wi-Fi Direct bulk, [ADR 007](./007-wifi-direct-bulk-bearer.md)). We need a third [`BearerMedium`](../../crates/mycena-core/src/bearer_transport.rs) without duplicating bulk transfer paths.
 
 Related: [ADR 002](./002-ble-mesh-transport.md) · [BEARER_TRANSPORT.md](../BEARER_TRANSPORT.md)
 
@@ -10,18 +10,18 @@ Related: [ADR 002](./002-ble-mesh-transport.md) · [BEARER_TRANSPORT.md](../BEAR
 
 ## Decision
 
-1. **Introduce `BearerMedium::WifiAware` (discovery-only)** behind [`BearerTransport`](../../crates/mycelium-core/src/bearer_transport.rs) via [`BearerWifiAwareRouter`](../../crates/mycelium-node/src/bearer_wifi_aware.rs).
+1. **Introduce `BearerMedium::WifiAware` (discovery-only)** behind [`BearerTransport`](../../crates/mycena-core/src/bearer_transport.rs) via [`BearerWifiAwareRouter`](../../crates/mycena-node/src/bearer_wifi_aware.rs).
    - `carries_mesh_data() == false` — no MYBR/MYLP mesh payloads on this bearer.
    - Publishes **transport invite URIs only** (≤240 B), same semantic as BLE GATT invite read (F1).
 
 2. **Separate discovery scoring from data-path scoring.**
-   - [`decide_discovery_bearer`](../../crates/mycelium-core/src/transport_score.rs) chooses Wi-Fi Aware vs BLE for **presence**.
-   - [`decide_transport_path`](../../crates/mycelium-core/src/transport_score.rs) is unchanged for **payload routing** (Internet → Wi-Fi Direct → BLE → custody).
+   - [`decide_discovery_bearer`](../../crates/mycena-core/src/transport_score.rs) chooses Wi-Fi Aware vs BLE for **presence**.
+   - [`decide_transport_path`](../../crates/mycena-core/src/transport_score.rs) is unchanged for **payload routing** (Internet → Wi-Fi Direct → BLE → custody).
 
 3. **Android host (`WifiAwareDiscoveryHost.kt`):**
-   - Primary: `WifiAwareManager` publish/subscribe on service name `mycelium-mesh`.
-   - Fallback: `NsdManager` on `_mycelium._tcp` when Aware unavailable.
-   - On peer sighting: `ingest_wifi_aware_discovery` + shared [`TransportInviteHandoff`](../../android/app/src/main/java/network/mycelium/app/bootstrap/TransportInviteHandoff.kt).
+   - Primary: `WifiAwareManager` publish/subscribe on service name `mycena-mesh`.
+   - Fallback: `NsdManager` on `_mycena._tcp` when Aware unavailable.
+   - On peer sighting: `ingest_wifi_aware_discovery` + shared [`TransportInviteHandoff`](../../android/app/src/main/java/io/github/mycena_project/app/bootstrap/TransportInviteHandoff.kt).
    - When Rust reports `prefer_wifi_aware_for_discovery()`, BLE scanner switches to `SCAN_MODE_LOW_POWER`.
 
 4. **BLE remains the data bootstrap path** after discovery (GATT mesh data F2/F3, Wi-Fi Direct upgrade per ADR 007).

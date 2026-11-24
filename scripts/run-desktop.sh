@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
-# Start Mycelium desktop (Tauri) after optional relay checks.
+# Start Mycena desktop (Tauri) after optional relay checks.
 #
 # Usage:
 #   ./scripts/run-desktop.sh              # check relay, then cargo tauri dev
 #   ./scripts/run-desktop.sh --check-only # relay probe only (exit 0/1)
 #   ./scripts/run-desktop.sh --skip-relay-check
-#   MYCELIUM_START_LOCAL_RELAY=1 ./scripts/run-desktop.sh
+#   MYCENA_START_LOCAL_RELAY=1 ./scripts/run-desktop.sh
 #
 # Local relay → point bootstrap at 127.0.0.1 (set after relay prints Peer ID):
-#   export MYCELIUM_BOOTSTRAP_PEERS="/ip4/127.0.0.1/tcp/4001/p2p/<PEER_ID>"
+#   export MYCENA_BOOTSTRAP_PEERS="/ip4/127.0.0.1/tcp/4001/p2p/<PEER_ID>"
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-DESKTOP_DIR="$ROOT/crates/mycelium-desktop"
+DESKTOP_DIR="$ROOT/crates/mycena-desktop"
 UI_DIR="$DESKTOP_DIR/ui"
 CHECK_ONLY=0
 SKIP_RELAY=0
@@ -40,28 +40,28 @@ cleanup() {
 trap cleanup EXIT
 
 if [[ "$SKIP_RELAY" -eq 0 ]]; then
-  if [[ "${MYCELIUM_START_LOCAL_RELAY:-}" == "1" ]]; then
-    echo "Starting local mycelium-relay (logs → /tmp/mycelium-relay.log)…"
-    export MYCELIUM_RELAY_HOST="127.0.0.1"
-    export MYCELIUM_RELAY_STATUS_URL="http://127.0.0.1:8080/"
-    export MYCELIUM_RELAY_HEALTH_URL="http://127.0.0.1:8080/health"
-    RUST_LOG="${RUST_LOG:-info}" cargo run -p mycelium-relay --manifest-path "$ROOT/Cargo.toml" \
-      > /tmp/mycelium-relay.log 2>&1 &
+  if [[ "${MYCENA_START_LOCAL_RELAY:-}" == "1" ]]; then
+    echo "Starting local mycena-relay (logs → /tmp/mycena-relay.log)…"
+    export MYCENA_RELAY_HOST="127.0.0.1"
+    export MYCENA_RELAY_STATUS_URL="http://127.0.0.1:8080/"
+    export MYCENA_RELAY_HEALTH_URL="http://127.0.0.1:8080/health"
+    RUST_LOG="${RUST_LOG:-info}" cargo run -p mycena-relay --manifest-path "$ROOT/Cargo.toml" \
+      > /tmp/mycena-relay.log 2>&1 &
     LOCAL_RELAY_PID=$!
     sleep 2
   fi
 
-  echo "Checking mycelium-relay…"
-  if ! "$ROOT/scripts/check-mycelium-relay.sh"; then
+  echo "Checking mycena-relay…"
+  if ! "$ROOT/scripts/check-mycena-relay.sh"; then
     echo "" >&2
     echo "Relay check failed. Desktop may still start but peer discovery via relay can fail." >&2
-    echo "  • Use production relay: ensure network access to relay.example.invalid:4001 and :8080" >&2
-    echo "  • Or local relay: MYCELIUM_START_LOCAL_RELAY=1 $0" >&2
+    echo "  • Use production relay: ensure network access to mycena-relay.fly.dev:4001 and :8080" >&2
+    echo "  • Or local relay: MYCENA_START_LOCAL_RELAY=1 $0" >&2
     echo "  • Or skip: $0 --skip-relay-check" >&2
     if [[ "$CHECK_ONLY" -eq 1 ]]; then
       exit 1
     fi
-    if [[ "${MYCELIUM_RELAY_STRICT:-}" == "1" ]]; then
+    if [[ "${MYCENA_RELAY_STRICT:-}" == "1" ]]; then
       exit 1
     fi
   else
@@ -99,10 +99,10 @@ if ! cargo tauri --version >/dev/null 2>&1; then
 fi
 
 echo ""
-echo "Starting Mycelium desktop (Tauri dev)…"
+echo "Starting Mycena desktop (Tauri dev)…"
 echo "  • Peer count: status banner / Peers tab in the app"
 echo "  • Relay operator status: Peers tab (HTTP poll every 30s)"
-echo "  • Data dir (macOS): ~/Library/Application Support/mycelium"
+echo "  • Data dir (macOS): ~/Library/Application Support/mycena"
 echo ""
 
 cd "$DESKTOP_DIR"

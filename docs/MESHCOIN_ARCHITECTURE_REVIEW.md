@@ -1,7 +1,7 @@
 # MeshCoin Architecture Review — Emergency Settlement Repositioning
 
 **Date:** May 2026  
-**Scope:** `crates/mycelium-coin`, FFI wallet surface, Android/desktop UX  
+**Scope:** `crates/mycena-coin`, FFI wallet surface, Android/desktop UX  
 **Verdict:** Suitable as **bounded preview utility** after repositioning; **not** production financial infrastructure.
 
 ---
@@ -17,11 +17,11 @@ MeshCoin today is a **local account ledger** with **Ed25519 signed transfers**, 
 ## Current architecture (as-built)
 
 ```
-mycelium-app (gossip dispatch)
+mycena-app (gossip dispatch)
        ↓
 CoinNode ──→ LocalLedger (+ SettlementPolicy, VelocityTracker)
        ↓
-CoinTransport (FFI → libp2p gossip, scope mycelium/coin/v1)
+CoinTransport (FFI → libp2p gossip, scope mycena/coin/v1)
 ```
 
 | Component | Role |
@@ -73,8 +73,8 @@ CoinTransport (FFI → libp2p gossip, scope mycelium/coin/v1)
 | Android notice | MeshCoin experimental | Offline resilience credits |
 | `terms.html` | MeshCoin technology preview | Align with positioning doc |
 | Desktop `Wallet.svelte` | Wallet (muon) | Needs same pass |
-| Code crate name | `mycelium-coin` | Keep internal; public “settlement” |
-| Gossip scope | `mycelium/coin/v1` | Future: `settlement/v1` alias |
+| Code crate name | `mycena-coin` | Keep internal; public “settlement” |
+| Gossip scope | `mycena/coin/v1` | Future: `settlement/v1` alias |
 
 ---
 
@@ -185,7 +185,7 @@ From `SettlementPolicy::beta_defaults()`:
 ## Defensive public positioning
 
 **One sentence:**  
-*Mycelium emergency credits help neighbors trade small amounts offline during outages — capped, non-investment utility, not a cryptocurrency.*
+*Mycena emergency credits help neighbors trade small amounts offline during outages — capped, non-investment utility, not a cryptocurrency.*
 
 **Do not say:** decentralized bank, digital gold, invest, yield, market cap.
 

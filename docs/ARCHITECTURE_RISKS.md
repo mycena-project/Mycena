@@ -1,4 +1,4 @@
-# Mycelium — Architecture Risk Ledger
+# Mycena — Architecture Risk Ledger
 
 **Status:** Pre-public beta · living document
 **Last updated:** May 2026
@@ -33,7 +33,7 @@ This ledger describes **systemic** risks arising from architectural choices—no
                                 ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
 │         INTERNET BOOTSTRAP (trusted-first-use: baked peer IDs)           │
-│  relay.example.invalid · user paste multiaddrs · mDNS LAN               │
+│  mycena-relay.fly.dev · user paste multiaddrs · mDNS LAN               │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -85,7 +85,7 @@ This ledger describes **systemic** risks arising from architectural choices—no
 
 | Mode | Trigger | Outcome |
 |------|---------|---------|
-| Relay outage | VPS / DNS / all federated relays | Internet path degraded; client rotates pool |
+| Relay outage | Fly.io / DNS / all federated relays | Internet path degraded; client rotates pool |
 | Queue flood | SD-030/031 | Battery + storage exhaustion |
 | Bloom sync storm | Large id sets | CPU / bandwidth spike |
 | Play Store removal | Policy violation | Distribution collapse |
@@ -102,7 +102,7 @@ This ledger describes **systemic** risks arising from architectural choices—no
 
 ## 4. Adversary tiers
 
-| Tier | Capability | Mycelium exposure today |
+| Tier | Capability | Mycena exposure today |
 |------|------------|-------------------------|
 | **A0 Script kiddie** | LAN sniffing, spam bots | Unsigned Data, bulletin flood |
 | **A1 Scammer** | Fake mini-apps, MXC fraud | Sideload, experimental coin |
@@ -159,10 +159,10 @@ Architecture currently **O(peers)** fanout on unknown destinations—does not sc
 
 | Mechanism | Location | Effect |
 |-----------|----------|--------|
-| Geohash gossip shards | `mycelium-core::topic_shard` | SOS / location bulletins publish to `{scope}/g/{prefix}` instead of one global topic |
+| Geohash gossip shards | `mycena-core::topic_shard` | SOS / location bulletins publish to `{scope}/g/{prefix}` instead of one global topic |
 | Kademlia query cap | `Libp2pTransport` | ≤8 routing-table queries per 60s window |
-| Auto crowd density | `mycelium-core::crowd_density` + node runner | When visible peers ≥25 (configurable), runtime backoff: Intermittent forwarding, relay fanout 2, mDNS dial cap, peer cap ~20 |
-| Sim validation | `mycelium-sim::dense_cluster` | 520-node dense cluster: sharded fanout ≪ global fanout |
+| Auto crowd density | `mycena-core::crowd_density` + node runner | When visible peers ≥25 (configurable), runtime backoff: Intermittent forwarding, relay fanout 2, mDNS dial cap, peer cap ~20 |
+| Sim validation | `mycena-sim::dense_cluster` | 520-node dense cluster: sharded fanout ≪ global fanout |
 
 Manual **crowd mode** (Settings) still applies dense gossip mesh at transport startup; auto density backoff applies at runtime without restart.
 

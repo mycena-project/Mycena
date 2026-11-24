@@ -4,7 +4,7 @@
 
 **Do not** open public GitHub issues for security vulnerabilities.
 
-Report them privately to **security@example.invalid** with:
+Report them privately to **github.com/mycena-project/Mycena/security/advisories/new** with:
 
 - affected component (app, relay, mini-app runtime) and version or commit hash
 - clear reproduction steps or proof-of-concept
@@ -14,15 +14,15 @@ We aim to acknowledge receipt within **72 hours**, triage severity, and coordina
 
 Preferred channels (in order):
 
-1. Email: **security@example.invalid** (guaranteed private path)
+1. Email: **github.com/mycena-project/Mycena/security/advisories/new** (guaranteed private path)
 2. GitHub Security Advisories: **Security → Report a vulnerability** on this repository — **only if** private vulnerability reporting is enabled in repository settings. If that form is missing, use email.
 
 ## Scope
 
 In scope:
 
-- Mycelium Android app, desktop client, and Rust workspace crates
-- Default public relay (`mycelium-relay`) when operated from the companion repository
+- Mycena Android app, desktop client, and Rust workspace crates
+- Default public relay (`mycena-relay`) when operated from the companion repository
 - Cryptographic handling, mesh transport, store-and-forward, and mini-app sandbox
 
 Out of scope:

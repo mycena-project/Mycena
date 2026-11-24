@@ -1,9 +1,10 @@
-homepage: "https://github.com/mycena-project/Mycelium"
+# Before submitting to OSS-Fuzz: primary_contact and auto_ccs must be e-mail addresses (Google account).
+homepage: "https://github.com/mycena-project/Mycena"
 language: rust
-primary_contact: "security@example.invalid"
-main_repo: "https://github.com/mycena-project/Mycelium.git"
+primary_contact: "https://github.com/mycena-project/Mycena/security/advisories/new"
+main_repo: "https://github.com/mycena-project/Mycena.git"
 auto_ccs:
-  - "security@example.invalid"
+  - "https://github.com/mycena-project/Mycena/security/advisories/new"
 sanitizers:
   - address
 fuzzing_engines:

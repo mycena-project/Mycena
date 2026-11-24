@@ -11,7 +11,7 @@ Legend: **DO NOW** · **DOCUMENT** · **EXTERNAL** · **BLOCKS PLAY** · **DONE*
 
 | Gap | Status | Notes |
 |-----|--------|-------|
-| Privacy policy web URL | **DO NOW** after push | Enable Pages → `https://example.invalid/Mycelium/privacy-policy.html` |
+| Privacy policy web URL | **DO NOW** after push | Enable Pages → `https://mycena-project.github.io/Mycena/privacy-policy.html` |
 | Play Console Data Safety | **DO NOW** (human) | [PLAY_CONSOLE_SUBMIT_CHECKLIST.md](./PLAY_CONSOLE_SUBMIT_CHECKLIST.md) |
 | Relay no-IP-retention ops | **DOCUMENT** | [RELAY_OPERATOR_GUIDE.md §9](./RELAY_OPERATOR_GUIDE.md#9-logging-privacy-and-audit-sd-003-sd-210) |
 | Git commit + push | **DONE** (this pass) | — |
@@ -24,7 +24,7 @@ Legend: **DO NOW** · **DOCUMENT** · **EXTERNAL** · **BLOCKS PLAY** · **DONE*
 
 | Gap | Status | Notes |
 |-----|--------|-------|
-| External security review | **EXTERNAL** | Package: [EXTERNAL_SECURITY_REVIEW.md](./EXTERNAL_SECURITY_REVIEW.md). **Not commissioned.** GitHub-only technical beta: **explicitly deferred** 2026-08-29 (Mycelium maintainers). Play still needs this **scheduled**. Internal note: [SECURITY_RELEASE_REVIEW.md](./SECURITY_RELEASE_REVIEW.md) (not a signed external review). |
+| External security review | **EXTERNAL** | Package: [EXTERNAL_SECURITY_REVIEW.md](./EXTERNAL_SECURITY_REVIEW.md). **Not commissioned.** GitHub-only technical beta: **explicitly deferred** 2026-08-29 (Mycena maintainers). Play still needs this **scheduled**. Internal note: [SECURITY_RELEASE_REVIEW.md](./SECURITY_RELEASE_REVIEW.md) (not a signed external review). |
 | Red-team mini-apps | **EXTERNAL** | — |
 | Metadata / Sybil residuals | **DOCUMENT** | [ACCEPTED_SECURITY_RESIDUALS.md](./ACCEPTED_SECURITY_RESIDUALS.md) |
 
@@ -34,9 +34,9 @@ Legend: **DO NOW** · **DOCUMENT** · **EXTERNAL** · **BLOCKS PLAY** · **DONE*
 
 | Item | Status |
 |------|--------|
-| SD-003 minimal `/health` JSON | **DONE** | `mycelium-relay` |
+| SD-003 minimal `/health` JSON | **DONE** | `mycena-relay` |
 | SD-002 balance query default off | **DONE** | `CoinNode::respond_to_balance_queries = false` |
-| CLI `mycelium_core` import | **DONE** | → `mycelium_l0_facade::privacy_shaping` |
+| CLI `mycena_core` import | **DONE** | → `mycena_l0_facade::privacy_shaping` |
 | Mutex poison recovery + tests | **DONE** | — |
 | Threat model + policy + Pages workflow | **DONE** | — |
 

@@ -6,7 +6,7 @@
 
 ## Before submit
 
-- [ ] GitHub Pages live: `https://example.invalid/Mycelium/privacy-policy.html`
+- [ ] GitHub Pages live: `https://mycena-project.github.io/Mycena/privacy-policy.html`
 - [ ] In-app policy matches web (`make sync-privacy-policy` + CI green)
 - [ ] Release build tested on physical device
 - [ ] MeshCoin experimental disclaimer visible in wallet UI
@@ -19,7 +19,7 @@
 
 | Field | Value |
 |-------|-------|
-| **URL** | `https://example.invalid/Mycelium/privacy-policy.html` |
+| **URL** | `https://mycena-project.github.io/Mycena/privacy-policy.html` |
 
 ### Data safety (summary answers)
 
@@ -47,9 +47,9 @@ See [PLAY_CONSOLE_DATA_SAFETY.md §2](./PLAY_CONSOLE_DATA_SAFETY.md#2-data-types
 
 | Party | Shared? |
 |-------|---------|
-| Other Mycelium users (P2P) | Yes |
+| Other Mycena users (P2P) | Yes |
 | Relay operator (IP, circuit metadata) | Yes when Internet path used |
-| the maintainer analytics | No |
+| Project analytics | No |
 
 ---
 

@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  CI_TIER: ${{ vars.MYCELIUM_CI_TIER || 'budget' }}
+  CI_TIER: ${{ vars.MYCENA_CI_TIER || 'budget' }}
   FUZZ_SECONDS: "45"
 
 jobs:

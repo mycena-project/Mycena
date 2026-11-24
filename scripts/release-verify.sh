@@ -8,4 +8,4 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 MANIFEST="${1:?usage: release-verify.sh MANIFEST.json ARTIFACT}"
 ARTIFACT="${2:?usage: release-verify.sh MANIFEST.json ARTIFACT}"
 
-cargo run -q -p mycelium-cli -- release verify "$MANIFEST" "$ARTIFACT" --repo "$ROOT"
+cargo run -q -p mycena-cli -- release verify "$MANIFEST" "$ARTIFACT" --repo "$ROOT"

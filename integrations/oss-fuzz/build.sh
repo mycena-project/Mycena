@@ -1,8 +1,8 @@
 #!/bin/bash -eu
-# OSS-Fuzz build script — copied to projects/mycelium/build.sh in google/oss-fuzz.
+# OSS-Fuzz build script — copied to projects/mycena/build.sh in google/oss-fuzz.
 # Builds libFuzzer binaries from the in-repo cargo-fuzz workspace.
 
-cd "$SRC/mycelium/fuzz"
+cd "$SRC/mycena/fuzz"
 
 export RUSTFLAGS="${RUSTFLAGS:-} --cfg fuzzing"
 

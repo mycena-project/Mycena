@@ -12,7 +12,7 @@ Review cadence: **quarterly** or on any `Cargo.lock` change touching a row below
 |------|---------|----------------|
 | **cargo-deny** | SPDX license allow-list; RustSec advisories; duplicate bans | Unlisted license; vulnerability/unsound not in `deny.toml` ignore |
 | **cargo-audit** | Second opinion on RustSec DB | Critical/high severity, DoS/RCE categories, or CVSS ≥ 7 — unless listed in [`DEPENDENCY_ADVISORY_ALLOWLIST.tsv`](./DEPENDENCY_ADVISORY_ALLOWLIST.tsv) |
-| **cargo-cyclonedx** | SBOM artifact | Release workflow attaches `mycelium-sbom-*.cdx.json` |
+| **cargo-cyclonedx** | SBOM artifact | Release workflow attaches `mycena-sbom-*.cdx.json` |
 
 Allowlisted advisories **must** have a `review_by` date; expired rows fail `./scripts/check-advisory-allowlist.sh` (called from `check-dependencies.sh`).
 
@@ -20,7 +20,7 @@ Allowlisted advisories **must** have a `review_by` date; expired rows fail `./sc
 
 ## sled — embedded datastore (decision: **observe + plan migration**)
 
-Mycelium pins **`sled 0.34.7`** (`Cargo.toml` workspace dependency). It is the default on-device KV for messages, coin ledger, mini-app store, ratchet sessions, trust caches, and more (see [ARCHITECTURE_RISKS.md §5.3](./ARCHITECTURE_RISKS.md)).
+Mycena pins **`sled 0.34.7`** (`Cargo.toml` workspace dependency). It is the default on-device KV for messages, coin ledger, mini-app store, ratchet sessions, trust caches, and more (see [ARCHITECTURE_RISKS.md §5.3](./ARCHITECTURE_RISKS.md)).
 
 ### Maintenance assessment (2026-07-05)
 
@@ -90,7 +90,7 @@ Allowlisted until **2026-12-31** — see [`DEPENDENCY_ADVISORY_ALLOWLIST.tsv`](.
 
 Each tagged release publishes:
 
-- `mycelium-sbom-<tag>.cdx.json` — CycloneDX JSON (workspace, all features)
+- `mycena-sbom-<tag>.cdx.json` — CycloneDX JSON (workspace, all features)
 - `sbom-manifest.json` — generator metadata
 
 Regenerate locally:

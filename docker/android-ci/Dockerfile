@@ -1,7 +1,7 @@
 # Minimal Android + Rust toolchain image (no project sources baked in).
 #
 # Build image (small context — only this directory):
-#   docker build --platform linux/amd64 -t mycelium-android-ci docker/android-ci
+#   docker build --platform linux/amd64 -t mycena-android-ci docker/android-ci
 #
 # Build APK (mount repo at run time):
 #   ./scripts/docker-android-build.sh

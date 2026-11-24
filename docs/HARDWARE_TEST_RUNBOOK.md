@@ -45,9 +45,9 @@ Existing specialized procedures (run as cited; do not copy them here):
 - Freeze APK: **Technical Beta** universal `assembleRelease` APK (not debug, not a Play split). Build or install:
 
 ```bash
-# from Mycelium repo root
+# from Mycena repo root
 ./scripts/build-technical-beta-apk.sh
-adb install -r artifacts/technical-beta/mycelium-*-technical-beta-android.apk
+adb install -r artifacts/technical-beta/mycena-*-technical-beta-android.apk
 ./scripts/android/capture-freeze-evidence.sh apk-sha
 ```
 
@@ -86,10 +86,10 @@ Paste **device identity + result + path to `artifacts/hardware-runs/<id>/`** int
 | Need | Command |
 |------|---------|
 | Fresh identity / as-if new install data | `make android-nuke` (`adb shell pm clear`) |
-| Keep identity, restart process | force-stop from recents or `adb shell am force-stop network.mycelium.app` |
+| Keep identity, restart process | force-stop from recents or `adb shell am force-stop io.github.mycena_project.app` |
 | Reinstall same APK, keep data | `adb install -r <apk>` (same signing key) |
 
-Package: `network.mycelium.app`.
+Package: `io.github.mycena_project.app`.
 
 ### 2.4 Suggested order (one Pixel + one Samsung, two days)
 
@@ -105,7 +105,7 @@ Emulator **API 26** may stand in for HV-01 crash-smoke (`NoSuchMethodError`) as 
 
 **Checkpoint 2026-08-30 — start here when Device B appears.** Pixel 6 already has HV-01–05, HV-12 short, HV-13, HV-16. Keep that install. Full reminder: [HARDWARE_TEST_MATRIX.md](./HARDWARE_TEST_MATRIX.md) (Resume box at top).
 
-**Desktop is not Device B for G3.** Phone-to-phone APK share (HV-10 / HV-11, P2P-MT-05–08) needs **two Android installs**. Tauri / `mycelium-cli` on this Mac can stand in for **LAN peer + chat** (HV-07 / HV-08 / then HV-09 / HV-14) if both are on the **same Wi-Fi** (not client-isolated). Mac/laptop BLE is **not** a freeze BLE-air peer ([KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md)).
+**Desktop is not Device B for G3.** Phone-to-phone APK share (HV-10 / HV-11, P2P-MT-05–08) needs **two Android installs**. Tauri / `mycena-cli` on this Mac can stand in for **LAN peer + chat** (HV-07 / HV-08 / then HV-09 / HV-14) if both are on the **same Wi-Fi** (not client-isolated). Mac/laptop BLE is **not** a freeze BLE-air peer ([KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md)).
 
 **Still doable on Device A alone** (do **not** HV-18 panic before a two-phone window — that wipes identity):
 
@@ -123,7 +123,7 @@ Emulator **API 26** may stand in for HV-01 crash-smoke (`NoSuchMethodError`) as 
 
 **10-minute two-Android sprint** (when a second phone appears):
 
-1. Copy `artifacts/technical-beta/mycelium-0.1.75-technical-beta-android.apk` to the second phone (USB / laptop). SHA-256 `276e653ee6c128445a83b133bf98c9b3b83a306fc461859f4fbb6a9dacf11678`. **Not** `make android-install` (debug).
+1. Copy `artifacts/technical-beta/mycena-0.1.75-technical-beta-android.apk` to the second phone (USB / laptop). SHA-256 `276e653ee6c128445a83b133bf98c9b3b83a306fc461859f4fbb6a9dacf11678`. **Not** `make android-install` (debug).
 2. Device A: stay onboarded. Airplane **off** or Wi-Fi on same SSID as B. Do not panic-wipe first.
 3. Device B: fresh install → onboard (HV-01–03 on B, abbreviated).
 4. **G3 minimum:** Device A Share → phone-to-phone → grant Nearby → **P2P-MT-05** (URL host ≠ localhost) → B opens URL → hash match → install (**P2P-MT-06–07**). Then B scans A Contacts QR or `.myc` (**P2P-MT-08**). Then A leaves Share; B cannot download (**P2P-MT-10**).
@@ -153,8 +153,8 @@ Fill pass/fail in the matrix, not here. **Evidence** is the minimum to attach (f
 | Field | Content |
 |-------|---------|
 | **Gates** | G2, G9 |
-| **Preconditions** | APK SHA recorded. Device has USB debugging. Uninstall Mycelium if present (`adb uninstall network.mycelium.app`) so this is not an update. |
-| **Steps** | `adb install` of the **Technical Beta** APK (`artifacts/technical-beta/mycelium-*-technical-beta-android.apk`). Do **not** use `make android-install` (that is the debug APK). Open the launcher icon. |
+| **Preconditions** | APK SHA recorded. Device has USB debugging. Uninstall Mycena if present (`adb uninstall io.github.mycena_project.app`) so this is not an update. |
+| **Steps** | `adb install` of the **Technical Beta** APK (`artifacts/technical-beta/mycena-*-technical-beta-android.apk`). Do **not** use `make android-install` (that is the debug APK). Open the launcher icon. |
 | **Expected** | Install succeeds. App appears. No Play-only split-APK error. |
 | **Evidence** | `adb install` output; `device.txt` from the capture script; APK SHA-256. |
 | **Notes** | Signature mismatch vs a Play/CI build: uninstall first (script may do this unless `--no-replace`). |
@@ -165,9 +165,9 @@ Fill pass/fail in the matrix, not here. **Evidence** is the minimum to attach (f
 |-------|---------|
 | **Gates** | G2 |
 | **Preconditions** | HV-01; no leftover data (`pm clear` if unsure). |
-| **Steps** | Open Mycelium. Wait up to **15 s**. |
+| **Steps** | Open Mycena. Wait up to **15 s**. |
 | **Expected** | Onboarding **or** main UI. Never an infinite spinner. Failure shows error + **Try again** (`mesh_start_failed`). |
-| **Evidence** | Observation; on failure `MyceliumStability` lines (`op=MeshService.initNode` or `MainActivity.nodeWait`). |
+| **Evidence** | Observation; on failure `MycenaStability` lines (`op=MeshService.initNode` or `MainActivity.nodeWait`). |
 | **Notes** | OEM-MT-02 is the same check after force-stop. |
 
 ### HV-03 — Onboarding
@@ -198,9 +198,9 @@ Fill pass/fail in the matrix, not here. **Evidence** is the minimum to attach (f
 |-------|---------|
 | **Gates** | G2 |
 | **Preconditions** | HV-03. |
-| **Steps** | After onboarding, confirm the mesh service is up: UI usable; optional `adb shell dumpsys activity services network.mycelium.app/.MeshService`. |
+| **Steps** | After onboarding, confirm the mesh service is up: UI usable; optional `adb shell dumpsys activity services io.github.mycena_project.app/.MeshService`. |
 | **Expected** | `MeshService` running as foreground service. Cold start twice in a row (plan G2). |
-| **Evidence** | Second cold start noted; logcat `MeshService` / `MyceliumStability` if it failed. |
+| **Evidence** | Second cold start noted; logcat `MeshService` / `MycenaStability` if it failed. |
 | **Notes** | If `nodeFailed`, retry must start the service again. |
 
 ### HV-06 — BLE
@@ -211,7 +211,7 @@ Fill pass/fail in the matrix, not here. **Evidence** is the minimum to attach (f
 | **Preconditions** | Two phones **or** one phone + known BLE peer. Bluetooth on. BLE mesh enabled in Settings; Nearby/Bluetooth granted. |
 | **Steps** | Enable Bluetooth mesh. Place devices in range. Optional: airplane mode + Bluetooth on for BLE-air (DISASTER_MESH 2.4–2.5). |
 | **Expected** | Scan/advertise starts without crash. Nearby list or handoff log, **or** honest “nobody in range.” Revoke Bluetooth in system Settings while scanning → no crash (OEM-MT-05). |
-| **Evidence** | `BleScanner` / `BleBootstrap` / `MyceliumStability` (`BleScanner.startScan` SecurityException is a **pass** if UI stops scanning). |
+| **Evidence** | `BleScanner` / `BleBootstrap` / `MycenaStability` (`BleScanner.startScan` SecurityException is a **pass** if UI stops scanning). |
 | **Notes** | Pocket-mesh unverified → skip-with-disposition and keep RFB-DOC-05 / KNOWN_LIMITATIONS. Do not claim airplane BLE chat unless this row is **pass**. |
 
 ### HV-07 — Wi-Fi (LAN discovery)
@@ -253,7 +253,7 @@ Fill pass/fail in the matrix, not here. **Evidence** is the minimum to attach (f
 |-------|---------|
 | **Gates** | G3 |
 | **Preconditions** | Device A has the **universal** APK. Two physical phones. Follow [PHONE_TO_PHONE_MANUAL_TEST.md](./PHONE_TO_PHONE_MANUAL_TEST.md) P2P-MT-02–05, 09–14 as time allows; **minimum G3: P2P-MT-05**. |
-| **Steps** | Device A: Share Mycelium → phone-to-phone. Grant Nearby/location. Keep Share screen open. |
+| **Steps** | Device A: Share Mycena → phone-to-phone. Grant Nearby/location. Keep Share screen open. |
 | **Expected** | Hotspot, Direct, or documented fallback. Install URL host is **not** `localhost` / `127.0.0.1`. Blank SSID → no Wi-Fi QR. No crash on deny (P2P-MT-02). |
 | **Evidence** | Share mode used; photo of URL **host**; logcat `ShareAppViewModel` / `WifiDirectSharer` / `LocalHotspot`. |
 | **Notes** | Share is foreground-only. Leaving the screen stops the server (P2P-MT-10). |
@@ -308,7 +308,7 @@ Fill pass/fail in the matrix, not here. **Evidence** is the minimum to attach (f
 |-------|---------|
 | **Gates** | G6 |
 | **Preconditions** | HV-05. |
-| **Steps** | Reboot the phone. Open Mycelium (do not expect mesh before the user opens the app unless documented otherwise). |
+| **Steps** | Reboot the phone. Open Mycena (do not expect mesh before the user opens the app unless documented otherwise). |
 | **Expected** | App launches. Mesh starts after open (no silent FGS-from-boot requirement). Identity kept. |
 | **Evidence** | Observation. |
 | **Notes** | Sticky FGS after reboot is not a freeze P0. |
@@ -330,7 +330,7 @@ Fill pass/fail in the matrix, not here. **Evidence** is the minimum to attach (f
 |-------|---------|
 | **Gates** | G6 Reinstall |
 | **Preconditions** | Identity exists. |
-| **Steps** | `adb uninstall network.mycelium.app`. Confirm icon gone. `adb install <apk>`. Open. |
+| **Steps** | `adb uninstall io.github.mycena_project.app`. Confirm icon gone. `adb install <apk>`. Open. |
 | **Expected** | Onboarding as first launch. Previous identity **gone** (no backup restore). |
 | **Evidence** | Uninstall + install output. |
 | **Notes** | Contrast with HV-16. `make android-nuke` clears data without uninstall. |

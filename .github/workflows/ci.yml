@@ -1,6 +1,6 @@
-name: Mycelium CI
+name: Mycena CI
 
-# Budget-first CI for private repos. Set repository variable MYCELIUM_CI_TIER=full
+# Budget-first CI for private repos. Set repository variable MYCENA_CI_TIER=full
 # when going public (see docs/CI_PUBLIC_TRANSITION.md).
 
 on:
@@ -21,7 +21,7 @@ concurrency:
 
 env:
   # Default "budget" when the repo variable is unset (private pilot).
-  CI_TIER: ${{ vars.MYCELIUM_CI_TIER || 'budget' }}
+  CI_TIER: ${{ vars.MYCENA_CI_TIER || 'budget' }}
 
 jobs:
   changes:
@@ -57,7 +57,7 @@ jobs:
               - '.github/**'
             android:
               - 'android/**'
-              - 'crates/mycelium-ffi/**'
+              - 'crates/mycena-ffi/**'
 
   meta:
     if: github.actor != 'dependabot[bot]'
@@ -169,22 +169,22 @@ jobs:
           git diff --exit-code android/app/src/main/assets/privacy_policy.html
 
       - name: Clippy (exclude desktop — saves UI/npm build on PR)
-        run: cargo clippy --workspace --exclude mycelium-desktop --all-targets -- -D warnings
+        run: cargo clippy --workspace --exclude mycena-desktop --all-targets -- -D warnings
 
       - name: Layer cargo boundaries
         run: ./scripts/check-layer-boundaries.sh
 
       - name: Unit + integration tests (nextest, exclude desktop)
-        run: cargo nextest run --workspace --exclude mycelium-desktop --profile ci-budget
+        run: cargo nextest run --workspace --exclude mycena-desktop --profile ci-budget
 
       - name: Security regression gates
         run: |
-          cargo nextest run -p mycelium-core release_integrity --lib --profile ci-budget
-          cargo nextest run -p mycelium-node --test mutex_poison_recovery --profile ci-budget
-          cargo nextest run -p mycelium-ffi ffi_global_slots_survive_mutex_poison --lib --profile ci-budget
+          cargo nextest run -p mycena-core release_integrity --lib --profile ci-budget
+          cargo nextest run -p mycena-node --test mutex_poison_recovery --profile ci-budget
+          cargo nextest run -p mycena-ffi ffi_global_slots_survive_mutex_poison --lib --profile ci-budget
 
-      - name: MyceliumLab CI gates
-        run: cargo nextest run -p mycelium-sim sim_ci_gates --profile ci-budget --test-threads 1
+      - name: MycenaLab CI gates
+        run: cargo nextest run -p mycena-sim sim_ci_gates --profile ci-budget --test-threads 1
 
   rust-full-linux:
     needs: [changes, meta]
@@ -230,10 +230,10 @@ jobs:
         with:
           node-version: "20"
           cache: npm
-          cache-dependency-path: crates/mycelium-desktop/ui/package-lock.json
+          cache-dependency-path: crates/mycena-desktop/ui/package-lock.json
 
       - name: Build desktop UI
-        working-directory: crates/mycelium-desktop/ui
+        working-directory: crates/mycena-desktop/ui
         run: npm ci && npm run build
 
       - name: Format
@@ -264,8 +264,8 @@ jobs:
       - name: All tests (nextest, including integration)
         run: cargo nextest run --workspace --profile ci-full
 
-      - name: MyceliumLab CI gates
-        run: cargo nextest run -p mycelium-sim sim_ci_gates --profile ci-full --test-threads 1
+      - name: MycenaLab CI gates
+        run: cargo nextest run -p mycena-sim sim_ci_gates --profile ci-full --test-threads 1
 
   rust-cross:
     needs: [changes, meta]
@@ -296,10 +296,10 @@ jobs:
       - uses: ./.github/actions/setup-cargo-nextest
 
       - name: Clippy (exclude desktop)
-        run: cargo clippy --workspace --exclude mycelium-desktop --all-targets -- -D warnings
+        run: cargo clippy --workspace --exclude mycena-desktop --all-targets -- -D warnings
 
       - name: Unit tests (nextest, lib only)
-        run: cargo nextest run --workspace --exclude mycelium-desktop --lib --profile ci-full
+        run: cargo nextest run --workspace --exclude mycena-desktop --lib --profile ci-full
 
   # Always-green name for branch protection. Conditional jobs above may skip
   # (docs-only PRs, full vs budget tier); GitHub treats skipped required checks as failing.

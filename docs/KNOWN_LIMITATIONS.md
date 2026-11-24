@@ -1,4 +1,4 @@
-# Mycelium — Known Limitations
+# Mycena — Known Limitations
 
 **Honest user-facing limitations** for public beta.
 Not a marketing document.
@@ -86,7 +86,7 @@ Treat as **preview only**:
 
 ## HIGH-RISK USER WARNINGS
 
-**Do not rely on Mycelium beta for:**
+**Do not rely on Mycena beta for:**
 
 - Life-threatening situations without backup comms (SMS, satellite, in-person).
 - Evading state surveillance **solely** via this app.
@@ -119,7 +119,7 @@ Treat as **preview only**:
 
 | Area | What works | What does not |
 |------|------------|---------------|
-| Mini-apps | Network block, sessions, caps, safe mode, bundle scan, Android isolated process, strict CSP (no inline scripts), sideload requires `mycelium-bundle.sig.json` | WebView CVE class |
+| Mini-apps | Network block, sessions, caps, safe mode, bundle scan, Android isolated process, strict CSP (no inline scripts), sideload requires `mycena-bundle.sig.json` | WebView CVE class |
 | Chat E2E | Encrypted path when keys present; send blocked without peer enc key | Metadata still visible |
 | Install | Listing verify, revocation, downgrade block | Sideload still possible |
 | Relay | Circuit limits, blind forward | Single operator, IP visibility |
@@ -135,10 +135,10 @@ Treat as **preview only**:
 - **Mini-app direct messaging** requires the recipient to have **accepted** the sender as a contact; there is no anonymous DM bridge bypass.
 - **Phone-to-phone APK share is foreground-only.** Leaving the Share screen or killing the process stops the HTTP server. There is no share foreground service in this freeze.
 - **Downloads auto-join is not reliable** on Android 10+ (scoped storage). Recipients scan the sharer’s invite QR or pick the `.myc` file. Listing another app’s Downloads is best-effort only.
-- **Samsung Auto Blocker, unknown-source install, and Play Protect** can block sideload. Mycelium does not bypass them; the landing page explains the settings the user must change.
+- **Samsung Auto Blocker, unknown-source install, and Play Protect** can block sideload. Mycena does not bypass them; the landing page explains the settings the user must change.
 - **Play Store split installs cannot be shared** as a complete APK. Use the GitHub universal APK.
 - **LocalOnlyHotspot / Wi‑Fi Direct** need Nearby Wi‑Fi (API 33+) or fine location (API 26–32). Location toggle is still required on older APIs. Wi‑Fi Direct `registerReceiver` uses AndroidX so API 26–32 does not crash; that path still needs a device/emulator log (see freeze backlog RFB-P2P-01).
-- **Samsung Galaxy / One UI is not hardware-verified** for this freeze. Static mitigations (receivers, P2P null-safety, BLE SecurityException, FGS type, start-failure UI) are listed in [SAMSUNG_STABILITY_AUDIT.md](./SAMSUNG_STABILITY_AUDIT.md). **VERIFIED ON REAL SAMSUNG HARDWARE: none.** Auto Blocker / unknown apps / Play Protect can block sideload; Mycelium does not bypass them.
+- **Samsung Galaxy / One UI is not hardware-verified** for this freeze. Static mitigations (receivers, P2P null-safety, BLE SecurityException, FGS type, start-failure UI) are listed in [SAMSUNG_STABILITY_AUDIT.md](./SAMSUNG_STABILITY_AUDIT.md). **VERIFIED ON REAL SAMSUNG HARDWARE: none.** Auto Blocker / unknown apps / Play Protect can block sideload; Mycena does not bypass them.
 
 ---
 
@@ -152,7 +152,7 @@ These gaps were reviewed and left out of scope because mini-apps or settings alr
 | Desktop Settings for scope keys | Encrypted channels are managed in **Android Settings** today; desktop users install mini-apps that declare bulletin scopes. |
 | Curated signed store listings in-repo | Bundles (`meshaid.mxa`, `meshmarket.mxa`, `proximity.mxa`) ship for sideload; gossip store curation needs operator keys and policy. |
 | `MiniAppRunnerScreen` (legacy WebView) | Superseded by `MiniAppProcessActivity` (isolated process). Legacy path retained for reference only. |
-| Full mesh multi-node CI for proximity DM | Unit/integration tests cover bulletin relay, presence ingest, and mutual-match gating; live two-node mesh tests remain in `mycelium-sim` scenarios. |
+| Full mesh multi-node CI for proximity DM | Unit/integration tests cover bulletin relay, presence ingest, and mutual-match gating; live two-node mesh tests remain in `mycena-sim` scenarios. |
 
 ---
 

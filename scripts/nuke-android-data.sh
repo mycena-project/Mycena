@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Scorched-earth wipe of all Mycelium Android app data on a USB-connected device.
+# Scorched-earth wipe of all Mycena Android app data on a USB-connected device.
 # Use when `adb install -r` preserved old contacts/identity across reinstall.
 #
 #   make android-nuke
 #   ./scripts/nuke-android-data.sh
 set -euo pipefail
 
-PKG="${MYCELIUM_ANDROID_PACKAGE:-network.mycelium.app}"
+PKG="${MYCENA_ANDROID_PACKAGE:-io.github.mycena_project.app}"
 
 if ! command -v adb >/dev/null 2>&1; then
   echo "adb not found — install Android platform-tools" >&2

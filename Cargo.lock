@@ -4150,7 +4150,7 @@ dependencies = [
  "blake3",
  "clap",
  "libp2p",
- "mycelium-miniapp",
+ "mycena-miniapp",
  "serde",
  "serde_json",
  "tempfile",
@@ -4287,7 +4287,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "mycelium-app"
+name = "mycena-app"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -4302,10 +4302,10 @@ dependencies = [
  "hkdf",
  "hmac",
  "libp2p",
- "mycelium-coin",
- "mycelium-l0-facade",
- "mycelium-l1-facade",
- "mycelium-miniapp",
+ "mycena-coin",
+ "mycena-l0-facade",
+ "mycena-l1-facade",
+ "mycena-miniapp",
  "rand 0.8.6",
  "serde",
  "serde_json",
@@ -4322,7 +4322,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "mycelium-cli"
+name = "mycena-cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -4330,10 +4330,10 @@ dependencies = [
  "clap",
  "embedded-hal",
  "linux-embedded-hal",
- "mycelium-app",
- "mycelium-coin",
- "mycelium-l0-facade",
- "mycelium-l1-facade",
+ "mycena-app",
+ "mycena-coin",
+ "mycena-l0-facade",
+ "mycena-l1-facade",
  "rppal",
  "serde_json",
  "ssd1306",
@@ -4344,7 +4344,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "mycelium-coin"
+name = "mycena-coin"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -4353,8 +4353,8 @@ dependencies = [
  "blake3",
  "bs58",
  "libp2p",
- "mycelium-l0-facade",
- "mycelium-l1-facade",
+ "mycena-l0-facade",
+ "mycena-l1-facade",
  "serde",
  "sled",
  "tempfile",
@@ -4365,7 +4365,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "mycelium-core"
+name = "mycena-core"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -4390,7 +4390,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "mycelium-desktop"
+name = "mycena-desktop"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -4399,10 +4399,10 @@ dependencies = [
  "bincode",
  "blew",
  "dirs 5.0.1",
- "mycelium-app",
- "mycelium-coin",
- "mycelium-l0-facade",
- "mycelium-l1-facade",
+ "mycena-app",
+ "mycena-coin",
+ "mycena-l0-facade",
+ "mycena-l1-facade",
  "once_cell",
  "serde",
  "serde_json",
@@ -4419,16 +4419,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "mycelium-ffi"
+name = "mycena-ffi"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
- "mycelium-app",
- "mycelium-coin",
- "mycelium-core",
- "mycelium-l1-facade",
- "mycelium-node",
+ "mycena-app",
+ "mycena-coin",
+ "mycena-core",
+ "mycena-l1-facade",
+ "mycena-node",
  "once_cell",
  "serde_json",
  "tokio",
@@ -4440,13 +4440,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "mycelium-l0-facade"
+name = "mycena-l0-facade"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "hex",
  "libp2p",
- "mycelium-core",
+ "mycena-core",
  "sled",
  "tempfile",
  "tracing",
@@ -4454,15 +4454,15 @@ dependencies = [
 ]
 
 [[package]]
-name = "mycelium-l1-facade"
+name = "mycena-l1-facade"
 version = "0.1.0"
 dependencies = [
- "mycelium-l0-facade",
- "mycelium-node",
+ "mycena-l0-facade",
+ "mycena-node",
 ]
 
 [[package]]
-name = "mycelium-miniapp"
+name = "mycena-miniapp"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -4472,7 +4472,7 @@ dependencies = [
  "hex",
  "hmac",
  "libp2p",
- "mycelium-l0-facade",
+ "mycena-l0-facade",
  "serde",
  "serde_json",
  "sha2",
@@ -4487,7 +4487,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "mycelium-node"
+name = "mycena-node"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -4497,8 +4497,8 @@ dependencies = [
  "futures",
  "hex",
  "libp2p",
- "mycelium-core",
- "mycelium-l0-facade",
+ "mycena-core",
+ "mycena-l0-facade",
  "proptest",
  "serde",
  "serde_cbor",
@@ -4510,15 +4510,15 @@ dependencies = [
 ]
 
 [[package]]
-name = "mycelium-relay"
+name = "mycena-relay"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "axum",
  "clap",
  "libp2p",
- "mycelium-l0-facade",
- "mycelium-l1-facade",
+ "mycena-l0-facade",
+ "mycena-l1-facade",
  "serde",
  "serde_json",
  "tokio",
@@ -4527,16 +4527,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "mycelium-sim"
+name = "mycena-sim"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
  "clap",
  "libp2p",
- "mycelium-coin",
- "mycelium-core",
- "mycelium-node",
+ "mycena-coin",
+ "mycena-core",
+ "mycena-node",
  "tempfile",
  "tokio",
 ]

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 if [[ ! -f /src/android/build.sh ]]; then
-  echo "ERROR: mount the Mycelium repo at /src (e.g. -v \"\$PWD:/src\")" >&2
+  echo "ERROR: mount the Mycena repo at /src (e.g. -v \"\$PWD:/src\")" >&2
   exit 1
 fi
 

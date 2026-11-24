@@ -2,8 +2,8 @@
 
 **Status:** Experimental, **off by default**. Use these numbers for a cost/benefit decision before enabling traffic shaping for all users.
 
-**Implementation:** `crates/mycelium-core/src/privacy_shaping.rs`  
-**Node integration:** `crates/mycelium-node/src/node.rs` (batch queue, padding on forward, scope bucketing on `ScopeAnnounce`, cover traffic gated by `energy.rs`)
+**Implementation:** `crates/mycena-core/src/privacy_shaping.rs`  
+**Node integration:** `crates/mycena-node/src/node.rs` (batch queue, padding on forward, scope bucketing on `ScopeAnnounce`, cover traffic gated by `energy.rs`)
 
 ---
 
@@ -13,7 +13,7 @@
 |---------|----------|
 | **Padding** | `Envelope::payload` padded to 256 B / 1 KiB / 4 KiB / 16 KiB buckets (trailer `MPAD` + original length) |
 | **Batching** | Non-`High` priority direct sends held in `BatchingScheduler`; flush at random interval in `[batch_min_ms, batch_max_ms]` |
-| **Scope bucketing (SD-004)** | `ScopeAnnounce` lists parent wildcards (e.g. `mycelium/bulletin/berlin/*`) instead of exact leaf scopes |
+| **Scope bucketing (SD-004)** | `ScopeAnnounce` lists parent wildcards (e.g. `mycena/bulletin/berlin/*`) instead of exact leaf scopes |
 | **Cover traffic** | Signed dummy `DirectMessage` with body `[shade:cover:v1]`; dropped silently on ingest; interval scaled by energy state |
 
 ### Profiles (batch window)
@@ -39,7 +39,7 @@
 Reproduce:
 
 ```bash
-cargo test -p mycelium-core privacy_shaping_benchmark -- --nocapture
+cargo test -p mycena-core privacy_shaping_benchmark -- --nocapture
 ```
 
 ### CPU (pad + unpad)

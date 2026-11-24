@@ -17,7 +17,7 @@ Messages can reach a destination **hours later** via physical carriers even when
 
 ## Spray-and-wait copy budget
 
-Unlike [`ProbabilisticForwardingPolicy`](../crates/mycelium-node/src/forwarding.rs) (probabilistic fanout per hop), custody uses **bounded network copies**:
+Unlike [`ProbabilisticForwardingPolicy`](../crates/mycena-node/src/forwarding.rs) (probabilistic fanout per hop), custody uses **bounded network copies**:
 
 - `max_custody_spray` default **3** — max duplicate copies the **origin** releases into the mesh
 - Origin **sprays** on encounter; after spray budget, origin **transfers** like a carrier
@@ -63,7 +63,7 @@ Periodic `forward_once` tick also runs `forward_custody_once` using encounter-ra
 ## Simulation
 
 ```bash
-cargo test -p mycelium-sim city_custody
+cargo test -p mycena-sim city_custody
 ```
 
 `custody_scenarios::city_custody_delivery` — 50–200 nodes, grid-scattered carriers with random walk, fixed sender/receiver corners, BLE-range links, churn; asserts delivery with **zero** direct sender↔receiver radio links.

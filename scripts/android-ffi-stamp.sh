@@ -4,9 +4,9 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 STAMP="$ROOT/android/rust-build/.ffi-stamp"
-UDL="$ROOT/crates/mycelium-ffi/src/mycelium.udl"
-LIBRS="$ROOT/crates/mycelium-ffi/src/lib.rs"
-CARGO_TOML="$ROOT/crates/mycelium-ffi/Cargo.toml"
+UDL="$ROOT/crates/mycena-ffi/src/mycena.udl"
+LIBRS="$ROOT/crates/mycena-ffi/src/lib.rs"
+CARGO_TOML="$ROOT/crates/mycena-ffi/Cargo.toml"
 
 compute() {
   {

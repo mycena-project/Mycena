@@ -1,4 +1,4 @@
-# Mycelium — Incident Response Runbook
+# Mycena — Incident Response Runbook
 
 **Audience:** Maintainers, relay operators, release managers
 **Assumption:** No central user database; incidents are **distributed**, **client-side**, and **infrastructure** events.
@@ -24,7 +24,7 @@
 |------|----------------|
 | **Incident lead** | Triage, comms, timeline |
 | **Engineering** | Patch, release, metrics |
-| **Relay operator** | VPS host, DNS, relay key |
+| **Relay operator** | Fly.io host, DNS, relay key |
 | **Legal** | CSAM, subpoena, store policy |
 
 There is no 24/7 SOC unless the project establishes one.
@@ -52,7 +52,7 @@ There is no 24/7 SOC unless the project establishes one.
 **Immediate:**
 
 1. Stop promoting the compromised multiaddr in docs/bootstrap.
-2. Rotate the relay libp2p keypair on the VPS volume and record the new Peer ID.
+2. Rotate the relay libp2p keypair on the Fly.io volume and record the new Peer ID.
 3. Ship an emergency release with the updated baked bootstrap (or a signed bootstrap manifest when available).
 4. Post a public notice: “Rotate to build X; old relay Peer ID untrusted.”
 
@@ -64,7 +64,7 @@ There is no 24/7 SOC unless the project establishes one.
 
 ### 4.2 DNS / domain takeover (SEV-1/2)
 
-**Indicators:** `relay.example.invalid` resolves elsewhere.
+**Indicators:** `mycena-relay.fly.dev` resolves elsewhere.
 
 **Immediate:**
 
@@ -94,7 +94,7 @@ There is no 24/7 SOC unless the project establishes one.
 
 ### 4.4 Malicious APK redistribution (SEV-2)
 
-**Indicators:** Fake “Mycelium” APK with malware; wrong signature.
+**Indicators:** Fake “Mycena” APK with malware; wrong signature.
 
 **Actions:**
 
@@ -176,7 +176,7 @@ There is no 24/7 SOC unless the project establishes one.
 
 ### User-facing (short)
 
-> We identified a security issue in Mycelium [version/build]. Risk: [one sentence]. Action: update to [version] or avoid [feature]. We do not have access to your messages on our servers.
+> We identified a security issue in Mycena [version/build]. Risk: [one sentence]. Action: update to [version] or avoid [feature]. We do not have access to your messages on our servers.
 
 ### Researcher acknowledgment
 

@@ -1,4 +1,4 @@
-# Contributing to Mycelium
+# Contributing to Mycena
 
 This project is in **Public Technical Beta — Feature Development Frozen, Release Validation Ongoing** ([docs/DEVELOPMENT_FREEZE.md](docs/DEVELOPMENT_FREEZE.md)). Feature development is paused; P0 stabilization continues. Hardware validation is incomplete. G9 is **FAIL**. The public release gate (G10) is **not approved**. It is an **early** beta, maintained by a **small team**. Expect bugs. It is **not** a Signal replacement, **not** a security certification, and is **not** suitable as primary comms against nation-state adversaries — read [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) and [docs/BETA_SECURITY_ASSESSMENT.md](docs/BETA_SECURITY_ASSESSMENT.md) first.
 
@@ -10,7 +10,7 @@ Force-push and deleting `main` stay blocked. Prefer a pull request for larger or
 
 - Read [README.md](README.md) for scope and architecture
 - Read [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) before proposing security-critical changes
-- **Security vulnerabilities:** do **not** file a public issue — email **security@example.invalid** (see [SECURITY.md](SECURITY.md))
+- **Security vulnerabilities:** do **not** file a public issue — email **github.com/mycena-project/Mycena/security/advisories/new** (see [SECURITY.md](SECURITY.md))
 
 ## Reporting Issues
 
@@ -45,7 +45,7 @@ See [android/README.md](android/README.md).
 
 - **Rust:** `rustfmt` defaults; `clippy -D warnings` must pass
 - **Kotlin:** match existing Compose patterns; no wildcard imports
-- **Svelte / desktop UI:** keep components small; follow existing file layout under `crates/mycelium-desktop/ui/`
+- **Svelte / desktop UI:** keep components small; follow existing file layout under `crates/mycena-desktop/ui/`
 
 ## Commit Conventions
 
@@ -73,8 +73,8 @@ Reviewers may ask for tests or documentation updates. We appreciate patience dur
 
 ## Relay Repository
 
-The public bootstrap relay is maintained in [mycelium-relay](https://github.com/mycena-project/mycelium-relay). Relay-only changes may belong there; app/node changes here.
+The public bootstrap relay is maintained in [mycena-relay](https://github.com/mycena-project/mycena-relay). Relay-only changes may belong there; app/node changes here.
 
 ## Questions
 
-Non-security questions: open a GitHub Discussion or Issue. Security: **security@example.invalid** only.
+Non-security questions: open a GitHub Discussion or Issue. Security: **github.com/mycena-project/Mycena/security/advisories/new** only.

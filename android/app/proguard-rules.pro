@@ -1,9 +1,9 @@
 # UniFFI / JNA (Play deobfuscation + R8)
--keep class uniffi.mycelium.** { *; }
+-keep class uniffi.mycena.** { *; }
 -keep class com.sun.jna.** { *; }
 -dontwarn com.sun.jna.**
 
--keepclassmembers class network.mycelium.app.ui.MiniappJsBridge {
+-keepclassmembers class io.github.mycena_project.app.ui.MiniappJsBridge {
     @android.webkit.JavascriptInterface <methods>;
 }
 

@@ -46,13 +46,13 @@ jobs:
           node-version: "20"
 
       - name: Install frontend deps
-        working-directory: crates/mycelium-desktop/ui
+        working-directory: crates/mycena-desktop/ui
         run: npm install
 
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v1
         with:
-          projectPath: crates/mycelium-desktop
+          projectPath: crates/mycena-desktop
           tauriScript: cargo tauri
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -60,9 +60,9 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: mycelium-${{ matrix.targets }}
+          name: mycena-${{ matrix.targets }}
           path: |
-            crates/mycelium-desktop/target/release/bundle/**/*.msi
-            crates/mycelium-desktop/target/release/bundle/**/*.AppImage
-            crates/mycelium-desktop/target/release/bundle/**/*.deb
-            crates/mycelium-desktop/target/release/bundle/**/*.dmg
+            crates/mycena-desktop/target/release/bundle/**/*.msi
+            crates/mycena-desktop/target/release/bundle/**/*.AppImage
+            crates/mycena-desktop/target/release/bundle/**/*.deb
+            crates/mycena-desktop/target/release/bundle/**/*.dmg

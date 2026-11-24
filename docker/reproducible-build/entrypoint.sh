@@ -2,7 +2,7 @@
 set -euo pipefail
 
 if [[ ! -f /src/android/build.sh ]]; then
-  echo "ERROR: mount the Mycelium repo at /src" >&2
+  echo "ERROR: mount the Mycena repo at /src" >&2
   exit 1
 fi
 
@@ -12,8 +12,8 @@ export RUSTFLAGS="${RUSTFLAGS:--C debuginfo=0}"
 export CARGO_INCREMENTAL=0
 export CARGO_NET_GIT_FETCH_WITH_CLI=true
 export GRADLE_OPTS="${GRADLE_OPTS:--Dorg.gradle.daemon=false -Dorg.gradle.caching=false}"
-export MYCELIUM_REPRODUCIBLE_BUILD=1
-export MYCELIUM_REPRO_INSIDE=1
+export MYCENA_REPRODUCIBLE_BUILD=1
+export MYCENA_REPRO_INSIDE=1
 
 mkdir -p /src/android
 echo "sdk.dir=${ANDROID_SDK_ROOT}" > /src/android/local.properties
