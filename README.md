@@ -94,7 +94,7 @@ macOS or Linux with Rust toolchain. Experimental — same Rust mesh stack, linke
 
 | Artifact | How to build | Signing | Use |
 |----------|--------------|---------|-----|
-| **Development APK** | `./android/build.sh` / `make android-apk` | Android debug key | Developers only |
+| **Development APK** | `make android-apk` (disk-guarded, see [docs/ANDROID_BUILD.md](docs/ANDROID_BUILD.md)) / `./android/build.sh` | Android debug key | Developers only |
 | **Technical Beta APK** | `./scripts/build-technical-beta-apk.sh` | Local Technical Beta keystore | Offline / phone-to-phone / freeze hardware |
 | **Play AAB** | `android-release-play.yml` | Play upload key | Out of this freeze |
 

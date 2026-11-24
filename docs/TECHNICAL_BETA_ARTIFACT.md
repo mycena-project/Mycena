@@ -63,7 +63,7 @@ Re-using the same JKS across rebuilds lets `adb install -r` keep data. A new JKS
 
 ## Version
 
-Taken from `android/version.properties` (currently `versionName=0.1.75`, `versionCode=76`). The Technical Beta script does **not** bump the version (unlike `make android-apk`).
+Taken from `android/version.properties` (currently `versionName=0.1.76`, `versionCode=77`). The Technical Beta script does **not** bump the version; `make android-apk` bumps it only with `--bump`.
 
 ---
 
