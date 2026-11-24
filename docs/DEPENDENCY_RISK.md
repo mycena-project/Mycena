@@ -111,3 +111,17 @@ Regenerate locally:
 ## zip 0.6 (review 2026-11-24)
 
 zip is now built with `default-features = false, features = ["deflate"]`, which removes AES, zstd and bzip2 support (and RUSTSEC-2026-0403/0410 via zstd). RUSTSEC-2026-0429/0545/0548 remain allowlisted until 2027-03-31: bundles are opened via the central directory (`ZipArchive::by_name`) after the bundle signature check; `extract`, `ZipStreamReader` and AES entries are not used. Planned fix: move to zip 2.x/9.x together with the mini-app bundle format review.
+
+## GitHub Dependabot alerts (review 2026-11-24)
+
+Open Dependabot alerts that remain after the 2026-11-24 updates were dismissed with the reasons below. Re-check them whenever libp2p is upgraded.
+
+| Package | Advisory | Why it does not affect Mycena |
+|---------|----------|-------------------------------|
+| `yamux` 0.12.1 | GHSA-vxx9-2994-q338 (remote panic) | `libp2p-yamux` 0.47 compiles 0.12 only for its legacy config. Mycena uses `yamux::Config::default()`, which selects yamux **0.13.10** (patched). |
+| `zip` 0.6 | GHSA-m665-v7pm-7grj (parser differential) | The differential is between `ZipArchive` and `ZipStreamReader`. Mycena reads bundles only with `ZipArchive` and verifies signatures over the same view; `ZipStreamReader` is never used. zip ≥ 9.0.5 needs Rust 1.89 (toolchain is pinned to 1.88). |
+| `zip` 0.6 | GHSA-8hxf-qr8p-62x4 (AES HMAC bypass) | AES support is not compiled in (`default-features = false, features = ["deflate"]`). |
+| `hickory-resolver` 0.25 | GHSA-5j98-2g5x-46v6 (DNSSEC result ignored) | DNSSEC validation is off; libp2p-dns only resolves the relay hostname. |
+| `hickory-resolver` 0.25 | GHSA-6f2x-v7q7-m7m5 (CNAME query amplification) | Tolerable: a few extra DNS queries when resolving `/dns4` bootstrap addresses. No fix on the 0.25 line that libp2p-dns 0.44 pins. |
+
+The `fuzz/Cargo.lock` workspace and the desktop UI (`vite` ≥ 8.1.6) were updated, so their alerts close on the next scan.
