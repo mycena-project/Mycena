@@ -62,6 +62,6 @@ Introduce explicit **layer boundary crates** with dependency rules:
 ## References
 
 - [ADR 004: Double Ratchet E2E](./004-double-ratchet-e2e.md)
-- [`mycena-l0-facade`](../crates/mycena-l0-facade/src/lib.rs)
-- [`mycena-l1-facade`](../crates/mycena-l1-facade/src/lib.rs)
-- [`mycena-miniapp`](../crates/mycena-miniapp/src/lib.rs)
+- [`mycena-l0-facade`](../../crates/mycena-l0-facade/src/lib.rs)
+- [`mycena-l1-facade`](../../crates/mycena-l1-facade/src/lib.rs)
+- [`mycena-miniapp`](../../crates/mycena-miniapp/src/lib.rs)

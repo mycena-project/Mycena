@@ -13,7 +13,7 @@
 
 | Console field | Recommended answer | Notes |
 |---------------|-------------------|-------|
-| **Privacy policy URL** | `https://mycena-project.github.io/Mycena/privacy-policy.html` | Enable Pages: [docs/legal/README.md](../legal/README.md) · canonical source: [privacy-policy.html](../legal/privacy-policy.html) |
+| **Privacy policy URL** | `https://mycena-project.github.io/Mycena/privacy-policy.html` | Enable Pages: [docs/legal/README.md](legal/README.md) · canonical source: [privacy-policy.html](legal/privacy-policy.html) |
 | **Does your app collect or share any of the required user data types?** | **Yes** | P2P mesh transmits user-generated data to **other users’ devices** and optional **relay infrastructure**. Google treats off-device transmission as collection/sharing even without a central Mycena server. |
 | **Is all of the user data collected by your app encrypted in transit?** | **Partially / depends on mode** | Direct chat uses E2E when keys are exchanged. Bulletin, mail metadata, PeerInfo, and coin gossip are **not** all E2E. Select **Yes** only if Google allows “some data types”; otherwise answer honestly per type below. |
 | **Do you provide a way for users to request that their data is deleted?** | **Yes** (device-local) | **Panic wipe** in Settings. Clarify in “Deletion” notes: mesh copies on other devices are **not** deletable by the Mycena project. |

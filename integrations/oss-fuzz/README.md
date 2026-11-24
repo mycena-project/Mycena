@@ -33,4 +33,4 @@ python infra/helper.py run_fuzzer mycena fuzz_envelope
 
 Additional targets from `fuzz/fuzz_targets/` can be added in follow-up oss-fuzz PRs.
 
-See [docs/CI_PUBLIC_TRANSITION.md](../docs/CI_PUBLIC_TRANSITION.md) checklist item 1.
+See [docs/CI_PUBLIC_TRANSITION.md](../../docs/CI_PUBLIC_TRANSITION.md) checklist item 1.

@@ -25,7 +25,7 @@ Three repositories support the **Mycena** mesh messenger (client, relay, marketi
 
 | Topic | Document |
 |-------|----------|
-| Android build | [android/README.md](android/README.md) |
+| Android build | [android/README.md](../android/README.md) |
 | Security | [SECURITY.md](SECURITY.md) |
 | Relay deploy | [mycena-relay deploy/relay/README.md](https://github.com/mycena-project/mycena-relay/blob/main/deploy/relay/README.md) |
 | Web deploy | [mycena-web docs/DEPLOYMENT-VERCEL.md](https://github.com/mycena-project/mycena-web/blob/main/docs/DEPLOYMENT-VERCEL.md) |

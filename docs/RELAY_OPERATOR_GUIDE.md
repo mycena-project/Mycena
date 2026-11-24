@@ -114,7 +114,7 @@ Each relay is a **signed JSON entry** with **public accountability** and **verif
 | `operator_label` + `operator_contact` | required | Public identity — URL or email, no anonymous slots |
 | `asn` | required | BGP ASN for client-side infrastructure diversity |
 
-Client-side [`relay_diversity`](../../crates/mycena-core/src/relay_diversity.rs) enforces parallel dial batches that never use **only** one IPv4 /24 or ASN when alternatives exist, and reserves quota for minority operators — so a single actor listing many relays still leaves minimum reachability to independent infrastructure.
+Client-side [`relay_diversity`](../crates/mycena-core/src/relay_diversity.rs) enforces parallel dial batches that never use **only** one IPv4 /24 or ASN when alternatives exist, and reserves quota for minority operators — so a single actor listing many relays still leaves minimum reachability to independent infrastructure.
 
 ### JSON schema
 

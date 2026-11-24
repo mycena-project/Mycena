@@ -15,15 +15,13 @@ object RelayBootstrap {
     /** HTTPS via the Fly proxy. */
     const val RELAY_HTTP_ORIGIN: String = "https://mycena-relay.fly.dev"
 
-    /** TCP `/ip4/` bases (no `/p2p-circuit` suffix) — keep in sync with `standard_bootstrap.rs`. */
+    /**
+     * TCP `/ip4/` bases (no `/p2p-circuit` suffix) for the JVM fallback path. Only live relays:
+     * mirrors `standard_bootstrap.rs` entries with `live: true` (reserved catalog slots are
+     * excluded, as in Rust unless MYCENA_INCLUDE_CATALOG_RELAYS=1).
+     */
     private val RELAY_TCP_BASES: List<String> = listOf(
         "/ip4/168.220.93.128/tcp/4001/p2p/$RELAY_PEER_ID",
-        "/ip4/243.185.187.10/tcp/4001/p2p/12D3KooWHkNVYzAAYb37LJJVnkx5n6Z2GkArjT48QXbNx9aFCzi5",
-        "/ip4/243.186.187.10/tcp/4001/p2p/12D3KooWCxnh9j2SV9i4sCA4Z7Z8gN8piMTmQ3WsJMLTYYPCnVbb",
-        "/ip4/243.187.187.10/tcp/4001/p2p/12D3KooWBzTB6FdEpsoCjJXVrGPZWt2Uqpqo6DY5HfksxWDCdmib",
-        "/ip4/243.188.187.10/tcp/4001/p2p/12D3KooWMvn86f7CtdSDH6KE2TCLd2EmW2ARS6PTw2j95o9DgQcC",
-        "/ip4/243.189.187.10/tcp/4001/p2p/12D3KooWPTo5HXEsJ19oE6i1QeUgX1AWAeRpB3PCFmRREC3AhFAi",
-        "/ip4/243.190.187.10/tcp/4001/p2p/12D3KooWN3cqN7NLRHT7aoKSjnyecVHv5XR4DAasdaLhvDXLCsiE",
     )
 
     private val nativeLibLoaded: Boolean =

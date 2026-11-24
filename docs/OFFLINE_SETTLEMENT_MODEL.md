@@ -36,7 +36,7 @@ There is **no global chain state**. Each device holds a **local settlement ledge
 
 ## Payment vouchers (offline IOU)
 
-Signed [`PaymentVoucher`](../../crates/mycena-coin/src/voucher.rs) promises with capped amount + expiry:
+Signed [`PaymentVoucher`](../crates/mycena-coin/src/voucher.rs) promises with capped amount + expiry:
 
 1. **Issue** — Issuer reserves `voucher_reserved_muon` from settled balance; signs voucher; gossips.  
 2. **Redeem offline** — Recipient gets `unsettled_voucher_muon` (non-spendable); UI shows risk until settlement.  
