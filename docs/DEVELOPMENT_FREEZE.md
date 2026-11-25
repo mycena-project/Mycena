@@ -1,5 +1,7 @@
 # Feature freeze (policy lock)
 
+> **Ended 2026-11-25.** The stabilisation freeze below ran from 2026-08-29 to 2026-11-25 and is kept as a record. Current plan: [ROADMAP.md](./ROADMAP.md).
+
 **Freeze date:** 2026-08-29
 **Status:** **Public Technical Beta — Feature Development Frozen, Release Validation Ongoing** — **with exceptions**
 **Canonical policy:** this file

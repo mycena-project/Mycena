@@ -13,7 +13,7 @@ transparency, not as user documentation.
 | [ECOSYSTEM.md](ECOSYSTEM.md) | The two repositories (app and relay) |
 | [CONNECTIVITY_MODES.md](CONNECTIVITY_MODES.md) | LAN, Bluetooth, relay and offline modes |
 | [DISASTER_MESH_ROADMAP.md](DISASTER_MESH_ROADMAP.md) | Roadmap for disaster use: store-and-forward, crisis mode, field drills |
-| [ROADMAP.md](ROADMAP.md) | Overall roadmap |
+| [ROADMAP.md](ROADMAP.md) | Six-month roadmap (M1–M6) and the information trust track |
 | [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md) | What does not work yet, honestly stated |
 | [research-notes.md](research-notes.md) | Lessons from Briar, Serval and other mesh / DTN projects |
 | [adr/](adr/) | Architecture decision records (BLE mesh, E2E ratchet, Wi-Fi Aware, …) |

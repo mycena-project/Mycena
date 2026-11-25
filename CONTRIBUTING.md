@@ -1,8 +1,8 @@
 # Contributing to Mycena
 
-This project is in **Public Technical Beta — Feature Development Frozen, Release Validation Ongoing** ([docs/DEVELOPMENT_FREEZE.md](docs/DEVELOPMENT_FREEZE.md)). Feature development is paused; P0 stabilization continues. Hardware validation is incomplete. G9 is **FAIL**. The public release gate (G10) is **not approved**. It is an **early** beta, maintained by **one person** (see [GOVERNANCE.md](GOVERNANCE.md)). Expect bugs. It is **not** a Signal replacement, **not** a security certification, and is **not** suitable as primary comms against nation-state adversaries — read [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) and [docs/BETA_SECURITY_ASSESSMENT.md](docs/BETA_SECURITY_ASSESSMENT.md) first.
+Mycena is a **public technical beta**. The stabilisation phase (feature freeze from August to November 2026, see [docs/DEVELOPMENT_FREEZE.md](docs/DEVELOPMENT_FREEZE.md)) is complete, and work now follows the [roadmap](docs/ROADMAP.md). Hardware validation is still incomplete. It is an **early** beta, maintained by **one person** (see [GOVERNANCE.md](GOVERNANCE.md)). Expect bugs. It is **not** a Signal replacement, **not** a security certification, and is **not** suitable as primary comms against nation-state adversaries — read [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) and [docs/BETA_SECURITY_ASSESSMENT.md](docs/BETA_SECURITY_ASSESSMENT.md) first.
 
-**Feature freeze:** new features, new transports, major architecture, and experimental product work are **deferred**. Allowed: security fixes, P0 crashes, release-breaking and build defects, documentation corrections, hardware-validation evidence. Dependency upgrades, refactors, and API changes need **written justification**. Direct pushes to `main` remain allowed for a small team; freeze exceptions should be described in the commit/PR body.
+**What helps most right now:** bug reports, test results from different phones (see [docs/HARDWARE_TEST_MATRIX.md](docs/HARDWARE_TEST_MATRIX.md)), translations, and documentation fixes. For larger changes, open an issue first so we can check it fits the [roadmap](docs/ROADMAP.md). Dependency upgrades, refactors and API changes need a short written justification in the PR.
 
 Force-push and deleting `main` stay blocked. Prefer a pull request for larger or security-sensitive changes; CI (`pr-gate`, `fuzz-gate`) still runs on push/PR.
 
@@ -19,7 +19,7 @@ Use GitHub Issues with the right category:
 | Type | Use when |
 |------|----------|
 | **Bug** | Reproducible defect in app, node, or build |
-| **Feature** | **Deferred during freeze** — do not expect merge unless it is a freeze exception |
+| **Feature** | Ideas welcome; please check the [roadmap](docs/ROADMAP.md) first and open an issue before writing code |
 | **Security** | **Never public** — use [SECURITY.md](SECURITY.md) |
 
 Include: platform (Android version / desktop OS), commit or release, steps to reproduce, expected vs actual behavior, and logs if safe to share.

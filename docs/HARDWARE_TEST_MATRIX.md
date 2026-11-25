@@ -4,7 +4,7 @@
 
 ### Resume (next hardware session)
 
-Checkpoint **2026-08-30**. Device A is Google Pixel 6 (`oriole`, serial `1C171FDF600NHF`), onboarded, Technical Beta `0.1.75` / `76`. **Do not** uninstall, `pm clear`, panic-wipe, `make android-nuke`, or HV-17/HV-18 until G3 is done — that identity is live.
+Checkpoint **2026-08-30**. Device A is Google Pixel 6 (`oriole`), onboarded, Technical Beta `0.1.75` / `76`. **Do not** uninstall, `pm clear`, panic-wipe, `make android-nuke`, or HV-17/HV-18 until G3 is done — that identity is live.
 
 **APK (gitignored — keep on this machine, do not rebuild unless you re-record hashes):**
 `artifacts/technical-beta/mycena-0.1.75-technical-beta-android.apk`
