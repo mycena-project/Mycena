@@ -1,0 +1,48 @@
+# Publishes a technical-preview GitHub Release from the debug APK of an existing,
+# green Android CI run. Manual only; the full tagged release lives in release.yml.
+name: Preview release
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "Android CI run id whose mycena-debug-apk artifact is published"
+        required: true
+      version:
+        description: "Version, e.g. 0.1.76"
+        required: true
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: mycena-debug-apk
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ github.token }}
+          path: apk
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          TAG="preview-${VERSION}"
+          NOTES="docs/releases/preview-${VERSION}.md"
+          test -f "$NOTES"
+          mkdir -p out
+          cp apk/app-debug.apk "out/mycena-${VERSION}-preview-android-debug.apk"
+          (cd out && sha256sum ./* > SHA256SUMS.txt)
+          gh release create "$TAG" out/* \
+            --target "$GITHUB_SHA" \
+            --title "Mycena ${VERSION}: technical preview" \
+            --notes-file "$NOTES" \
+            --prerelease
