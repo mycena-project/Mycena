@@ -10,7 +10,7 @@
 
 | Question | Answer |
 |----------|--------|
-| **Is there a separate repository for the native Android/iOS app?** | **No.** The mobile hosts live in this monorepo: [`android/`](../android/) (shipping Kotlin/Compose shell) and [`ios/`](../ios/) (SwiftUI shell in progress). Other Mycena repos ([mycena-relay](https://github.com/mycena-project/mycena-relay), [mycena-web](https://github.com/mycena-project/mycena-web)) are relay and marketing only — see [ECOSYSTEM.md](./ECOSYSTEM.md). |
+| **Is there a separate repository for the native Android/iOS app?** | **No.** The mobile hosts live in this monorepo: [`android/`](../android/) (shipping Kotlin/Compose shell) and [`ios/`](../ios/) (SwiftUI shell in progress). The other Mycena repo ([mycena-relay](https://github.com/mycena-project/mycena-relay)) is the relay only — see [ECOSYSTEM.md](./ECOSYSTEM.md). |
 | **Does `release_integrity.rs` / `reproducible_build.rs` protect user keys on device?** | **No.** Those modules attest **official build artifacts** (APK, desktop bundles, mini-app bundles) via M-of-N release signing and reproducible-build digests. They do **not** touch end-user identity keys. |
 | **Is hardware-bound user key storage done?** | **Partial.** Android: EncryptedSharedPreferences with **StrongBox requested** (software Keystore fallback). iOS: Keychain (`AfterFirstUnlockThisDeviceOnly`) for the 32-byte master key. Identity keys are **not** non-exportable Secure Enclave / StrongBox objects. Root/jailbreak still wins. |
 

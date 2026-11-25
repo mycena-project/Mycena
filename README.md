@@ -64,8 +64,7 @@ exchanges. It is not money, not an investment and not a cryptocurrency; see
 
 ## Project
 
-- **Repositories:** this app · [mycena-relay](https://github.com/mycena-project/mycena-relay) (optional bootstrap relay) · [mycena-web](https://github.com/mycena-project/mycena-web) (website)
-- **Website:** [mycena-beta.vercel.app](https://mycena-beta.vercel.app)
+- **Repositories:** this app · [mycena-relay](https://github.com/mycena-project/mycena-relay) (optional bootstrap relay)
 - **Maintainer:** Alex — an independent, non-commercial open-source project
 - **Contributing:** [CONTRIBUTING.md](CONTRIBUTING.md) · **Security:** [SECURITY.md](SECURITY.md)
 - **Documentation overview:** [docs/README.md](docs/README.md) · **Governance:** [GOVERNANCE.md](GOVERNANCE.md) · **Contributor agreement:** [CLA.md](CLA.md)

@@ -384,7 +384,7 @@ This is **not abandonment**. Development is **intentionally paused** so that:
 
 During pause: security and P0 fixes still ship under §7. A **un-freeze** is a conscious decision (new roadmap increment), not silent feature creep.
 
-Related family repos ([ECOSYSTEM.md](./ECOSYSTEM.md)) — `mycena-relay`, `mycena-web` — have their own deploy cadence. Client freeze does not automatically freeze relay ops; relay changes that **require** a client protocol bump **are** freeze exceptions.
+The relay repo (`mycena-relay`, see [ECOSYSTEM.md](./ECOSYSTEM.md)) has its own deploy cadence. Client freeze does not automatically freeze relay ops; relay changes that **require** a client protocol bump **are** freeze exceptions.
 
 ---
 

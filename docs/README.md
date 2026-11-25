@@ -10,7 +10,7 @@ transparency, not as user documentation.
 | Document | What it covers |
 |---|---|
 | [architecture.md](architecture.md) | Layers, crates and how a message travels |
-| [ECOSYSTEM.md](ECOSYSTEM.md) | The three repositories (app, relay, website) |
+| [ECOSYSTEM.md](ECOSYSTEM.md) | The two repositories (app and relay) |
 | [CONNECTIVITY_MODES.md](CONNECTIVITY_MODES.md) | LAN, Bluetooth, relay and offline modes |
 | [DISASTER_MESH_ROADMAP.md](DISASTER_MESH_ROADMAP.md) | Roadmap for disaster use: store-and-forward, crisis mode, field drills |
 | [ROADMAP.md](ROADMAP.md) | Overall roadmap |

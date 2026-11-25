@@ -25,7 +25,6 @@ Release notes include AGPL obligations. Operators who host a **modified relay** 
 | Repo | Deploy on tag |
 |------|----------------|
 | [mycena-relay](https://github.com/mycena-project/mycena-relay) | Fly.io (`scripts/deploy-relay-fly.sh` in that repo) |
-| [mycena-web](https://github.com/mycena-project/mycena-web) | Vercel |
 
 ## Not in this workflow
 
