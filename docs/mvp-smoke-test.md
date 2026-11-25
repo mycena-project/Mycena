@@ -1,6 +1,7 @@
 # Mycena MVP Smoke Test
 
 This document gives a copy/paste validation flow for:
+
 - two local nodes (CLI)
 - chat
 - bulletin board
@@ -191,7 +192,7 @@ Run after Phase A code changes land. Check off each case on a **Mac desktop buil
 
 Android freeze DoD (HV-01–20, Pixel + Samsung slots): [HARDWARE_TEST_RUNBOOK.md](./HARDWARE_TEST_RUNBOOK.md). This Phase A checklist remains the Level 0 A2 script.
 
-### Prerequisites
+### Prerequisites for this test
 
 ```bash
 cd Mycena
@@ -224,7 +225,7 @@ Expect `"ok": true` from `/health`. Connection counts are on `/status` and requi
 |---|----------|-------|---------------|
 | 1 | **LAN only** | Same Wi‑Fi; relay reachable or not | Connect tab shows peer; chat works without re-scan |
 | 2 | **Relay only** | Different networks (or disable Wi‑Fi on one device) | QR scan connects via circuit; chat works |
-| 3 | **QR v3** | Default QR shows **v3 signed** invite (`mycena://invite/v3#…`); E2E badge after connect |
+| 3 | **QR v3** | Default QR shows **v3 signed** invite (`mycena://invite/v3#…`); E2E badge after connect |  |
 | 4 | **QR v2 (legacy)** | Paste v2 invite manually if testing legacy codes | Still parses; enc key seeded from QR |
 | 5 | **Reconnect** | Force-quit both apps; reopen | Chat works without re-scan (may need brief wait for dial) |
 | 6 | **Airplane mode** | Wi‑Fi on, cellular off (or full offline LAN) | mDNS path still finds peer on same LAN |

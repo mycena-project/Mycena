@@ -28,7 +28,7 @@
 
 ## Invite format
 
-```
+```text
 mycena://invite/v3#<accountId>|<peerId>|<encPubkeyHex>|<epoch>|<sigHex>[|<directMultiaddr>]
                                                                    (default QR on desktop + Android)
 mycena://invite/v1#<peerId>                                      (legacy; still parsed)

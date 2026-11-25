@@ -4,7 +4,7 @@
 **Scope:** Android app (`android/app`), minSdk 26, targetSdk 34.
 **Method:** Code inspection against documented Android API behavior and existing freeze audit. **No Samsung hardware was used.** Do not treat this document as a crash post-mortem.
 
-**Evidence classes**
+## Evidence classes
 
 | Label | Meaning |
 |-------|---------|

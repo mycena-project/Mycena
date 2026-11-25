@@ -35,8 +35,8 @@
 
 | Priority | Item | Debt IDs | Effort |
 |----------|------|----------|--------|
-| P1 | Per-author rate limits (direct + gossip) | SD-032 | S | **Done** — `ingest_guard.rs` |
-| P1 | Replay window + monotonic nonces | SD-060 | S | **Done** — 30 min freshness + per-author id window |
+| P1 | Per-author rate limits (direct + gossip) | SD-032 | S · **Done** — `ingest_guard.rs` |
+| P1 | Replay window + monotonic nonces | SD-060 | S · **Done** — 30 min freshness + per-author id window |
 | P1 | `postMessage` origin lock (desktop) | SD-051 | S |
 | P1 | Mini-app permission UI at install | SD-042 | M |
 | P1 | Signed remote bootstrap manifest | SD-091, SD-221 | M |

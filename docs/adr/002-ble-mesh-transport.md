@@ -32,7 +32,7 @@ We will treat Bluetooth as **three layers**, rolled out in order. Chat/mail/bull
 
 ## Architecture (target)
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │  App (chat / mail / bulletin) — unchanged                    │
 ├─────────────────────────────────────────────────────────────┤

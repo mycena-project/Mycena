@@ -66,7 +66,7 @@ Audit of the four most recent feature prompts in the Mycena session. Use this as
 | Unit test | **Done** | `geographic_diversity_defers_same_geohash_cluster` |
 | Threat model cross-ref | **Done** | `THREAT_MODEL.md` §5.4 |
 
-### Deferred (with reason)
+### Deferred (with reason), part 2
 
 | Item | Reason |
 |------|--------|

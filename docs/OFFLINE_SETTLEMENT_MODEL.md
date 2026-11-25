@@ -6,7 +6,7 @@ How MeshCoin settlement works today and how it should evolve for **bounded emerg
 
 ## Layered model
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │  UX: Emergency credits, send/receive, mxcpay requests       │
 ├─────────────────────────────────────────────────────────────┤
@@ -71,7 +71,7 @@ Maximum loss per compromised partition is bounded by:
 
 Formula (informal):
 
-```
+```text
 exposure ≤ min(cap_balance, cap_tx, velocity_hourly_cap) × partition_factor
 ```
 

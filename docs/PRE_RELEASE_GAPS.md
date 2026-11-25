@@ -34,11 +34,11 @@ Legend: **DO NOW** · **DOCUMENT** · **EXTERNAL** · **BLOCKS PLAY** · **DONE*
 
 | Item | Status |
 |------|--------|
-| SD-003 minimal `/health` JSON | **DONE** | `mycena-relay` |
-| SD-002 balance query default off | **DONE** | `CoinNode::respond_to_balance_queries = false` |
-| CLI `mycena_core` import | **DONE** | → `mycena_l0_facade::privacy_shaping` |
-| Mutex poison recovery + tests | **DONE** | — |
-| Threat model + policy + Pages workflow | **DONE** | — |
+| SD-003 minimal `/health` JSON | **DONE** · `mycena-relay` |
+| SD-002 balance query default off | **DONE** · `CoinNode::respond_to_balance_queries = false` |
+| CLI `mycena_core` import | **DONE** · → `mycena_l0_facade::privacy_shaping` |
+| Mutex poison recovery + tests | **DONE** · — |
+| Threat model + policy + Pages workflow | **DONE** · — |
 
 ---
 

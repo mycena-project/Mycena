@@ -8,7 +8,7 @@ Canonical **web** privacy policy for Play Console and public links.
 
 ## Public URL (after Pages enabled)
 
-```
+```text
 https://mycena-project.github.io/Mycena/privacy-policy.html
 ```
 

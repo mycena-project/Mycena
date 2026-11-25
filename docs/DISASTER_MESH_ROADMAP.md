@@ -19,7 +19,7 @@ See also: [CONNECTIVITY_MODES.md](./CONNECTIVITY_MODES.md), [LEVEL0_ROADMAP.md](
 | Android BLE F1 invite handoff | Shipped |
 | Android BLE F2 WireMessage side-channel | Shipped |
 | Android BLE F3 libp2p `/ble/…` overlay | Shipped |
-| Desktop BLE | **Active on macOS/Linux** (blew host) | Phase 1b ✓ |
+| Desktop BLE | **Active on macOS/Linux** (blew host) · Phase 1b ✓ |
 | Multi-hop epidemic routing at city scale | **Not supported** |
 | Store-and-forward DTN custody | **Phase 3 shipped (core)** — see [CUSTODY_DTN.md](./CUSTODY_DTN.md) |
 | Configurable hop limits > 8 for disaster profile | **Custody messages default 64 hops** |
@@ -117,8 +117,8 @@ See also: [CONNECTIVITY_MODES.md](./CONNECTIVITY_MODES.md), [LEVEL0_ROADMAP.md](
 | 4.1 | Field drill playbook (10–50 nodes, neighborhood scale) |
 | 4.2 | Metrics: custody queue depth, BLE bytes, encounter rate |
 | 4.3 | Desktop + iOS BLE parity (iOS host per ADR 001) |
-| 4.4 | Optional Wi‑Fi Direct / AWDL research spike | Platform-specific; not blocking BLE |
-| 4.5 | Documentation pass for responders / NGOs | Link from [security-for-users.md](./security-for-users.md) |
+| 4.4 | Optional Wi‑Fi Direct / AWDL research spike · Platform-specific; not blocking BLE |
+| 4.5 | Documentation pass for responders / NGOs · Link from [security-for-users.md](./security-for-users.md) |
 
 **Explicit non-goals (Phase 4):**
 
@@ -130,7 +130,7 @@ See also: [CONNECTIVITY_MODES.md](./CONNECTIVITY_MODES.md), [LEVEL0_ROADMAP.md](
 
 ## Architecture sketch (target end state)
 
-```
+```text
 ┌──────────────── App (chat, SOS, bulletin) ─────────────────┐
 │  Settings: internet / rendezvous / crowd / disaster profile │
 └───────────────────────────┬────────────────────────────────┘

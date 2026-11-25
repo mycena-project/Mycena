@@ -20,15 +20,15 @@
 
 | # | Item | Action |
 |---|------|--------|
-| 7 | MeshCoin positioning | Store copy + in-app banner = preview only (SD-011 waiver) | **Done** (wallet banner) |
-| 8 | Privacy policy | Live URL, not template | **Done** — in-app `privacy_policy.html` + Settings link |
+| 7 | MeshCoin positioning | Store copy + in-app banner = preview only (SD-011 waiver) · **Done** (wallet banner) |
+| 8 | Privacy policy | Live URL, not template · **Done** — in-app `privacy_policy.html` + Settings link |
 
 **P0 verification:**
 
 | # | Item |
 |---|------|
-| 9 | Red-team `MINIAPP_ATTACK_SCENARIOS.md` script + written results | **Done** — [MINIAPP_REDTEAM_RESULTS.md](./MINIAPP_REDTEAM_RESULTS.md) |
-| 10 | Regression tests for SD-030, SD-031 | **Done** — `mycena-node/tests/sd030_unsigned_drop.rs` |
+| 9 | Red-team `MINIAPP_ATTACK_SCENARIOS.md` script + written results · **Done** — [MINIAPP_REDTEAM_RESULTS.md](./MINIAPP_REDTEAM_RESULTS.md) |
+| 10 | Regression tests for SD-030, SD-031 · **Done** — `mycena-node/tests/sd030_unsigned_drop.rs` |
 
 ---
 
@@ -36,13 +36,13 @@
 
 | # | Item | Debt | Effort |
 |---|------|------|--------|
-| 1 | Per-author rate limits (direct + gossip) | SD-032 | S | **Done** |
-| 2 | Replay window + monotonic envelope nonces | SD-060 | S | **Done** |
+| 1 | Per-author rate limits (direct + gossip) | SD-032 | S · **Done** |
+| 2 | Replay window + monotonic envelope nonces | SD-060 | S · **Done** |
 | 3 | Signed bootstrap manifest (multi-relay) | SD-022, SD-091 | M |
 | 4 | Multi-relay pool (3+ operators) | SD-020 | M |
 | 5 | Curator peer allowlist for revocations + listings | new | M |
-| 6 | Mini-app: mandatory sig OR hardened sideload tier | SD-041, SD-240 | M | **Done** |
-| 7 | Remove `unsafe-inline` entirely (reject bundles) | SD-040 | M | **Done** |
+| 6 | Mini-app: mandatory sig OR hardened sideload tier | SD-041, SD-240 | M · **Done** |
+| 7 | Remove `unsafe-inline` entirely (reject bundles) | SD-040 | M · **Done** |
 | 8 | Safety numbers / key change UI | SD-102 | M |
 | 9 | `cargo vet` / SBOM in CI | SD-150 | M |
 | 10 | FFI + wire fuzz harness | SD-151 | M |

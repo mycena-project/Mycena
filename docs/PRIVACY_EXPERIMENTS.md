@@ -54,7 +54,7 @@ Mycena already has **content** protection (X25519 E2E, signed wire frames) but l
 
 ## 2. Architecture overview
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │ App (chat / bulletin / mail) — unchanged payload semantics   │
 └────────────────────────────┬────────────────────────────────┘
@@ -381,7 +381,7 @@ Each entry: **idea → packet/behaviour → impacts → attacks → ship slice**
 
 **Idea:** Forward probability **increases** with local crowd size `k` (more noise candidates); **decreases** when alone (don't stand out).
 
-```
+```text
 P(forward) = min(0.9, 0.3 + 0.1 * k)
 P(cover)   = max(0, 0.5 - 0.08 * k)   // less cover when crowd already noisy
 ```

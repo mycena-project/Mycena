@@ -1,8 +1,10 @@
 ## 0.49.4
+
 - Harden time arithmetic and bound remote PRUNE backoff.
   See [CVE](https://github.com/libp2p/rust-libp2p/security/advisories/GHSA-xqmp-fxgv-xvq5)
 
 ## 0.49.3
+
 - Ignore invalid backoff values on peer prune.
   See [CVE XXXX](https://github.com/libp2p/rust-libp2p/security/advisories/GHSA-gc42-3jg7-rxr2)
 
@@ -114,6 +116,7 @@
   See [PR 5485](https://github.com/libp2p/rust-libp2p/pull/5485).
 
 ## 0.46.2
+
 - Use `web-time` instead of `instant`.
   See [PR 5347](https://github.com/libp2p/rust-libp2p/pull/5347).
 

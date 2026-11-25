@@ -50,7 +50,7 @@
 
 ## Module layout
 
-```
+```text
 crates/mycena-desktop/src/ble/
   mod.rs           — DesktopBleHost spawn/stop
   gatt.rs          — (1b) service/characteristic setup

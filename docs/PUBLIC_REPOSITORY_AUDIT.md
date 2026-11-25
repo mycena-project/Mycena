@@ -11,7 +11,7 @@
 
 ## Verdict
 
-**CONDITIONALLY READY**
+Conditionally ready.
 
 The **tracked tree has no confirmed secrets, signing material, or personal SDK paths**. License, security contact, and known-limitations docs exist. A stranger can follow `./android/build.sh` / `cargo` without private files.
 

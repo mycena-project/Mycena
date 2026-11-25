@@ -161,7 +161,7 @@ cd android
 ./gradlew installDebug
 ```
 
-3. Launch app. `MeshService` starts as a foreground service and initializes the Rust node.
+Then launch the app: `MeshService` starts as a foreground service and initializes the Rust node.
 
 **Release freeze hardware validation** (Definition of Done, not this README’s 2-emulator smoke): [HARDWARE_TEST_RUNBOOK.md](../docs/HARDWARE_TEST_RUNBOOK.md). Record results in [HARDWARE_TEST_MATRIX.md](../docs/HARDWARE_TEST_MATRIX.md). Device identity / filtered logcat: `make android-hw-info` and `./scripts/android/capture-freeze-evidence.sh` ([CRASH_REPORTING.md](../docs/CRASH_REPORTING.md)). Do not commit `artifacts/hardware-runs/`.
 

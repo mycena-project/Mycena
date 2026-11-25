@@ -153,9 +153,9 @@ Quelle: `BleBootstrapAdvertiser.kt`.
 | Komponente | Verhalten |
 |------------|-----------|
 | Foreground Service | `MeshService`, Typ `connectedDevice` — hält Prozess aktiv, **kein** explizites App-`WakeLock` |
-| Wi‑Fi Multicast Lock | Für libp2p mDNS (LAN), beim Service-Start acquired | `WifiMulticastLock.kt` |
-| Wi‑Fi Aware / NSD | Discovery-Bearer parallel zu BLE | `WifiAwareDiscoveryHost.kt` |
-| libp2p TCP | Listener `/ip4/0.0.0.0/tcp/7761`, Rendezvous optional | `MeshService.kt` / `NodeConfig` |
+| Wi‑Fi Multicast Lock | Für libp2p mDNS (LAN), beim Service-Start acquired · `WifiMulticastLock.kt` |
+| Wi‑Fi Aware / NSD | Discovery-Bearer parallel zu BLE · `WifiAwareDiscoveryHost.kt` |
+| libp2p TCP | Listener `/ip4/0.0.0.0/tcp/7761`, Rendezvous optional · `MeshService.kt` / `NodeConfig` |
 | Explizite Wakelocks im App-Code | **Keine** (`PowerManager` nur ThermalMonitor) |
 
 ### 3.5 Hypothesen — Stand nach Messungen
@@ -211,7 +211,7 @@ Quelle: `BleBootstrapAdvertiser.kt`.
 | **Mobile radio** | **688** | ~94 % |
 | CPU | 37 | ~5 % |
 | Wi‑Fi | 6,4 | ~1 % |
-| Bluetooth / BLE | *(nicht in UID-Zeile; global ~4,7 mAh)* | — |
+| Bluetooth / BLE | _(nicht in UID-Zeile; global ~4,7 mAh)_ | — |
 | **UID gesamt (modelliert)** | **731** | — |
 
 Geräte-Gesamt: 1311 mAh → Mycena-UID ~**56 %** der modellierten Entladung.
@@ -271,7 +271,7 @@ Referenzwerte (kumulativ, nicht pro Session-Fenster):
 | Lauf | Mycena mAh | Δ vs. Mesh-only |
 |------|--------------|-----------------|
 | BLE bootstrap aus (`control-overnight`) | _TBD_ | _TBD_ |
-| ~~Mesh-only (ohne Rendezvous)~~ | **731** | *(Referenz `20260712T154530Z`)* |
+| ~~Mesh-only (ohne Rendezvous)~~ | **731** | _(Referenz `20260712T154530Z`)_ |
 
 ---
 
@@ -315,11 +315,13 @@ Siehe Archiv oben; mAh nicht verwertbar.
 ## 5. Schlussfolgerung & nächste Schritte
 
 **Gesichert:**
+
 - **BLE-Mesh-Discovery verbraucht wenig** (Größenordnung ~5 mAh) — auch über 13–20 h No-Peer
 - **Mobile Radio** dominiert die App-UID in beiden Szenarien; Mesh-only spart ~35–36 %, löst das Problem nicht
 - No-Peer bestätigt (0 Scan-Ergebnisse); LOW_POWER, kein LOW_LATENCY
 
 **Offen / empfohlen:**
+
 1. **`control-overnight`** — BLE aus, gleiche Dauer → isoliert Mesh/BLE-Anteil in §4.6
 2. **Mobile-Radio-Attribution klären** bei ausgeschaltetem Internet (Code-Review + Battery Historian)
 3. **Logcat bei Collect** — `BleScanDuty`-Tag sichern; Bluetooth-Dumpsys ist boot-kumulativ

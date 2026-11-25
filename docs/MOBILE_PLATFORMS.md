@@ -21,7 +21,7 @@ Related: [architecture.md](./architecture.md) · [SECURITY.md](./SECURITY.md) ·
 
 ## Architecture (today)
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │  Shared Rust (platform-neutral)                              │
 │  mycena-core → mycena-node → mycena-app → mycena-coin│

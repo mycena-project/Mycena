@@ -16,7 +16,7 @@ MeshCoin today is a **local account ledger** with **Ed25519 signed transfers**, 
 
 ## Current architecture (as-built)
 
-```
+```text
 mycena-app (gossip dispatch)
        ↓
 CoinNode ──→ LocalLedger (+ SettlementPolicy, VelocityTracker)
@@ -116,7 +116,7 @@ CoinTransport (FFI → libp2p gossip, scope mycena/coin/v1)
 
 ## Simplified target architecture
 
-```
+```text
 ┌──────────────────────────────────────────┐
 │ Emergency Credits UX (capped, no charts) │
 ├──────────────────────────────────────────┤

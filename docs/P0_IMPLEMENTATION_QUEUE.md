@@ -23,7 +23,7 @@ It is **not** a G9/G10 pass list. CI URLs, git tags, public launch, Samsung idle
 
 “Implementation complete” ≠ “release verified.” Desired transition:
 
-```
+```text
 IMPLEMENTATION PHASE          ← ended 2026-08-29
         ↓
 CODE/FIXES COMPLETE

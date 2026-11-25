@@ -2,7 +2,7 @@
 
 **Status:** Partial. Pixel 6: HV-01, HV-02, HV-03, HV-04 (notifications), HV-05, HV-12 short, HV-13, HV-16. **All other rows remain `unrun`.** Pixel 6 battery notes in [BATTERY_PROFILING_RESULTS.md](./BATTERY_PROFILING_RESULTS.md) are **not** this matrix.
 
-### Resume (next hardware session)
+## Resume (next hardware session)
 
 Checkpoint **2026-08-30**. Device A is Google Pixel 6 (`oriole`), onboarded, Technical Beta `0.1.75` / `76`. **Do not** uninstall, `pm clear`, panic-wipe, `make android-nuke`, or HV-17/HV-18 until G3 is done — that identity is live.
 

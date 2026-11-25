@@ -15,7 +15,7 @@ This file holds work that **must not be treated as freeze P0** (plan §2.2 / §4
 
 Still current queue in RELEASE_FREEZE_BACKLOG — **not** deferred as P2:
 
-- Hardware matrix HV-* / G2–G6 device records (RFB-HW-01, NET-02, PERS-*)
+- Hardware matrix HV-*/ G2–G6 device records (RFB-HW-01, NET-02, PERS-*)
 - Two-phone share (RFB-P2P-*, APK-*, G3)
 - Secret-scan URL (RFB-SEC-04)
 - CI evidence (RFB-TEST-01)

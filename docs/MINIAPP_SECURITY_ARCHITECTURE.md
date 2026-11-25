@@ -58,7 +58,7 @@ Mini-apps are **untrusted code** running in a **hostile environment** (protest n
 
 ### 2.3 Trust boundaries (target)
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │ TCB: Mycena Host (Rust node, native UI, policy engine)     │
 │  · Install verifier · Capability issuer · Native prompts       │

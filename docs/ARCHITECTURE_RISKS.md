@@ -15,7 +15,7 @@ This ledger describes **systemic** risks arising from architectural choices—no
 
 ## 1. Trust boundary map
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                         USER DEVICE (TCB: OS + app)                      │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌─────────────┐ │

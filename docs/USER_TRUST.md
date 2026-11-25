@@ -32,7 +32,7 @@
 
 Relay selection in `select_relay_candidates()` combines both:
 
-```
+```text
 score = peer_trust.relay_selection_score(now)
       + 0.15 * local_endorsement_boost   // 0..1 from 1–5 star endorsements
 ```

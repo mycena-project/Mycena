@@ -10,7 +10,7 @@ Read first: [docs/MOBILE_PLATFORMS.md](../docs/MOBILE_PLATFORMS.md) · [docs/IOS
 
 ## Layout
 
-```
+```text
 ios/
 ├── README.md                 # this file
 ├── Mycena.xcodeproj/       # SwiftUI app (future)

@@ -51,7 +51,7 @@ See [android/README.md](android/README.md).
 
 Use clear, imperative subjects:
 
-```
+```text
 feat(android): add contact request badge
 fix(node): drop unsigned direct after grace period
 docs: clarify relay bootstrap in README

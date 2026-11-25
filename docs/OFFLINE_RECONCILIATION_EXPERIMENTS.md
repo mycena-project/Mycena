@@ -8,7 +8,7 @@ Protocols to merge partitioned settlement ledgers **without** claiming global cr
 
 **On reconnect**, peers exchange:
 
-```
+```text
 { address, merkle_root, tail_count, last_timestamp }
 ```
 

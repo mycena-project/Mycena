@@ -19,7 +19,6 @@ Two repositories make up **Mycena** (client and relay). A project website will f
 | **Stop** | Quit app / `make clean` (repo cleanup) | Ctrl+C / container stop |
 | **Production deploy** | App store / sideload APK | Fly.io script |
 
-
 ## Documentation map
 
 | Topic | Document |

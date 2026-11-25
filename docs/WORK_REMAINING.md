@@ -74,7 +74,7 @@ _All Category 3 software backlog items through Iteration E were historically com
 
 | P | Item | Notes |
 |---|------|-------|
-| — | *(none)* | See Category 1 & 2 above |
+| — | _(none)_ | See Category 1 & 2 above |
 
 ---
 

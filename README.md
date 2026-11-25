@@ -124,7 +124,7 @@ Start two terminals on the same LAN, exchange peer IDs, then `/chat <peer_id> he
 
 ## Architecture (short)
 
-```
+```text
 ┌─────────────┐   Noise + Ed25519    ┌─────────────┐
 │   Mycena    │◄──── libp2p ────────►│   Mycena    │
 │    node     │   gossip / direct    │    node     │
