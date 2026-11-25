@@ -105,7 +105,7 @@ jobs:
           set -euo pipefail
           for f in docs/*.md; do
             [ -f "$f" ] || continue
-            grep -oE '\]\(\./[^)]+\)' "$f" | sed 's/](\(\.\/[^)]*\))/\1/' | while read -r link; do
+            { grep -oE '\]\(\./[^)]+\)' "$f" || true; } | sed 's/](\(\.\/[^)]*\))/\1/' | while read -r link; do
               target="docs/${link#./}"
               if [[ "$link" == *.md ]] && [ ! -f "$target" ]; then
                 echo "::error file=$f::broken relative link: $link"
