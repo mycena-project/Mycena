@@ -141,7 +141,7 @@ The project **does not** claim: formal audit, production-grade security, militar
 
 What is in evidence: selected mitigations exist in code (unsigned `Data` drop, fail-closed chat without enc key, sideload bundle signature, `allowBackup=false`) with **unit tests for some** and **no independent review**. Metadata, relay IP, Sybil MeshCoin, and WebView residuals are **accepted for preview**, not solved.
 
-Report vulnerabilities privately: **github.com/mycena-project/Mycena/security/advisories/new** ([SECURITY.md](../SECURITY.md)).
+Report vulnerabilities privately: [private vulnerability reporting](https://github.com/mycena-project/Mycena/security/advisories/new) ([SECURITY.md](../SECURITY.md)).
 
 ---
 

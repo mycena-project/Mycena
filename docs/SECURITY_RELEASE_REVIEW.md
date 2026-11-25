@@ -324,7 +324,7 @@ cargo test -p mycena-miniapp --lib sideload
 
 Reviewed [SECURITY.md](../SECURITY.md):
 
-- Private report to **github.com/mycena-project/Mycena/security/advisories/new** is documented; **do not** file public issues for vulns.
+- Private report to [private vulnerability reporting](https://github.com/mycena-project/Mycena/security/advisories/new) is documented; **do not** file public issues for vulns.
 - 72-hour acknowledgement target.
 - GitHub Security Advisories listed as second channel.
 - Scope covers Android/desktop/Rust, companion relay, crypto/mesh/mini-app. Third-party deps out of scope with heads-up welcome.

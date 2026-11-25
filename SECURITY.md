@@ -4,7 +4,7 @@
 
 **Do not** open public GitHub issues for security vulnerabilities.
 
-Report them privately to **github.com/mycena-project/Mycena/security/advisories/new** with:
+Report them privately through [GitHub private vulnerability reporting](https://github.com/mycena-project/Mycena/security/advisories/new) with:
 
 - affected component (app, relay, mini-app runtime) and version or commit hash
 - clear reproduction steps or proof-of-concept
@@ -12,10 +12,7 @@ Report them privately to **github.com/mycena-project/Mycena/security/advisories/
 
 We aim to acknowledge receipt within **72 hours**, triage severity, and coordinate a responsible disclosure timeline. We may request additional information or offer a coordinated disclosure date.
 
-Preferred channels (in order):
-
-1. Email: **github.com/mycena-project/Mycena/security/advisories/new** (guaranteed private path)
-2. GitHub Security Advisories: **Security → Report a vulnerability** on this repository — **only if** private vulnerability reporting is enabled in repository settings. If that form is missing, use email.
+Use GitHub private vulnerability reporting: open [Report a vulnerability](https://github.com/mycena-project/Mycena/security/advisories/new) (Security tab → Report a vulnerability). Only the maintainer sees the report.
 
 ## Scope
 

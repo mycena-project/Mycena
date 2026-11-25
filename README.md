@@ -158,7 +158,7 @@ The stabilisation phase of the beta (August to November 2026) is complete; work 
 [roadmap](docs/ROADMAP.md). Bug reports, device test results, translations and documentation fixes are
 especially welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
-**Security:** report vulnerabilities to **github.com/mycena-project/Mycena/security/advisories/new** — not via public issues. See [SECURITY.md](SECURITY.md).
+**Security:** report vulnerabilities through [private vulnerability reporting](https://github.com/mycena-project/Mycena/security/advisories/new), not via public issues. See [SECURITY.md](SECURITY.md).
 
 ## License
 

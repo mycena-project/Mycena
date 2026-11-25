@@ -10,7 +10,7 @@ Force-push and deleting `main` stay blocked. Prefer a pull request for larger or
 
 - Read [README.md](README.md) for scope and architecture
 - Read [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) before proposing security-critical changes
-- **Security vulnerabilities:** do **not** file a public issue — email **github.com/mycena-project/Mycena/security/advisories/new** (see [SECURITY.md](SECURITY.md))
+- **Security vulnerabilities:** do **not** file a public issue — use [private vulnerability reporting](https://github.com/mycena-project/Mycena/security/advisories/new) (see [SECURITY.md](SECURITY.md))
 
 ## Reporting Issues
 
@@ -77,4 +77,4 @@ The public bootstrap relay is maintained in [mycena-relay](https://github.com/my
 
 ## Questions
 
-Non-security questions: open a GitHub Discussion or Issue. Security: **github.com/mycena-project/Mycena/security/advisories/new** only.
+Non-security questions: open a GitHub Issue. Security: [private vulnerability reporting](https://github.com/mycena-project/Mycena/security/advisories/new) only.
