@@ -1,0 +1,71 @@
+# Builds the desktop app for macOS, Windows and Linux and attaches the installers
+# to an existing preview release (see preview-release.yml). Manual only.
+name: Preview desktop builds
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Preview version whose release gets the installers, e.g. 0.1.76"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            label: macos-apple-silicon
+          - os: windows-2022
+            label: windows
+          - os: ubuntu-22.04
+            label: linux
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+
+      - name: Rust toolchain (pinned in rust-toolchain.toml)
+        shell: bash
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+
+      - name: UI dependencies
+        working-directory: crates/mycena-desktop/ui
+        run: npm ci
+
+      - name: Build installers
+        working-directory: crates/mycena-desktop
+        run: npx --yes @tauri-apps/cli@2 build
+
+      - name: Attach to release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+          LABEL: ${{ matrix.label }}
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          while IFS= read -r -d '' f; do
+            name=$(basename "$f")
+            ext="${name##*.}"
+            case "$name" in *.AppImage) ext=AppImage ;; esac
+            cp "$f" "out/mycena-${VERSION}-preview-${LABEL}.${ext}"
+          done < <(find target/release/bundle \( -name '*.dmg' -o -name '*.msi' -o -name '*.AppImage' -o -name '*.deb' \) -print0)
+          ls -la out
+          test -n "$(ls out)"
+          gh release upload "preview-${VERSION}" out/* --clobber
