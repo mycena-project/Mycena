@@ -5,7 +5,7 @@
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-AGPL%20v3-blue.svg" alt="License: AGPL v3"></a>
   <img src="https://img.shields.io/badge/status-public%20technical%20beta-8AF0C0" alt="Status: public technical beta">
-  <img src="https://img.shields.io/badge/platforms-Android%20%C2%B7%20macOS%20%C2%B7%20Linux-08120E" alt="Platforms: Android, macOS, Linux">
+  <img src="https://img.shields.io/badge/platforms-Android%20%C2%B7%20macOS%20%C2%B7%20Windows%20%C2%B7%20Linux-08120E" alt="Platforms: Android, macOS, Windows, Linux">
 </p>
 
 # Mycena
@@ -36,7 +36,7 @@ disappear, the same app quietly switches to the phones nearby and carries on.
 | Crisis mode: help requests and resource pins get priority | Core in place |
 | Optional internet relay for finding peers across networks | Working |
 | Sandboxed mini-apps (MeshAid, local market, proximity) | Preview |
-| Android app · desktop app (macOS, Linux) · iOS | Beta · experimental · groundwork |
+| Android app · desktop app (macOS, Windows, Linux) · iOS | Beta · experimental · groundwork |
 
 **Next:** reliable delivery across many hops without a continuous connection, direct Wi-Fi
 links (Wi-Fi Aware / Wi-Fi Direct) next to Bluetooth, a one-switch disaster profile, and field
