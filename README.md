@@ -43,9 +43,9 @@ links (Wi-Fi Aware / Wi-Fi Direct) next to Bluetooth, a one-switch disaster prof
 tests with 10–50 devices from different manufacturers. See the [roadmap](docs/ROADMAP.md).
 
 <p align="center">
-  <img src="docs/assets/screenshots/android-sos.jpg" alt="Android app: emergency SOS screen with crisis mode, listening for help requests nearby and sending a short help request" width="260">
+  <img src="docs/assets/screenshots/android-sos.png" alt="Android app: emergency SOS screen with crisis mode, listening for help requests nearby and sending a short help request" width="260">
   &nbsp;&nbsp;
-  <img src="docs/assets/screenshots/android-network.jpg" alt="Android app: network screen explaining how devices find each other, with QR code and NFC pairing" width="260">
+  <img src="docs/assets/screenshots/android-network.png" alt="Android app: network screen explaining how devices find each other, with QR code and NFC pairing" width="260">
 </p>
 <p align="center"><sub>Android preview (German interface): emergency SOS and crisis mode · how devices find each other</sub></p>
 
