@@ -132,7 +132,7 @@ Treat as **preview only**:
 - **Cannot delete** messages on other users’ phones.
 - **Cannot recover** forgotten keys / wiped data.
 - **Relay outage** degrades Internet path; LAN may continue.
-- **Android ↔ desktop on the same Wi-Fi is not reliable yet.** In a test with preview 0.1.77 (Pixel 6 and a Mac, same Wi-Fi, QR code scanned, both registered at the relay) no direct connection came up. Android ↔ Android and desktop ↔ desktop use the same path; the cross-platform case is being investigated.
+- **Android ↔ desktop on the same Wi-Fi is not reliable yet.** In a test with preview 0.1.77 (Pixel 6 and a Mac, same Wi-Fi, QR code scanned, both registered at the relay) no direct connection came up. The cause is being investigated.
 - **Mini-app direct messaging** requires the recipient to have **accepted** the sender as a contact; there is no anonymous DM bridge bypass.
 - **Phone-to-phone APK share is foreground-only.** Leaving the Share screen or killing the process stops the HTTP server. There is no share foreground service in this freeze.
 - **Downloads auto-join is not reliable** on Android 10+ (scoped storage). Recipients scan the sharer’s invite QR or pick the `.myc` file. Listing another app’s Downloads is best-effort only.
