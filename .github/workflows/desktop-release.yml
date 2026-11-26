@@ -16,7 +16,7 @@ jobs:
             targets: linux
           - os: windows-2022
             targets: windows
-          - os: macos-14
+          - os: macos-15
             targets: macos
     runs-on: ${{ matrix.os }}
     steps:
