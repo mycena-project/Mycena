@@ -59,7 +59,7 @@ Details: [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) ·
 [docs/HARDWARE_TEST_MATRIX.md](docs/HARDWARE_TEST_MATRIX.md) ·
 [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md).
 
-MeshCoin (MXC) is an **experimental research preview** of offline credits for small local
+MeshCoin is an **experimental research preview** of offline credits for small local
 exchanges. It is not money, not an investment and not a cryptocurrency; see
 [docs/MESHCOIN_POSITIONING.md](docs/MESHCOIN_POSITIONING.md).
 
