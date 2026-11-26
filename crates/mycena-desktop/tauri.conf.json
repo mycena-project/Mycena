@@ -41,9 +41,9 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "category": "Network",
-    "shortDescription": "Offline mesh network - chat, mail, bulletin board, wallet",
-    "longDescription": "Mycena is a decentralized delay-tolerant network. Messages travel between devices directly, without internet infrastructure. Includes mesh chat, store-and-forward mail, a bulletin board, and MeshCoin payments.",
+    "category": "SocialNetworking",
+    "shortDescription": "Communication when the network fails: offline mesh chat and crisis tools",
+    "longDescription": "Mycena is an open-source, end-to-end encrypted messenger that keeps working without mobile network or internet. Devices connect directly over Wi-Fi and Bluetooth; crisis mode adds help requests, a resource map and volunteer tasks.",
     "windows": {
       "wix": { "language": "en-US" }
     },
