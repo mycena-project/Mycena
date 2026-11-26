@@ -42,6 +42,13 @@ disappear, the same app quietly switches to the phones nearby and carries on.
 links (Wi-Fi Aware / Wi-Fi Direct) next to Bluetooth, a one-switch disaster profile, and field
 tests with 10–50 devices from different manufacturers. See the [roadmap](docs/ROADMAP.md).
 
+<p align="center">
+  <img src="docs/assets/screenshots/android-sos.jpg" alt="Android app: emergency SOS screen with crisis mode, listening for help requests nearby and sending a short help request" width="260">
+  &nbsp;&nbsp;
+  <img src="docs/assets/screenshots/android-network.jpg" alt="Android app: network screen explaining how devices find each other, with QR code and NFC pairing" width="260">
+</p>
+<p align="center"><sub>Android preview (German interface): emergency SOS and crisis mode · how devices find each other</sub></p>
+
 ## Honest limits
 
 Mycena is a **public technical beta**. It is not a replacement for emergency services, not a
