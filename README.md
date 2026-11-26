@@ -86,13 +86,59 @@ See [android/README.md](android/README.md) for build instructions.
 
 ### Desktop (Tauri)
 
-macOS or Linux with Rust toolchain. Experimental — same Rust mesh stack, linked **natively** in Tauri (not UniFFI). See [docs/MOBILE_PLATFORMS.md](docs/MOBILE_PLATFORMS.md) for Android vs desktop vs future iOS hosts.
+macOS, Windows or Linux; ready-made installers are in [Try it](#desktop-computer-experimental). Experimental — same Rust mesh stack, linked **natively** in Tauri (not UniFFI). See [docs/MOBILE_PLATFORMS.md](docs/MOBILE_PLATFORMS.md) for Android vs desktop vs future iOS hosts.
 
 ## Try it
 
-**Android:** download the APK from the latest [release](https://github.com/mycena-project/Mycena/releases) and install it
-(`adb install -r mycena-*.apk`, or open the file on the phone). It is a debug-signed technical preview for trying the app;
-it is not on Google Play yet.
+### Android phone
+
+<img src="docs/assets/install/android-qr.png" alt="QR code: install Mycena on Android" width="160" align="right">
+
+Scan the QR code with the phone camera, or open
+**[mycena-project.github.io/Mycena/android](https://mycena-project.github.io/Mycena/android/)** on the phone.
+The page always links to the newest preview and explains each step:
+
+1. Tap **Download** and wait for the file (about 100 MB, Wi-Fi recommended).
+2. Open the downloaded file. When Android asks, allow your browser to install apps (**Allow from this source**).
+3. Tap **Install**. If Play Protect warns about an unknown app, choose **More details → Install anyway**
+   (the preview is signed with a test key, not yet a store key).
+4. Open Mycena and allow Bluetooth and nearby-devices access.
+
+Needs Android 8 or newer. It is a technical preview and not on Google Play yet. No cable, no developer tools needed.
+
+<br clear="right">
+
+### Desktop computer (experimental)
+
+Download the file for your computer from the [newest preview release](https://github.com/mycena-project/Mycena/releases)
+(section *Assets*):
+
+| Computer | File | First start |
+|----------|------|-------------|
+| **Mac** (Apple Silicon, M1 or newer) | `…-macos-apple-silicon.dmg` | Open the `.dmg`, drag **Mycena** into *Applications*. The app is not yet signed by Apple: on first start **right-click → Open → Open**. If macOS still blocks it: *System Settings → Privacy & Security → Open Anyway*. |
+| **Windows 10/11** | `…-windows.msi` | Double-click to install. If SmartScreen shows "Windows protected your PC": **More info → Run anyway**. Start Mycena from the Start menu. |
+| **Linux** (Ubuntu, Debian) | `…-linux.deb` | `sudo apt install ./mycena-*-linux.deb`, then start *Mycena* from the app menu. |
+| **Linux** (other) | `…-linux.AppImage` | Make it executable (file properties, or `chmod +x mycena-*.AppImage`) and double-click it. |
+
+Phones and computers on the same Wi-Fi find each other automatically. The desktop app has no Bluetooth mesh yet.
+
+<details>
+<summary>Build and run the desktop app from source (developers)</summary>
+
+Needs [Rust](https://rustup.rs) and [Node.js 20](https://nodejs.org); on Linux also
+`libwebkit2gtk-4.1-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev`.
+
+```bash
+make desktop-dev                     # start the app directly (development mode)
+
+# or build installers into target/release/bundle/
+cd crates/mycena-desktop/ui && npm ci && cd ..
+npx @tauri-apps/cli@2 build
+```
+
+</details>
+
+### Building the Android app yourself
 
 | Artifact | How to build | Signing | Use |
 |----------|--------------|---------|-----|
@@ -100,9 +146,8 @@ it is not on Google Play yet.
 | **Technical Beta APK** | `./scripts/build-technical-beta-apk.sh` | Local Technical Beta keystore | Phone-to-phone sharing of the app |
 
 Phone-to-phone sharing of the app itself needs the Technical Beta signing key, so it refuses a debug install.
+Developers can also install over USB with `adb install -r mycena-*.apk`.
 Details: [docs/TECHNICAL_BETA_ARTIFACT.md](docs/TECHNICAL_BETA_ARTIFACT.md).
-
-**Desktop (experimental):** build locally with `cargo tauri build -p mycena-desktop`.
 
 > **License (AGPL-3.0-or-later):** Mycena is free software. If you modify and run it (or a [bootstrap relay](https://github.com/mycena-project/mycena-relay)) as a **network service**, you must offer corresponding source to users. See [LICENSE](LICENSE) and [RELEASING.md](RELEASING.md).
 
@@ -162,7 +207,7 @@ especially welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-Copyright (C) 2026 Alexander Senf and Mycena contributors.
+Copyright (C) 2026 the Mycena authors, see [NOTICE](NOTICE).
 
 Licensed under [GNU Affero General Public License v3.0 or later](LICENSE) (AGPL-3.0-or-later). Network users interacting with modified versions over a network may request corresponding source per the license.
 

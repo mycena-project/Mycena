@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Install Mycena on Android</title>
+  <style>
+    :root { --bg:#f6f8f6; --fg:#08120e; --muted:#4a5a52; --accent:#1f7a52; --card:#ffffff; --line:#d8e0db; }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg:#08120e; --fg:#e8efe9; --muted:#9fb0a7; --accent:#4cc38a; --card:#111c17; --line:#24332b; }
+    }
+    body { margin:0; background:var(--bg); color:var(--fg); font:17px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+    main { max-width:560px; margin:0 auto; padding:24px 16px 48px; }
+    h1 { font-size:1.6rem; margin:0 0 4px; }
+    p.lead { color:var(--muted); margin:0 0 20px; }
+    a.btn { display:block; text-align:center; background:var(--accent); color:#fff; text-decoration:none;
+            font-weight:600; padding:16px; border-radius:12px; font-size:1.1rem; }
+    .meta { color:var(--muted); font-size:.9rem; text-align:center; margin:8px 0 24px; }
+    ol { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 16px 16px 36px; }
+    li { margin:6px 0; }
+    .note { font-size:.9rem; color:var(--muted); }
+    hr { border:0; border-top:1px solid var(--line); margin:28px 0; }
+    code { word-break:break-all; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Mycena for Android</h1>
+  <p class="lead">Communication when the network fails. Technical preview, not on Google Play yet.</p>
+
+  <a class="btn" id="dl" href="https://github.com/mycena-project/Mycena/releases">Download the app (APK)</a>
+  <p class="meta" id="meta">Newest preview from GitHub Releases</p>
+
+  <ol>
+    <li>Tap <strong>Download</strong> above and wait until the file has finished (about 100&nbsp;MB, Wi-Fi recommended).</li>
+    <li>Open the downloaded file from the notification or from the <em>Files / Downloads</em> app.</li>
+    <li>Android asks whether your browser may install apps: tap <strong>Settings</strong>, switch on
+        <strong>Allow from this source</strong>, then go back.</li>
+    <li>Tap <strong>Install</strong>. If Play Protect warns about an unknown app, tap
+        <strong>More details → Install anyway</strong>. The preview is signed with a test key, which causes this warning.</li>
+    <li>Open Mycena and allow Bluetooth and nearby-devices access so phones can find each other.</li>
+  </ol>
+  <p class="note">Needs Android 8 or newer. To update, install a newer file over the old one; your data stays.
+     To check the download, compare it with <code>SHA256SUMS.txt</code> on the release page.</p>
+
+  <hr>
+
+  <h1 lang="de">Auf Deutsch</h1>
+  <ol lang="de">
+    <li>Oben auf <strong>Download</strong> tippen und warten, bis die Datei fertig ist (ca. 100&nbsp;MB, am besten im WLAN).</li>
+    <li>Die Datei über die Benachrichtigung oder die App <em>Dateien / Downloads</em> öffnen.</li>
+    <li>Android fragt, ob der Browser Apps installieren darf: <strong>Einstellungen</strong> antippen,
+        <strong>Aus dieser Quelle zulassen</strong> einschalten, zurückgehen.</li>
+    <li><strong>Installieren</strong> antippen. Warnt Play Protect vor einer unbekannten App:
+        <strong>Weitere Details → Trotzdem installieren</strong>. Die Vorschau ist mit einem Testschlüssel signiert.</li>
+    <li>Mycena öffnen und Bluetooth sowie „Geräte in der Nähe“ erlauben.</li>
+  </ol>
+  <p class="note"><a href="https://github.com/mycena-project/Mycena">Source code</a> ·
+     <a href="../privacy-policy.html">Privacy policy</a></p>
+</main>
+<script>
+  // Find the newest release (previews included) that carries an APK and link straight to it.
+  fetch("https://api.github.com/repos/mycena-project/Mycena/releases?per_page=10")
+    .then(function (r) { return r.ok ? r.json() : []; })
+    .then(function (releases) {
+      for (var i = 0; i < releases.length; i++) {
+        var apk = (releases[i].assets || []).find(function (a) { return /\.apk$/.test(a.name); });
+        if (apk) {
+          document.getElementById("dl").href = apk.browser_download_url;
+          document.getElementById("meta").textContent =
+            releases[i].name + " · " + Math.round(apk.size / 1048576) + " MB";
+          return;
+        }
+      }
+    })
+    .catch(function () { /* keep the link to the releases page */ });
+</script>
+</body>
+</html>
