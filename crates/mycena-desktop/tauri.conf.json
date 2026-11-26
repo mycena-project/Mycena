@@ -48,7 +48,7 @@
       "wix": { "language": "en-US" }
     },
     "macOS": {
-      "signingIdentity": null,
+      "signingIdentity": "-",
       "minimumSystemVersion": "12.0"
     },
     "linux": {
