@@ -2,7 +2,7 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Mycena",
   "version": "0.1.76",
-  "identifier": "io.github.mycena_project.desktop",
+  "identifier": "io.github.mycena-project.desktop",
   "build": {
     "frontendDist": "ui/dist",
     "devUrl": "http://127.0.0.1:1420",

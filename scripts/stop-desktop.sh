@@ -33,7 +33,7 @@ stop_pids() {
 
 if [[ "$(uname -s)" == "Darwin" ]]; then
   osascript -e 'tell application "Mycena" to quit' 2>/dev/null || true
-  osascript -e 'tell application id "io.github.mycena_project.desktop" to quit' 2>/dev/null || true
+  osascript -e 'tell application id "io.github.mycena-project.desktop" to quit' 2>/dev/null || true
 fi
 
 stop_pids "Tauri dev (Mycena)" \
