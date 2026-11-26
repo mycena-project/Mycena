@@ -208,7 +208,7 @@
     <string name="network_contribution_loading">جارٍ القياس…</string>
     <string name="network_contribution_stats">Relays: %1$d · تسليم: %2$d · وقت التشغيل: %3$s · اعتمادات: %4$d</string>
     <string name="network_contribution_title">مساهمة الشبكة</string>
-    <string name="notification_channel_name">شبكة الميسليوم</string>
+    <string name="notification_channel_name">شبكة Mycena</string>
     <string name="notification_new_message_from">New message from %1$s</string>
     <string name="notification_peers">تم توصيل %1$d من النظراء</string>
     <string name="notification_permission_denied">Notifications are off — you may miss new messages and mail.</string>
@@ -373,7 +373,7 @@
     <string name="share_app_step_wifi_body">Scan with the camera app to join this phone\'s Wi‑Fi. No password typing needed.</string>
     <string name="share_app_step_wifi_title">Step 1 — Join Wi‑Fi</string>
     <string name="share_app_stop">توقف عن المشاركة</string>
-    <string name="share_app_title">مشاركة الفطورة</string>
+    <string name="share_app_title">مشاركة Mycena</string>
     <string name="share_app_transfers">تمت المشاركة مع %1$d جهاز (أجهزة) ✓</string>
     <string name="share_app_wifi_credentials">Network: %1$s\nPassword: %2$s</string>
     <string name="share_app_wifi_note">يجب أن يكون كلا الجهازين على نفس شبكة WiFi أو نقطة الاتصال</string>

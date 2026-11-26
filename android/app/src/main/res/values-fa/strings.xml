@@ -111,7 +111,7 @@
     <string name="group_new">گروه جدید</string>
     <string name="language_system">زبان سیستم</string>
     <string name="location_open_maps">باز کردن در نقشه</string>
-    <string name="location_privacy_body">مختصات GPS فعلی یک‌بار ارسال می‌شود. میسلیوم شما را پیگیری نمی‌کند. پیام رمزنگاری شده است.</string>
+    <string name="location_privacy_body">مختصات GPS فعلی یک‌بار ارسال می‌شود. Mycena شما را پیگیری نمی‌کند. پیام رمزنگاری شده است.</string>
     <string name="location_privacy_title">موقعیت را به‌اشتراک بگذارید؟</string>
     <string name="location_share_once">یک‌بار به‌اشتراک</string>
     <string name="mail_body_hint">بدن</string>
@@ -207,11 +207,11 @@
     <string name="network_contribution_loading">در حال اندازه‌گیری…</string>
     <string name="network_contribution_stats">Relay: %1$d · تحویل: %2$d · آپ‌تایم: %3$s · تأییدها: %4$d</string>
     <string name="network_contribution_title">مشارکت شبکه</string>
-    <string name="notification_channel_name">شبکه میسلیوم</string>
+    <string name="notification_channel_name">شبکه Mycena</string>
     <string name="notification_new_message_from">New message from %1$s</string>
     <string name="notification_peers">%1$d همتا متصل شد</string>
     <string name="notification_permission_denied">Notifications are off — you may miss new messages and mail.</string>
-    <string name="notification_running">شبکه میسلیوم فعال است</string>
+    <string name="notification_running">شبکه Mycena فعال است</string>
     <string name="peers_add_bootstrap">افزودن</string>
     <string name="peers_connect_relay_hint">شناسه همتا → relay</string>
     <string name="peers_connect_via_relay">از طریق relay</string>
@@ -349,7 +349,7 @@
     <string name="settings_share_app">اشتراک‌گذاری برنامه…</string>
     <string name="settings_show_technical_ids">Show technical IDs (advanced)</string>
     <string name="settings_spread_description">با فعال‌سازی، دستگاه شما سیگنال بلوتوث می‌فرستد تا دستگاه‌های نزدیک بتوانند Mycena را پیدا و نصب کنند. دادهٔ شخصی ارسال نمی‌شود.</string>
-    <string name="settings_spread_title">کمک به گسترش میسلیوم</string>
+    <string name="settings_spread_title">کمک به گسترش Mycena</string>
     <string name="settings_store_size">پیام های ذخیره شده</string>
     <string name="settings_title">تنظیمات</string>
     <string name="settings_transport_id_help">Rotates for privacy. Contacts follow your permanent ID automatically.</string>

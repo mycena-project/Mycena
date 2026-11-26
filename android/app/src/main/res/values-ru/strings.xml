@@ -207,7 +207,7 @@
     <string name="network_contribution_loading">Измерение…</string>
     <string name="network_contribution_stats">Реле: %1$d · Доставки: %2$d · Аптайм: %3$s · Подтверждения: %4$d</string>
     <string name="network_contribution_title">Вклад в сеть</string>
-    <string name="notification_channel_name">Сеть мицелия</string>
+    <string name="notification_channel_name">Сеть Mycena</string>
     <string name="notification_new_message_from">New message from %1$s</string>
     <string name="notification_peers">Подключено %1$d одноранговых узлов</string>
     <string name="notification_permission_denied">Notifications are off — you may miss new messages and mail.</string>

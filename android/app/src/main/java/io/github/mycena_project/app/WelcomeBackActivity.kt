@@ -28,10 +28,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.Image
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import io.github.mycena_project.app.performFreshIdentity
 
 class WelcomeBackActivity : ComponentActivity() {
@@ -85,7 +86,10 @@ private fun WelcomeBackScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Text("🍄", fontSize = 64.sp)
+        Image(
+            painter = painterResource(R.drawable.mycena_mark),
+            contentDescription = "Mycena",
+        )
         Spacer(Modifier.height(24.dp))
         Text(
             stringResource(R.string.welcome_back_title),

@@ -111,7 +111,7 @@
     <string name="group_new">新建群组</string>
     <string name="language_system">系统语言</string>
     <string name="location_open_maps">在地图中打开</string>
-    <string name="location_privacy_body">将一次性发送当前 GPS 坐标。菌丝网络不会持续跟踪你。消息端到端加密。</string>
+    <string name="location_privacy_body">将一次性发送当前 GPS 坐标。Mycena 不会持续跟踪你。消息端到端加密。</string>
     <string name="location_privacy_title">分享位置？</string>
     <string name="location_share_once">分享一次</string>
     <string name="mail_body_hint">身体</string>
@@ -207,11 +207,11 @@
     <string name="network_contribution_loading">测量中…</string>
     <string name="network_contribution_stats">中继: %1$d · 送达: %2$d · 在线: %3$s · 认可: %4$d</string>
     <string name="network_contribution_title">网络贡献</string>
-    <string name="notification_channel_name">菌丝体网络</string>
+    <string name="notification_channel_name">Mycena 网络</string>
     <string name="notification_new_message_from">来自 %1$s 的新消息</string>
     <string name="notification_peers">%1$d 个对等点已连接</string>
     <string name="notification_permission_denied">Notifications are off — you may miss new messages and mail.</string>
-    <string name="notification_running">菌丝网络运行中</string>
+    <string name="notification_running">Mycena 网络运行中</string>
     <string name="peers_add_bootstrap">添加</string>
     <string name="peers_connect_relay_hint">节点 ID → 中继</string>
     <string name="peers_connect_via_relay">经中继连接</string>
@@ -349,7 +349,7 @@
     <string name="settings_share_app">分享此应用…</string>
     <string name="settings_show_technical_ids">Show technical IDs (advanced)</string>
     <string name="settings_spread_description">启用后，设备会广播蓝牙信号，让附近的设备发现并安装 Mycena。不共享个人数据。</string>
-    <string name="settings_spread_title">帮助推广菌丝网络</string>
+    <string name="settings_spread_title">帮助推广 Mycena</string>
     <string name="settings_store_size">已存储的消息</string>
     <string name="settings_title">设置</string>
     <string name="settings_transport_id_help">Rotates for privacy. Contacts follow your permanent ID automatically.</string>

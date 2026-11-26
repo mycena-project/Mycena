@@ -86,7 +86,7 @@
 
   {#if step === 0}
     <div class="onboarding">
-      <div class="icon">🍄</div>
+      <img class="icon" src="/mycena-mark.svg" alt="Mycena" width="120" height="120" />
       <h1 class="headline">{positioningVariant.headline}</h1>
       <div class="actions single">
         <button onclick={() => (step = 1)}>{copy.actions.next} →</button>
@@ -202,7 +202,8 @@
     padding-bottom: 32px;
   }
   .icon {
-    font-size: 64px;
+    width: 120px;
+    height: 120px;
   }
   .headline {
     font-size: 26px;

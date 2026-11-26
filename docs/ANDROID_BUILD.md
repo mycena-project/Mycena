@@ -46,7 +46,6 @@ x86 image under emulation on Apple Silicon. The image alone is larger than the
 ```bash
 docker image rm mingc/android-build-box:latest
 docker volume rm mycena-mingc-cargo mycena-mingc-rustup mycena-mingc-target 2>/dev/null
-docker volume rm mycelium-mingc-cargo mycelium-mingc-rustup mycelium-mingc-target 2>/dev/null
 docker builder prune -af
 docker system df          # check what is left
 ```

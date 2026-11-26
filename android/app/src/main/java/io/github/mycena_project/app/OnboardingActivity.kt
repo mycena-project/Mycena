@@ -17,6 +17,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.Image
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -24,7 +26,6 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import io.github.mycena_project.app.bootstrap.OfflineBootstrap
 import io.github.mycena_project.app.onboarding.OnboardingCopy
 import io.github.mycena_project.app.onboarding.OnboardingCopyLoader
@@ -208,7 +209,10 @@ fun OnboardingPositioningScreen(
         onBack = null,
         onNext = onNext,
     ) {
-        Text("🍄", fontSize = 64.sp)
+        Image(
+            painter = painterResource(R.drawable.mycena_mark),
+            contentDescription = "Mycena",
+        )
         Spacer(Modifier.height(24.dp))
         Text(
             variant.headline,
