@@ -29,7 +29,7 @@ disappear, the same app quietly switches to the phones nearby and carries on.
 | | Status |
 |---|---|
 | End-to-end encrypted chat and groups | Working (beta) |
-| Automatic connection on the same Wi-Fi (mDNS) | Working |
+| Automatic connection on the same Wi-Fi (mDNS) | Working; phone ↔ computer connection still unreliable |
 | Direct Bluetooth Low Energy links between Android phones | Working, validated on Pixel 6 |
 | Direct Wi-Fi links (Wi-Fi Aware / Wi-Fi Direct) | Experimental prototype |
 | Store-and-forward core for delayed delivery | Core in place |
@@ -146,7 +146,8 @@ The app is not yet notarized by Apple. Without the second step, macOS refuses to
   <img src="docs/assets/screenshots/desktop-sos.png" alt="Desktop app on macOS: emergency SOS screen with crisis mode and a short help request" width="720">
 </p>
 
-Phones and computers on the same Wi-Fi find each other automatically. The desktop app has no Bluetooth mesh yet.
+Devices on the same Wi-Fi find each other automatically. A direct connection between a phone and a computer is
+not reliable yet ([known limitations](docs/KNOWN_LIMITATIONS.md)); the desktop app has no Bluetooth mesh yet.
 
 <details>
 <summary>Build and run the desktop app from source (developers)</summary>
