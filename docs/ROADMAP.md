@@ -9,7 +9,8 @@ one device type (Pixel 6).
 The next six months turn these prototypes into something people can rely on: measured delivery
 over many hops, a stable second radio link on phones from several manufacturers, one switch for
 offline use, an emergency interface that works under stress, and field exercises with real
-devices. Status is updated here as work lands; limits stay documented in
+devices. About half of the time goes to people rather than code: partner groups, user tests,
+exercises and a guide for helpers (see [Working with users](#working-with-users)). Status is updated here as work lands; limits stay documented in
 [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md). Earlier, completed phases: [ROADMAP_2026_H1.md](ROADMAP_2026_H1.md).
 
 | # | Milestone | Months | Status |
@@ -102,6 +103,21 @@ and distribution through F-Droid.
 - [ ] Reproducible build and inclusion in F-Droid
 
 ---
+
+## Working with users
+
+Software for emergencies only helps if people already have it and have practised with it. This
+track runs alongside M1–M6 and takes about half of the planned time.
+
+| # | Item | Months | Status |
+|---|------|--------|--------|
+| U1 | Two to three partner groups (for example a volunteer fire brigade, a THW local unit, a neighbourhood initiative); workshop on what they need during an outage | 1–2 | Planned |
+| U2 | User tests with at least ten people without prior knowledge; results shape M5 | 3–4 | Planned |
+| U3 | Talk with first results (FrOSCon, August 2027); submission to Chaos Communication Congress | 3–6 | Planned |
+| U4 | Short guide for helpers (German/English); install via F-Droid or [QR code](legal/android/index.html) without an app store | 4–5 | Planned |
+| U5 | Two field exercises together with the partner groups (with M6), public report | 5–6 | Planned |
+
+Groups that want to take part are welcome to open an [issue](https://github.com/mycena-project/Mycena/issues).
 
 ## Information trust track
 
