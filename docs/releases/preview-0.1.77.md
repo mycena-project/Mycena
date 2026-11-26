@@ -4,7 +4,7 @@
 
 - App shows the Mycena mark instead of a mushroom emoji; the old project name is gone from all languages
 - Desktop installers for macOS (Apple Silicon), Windows and Linux
-- Install on a phone by QR code: https://mycena-project.github.io/Mycena/android/
+- Install on a phone by QR code: [mycena-project.github.io/Mycena/android](https://mycena-project.github.io/Mycena/android/)
 
 ### What you can try
 
