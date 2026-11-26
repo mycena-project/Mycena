@@ -122,10 +122,29 @@ Download the file for your computer from the [newest preview release](https://gi
 
 | Computer | File | First start |
 |----------|------|-------------|
-| **Mac** (Apple Silicon, M1 or newer) | `…-macos-apple-silicon.dmg` | Open the `.dmg`, drag **Mycena** into *Applications* and start it once. The app is not yet notarized by Apple, so macOS blocks the first start: open *System Settings → Privacy & Security*, scroll down and click **Open Anyway**. If macOS says the app "is damaged", run `xattr -dr com.apple.quarantine /Applications/Mycena.app` in *Terminal* once. |
+| **Mac** (Apple Silicon, M1 or newer) | `…-macos-apple-silicon.dmg` | Three steps, see [first start on a Mac](#first-start-on-a-mac) below. |
 | **Windows 10/11** | `…-windows.msi` | Double-click to install. If SmartScreen shows "Windows protected your PC": **More info → Run anyway**. Start Mycena from the Start menu. |
 | **Linux** (Ubuntu, Debian) | `…-linux.deb` | `sudo apt install ./mycena-*-linux.deb`, then start *Mycena* from the app menu. |
 | **Linux** (other) | `…-linux.AppImage` | Make it executable (file properties, or `chmod +x mycena-*.AppImage`) and double-click it. |
+
+#### First start on a Mac
+
+The app is not yet notarized by Apple. Without the second step, macOS refuses to open it and only offers
+*Move to Trash* or *Done*.
+
+1. Open the `.dmg` and drag **Mycena** into *Applications*.
+2. Open *Terminal* (press ⌘ Space, type `Terminal`, press Return), paste this line and press Return:
+
+   ```bash
+   xattr -dr com.apple.quarantine /Applications/Mycena.app
+   ```
+
+   This removes the download block macOS puts on files from the browser, for this one app only.
+3. Start Mycena from *Applications*. From now on it opens normally.
+
+<p align="center">
+  <img src="docs/assets/screenshots/desktop-sos.png" alt="Desktop app on macOS: emergency SOS screen with crisis mode and a short help request" width="720">
+</p>
 
 Phones and computers on the same Wi-Fi find each other automatically. The desktop app has no Bluetooth mesh yet.
 
