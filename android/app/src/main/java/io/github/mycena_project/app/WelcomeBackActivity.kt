@@ -88,7 +88,7 @@ private fun WelcomeBackScreen(
     ) {
         Image(
             painter = painterResource(R.drawable.mycena_mark),
-            contentDescription = "Mycena",
+            contentDescription = stringResource(R.string.app_name),
         )
         Spacer(Modifier.height(24.dp))
         Text(
